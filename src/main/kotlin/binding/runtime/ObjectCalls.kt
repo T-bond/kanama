@@ -76,6 +76,10 @@ object ObjectCalls {
         )
     }
 
+    private val notificationBind by lazy {
+        getMethodBind("Object", "notification", 4023243586L)
+    }
+
     private fun <T> callArrayReturn(
         methodBind: MemorySegment,
         instance: MemorySegment,
@@ -140,8 +144,18 @@ object ObjectCalls {
             hash,
         ) as MemorySegment
 
-    fun constructObject(className: String): MemorySegment =
-        classdbConstructObject.invoke(GodotStrings.makeStringName(className)) as MemorySegment
+    fun constructObject(className: String): MemorySegment {
+        val instance = classdbConstructObject.invoke(GodotStrings.makeStringName(className)) as MemorySegment
+        // Objects created through ClassDB are not fully initialized until Godot
+        // receives NOTIFICATION_POSTINITIALIZE. Theme/text controls rely on it.
+        notifyPostinitialize(instance)
+        return instance
+    }
+
+    fun notifyPostinitialize(instance: MemorySegment) {
+        if (instance.address() == 0L) return
+        ptrcallWithIntAndBoolArgs(notificationBind, instance, 0, false)
+    }
 
     /**
      * Calls [methodBind] on [instance] via ptrcall with the given Object-typed

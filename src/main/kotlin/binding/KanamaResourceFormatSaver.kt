@@ -112,6 +112,7 @@ object KanamaResourceFormatSaver {
         val obj = constructObject.invoke(cls.parentName) as MemorySegment
         val handle = ObjectRegistry.register(KanamaResourceSaverSentinel)
         objectSetInstance.invoke(obj, cls.className, MemorySegment.ofAddress(handle))
+        ObjectCalls.notifyPostinitialize(obj)
         godotObject = obj
         saverHandle = handle
 
@@ -154,6 +155,9 @@ object KanamaResourceFormatSaver {
         val obj = constructParent.invoke(cls.parentName) as MemorySegment
         val handle = ObjectRegistry.register(KanamaResourceSaverSentinel)
         objectSetInstance.invoke(obj, cls.className, MemorySegment.ofAddress(handle))
+        if (notifyPostinitialize != 0.toByte()) {
+            ObjectCalls.notifyPostinitialize(obj)
+        }
         saverHandle = handle
         godotObject = obj
         return obj

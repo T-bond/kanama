@@ -146,6 +146,9 @@ python3 "$ROOT_DIR/scripts/audit_builtin_storage_sizes.py"
 echo "[local_ci] Variant marshalling policy audit"
 python3 "$ROOT_DIR/scripts/audit_variant_marshalling_policy.py"
 
+echo "[local_ci] GodotObject script-path audit"
+python3 "$ROOT_DIR/scripts/audit_godot_object_script_paths.py"
+
 echo "[local_ci] value-type builtin parity audit"
 python3 "$ROOT_DIR/scripts/audit_value_type_wrappers.py" --strict
 

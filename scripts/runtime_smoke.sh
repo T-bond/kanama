@@ -4,6 +4,7 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 PROJECT_DIR="${KANAMA_PROJECT_DIR:-$ROOT_DIR/example_project}"
 LOG_FILE="${KANAMA_SMOKE_LOG:-/tmp/kanama_runtime_smoke.log}"
+IMPORT_LOG_FILE="${KANAMA_SMOKE_IMPORT_LOG:-${LOG_FILE}.import}"
 
 if [[ $# -lt 1 ]]; then
   echo "usage: $0 /absolute/path/to/godot_binary"
@@ -24,6 +25,7 @@ case "$UNAME_S" in
 esac
 
 "$ROOT_DIR/gradlew" -p "$ROOT_DIR" syncExampleAddonJar >/dev/null
+KANAMA_TRACE_SCRIPT_PROPERTY_CLEANUP=1 "$GODOT_BIN" --headless --editor --quit-after 120 --path "$PROJECT_DIR_FOR_GODOT" --verbose >"$IMPORT_LOG_FILE" 2>&1
 KANAMA_TRACE_SCRIPT_PROPERTY_CLEANUP=1 "$GODOT_BIN" --headless --path "$PROJECT_DIR_FOR_GODOT" --quit --verbose >"$LOG_FILE" 2>&1
 KANAMA_TRACE_SCRIPT_PROPERTY_CLEANUP=1 "$GODOT_BIN" --headless --path "$PROJECT_DIR_FOR_GODOT" res://resource_owner_smoke.tscn --quit --verbose >>"$LOG_FILE" 2>&1
 KANAMA_TRACE_SCRIPT_PROPERTY_CLEANUP=1 "$GODOT_BIN" --headless --path "$PROJECT_DIR_FOR_GODOT" res://self_smoke.tscn --quit --verbose >>"$LOG_FILE" 2>&1
@@ -58,6 +60,7 @@ check "ProjectSettings string_list=alpha\\|beta"
 check "ProjectSettings dictionary name=kanama enabled=true count=2 scale=1\\.5"
 check "ResourceLoader exists=true has_hello=true loaded_path_len=[0-9]+ loaded_is_script=true loaded_ref_count=[0-9]+ loaded_name_len=[0-9]+ loaded_scene_id_len=[0-9]+ loaded_path_id_len=[0-9]+ loaded_built_in=(true|false) loaded_local_to_scene=(true|false) threaded_request=0 threaded_status_before=[0-3] threaded_status_after=[0-3] threaded_packed=true threaded_path_len=[0-9]+ generated_scene_id_len=[0-9]+ packed_scene_pack_error=0 packed_scene_can=true packed_scene_instance_body=true packed_scene_instance_children=[0-9]+ duplicate_is_script=true duplicate_path_len=[0-9]+ deep_duplicate_is_script=true save_ext_has_kt=true save_error=0 save_exists=true save_has_class=true save_uid_set_error=0 save_cleanup_error=0 cached_path_len=[0-9]+ cached_is_script=(true|false) cached_ref_count=[0-9]+"
 check "ResourceSaver script_uid=[0-9-]+"
+check "Script property replay object_set_amount=777"
 check "FileAccess exists=true size_positive=true has_class=true"
 check "FileAccess metadata modified_positive=true accessed_nonnegative=true md5_len=32 sha256_len=64 permissions=[0-9]+ hidden=(true|false) read_only=(true|false) xattrs=[0-9]+"
 check "FileAccess instance path_len=[0-9]+ abs_path_len=[0-9]+ is_open=true position=0 length_matches=true eof=false first_line_len=[0-9]+ text_has_class=true error=0"
@@ -110,6 +113,7 @@ check "Object introspection can_revert_name=(true|false) missing_meta=false miss
 check "Object call autoload_present=true describe=audio:3:true:1\\.5:1 add=9 negate=true object=Node returned=Node resource=StandardMaterial3D v2=3\\.0,5\\.0 v3=3\\.0,5\\.0,7\\.0 color=0\\.2,0\\.4,0\\.6,0\\.4 quat=-0\\.1,-0\\.2,-0\\.3,-0\\.4 v4=-1\\.0,-2\\.0,-3\\.0,-4\\.0 rect2=1\\.0,2\\.0,13\\.0,24\\.0 aabb=1\\.0,2\\.0,3\\.0,14\\.0,25\\.0,36\\.0 plane=-1\\.0,-0\\.0,-0\\.0,-5\\.0 basis=2\\.0,2\\.0,2\\.0 t3d=11\\.0,22\\.0,33\\.0 t2d=15\\.0,26\\.0 proj=1\\.0,-13\\.0,-14\\.0,-15\\.0,-16\\.0 v2i=-2,-3 v3i=-2,-3,-4 v4i=-1,-2,-3,-4 rect2i=1,2,13,24 np_described=np:3:foo/bar/baz"
 check "UI wrappers ui_present=true pos=8\\.0,12\\.0 size=260\\.0,120\\.0 min=180\\.0,80\\.0 mouse_filter=1 visible_before=true hidden=false shown=true label=kanama label button=kanama button toggle=true pressed=true disabled=false focus_mode=2 focused=true"
 check "UI metadata option_item=option-meta option_selected=option-meta option_id=10 tab_count=1 tab_title=Alpha tab_metadata=tab-meta line_bidi_options=0"
+check "Dynamic UI label=dynamic label button=dynamic button label_pos=12\\.0,32\\.0 button_pos=12\\.0,56\\.0 child_count=[0-9]+"
 check "OS granted_permissions=[0-9]+ memory_info_keys=[0-9]+"
 check "Engine singletons count=[0-9]+ has_os=true version_major=[0-9]+ version_minor=[0-9]+ author_keys=[0-9]+ donor_keys=[0-9]+ license_keys=[0-9]+ copyright_entries=[0-9]+ backtraces=[0-9]+"
 check "Input joypads count=[0-9]+ joy_info_keys=[0-9]+"

@@ -36,6 +36,7 @@ object ScriptBridge {
     private val kotlinObjectByOwnerAddress = ConcurrentHashMap<Long, Any>()
     private val scriptInstanceByOwnerAddress = ConcurrentHashMap<Long, KanamaScriptInstance>()
     private val nullScriptPropertyValue = Any()
+    private val pendingKanamaScriptOwnerAddresses = ConcurrentHashMap.newKeySet<Long>()
     private val pendingScriptPropertyValuesByOwnerAddress =
         ConcurrentHashMap<Long, MutableMap<String, Any>>()
 
@@ -72,13 +73,24 @@ object ScriptBridge {
         }
     }
 
+    fun noteSetScript(ownerObject: MemorySegment, scriptObject: MemorySegment) {
+        val ownerAddress = ownerObject.address()
+        if (ownerAddress == 0L) return
+        if (scriptObject.address() != 0L && KanamaScript.byObjectAddress(scriptObject.address()) != null) {
+            pendingKanamaScriptOwnerAddresses.add(ownerAddress)
+        } else {
+            pendingKanamaScriptOwnerAddresses.remove(ownerAddress)
+            pendingScriptPropertyValuesByOwnerAddress.remove(ownerAddress)
+        }
+    }
+
     fun applyOrRecordScriptPropertySet(ownerObject: MemorySegment, property: String, value: Any?) {
         val ownerAddress = ownerObject.address()
         if (ownerAddress == 0L) return
-        val liveInstance = scriptInstanceByOwnerAddress[ownerAddress]
-        if (liveInstance != null) {
-            applyScriptPropertyValue(liveInstance, property, value)
-        } else if (!ownerObjectHasKanamaScript(ownerObject)) {
+        if (scriptInstanceByOwnerAddress[ownerAddress] != null) {
+            return
+        }
+        if (!ownerObjectHasKanamaScript(ownerObject)) {
             return
         }
 
@@ -88,6 +100,7 @@ object ScriptBridge {
 
     fun trackScriptInstance(ownerObject: MemorySegment, scriptInstance: KanamaScriptInstance) {
         if (ownerObject.address() != 0L) {
+            pendingKanamaScriptOwnerAddresses.remove(ownerObject.address())
             scriptInstanceByOwnerAddress[ownerObject.address()] = scriptInstance
         }
     }
@@ -224,6 +237,7 @@ object ScriptBridge {
     }
 
     private fun ownerObjectHasKanamaScript(ownerObject: MemorySegment): Boolean {
+        if (pendingKanamaScriptOwnerAddresses.contains(ownerObject.address())) return true
         if (objectGetScriptBind.address() == 0L) return false
         val scriptObject = ObjectCalls.ptrcallNoArgsRetVariantObject(objectGetScriptBind, ownerObject)
         if (scriptObject.address() == 0L) return false
@@ -529,6 +543,7 @@ object ScriptBridge {
             scriptInstance.script?.untrackOwnerObject(scriptInstance.ownerObject.address())
             kotlinObjectByOwnerAddress.remove(scriptInstance.ownerObject.address())
             scriptInstanceByOwnerAddress.remove(scriptInstance.ownerObject.address())
+            pendingKanamaScriptOwnerAddresses.remove(scriptInstance.ownerObject.address())
             pendingScriptPropertyValuesByOwnerAddress.remove(scriptInstance.ownerObject.address())
         }
         ObjectRegistry.unregister(handle)

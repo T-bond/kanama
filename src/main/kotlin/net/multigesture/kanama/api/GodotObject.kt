@@ -200,16 +200,20 @@ open class GodotObject(val handle: MemorySegment) {
         ObjectCalls.ptrcallWithStringNameArrayArgsRetVariantScalar(callvBind, handle, method, arguments)
 
     fun get(property: String): Any? =
-        ClassDB.classGetProperty(this, property)
+        ObjectCalls.ptrcallWithStringNameArgRetVariantScalar(objectGetBind, handle, property)
 
-    fun set(property: String, value: Any?): Long =
-        ClassDB.classSetProperty(this, property, value)
+    fun set(property: String, value: Any?): Long {
+        ObjectCalls.ptrcallWithStringNameAndVariantArg(objectSetBind, handle, property, value)
+        ScriptBridge.applyOrRecordScriptPropertySet(handle, property, value)
+        return 0L
+    }
 
     fun setDeferred(property: String, value: Any?) {
         ObjectCalls.ptrcallWithStringNameAndVariantArg(setDeferredBind, handle, property, value)
     }
 
     fun setScript(script: Resource?) {
+        ScriptBridge.noteSetScript(handle, script?.handle ?: MemorySegment.NULL)
         ObjectCalls.ptrcallWithVariantArg(setScriptBind, handle, script)
     }
 
@@ -265,6 +269,8 @@ open class GodotObject(val handle: MemorySegment) {
         private const val CALL_HASH = 3400424181L
         private const val SET_INDEXED_HASH = 3500910842L
         private const val GET_INDEXED_HASH = 4006125091L
+        private const val OBJECT_SET_HASH = 3776071444L
+        private const val OBJECT_GET_HASH = 2760726917L
         private const val DICTIONARY_LIST_HASH = 3995934104L
         private const val PROPERTY_GET_REVERT_HASH = 2760726917L
         private const val NOTIFICATION_HASH = 4023243586L
@@ -306,6 +312,14 @@ open class GodotObject(val handle: MemorySegment) {
 
         private val getIndexedBind by lazy {
             ObjectCalls.getMethodBind("Object", "get_indexed", GET_INDEXED_HASH)
+        }
+
+        private val objectSetBind by lazy {
+            ObjectCalls.getMethodBind("Object", "set", OBJECT_SET_HASH)
+        }
+
+        private val objectGetBind by lazy {
+            ObjectCalls.getMethodBind("Object", "get", OBJECT_GET_HASH)
         }
 
         private val getPropertyListBind by lazy {

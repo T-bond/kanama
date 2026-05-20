@@ -61,6 +61,7 @@ import net.multigesture.kanama.api.Timer
 import net.multigesture.kanama.api.Time
 import net.multigesture.kanama.api.Texture2D
 import net.multigesture.kanama.api.Tween
+import net.multigesture.kanama.binding.runtime.ObjectCalls
 import net.multigesture.kanama.generated.HelloScriptNames
 import net.multigesture.kanama.generated.HelloScriptSignals
 import net.multigesture.kanama.types.Color
@@ -158,6 +159,7 @@ class HelloScript(godotObject: MemorySegment) : KanamaScript<Node>(godotObject, 
 		threadedResource?.close()
 		val generatedSceneUniqueId = Resource.generateSceneUniqueId()
 		val loadedScript = ResourceLoader.load("res://HelloScript.kt", "Script")
+		val defaultProbeScript = ResourceLoader.load("res://DefaultProbeScript.kt", "Script")
 		val loadedScriptPath = loadedScript?.getPath().orEmpty()
 		val loadedScriptName = loadedScript?.getName().orEmpty()
 		val loadedScriptSceneId = loadedScript?.getSceneUniqueId().orEmpty()
@@ -189,6 +191,13 @@ class HelloScript(godotObject: MemorySegment) : KanamaScript<Node>(godotObject, 
 		val cachedScriptRefCount = cachedScript?.getReferenceCount() ?: 0L
 		cachedScript?.close()
 		loadedScript?.close()
+		val pendingSetProbe = Node(ObjectCalls.constructObject("Node"))
+		pendingSetProbe.setScript(defaultProbeScript)
+		pendingSetProbe.set("amount", 777L)
+		self.addChild(pendingSetProbe)
+		val pendingSetAmount = pendingSetProbe.get("amount") as? Long ?: -1L
+		pendingSetProbe.queueFree()
+		defaultProbeScript?.close()
 		val scriptUid = ResourceSaver.getResourceIdForPath("res://HelloScript.kt")
 		val fileExists = FileAccess.fileExists("res://HelloScript.kt")
 		val fileSize = FileAccess.getSize("res://HelloScript.kt")
@@ -943,6 +952,34 @@ class HelloScript(godotObject: MemorySegment) : KanamaScript<Node>(godotObject, 
 		val buttonFocusMode = smokeButton?.getFocusMode() ?: -1L
 		val buttonFocused = smokeButton?.hasFocus() ?: false
 		smokeButton?.releaseFocus()
+		val dynamicLabel = uiRoot?.let {
+			Label(ObjectCalls.constructObject("Label")).also { label ->
+				label.text = "dynamic label"
+				label.position = Vector2(12f, 32f)
+				it.addChild(label)
+			}
+		}
+		val dynamicButton = uiRoot?.let {
+			Button(ObjectCalls.constructObject("Button")).also { button ->
+				button.text = "dynamic button"
+				button.position = Vector2(12f, 56f)
+				button.size = Vector2(96f, 28f)
+				it.addChild(button)
+			}
+		}
+		val dynamicLabelText = dynamicLabel?.text.orEmpty()
+		val dynamicButtonText = dynamicButton?.text.orEmpty()
+		val dynamicLabelPosition = dynamicLabel?.position ?: Vector2.ZERO
+		val dynamicButtonPosition = dynamicButton?.position ?: Vector2.ZERO
+		val dynamicUiChildCount = uiRoot?.getChildCount() ?: -1L
+		if (dynamicButton != null) {
+			uiRoot.removeChild(dynamicButton)
+			dynamicButton.queueFree()
+		}
+		if (dynamicLabel != null) {
+			uiRoot.removeChild(dynamicLabel)
+			dynamicLabel.queueFree()
+		}
 		val smokeOptionButton = selfNode.getNodeAsOrNull("../UiRoot/SmokeOptionButton", "OptionButton", ::OptionButton)
 		if (smokeOptionButton != null) {
 			smokeOptionButton.clear()
@@ -1192,6 +1229,7 @@ class HelloScript(godotObject: MemorySegment) : KanamaScript<Node>(godotObject, 
 				"cached_is_script=$cachedScriptIsScript cached_ref_count=$cachedScriptRefCount"
 		)
 		System.err.println("[kanama:kt] ResourceSaver script_uid=$scriptUid")
+		System.err.println("[kanama:kt] Script property replay object_set_amount=$pendingSetAmount")
 		System.err.println(
 			"[kanama:kt] FileAccess exists=$fileExists size_positive=${fileSize > 0} has_class=$sourceHasClass"
 		)
@@ -1486,6 +1524,11 @@ class HelloScript(godotObject: MemorySegment) : KanamaScript<Node>(godotObject, 
 			"[kanama:kt] UI metadata option_item=$optionItemMetadata option_selected=$optionSelectedMetadata " +
 				"option_id=$optionSelectedId tab_count=$tabCount tab_title=$tabTitle tab_metadata=$tabMetadata " +
 				"line_bidi_options=$lineEditBidiOptionsSize"
+		)
+		System.err.println(
+			"[kanama:kt] Dynamic UI label=$dynamicLabelText button=$dynamicButtonText " +
+				"label_pos=${dynamicLabelPosition.x},${dynamicLabelPosition.y} " +
+				"button_pos=${dynamicButtonPosition.x},${dynamicButtonPosition.y} child_count=$dynamicUiChildCount"
 		)
 		System.err.println(
 			"[kanama:kt] OS granted_permissions=${grantedPermissions.size} memory_info_keys=${memoryInfo.size}"

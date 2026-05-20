@@ -341,6 +341,9 @@ object KanamaScriptLanguage {
         val obj = constructParent.invoke(cls.parentName) as MemorySegment
         val handle = ObjectRegistry.register(KanamaScriptLanguageSentinel)
         objectSetInstance.invoke(obj, cls.className, MemorySegment.ofAddress(handle))
+        if (notifyPostinitialize != 0.toByte()) {
+            ObjectCalls.notifyPostinitialize(obj)
+        }
         singletonHandle = handle
         godotObject = obj
         System.err.println("[kanama:kt] KanamaScriptLanguage.createInstance obj=0x${obj.address().toString(16)}")

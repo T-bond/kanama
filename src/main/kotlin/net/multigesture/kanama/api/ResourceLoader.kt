@@ -246,6 +246,12 @@ object ResourceLoader {
         )
 
     @JvmStatic
+    fun loadTexture2D(path: String, cacheMode: Long = CACHE_MODE_REUSE): Texture2D? =
+        Texture2D.wrap(
+            ObjectCalls.ptrcallWithTwoStringAndLongArgsRetObject(loadBind, singleton, path, "Texture2D", cacheMode),
+        )
+
+    @JvmStatic
     fun loadAudioStream(path: String, cacheMode: Long = CACHE_MODE_REUSE): AudioStream? =
         AudioStream.wrap(
             ObjectCalls.ptrcallWithTwoStringAndLongArgsRetObject(loadBind, singleton, path, "AudioStream", cacheMode),

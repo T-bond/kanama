@@ -113,6 +113,7 @@ object KanamaResourceFormatLoader {
         val obj = constructObject.invoke(cls.parentName) as MemorySegment
         val handle = ObjectRegistry.register(KanamaResourceLoaderSentinel)
         objectSetInstance.invoke(obj, cls.className, MemorySegment.ofAddress(handle))
+        ObjectCalls.notifyPostinitialize(obj)
         godotObject = obj
         loaderHandle = handle
         System.err.println(
@@ -167,6 +168,9 @@ object KanamaResourceFormatLoader {
         val obj = constructParent.invoke(cls.parentName) as MemorySegment
         val handle = ObjectRegistry.register(KanamaResourceLoaderSentinel)
         objectSetInstance.invoke(obj, cls.className, MemorySegment.ofAddress(handle))
+        if (notifyPostinitialize != 0.toByte()) {
+            ObjectCalls.notifyPostinitialize(obj)
+        }
         loaderHandle = handle
         godotObject = obj
         System.err.println("[kanama:kt] KanamaResourceFormatLoader.createInstance obj=0x${obj.address().toString(16)} handle=$handle")

@@ -374,6 +374,7 @@ class KanamaScript(
             )
             val handle = ObjectRegistry.register(kotlinInstance)
             objectSetInstance.invoke(obj, cls.className, MemorySegment.ofAddress(handle))
+            ObjectCalls.notifyPostinitialize(obj)
             synchronized(constructedScriptObjects) {
                 constructedScriptObjects.add(obj.address())
             }
@@ -451,6 +452,7 @@ class KanamaScript(
             )
             val handle = ObjectRegistry.register(kotlinInstance)
             objectSetInstance.invoke(obj, cls.className, MemorySegment.ofAddress(handle))
+            ObjectCalls.notifyPostinitialize(obj)
             synchronized(constructedScriptObjects) {
                 constructedScriptObjects.add(obj.address())
             }
@@ -682,6 +684,9 @@ class KanamaScript(
             val kotlinInstance = KanamaScript(obj, "Node", false, "")
             val handle = ObjectRegistry.register(kotlinInstance)
             objectSetInstance.invoke(obj, cls.className, MemorySegment.ofAddress(handle))
+            if (notifyPostinitialize != 0.toByte()) {
+                ObjectCalls.notifyPostinitialize(obj)
+            }
             synchronized(objectAddressByHandle) {
                 objectAddressByHandle[handle] = obj.address()
                 handleByObjectAddress[obj.address()] = handle
