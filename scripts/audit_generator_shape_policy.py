@@ -321,7 +321,7 @@ def audit_shape(function_text: str, args: tuple[str, ...], ret: str) -> list[str
         if not is_direct_packed(arg):
             continue
         variant_type = PACKED_VARIANT_TYPES[arg]
-        if "BuiltinTypes.allocatePackedArray(" not in function_text:
+        if "BuiltinTypes.allocatePackedArray(" not in function_text and "packedArrayRet" not in function_text:
             errors.append(f"{arg} argument helper does not use 16-byte packed storage")
         if PACKED_INIT_MARKERS[arg] not in function_text:
             errors.append(f"{arg} argument helper does not initialize through {PACKED_INIT_MARKERS[arg]}")
@@ -330,7 +330,7 @@ def audit_shape(function_text: str, args: tuple[str, ...], ret: str) -> list[str
 
     if is_direct_packed(ret):
         variant_type = PACKED_VARIANT_TYPES[ret]
-        if "BuiltinTypes.allocatePackedArray(" not in function_text:
+        if "BuiltinTypes.allocatePackedArray(" not in function_text and "packedArrayRet" not in function_text:
             errors.append(f"{ret} return helper does not use 16-byte packed storage")
         if PACKED_READ_MARKERS[ret] not in function_text:
             errors.append(f"{ret} return helper does not decode through {PACKED_READ_MARKERS[ret]}")
@@ -371,7 +371,7 @@ def audit_typed_object_array_helpers(content: str) -> list[str]:
                     f"{typed_helper} does not map through nullable typed wrappers",
                 )
         else:
-            if "BuiltinTypes.readArrayObjects(ret, wrapper)" not in typed_text:
+            if "BuiltinTypes.readArrayObjects(" not in typed_text or ", wrapper)" not in typed_text:
                 errors.append(
                     f"src/main/kotlin/binding/runtime/ObjectCalls.kt:{typed_line}: "
                     f"{typed_helper} does not decode directly through nullable typed wrappers",

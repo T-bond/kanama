@@ -332,6 +332,32 @@ def typed_object_array_element(logical_type: str) -> str | None:
     return logical_type.removeprefix(prefix) if logical_type.startswith(prefix) else None
 
 
+DIRECT_TYPED_OBJECT_LIST_HELPERS = {
+    "ptrcallNoArgsRetTypedNodeList",
+    "ptrcallNoArgsRetTypedNode2DList",
+    "ptrcallNoArgsRetTypedNode3DList",
+    "ptrcallNoArgsRetTypedMaterialList",
+    "ptrcallNoArgsRetTypedArea2DList",
+    "ptrcallNoArgsRetTypedArea3DList",
+    "ptrcallNoArgsRetTypedBaseButtonList",
+    "ptrcallNoArgsRetTypedPhysicsBody3DList",
+    "ptrcallWithBoolArgRetTypedNodeList",
+    "ptrcallWithStringNameArgRetTypedNodeList",
+}
+
+
+NO_ARG_TYPED_OBJECT_LIST_HELPERS = {
+    "Node": "ptrcallNoArgsRetTypedNodeList",
+    "Node2D": "ptrcallNoArgsRetTypedNode2DList",
+    "Node3D": "ptrcallNoArgsRetTypedNode3DList",
+    "Material": "ptrcallNoArgsRetTypedMaterialList",
+    "Area2D": "ptrcallNoArgsRetTypedArea2DList",
+    "Area3D": "ptrcallNoArgsRetTypedArea3DList",
+    "BaseButton": "ptrcallNoArgsRetTypedBaseButtonList",
+    "PhysicsBody3D": "ptrcallNoArgsRetTypedPhysicsBody3DList",
+}
+
+
 def is_resource_like(type_name: str, api_classes: dict[str, ApiClass]) -> bool:
     return type_name in {"Resource", "RefCounted"} or "Resource" in ancestors(type_name, api_classes) or "RefCounted" in ancestors(type_name, api_classes)
 
@@ -389,12 +415,20 @@ def kotlin_default_expression(default_value: str | None, logical_kind: str) -> s
 def candidate_for(method: ApiMethod, object_types: set[str]) -> CallShape | None:
     logical_args = method.logical_arg_kinds(object_types)
     logical_return = method.logical_return_kind(object_types)
-    if typed_object_array_element(logical_return):
+    return_array_element = typed_object_array_element(logical_return)
+    if return_array_element:
         if not logical_args:
+            direct_helper = NO_ARG_TYPED_OBJECT_LIST_HELPERS.get(return_array_element)
+            if direct_helper:
+                return CallShape(direct_helper, "List")
             return CallShape("ptrcallNoArgsRetTypedObjectList", "List")
         if logical_args == ("StringName",):
+            if return_array_element == "Node":
+                return CallShape("ptrcallWithStringNameArgRetTypedNodeList", "List")
             return CallShape("ptrcallWithStringNameArgRetTypedObjectList", "List")
         if logical_args == ("bool",):
+            if return_array_element == "Node":
+                return CallShape("ptrcallWithBoolArgRetTypedNodeList", "List")
             return CallShape("ptrcallWithBoolArgRetTypedObjectList", "List")
         if logical_args == ("String", "bool"):
             return CallShape("ptrcallWithStringAndBoolArgRetTypedObjectList", "List")
@@ -847,7 +881,7 @@ def render_method(
     params = ", ".join(param_texts)
     call_args = call_argument_expressions(method, object_types, api_classes, param_names)
     return_array_element = typed_object_array_element(method.logical_return_kind(object_types))
-    if return_array_element:
+    if return_array_element and shape.function not in DIRECT_TYPED_OBJECT_LIST_HELPERS:
         return_wrapper = api_object_wrapper_type(return_array_element, wrapper_classes)
         if return_wrapper is None:
             raise ValueError(f"unsupported typed object-array wrapper for {return_array_element}")

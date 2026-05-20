@@ -84,11 +84,25 @@ object ObjectCalls {
         private val arena = Arena.ofAuto()
         val args1: MemorySegment = arena.allocate(ADDRESS, 1)
         val args3: MemorySegment = arena.allocate(ADDRESS, 3)
+        val boolCell: MemorySegment = arena.allocate(JAVA_BYTE)
+        val byteRet: MemorySegment = arena.allocate(JAVA_BYTE)
+        val intRet: MemorySegment = arena.allocate(JAVA_INT)
+        val longRet: MemorySegment = arena.allocate(JAVA_LONG)
         val doubleCell: MemorySegment = arena.allocate(JAVA_DOUBLE)
+        val doubleRet: MemorySegment = arena.allocate(JAVA_DOUBLE)
         val objectCell: MemorySegment = arena.allocate(ADDRESS)
+        val arrayRet: MemorySegment = arena.allocate(8L, 8L)
+        val packedArrayRet: MemorySegment = arena.allocate(BuiltinTypes.PACKED_ARRAY_SIZE, BuiltinTypes.PACKED_ARRAY_ALIGN)
         val vector2Cell: MemorySegment = arena.allocate(GodotReal.SIZE_BYTES * 2, GodotReal.ALIGN_BYTES)
         val vector2Ret: MemorySegment = arena.allocate(GodotReal.SIZE_BYTES * 2, GodotReal.ALIGN_BYTES)
+        val rect2Ret: MemorySegment = arena.allocate(GodotReal.SIZE_BYTES * 4, GodotReal.ALIGN_BYTES)
         val colorCell: MemorySegment = arena.allocate(16L, 4L)
+
+        fun setBoolArg(value: Boolean): MemorySegment {
+            boolCell.set(JAVA_BYTE, 0, if (value) 1.toByte() else 0.toByte())
+            args1.setAtIndex(ADDRESS, 0, boolCell)
+            return args1
+        }
     }
 
     private val ptrcallScratch = ThreadLocal.withInitial { PtrcallScratch() }
@@ -1500,18 +1514,12 @@ object ObjectCalls {
         instance: MemorySegment,
         boolArg: Boolean,
     ): List<GodotObject> {
-        Arena.ofConfined().use { arena ->
-            val arg = arena.allocate(JAVA_BYTE)
-            arg.set(JAVA_BYTE, 0, if (boolArg) 1.toByte() else 0.toByte())
-            val args = arena.allocate(ADDRESS, 1)
-            args.setAtIndex(ADDRESS, 0, arg)
-            val ret = arena.allocate(8L, 8L)
-            objectMethodBindPtrcall.invoke(methodBind, instance, args, ret)
-            return try {
-                BuiltinTypes.readArrayObjects(ret)
-            } finally {
-                BuiltinTypes.destroyTyped(VariantType.ARRAY, ret)
-            }
+        val scratch = ptrcallScratch.get()
+        objectMethodBindPtrcall.invoke(methodBind, instance, scratch.setBoolArg(boolArg), scratch.arrayRet)
+        return try {
+            BuiltinTypes.readArrayObjects(scratch.arrayRet)
+        } finally {
+            BuiltinTypes.destroyTyped(VariantType.ARRAY, scratch.arrayRet)
         }
     }
 
@@ -1521,14 +1529,12 @@ object ObjectCalls {
         boolArg: Boolean,
         wrapper: (MemorySegment) -> T?,
     ): List<T> {
-        Arena.ofConfined().use { arena ->
-            val arg = arena.allocate(JAVA_BYTE)
-            arg.set(JAVA_BYTE, 0, if (boolArg) 1.toByte() else 0.toByte())
-            val args = arena.allocate(ADDRESS, 1)
-            args.setAtIndex(ADDRESS, 0, arg)
-            return callArrayReturn(methodBind, instance, args) { ret ->
-                BuiltinTypes.readArrayObjects(ret, wrapper)
-            }
+        val scratch = ptrcallScratch.get()
+        objectMethodBindPtrcall.invoke(methodBind, instance, scratch.setBoolArg(boolArg), scratch.arrayRet)
+        return try {
+            BuiltinTypes.readArrayObjects(scratch.arrayRet, wrapper)
+        } finally {
+            BuiltinTypes.destroyTyped(VariantType.ARRAY, scratch.arrayRet)
         }
     }
 
@@ -1537,7 +1543,7 @@ object ObjectCalls {
         instance: MemorySegment,
         boolArg: Boolean,
     ): List<Node> =
-        ptrcallWithBoolArgRetTypedObjectList(methodBind, instance, boolArg, ::Node)
+        ptrcallWithBoolArgRetTypedObjectList(methodBind, instance, boolArg, Node::fromHandle)
 
     fun ptrcallWithStringAndBoolArgRetObjectList(
         methodBind: MemorySegment,
@@ -3530,11 +3536,9 @@ object ObjectCalls {
         methodBind: MemorySegment,
         instance: MemorySegment,
     ): Boolean {
-        Arena.ofConfined().use { arena ->
-            val ret = arena.allocate(java.lang.foreign.ValueLayout.JAVA_BYTE)
-            objectMethodBindPtrcall.invoke(methodBind, instance, MemorySegment.NULL, ret)
-            return ret.get(java.lang.foreign.ValueLayout.JAVA_BYTE, 0) != 0.toByte()
-        }
+        val ret = ptrcallScratch.get().byteRet
+        objectMethodBindPtrcall.invoke(methodBind, instance, MemorySegment.NULL, ret)
+        return ret.get(JAVA_BYTE, 0) != 0.toByte()
     }
 
     /**
@@ -3544,11 +3548,9 @@ object ObjectCalls {
         methodBind: MemorySegment,
         instance: MemorySegment,
     ): Long {
-        Arena.ofConfined().use { arena ->
-            val ret = arena.allocate(JAVA_LONG)
-            objectMethodBindPtrcall.invoke(methodBind, instance, MemorySegment.NULL, ret)
-            return ret.get(JAVA_LONG, 0)
-        }
+        val ret = ptrcallScratch.get().longRet
+        objectMethodBindPtrcall.invoke(methodBind, instance, MemorySegment.NULL, ret)
+        return ret.get(JAVA_LONG, 0)
     }
 
     /**
@@ -3558,11 +3560,9 @@ object ObjectCalls {
         methodBind: MemorySegment,
         instance: MemorySegment,
     ): Long {
-        Arena.ofConfined().use { arena ->
-            val ret = arena.allocate(JAVA_INT)
-            objectMethodBindPtrcall.invoke(methodBind, instance, MemorySegment.NULL, ret)
-            return ret.get(JAVA_INT, 0).toLong() and 0xffff_ffffL
-        }
+        val ret = ptrcallScratch.get().intRet
+        objectMethodBindPtrcall.invoke(methodBind, instance, MemorySegment.NULL, ret)
+        return ret.get(JAVA_INT, 0).toLong() and 0xffff_ffffL
     }
 
     /**
@@ -3572,11 +3572,9 @@ object ObjectCalls {
         methodBind: MemorySegment,
         instance: MemorySegment,
     ): RID {
-        Arena.ofConfined().use { arena ->
-            val ret = arena.allocate(JAVA_LONG)
-            objectMethodBindPtrcall.invoke(methodBind, instance, MemorySegment.NULL, ret)
-            return RID(ret.get(JAVA_LONG, 0))
-        }
+        val ret = ptrcallScratch.get().longRet
+        objectMethodBindPtrcall.invoke(methodBind, instance, MemorySegment.NULL, ret)
+        return RID(ret.get(JAVA_LONG, 0))
     }
 
     /**
@@ -3586,11 +3584,9 @@ object ObjectCalls {
         methodBind: MemorySegment,
         instance: MemorySegment,
     ): Int {
-        Arena.ofConfined().use { arena ->
-            val ret = arena.allocate(JAVA_INT)
-            objectMethodBindPtrcall.invoke(methodBind, instance, MemorySegment.NULL, ret)
-            return ret.get(JAVA_INT, 0)
-        }
+        val ret = ptrcallScratch.get().intRet
+        objectMethodBindPtrcall.invoke(methodBind, instance, MemorySegment.NULL, ret)
+        return ret.get(JAVA_INT, 0)
     }
 
     fun ptrcallNoArgsRetNodePath(
@@ -3625,11 +3621,9 @@ object ObjectCalls {
         methodBind: MemorySegment,
         instance: MemorySegment,
     ): Double {
-        Arena.ofConfined().use { arena ->
-            val ret = arena.allocate(java.lang.foreign.ValueLayout.JAVA_DOUBLE)
-            objectMethodBindPtrcall.invoke(methodBind, instance, MemorySegment.NULL, ret)
-            return ret.get(java.lang.foreign.ValueLayout.JAVA_DOUBLE, 0)
-        }
+        val ret = ptrcallScratch.get().doubleRet
+        objectMethodBindPtrcall.invoke(methodBind, instance, MemorySegment.NULL, ret)
+        return ret.get(JAVA_DOUBLE, 0)
     }
 
     /**
@@ -8607,13 +8601,7 @@ object ObjectCalls {
         instance: MemorySegment,
         value: Boolean,
     ) {
-        Arena.ofConfined().use { arena ->
-            val boolCell = arena.allocate(java.lang.foreign.ValueLayout.JAVA_BYTE)
-            boolCell.set(java.lang.foreign.ValueLayout.JAVA_BYTE, 0, if (value) 1.toByte() else 0.toByte())
-            val arr = arena.allocate(ADDRESS, 1)
-            arr.setAtIndex(ADDRESS, 0, boolCell)
-            objectMethodBindPtrcall.invoke(methodBind, instance, arr, MemorySegment.NULL)
-        }
+        objectMethodBindPtrcall.invoke(methodBind, instance, ptrcallScratch.get().setBoolArg(value), MemorySegment.NULL)
     }
 
     fun ptrcallWithBoolArgRetArray(
@@ -8621,12 +8609,12 @@ object ObjectCalls {
         instance: MemorySegment,
         value: Boolean,
     ): List<Any?> {
-        Arena.ofConfined().use { arena ->
-            val boolCell = arena.allocate(JAVA_BYTE)
-            boolCell.set(JAVA_BYTE, 0, if (value) 1.toByte() else 0.toByte())
-            val arr = arena.allocate(ADDRESS, 1)
-            arr.setAtIndex(ADDRESS, 0, boolCell)
-            return callArrayReturn(methodBind, instance, arr, BuiltinTypes::readArrayScalars)
+        val scratch = ptrcallScratch.get()
+        objectMethodBindPtrcall.invoke(methodBind, instance, scratch.setBoolArg(value), scratch.arrayRet)
+        return try {
+            BuiltinTypes.readArrayScalars(scratch.arrayRet)
+        } finally {
+            BuiltinTypes.destroyTyped(VariantType.ARRAY, scratch.arrayRet)
         }
     }
 
@@ -8638,15 +8626,9 @@ object ObjectCalls {
         instance: MemorySegment,
         value: Boolean,
     ): Long {
-        Arena.ofConfined().use { arena ->
-            val boolCell = arena.allocate(java.lang.foreign.ValueLayout.JAVA_BYTE)
-            boolCell.set(java.lang.foreign.ValueLayout.JAVA_BYTE, 0, if (value) 1.toByte() else 0.toByte())
-            val arr = arena.allocate(ADDRESS, 1)
-            arr.setAtIndex(ADDRESS, 0, boolCell)
-            val ret = arena.allocate(JAVA_LONG)
-            objectMethodBindPtrcall.invoke(methodBind, instance, arr, ret)
-            return ret.get(JAVA_LONG, 0)
-        }
+        val scratch = ptrcallScratch.get()
+        objectMethodBindPtrcall.invoke(methodBind, instance, scratch.setBoolArg(value), scratch.longRet)
+        return scratch.longRet.get(JAVA_LONG, 0)
     }
 
     /**
@@ -8657,15 +8639,9 @@ object ObjectCalls {
         instance: MemorySegment,
         value: Boolean,
     ): RID {
-        Arena.ofConfined().use { arena ->
-            val boolCell = arena.allocate(JAVA_BYTE)
-            boolCell.set(JAVA_BYTE, 0, if (value) 1.toByte() else 0.toByte())
-            val arr = arena.allocate(ADDRESS, 1)
-            arr.setAtIndex(ADDRESS, 0, boolCell)
-            val ret = arena.allocate(JAVA_LONG)
-            objectMethodBindPtrcall.invoke(methodBind, instance, arr, ret)
-            return RID(ret.get(JAVA_LONG, 0))
-        }
+        val scratch = ptrcallScratch.get()
+        objectMethodBindPtrcall.invoke(methodBind, instance, scratch.setBoolArg(value), scratch.longRet)
+        return RID(scratch.longRet.get(JAVA_LONG, 0))
     }
 
     /**
@@ -8693,15 +8669,9 @@ object ObjectCalls {
         instance: MemorySegment,
         value: Boolean,
     ): Int {
-        Arena.ofConfined().use { arena ->
-            val boolCell = arena.allocate(JAVA_BYTE)
-            boolCell.set(JAVA_BYTE, 0, if (value) 1.toByte() else 0.toByte())
-            val arr = arena.allocate(ADDRESS, 1)
-            arr.setAtIndex(ADDRESS, 0, boolCell)
-            val ret = arena.allocate(JAVA_INT)
-            objectMethodBindPtrcall.invoke(methodBind, instance, arr, ret)
-            return ret.get(JAVA_INT, 0)
-        }
+        val scratch = ptrcallScratch.get()
+        objectMethodBindPtrcall.invoke(methodBind, instance, scratch.setBoolArg(value), scratch.intRet)
+        return scratch.intRet.get(JAVA_INT, 0)
     }
 
     /**
@@ -8712,15 +8682,9 @@ object ObjectCalls {
         instance: MemorySegment,
         value: Boolean,
     ): Boolean {
-        Arena.ofConfined().use { arena ->
-            val boolCell = arena.allocate(java.lang.foreign.ValueLayout.JAVA_BYTE)
-            boolCell.set(java.lang.foreign.ValueLayout.JAVA_BYTE, 0, if (value) 1.toByte() else 0.toByte())
-            val arr = arena.allocate(ADDRESS, 1)
-            arr.setAtIndex(ADDRESS, 0, boolCell)
-            val ret = arena.allocate(java.lang.foreign.ValueLayout.JAVA_BYTE)
-            objectMethodBindPtrcall.invoke(methodBind, instance, arr, ret)
-            return ret.get(java.lang.foreign.ValueLayout.JAVA_BYTE, 0) != 0.toByte()
-        }
+        val scratch = ptrcallScratch.get()
+        objectMethodBindPtrcall.invoke(methodBind, instance, scratch.setBoolArg(value), scratch.byteRet)
+        return scratch.byteRet.get(JAVA_BYTE, 0) != 0.toByte()
     }
 
     /**
@@ -8731,18 +8695,12 @@ object ObjectCalls {
         instance: MemorySegment,
         value: Boolean,
     ): ByteArray {
-        Arena.ofConfined().use { arena ->
-            val boolCell = arena.allocate(JAVA_BYTE)
-            boolCell.set(JAVA_BYTE, 0, if (value) 1.toByte() else 0.toByte())
-            val arr = arena.allocate(ADDRESS, 1)
-            arr.setAtIndex(ADDRESS, 0, boolCell)
-            val ret = BuiltinTypes.allocatePackedArray(arena)
-            objectMethodBindPtrcall.invoke(methodBind, instance, arr, ret)
-            return try {
-                BuiltinTypes.readPackedByteArray(ret)
-            } finally {
-                BuiltinTypes.destroyTyped(VariantType.PACKED_BYTE_ARRAY, ret)
-            }
+        val scratch = ptrcallScratch.get()
+        objectMethodBindPtrcall.invoke(methodBind, instance, scratch.setBoolArg(value), scratch.packedArrayRet)
+        return try {
+            BuiltinTypes.readPackedByteArray(scratch.packedArrayRet)
+        } finally {
+            BuiltinTypes.destroyTyped(VariantType.PACKED_BYTE_ARRAY, scratch.packedArrayRet)
         }
     }
 
@@ -8754,18 +8712,12 @@ object ObjectCalls {
         instance: MemorySegment,
         value: Boolean,
     ): List<Int> {
-        Arena.ofConfined().use { arena ->
-            val boolCell = arena.allocate(JAVA_BYTE)
-            boolCell.set(JAVA_BYTE, 0, if (value) 1.toByte() else 0.toByte())
-            val arr = arena.allocate(ADDRESS, 1)
-            arr.setAtIndex(ADDRESS, 0, boolCell)
-            val ret = BuiltinTypes.allocatePackedArray(arena)
-            objectMethodBindPtrcall.invoke(methodBind, instance, arr, ret)
-            return try {
-                BuiltinTypes.readPackedInt32Array(ret)
-            } finally {
-                BuiltinTypes.destroyTyped(VariantType.PACKED_INT32_ARRAY, ret)
-            }
+        val scratch = ptrcallScratch.get()
+        objectMethodBindPtrcall.invoke(methodBind, instance, scratch.setBoolArg(value), scratch.packedArrayRet)
+        return try {
+            BuiltinTypes.readPackedInt32Array(scratch.packedArrayRet)
+        } finally {
+            BuiltinTypes.destroyTyped(VariantType.PACKED_INT32_ARRAY, scratch.packedArrayRet)
         }
     }
 
@@ -24566,20 +24518,18 @@ object ObjectCalls {
         methodBind: MemorySegment,
         instance: MemorySegment,
     ): Rect2 {
-        Arena.ofConfined().use { arena ->
-            val ret = arena.allocate(GodotReal.SIZE_BYTES * 4, GodotReal.ALIGN_BYTES)
-            objectMethodBindPtrcall.invoke(methodBind, instance, MemorySegment.NULL, ret)
-            return Rect2(
-                position = Vector2(
-                    x = GodotReal.readIndex(ret, 0),
-                    y = GodotReal.readIndex(ret, 1),
-                ),
-                size = Vector2(
-                    x = GodotReal.readIndex(ret, 2),
-                    y = GodotReal.readIndex(ret, 3),
-                ),
-            )
-        }
+        val ret = ptrcallScratch.get().rect2Ret
+        objectMethodBindPtrcall.invoke(methodBind, instance, MemorySegment.NULL, ret)
+        return Rect2(
+            position = Vector2(
+                x = GodotReal.readIndex(ret, 0),
+                y = GodotReal.readIndex(ret, 1),
+            ),
+            size = Vector2(
+                x = GodotReal.readIndex(ret, 2),
+                y = GodotReal.readIndex(ret, 3),
+            ),
+        )
     }
 
     fun ptrcallWithRect2Arg(

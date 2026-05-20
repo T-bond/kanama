@@ -148,6 +148,10 @@ Hot runtime paths keep the same ABI but avoid unnecessary JVM-side work:
   and `_physics_process(delta)`. `ScriptBridge.call_func` checks those slots
   before the generic StringName `when` dispatch, so frame callbacks still enter
   through Godot's ScriptInstance vtable but skip the generated method switch.
+- `ObjectRegistry` keeps the monotonic handle map as the source of truth and
+  mirrors dense low handles into an atomic array. ScriptInstance callbacks use
+  the array for the common handle range and fall back to the map for oversized
+  handles, preserving handle `0` invalidity and unregister cleanup semantics.
 - `ObjectCalls` uses small thread-local scratch buffers for selected high-rate
   ptrcall shapes, such as scalar `float`, `Vector2`, and draw-texture calls.
   These buffers are ordinary FFM `MemorySegment`s reused by the current JVM
@@ -162,6 +166,15 @@ slots, not a cache of Godot objects or Variant values. A ptrcall wrapper may use
 them only when the call is synchronous and Godot consumes the argument memory
 before returning. If Godot can retain the memory, the wrapper must still use an
 owned arena with the correct lifetime.
+
+For real demo hot paths, separate downcall-heavy code from callback-heavy code
+before adding more helpers. Scratch buffers are most useful when Kotlin is
+calling many small Godot methods each frame, such as viewport, transform, input,
+or draw calls. If profiling points at repeated Godot→JVM ScriptInstance
+callbacks instead, the larger win is usually to reduce callback count, batch
+state on a parent script, or move repeated queries out of per-node callbacks;
+the registry and dispatch fast paths only run after the FFM upcall boundary has
+already been crossed.
 
 **Where JNI shows up — and where it doesn't.** Panama (FFM) handles the
 JVM→native direction beautifully, but it has no story for *creating* a JVM

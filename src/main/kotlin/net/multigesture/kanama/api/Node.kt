@@ -69,8 +69,7 @@ open class Node(handle: MemorySegment) : GodotObject(handle) {
      * Generated from Godot docs: Node.get_children
      */
     fun getChildren(includeInternal: Boolean = false): List<Node> =
-        ObjectCalls.ptrcallWithBoolArgRetObjectList(getChildrenBind, handle, includeInternal)
-            .map { Node(it.handle) }
+        ObjectCalls.ptrcallWithBoolArgRetTypedNodeList(getChildrenBind, handle, includeInternal)
 
     /**
      * Fetches a child node by its index. Each child node has an index relative to its siblings (see
