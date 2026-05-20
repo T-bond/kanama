@@ -8,6 +8,7 @@ directly to a node.
 - Godot 4.7 beta 2 from the
   [Godot 4.7 beta 2 archive](https://godotengine.org/download/archive/4.7-beta2/).
 - JDK 25+ for desktop development and Gradle builds.
+- CMake 3.22.1+ and a platform C toolchain for the desktop native bootstrap.
 - A Kanama source checkout. The current preview installs addon artifacts from
   source instead of a published release package.
 
