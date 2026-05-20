@@ -86,6 +86,8 @@ val generateKanamaReal by tasks.registering {
                 |    const val ALIGN_BYTES: Long = ${if (isDouble) "8L" else "4L"}
                 |
                 |    fun fromNumber(value: Number): real_t = value.${if (isDouble) "toDouble()" else "toFloat()"}
+                |    fun fromDouble(value: Double): real_t = ${if (isDouble) "value" else "value.toFloat()"}
+                |    fun fromFloat(value: Float): real_t = ${if (isDouble) "value.toDouble()" else "value"}
                 |
                 |    fun byteOffset(index: Long): Long = index * SIZE_BYTES
                 |

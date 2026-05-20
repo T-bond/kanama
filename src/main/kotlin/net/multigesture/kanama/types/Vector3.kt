@@ -1,3 +1,5 @@
+@file:Suppress("REDUNDANT_CALL_OF_CONVERSION_METHOD")
+
 package net.multigesture.kanama.types
 
 import net.multigesture.kanama.binding.runtime.BuiltinTypes
@@ -52,8 +54,36 @@ data class Vector3(
     operator fun times(scale: Number): Vector3 =
         Vector3(x.toDouble() * scale.toDouble(), y.toDouble() * scale.toDouble(), z.toDouble() * scale.toDouble())
 
+    operator fun times(scale: Double): Vector3 =
+        Vector3(
+            GodotReal.fromDouble(x.toDouble() * scale),
+            GodotReal.fromDouble(y.toDouble() * scale),
+            GodotReal.fromDouble(z.toDouble() * scale),
+        )
+
+    operator fun times(scale: Float): Vector3 =
+        Vector3(
+            GodotReal.fromDouble(x.toDouble() * scale.toDouble()),
+            GodotReal.fromDouble(y.toDouble() * scale.toDouble()),
+            GodotReal.fromDouble(z.toDouble() * scale.toDouble()),
+        )
+
     operator fun div(scale: Number): Vector3 =
         Vector3(x.toDouble() / scale.toDouble(), y.toDouble() / scale.toDouble(), z.toDouble() / scale.toDouble())
+
+    operator fun div(scale: Double): Vector3 =
+        Vector3(
+            GodotReal.fromDouble(x.toDouble() / scale),
+            GodotReal.fromDouble(y.toDouble() / scale),
+            GodotReal.fromDouble(z.toDouble() / scale),
+        )
+
+    operator fun div(scale: Float): Vector3 =
+        Vector3(
+            GodotReal.fromDouble(x.toDouble() / scale.toDouble()),
+            GodotReal.fromDouble(y.toDouble() / scale.toDouble()),
+            GodotReal.fromDouble(z.toDouble() / scale.toDouble()),
+        )
 
     operator fun unaryMinus(): Vector3 =
         Vector3(-x, -y, -z)

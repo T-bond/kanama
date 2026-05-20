@@ -1,3 +1,5 @@
+@file:Suppress("REDUNDANT_CALL_OF_CONVERSION_METHOD")
+
 package net.multigesture.kanama.types
 
 import kotlin.math.sqrt
@@ -50,6 +52,20 @@ data class Vector4(
             y.toDouble() * scale.toDouble(),
             z.toDouble() * scale.toDouble(),
             w.toDouble() * scale.toDouble(),
+        )
+    operator fun times(scale: Double): Vector4 =
+        Vector4(
+            GodotReal.fromDouble(x.toDouble() * scale),
+            GodotReal.fromDouble(y.toDouble() * scale),
+            GodotReal.fromDouble(z.toDouble() * scale),
+            GodotReal.fromDouble(w.toDouble() * scale),
+        )
+    operator fun times(scale: Float): Vector4 =
+        Vector4(
+            GodotReal.fromDouble(x.toDouble() * scale.toDouble()),
+            GodotReal.fromDouble(y.toDouble() * scale.toDouble()),
+            GodotReal.fromDouble(z.toDouble() * scale.toDouble()),
+            GodotReal.fromDouble(w.toDouble() * scale.toDouble()),
         )
     operator fun unaryMinus(): Vector4 = Vector4(-x, -y, -z, -w)
 

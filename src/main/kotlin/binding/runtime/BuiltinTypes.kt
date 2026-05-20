@@ -1306,9 +1306,10 @@ object BuiltinTypes {
 
             val values = ArrayList<GodotObject>(size)
             val indexArg = arena.allocate(JAVA_LONG)
+            val valueVariant = arena.allocate(VARIANT_SIZE, 8L)
+            val objectScratch = arena.allocate(ADDRESS)
             for (i in 0 until size) {
                 indexArg.set(JAVA_LONG, 0, i.toLong())
-                val valueVariant = arena.allocate(VARIANT_SIZE, 8L)
                 call(
                     type = VariantType.ARRAY,
                     method = "get",
@@ -1318,7 +1319,11 @@ object BuiltinTypes {
                     rReturn = valueVariant,
                 )
                 try {
-                    (variantToScalar(valueVariant, arena) as? GodotObject)?.let(values::add)
+                    VariantConverters.variantToType(VariantType.OBJECT).invoke(objectScratch, valueVariant)
+                    val handle = objectScratch.get(ADDRESS, 0)
+                    if (handle.address() != 0L) {
+                        values += GodotObject(handle)
+                    }
                 } finally {
                     variantDestroy.invoke(valueVariant)
                 }

@@ -1,3 +1,5 @@
+@file:Suppress("REDUNDANT_CALL_OF_CONVERSION_METHOD")
+
 package net.multigesture.kanama.types
 
 import net.multigesture.kanama.binding.runtime.BuiltinTypes
@@ -44,8 +46,26 @@ data class Vector2(
     operator fun times(scale: Number): Vector2 =
         Vector2(x.toDouble() * scale.toDouble(), y.toDouble() * scale.toDouble())
 
+    operator fun times(scale: Double): Vector2 =
+        Vector2(GodotReal.fromDouble(x.toDouble() * scale), GodotReal.fromDouble(y.toDouble() * scale))
+
+    operator fun times(scale: Float): Vector2 =
+        Vector2(
+            GodotReal.fromDouble(x.toDouble() * scale.toDouble()),
+            GodotReal.fromDouble(y.toDouble() * scale.toDouble()),
+        )
+
     operator fun div(scale: Number): Vector2 =
         Vector2(x.toDouble() / scale.toDouble(), y.toDouble() / scale.toDouble())
+
+    operator fun div(scale: Double): Vector2 =
+        Vector2(GodotReal.fromDouble(x.toDouble() / scale), GodotReal.fromDouble(y.toDouble() / scale))
+
+    operator fun div(scale: Float): Vector2 =
+        Vector2(
+            GodotReal.fromDouble(x.toDouble() / scale.toDouble()),
+            GodotReal.fromDouble(y.toDouble() / scale.toDouble()),
+        )
 
     operator fun unaryMinus(): Vector2 =
         Vector2(-x, -y)

@@ -206,6 +206,8 @@ val prepareAndroidKanamaSources by tasks.registering(Sync::class) {
             |    const val ALIGN_BYTES: Long = 4L
             |
             |    fun fromNumber(value: Number): real_t = value.toFloat()
+            |    fun fromDouble(value: Double): real_t = value.toFloat()
+            |    fun fromFloat(value: Float): real_t = value
             |
             |    fun byteOffset(index: Long): Long = index * SIZE_BYTES
             |
