@@ -1,0 +1,48 @@
+package net.multigesture.kanama.api
+
+import net.multigesture.kanama.binding.runtime.ObjectCalls
+import java.lang.foreign.MemorySegment
+import kotlin.jvm.JvmName
+
+/**
+ * A 3D sphere shape used for physics collision.
+ *
+ * Generated from Godot docs: SphereShape3D
+ */
+class SphereShape3D(handle: MemorySegment) : Shape3D(handle) {
+    var radius: Double
+        @JvmName("radiusProperty")
+        get() = getRadius()
+        @JvmName("setRadiusProperty")
+        set(value) = setRadius(value)
+
+    /**
+     * The sphere's radius. The shape's diameter is double the radius.
+     *
+     * Generated from Godot docs: SphereShape3D.set_radius
+     */
+    fun setRadius(radius: Double) {
+        ObjectCalls.ptrcallWithDoubleArg(setRadiusBind, handle, radius)
+    }
+
+    /**
+     * The sphere's radius. The shape's diameter is double the radius.
+     *
+     * Generated from Godot docs: SphereShape3D.get_radius
+     */
+    fun getRadius(): Double {
+        return ObjectCalls.ptrcallNoArgsRetDouble(getRadiusBind, handle)
+    }
+
+    companion object {
+        private const val SET_RADIUS_HASH = 373806689L
+        private val setRadiusBind by lazy {
+            ObjectCalls.getMethodBind("SphereShape3D", "set_radius", SET_RADIUS_HASH)
+        }
+
+        private const val GET_RADIUS_HASH = 1740695150L
+        private val getRadiusBind by lazy {
+            ObjectCalls.getMethodBind("SphereShape3D", "get_radius", GET_RADIUS_HASH)
+        }
+    }
+}

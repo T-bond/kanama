@@ -1,0 +1,1427 @@
+#!/usr/bin/env python3
+"""Generate conservative Kotlin API wrapper drafts from extension_api.json."""
+
+from __future__ import annotations
+
+import argparse
+from pathlib import Path
+
+from api_wrapper_candidates import CALL_SHAPES, CallShape, camel_name, const_name
+from wrapper_model import (
+    ApiClass,
+    ApiMethod,
+    ancestors,
+    load_api_classes,
+    load_api_singletons,
+    object_type_names,
+    scan_wrapper_classes,
+)
+
+
+OWNERSHIP_SENSITIVE_OBJECT_TYPES = {"Callable"}
+SPECIAL_OBJECT_WRAPPER_TYPES = {
+    "DirAccess": "DirAccessHandle",
+    "FileAccess": "FileAccessHandle",
+    "SceneTree": "SceneTreeHandle",
+}
+OWNERSHIP_SENSITIVE_METHODS = {
+    ("RefCounted", "init_ref"),
+    ("RefCounted", "reference"),
+}
+
+SCALAR_KOTLIN_TYPES = {
+    "bool": "Boolean",
+    "int32": "Int",
+    "int64": "Long",
+    "uint32": "Long",
+    "enum": "Long",
+    "bitfield": "Long",
+    "float": "Double",
+    "String": "String",
+    "StringName": "String",
+    "NodePath": "NodePath",
+    "Variant": "Any?",
+    "RID": "RID",
+    "Basis": "Basis",
+    "Color": "Color",
+    "Plane": "Plane",
+    "Projection": "Projection",
+    "Vector2": "Vector2",
+    "Vector2i": "Vector2i",
+    "Vector3": "Vector3",
+    "Vector3i": "Vector3i",
+    "Vector4": "Vector4",
+    "Rect2": "Rect2",
+    "AABB": "AABB",
+    "Transform2D": "Transform2D",
+    "Transform3D": "Transform3D",
+    "Quaternion": "Quaternion",
+    "Array": "List<Any?>",
+    "Dictionary": "Map<String, Any?>",
+    "PackedStringArray": "List<String>",
+    "PackedByteArray": "ByteArray",
+    "PackedInt32Array": "List<Int>",
+    "PackedInt64Array": "List<Long>",
+    "PackedFloat32Array": "List<Float>",
+    "PackedFloat64Array": "List<Double>",
+    "PackedVector2Array": "List<Vector2>",
+    "PackedVector3Array": "List<Vector3>",
+    "PackedColorArray": "List<Color>",
+    "PackedVector4Array": "List<Vector4>",
+    "Rect2i": "Rect2i",
+    "TypedRIDArray": "List<RID>",
+    "TypedStringArray": "List<String>",
+    "TypedIntArray": "List<Long>",
+    "TypedNodePathArray": "List<NodePath>",
+    "TypedArrayArray": "List<List<Any?>>",
+    "TypedPackedByteArray": "List<ByteArray>",
+    "TypedPackedStringArray": "List<List<String>>",
+    "TypedPackedVector2Array": "List<List<Vector2>>",
+    "TypedPlaneArray": "List<Plane>",
+    "TypedRect2Array": "List<Rect2>",
+    "TypedTransform3DArray": "List<Transform3D>",
+    "TypedVector2Array": "List<Vector2>",
+    "TypedVector3Array": "List<Vector3>",
+    "TypedNodeArray": "List<Node>",
+    "TypedNode2DArray": "List<Node2D>",
+    "TypedNode3DArray": "List<Node3D>",
+    "TypedMaterialArray": "List<Material>",
+    "TypedArea2DArray": "List<Area2D>",
+    "TypedArea3DArray": "List<Area3D>",
+    "TypedBaseButtonArray": "List<BaseButton>",
+    "TypedPhysicsBody3DArray": "List<PhysicsBody3D>",
+    "TypedVector2iArray": "List<Vector2i>",
+    "TypedVector3iArray": "List<Vector3i>",
+    "TypedStringNameArray": "List<String>",
+    "TypedDictionaryArray": "List<Map<String, Any?>>",
+    "ConstVoidPtr": "MemorySegment",
+    "ConstGDExtensionInitializationFunctionPtr": "MemorySegment",
+    "Callable": "GodotCallable",
+}
+
+DEFAULT_IMPORTS = {
+    "ObjectCalls": "net.multigesture.kanama.binding.runtime.ObjectCalls",
+    "MemorySegment": "java.lang.foreign.MemorySegment",
+    "JvmName": "kotlin.jvm.JvmName",
+    "Vector2": "net.multigesture.kanama.types.Vector2",
+    "Vector2i": "net.multigesture.kanama.types.Vector2i",
+    "Vector3": "net.multigesture.kanama.types.Vector3",
+    "Vector3i": "net.multigesture.kanama.types.Vector3i",
+    "Vector4": "net.multigesture.kanama.types.Vector4",
+    "NodePath": "net.multigesture.kanama.types.NodePath",
+    "Plane": "net.multigesture.kanama.types.Plane",
+    "Projection": "net.multigesture.kanama.types.Projection",
+    "RID": "net.multigesture.kanama.types.RID",
+    "Basis": "net.multigesture.kanama.types.Basis",
+    "Color": "net.multigesture.kanama.types.Color",
+    "Rect2": "net.multigesture.kanama.types.Rect2",
+    "Rect2i": "net.multigesture.kanama.types.Rect2i",
+    "AABB": "net.multigesture.kanama.types.AABB",
+    "Transform2D": "net.multigesture.kanama.types.Transform2D",
+    "Transform3D": "net.multigesture.kanama.types.Transform3D",
+    "Quaternion": "net.multigesture.kanama.types.Quaternion",
+}
+
+RESERVED_WORDS = {
+    "as",
+    "break",
+    "class",
+    "continue",
+    "do",
+    "else",
+    "false",
+    "for",
+    "fun",
+    "if",
+    "in",
+    "interface",
+    "internal",
+    "is",
+    "null",
+    "object",
+    "package",
+    "return",
+    "super",
+    "this",
+    "throw",
+    "true",
+    "try",
+    "typealias",
+    "typeof",
+    "val",
+    "var",
+    "when",
+    "while",
+}
+VARARG_RETURN_TYPES = {"void", "Variant", "enum"}
+PARAMETER_NAME_OVERRIDES = {
+    ("Time", "get_datetime_dict_from_unix_time", "unix_time_val"): "unixTime",
+    ("Time", "get_date_dict_from_unix_time", "unix_time_val"): "unixTime",
+    ("Time", "get_time_dict_from_unix_time", "unix_time_val"): "unixTime",
+    ("Time", "get_datetime_string_from_unix_time", "unix_time_val"): "unixTime",
+    ("Time", "get_date_string_from_unix_time", "unix_time_val"): "unixTime",
+    ("Time", "get_time_string_from_unix_time", "unix_time_val"): "unixTime",
+    ("Time", "get_datetime_dict_from_datetime_string", "datetime"): "value",
+    ("Time", "get_datetime_string_from_datetime_dict", "datetime"): "values",
+    ("Time", "get_unix_time_from_datetime_dict", "datetime"): "values",
+    ("Time", "get_unix_time_from_datetime_string", "datetime"): "value",
+    ("Time", "get_offset_string_from_offset_minutes", "offset_minutes"): "minutes",
+}
+PROPERTY_NAME_OVERRIDES = {
+    ("Curve3D", "closed"): "curveClosed",
+    ("OccluderPolygon2D", "closed"): "polygonClosed",
+}
+METHOD_NAME_OVERRIDES = {
+    ("Curve3D", "set_closed"): "setCurveClosed",
+    ("EditorDock", "close"): "closeDock",
+    ("HTTPClient", "close"): "closeConnection",
+    ("MultiplayerPeer", "close"): "closeConnection",
+    ("OccluderPolygon2D", "is_closed"): "isPolygonClosed",
+    ("OccluderPolygon2D", "set_closed"): "setPolygonClosed",
+    ("PacketPeerUDP", "close"): "closeConnection",
+    ("PacketPeerUDP", "wait"): "waitBlocking",
+    ("Semaphore", "wait"): "waitBlocking",
+    ("WebSocketPeer", "close"): "closeConnection",
+    ("WebRTCDataChannel", "close"): "closeConnection",
+    ("WebRTCPeerConnection", "close"): "closeConnection",
+    ("ZIPPacker", "close"): "closeArchive",
+    ("ZIPReader", "close"): "closeArchive",
+}
+DEFAULT_VALUE_OVERRIDES = {
+    ("Time", "get_datetime_string_from_datetime_dict", "use_space"): "false",
+}
+CUSTOM_MEMBER_SECTIONS = {
+    "AnimationMixer": """
+    fun setParameter(path: String, value: Any?) {
+        setIndexed(path, value)
+    }
+
+    fun getParameter(path: String): Any? =
+        getIndexed(path)
+
+    fun getStateMachinePlayback(path: String): AnimationNodeStateMachinePlayback {
+        val value = getParameter(path)
+        val playback = when (value) {
+            is Resource -> AnimationNodeStateMachinePlayback.fromHandle(value.handle)
+            is GodotObject -> AnimationNodeStateMachinePlayback.fromHandle(value.handle)
+            else -> null
+        }
+        return playback ?: error("AnimationMixer parameter '$path' is not an AnimationNodeStateMachinePlayback")
+    }
+""".strip("\n"),
+    "ProjectSettings": """
+    @JvmStatic
+    fun getSettingString(name: String, defaultValue: String = ""): String =
+        getSetting(name, defaultValue) as? String ?: defaultValue
+
+    @JvmStatic
+    fun getSettingBool(name: String, defaultValue: Boolean = false): Boolean =
+        getSetting(name, defaultValue) as? Boolean ?: defaultValue
+
+    @JvmStatic
+    fun getSettingLong(name: String, defaultValue: Long = 0): Long =
+        (getSetting(name, defaultValue) as? Number)?.toLong() ?: defaultValue
+
+    @JvmStatic
+    fun getSettingDouble(name: String, defaultValue: Double = 0.0): Double =
+        (getSetting(name, defaultValue) as? Number)?.toDouble() ?: defaultValue
+
+    @JvmStatic
+    fun getSettingStringList(name: String, defaultValue: List<String> = emptyList()): List<String> =
+        stringListOrDefault(getSetting(name, defaultValue), defaultValue)
+
+    @JvmStatic
+    fun getSettingDictionary(name: String, defaultValue: Map<String, Any?> = emptyMap()): Map<String, Any?> =
+        dictionaryOrDefault(getSetting(name, defaultValue), defaultValue)
+
+    @JvmStatic
+    fun getSettingWithOverrideString(name: String, defaultValue: String = ""): String =
+        getSettingWithOverride(name) as? String ?: defaultValue
+
+    @JvmStatic
+    fun getSettingWithOverrideBool(name: String, defaultValue: Boolean = false): Boolean =
+        getSettingWithOverride(name) as? Boolean ?: defaultValue
+
+    @JvmStatic
+    fun getSettingWithOverrideLong(name: String, defaultValue: Long = 0): Long =
+        (getSettingWithOverride(name) as? Number)?.toLong() ?: defaultValue
+
+    @JvmStatic
+    fun getSettingWithOverrideDouble(name: String, defaultValue: Double = 0.0): Double =
+        (getSettingWithOverride(name) as? Number)?.toDouble() ?: defaultValue
+
+    @JvmStatic
+    fun getSettingWithOverrideAndCustomFeaturesString(
+        name: String,
+        customFeatures: List<String>,
+        defaultValue: String = "",
+    ): String =
+        getSettingWithOverrideAndCustomFeatures(name, customFeatures) as? String ?: defaultValue
+
+    @JvmStatic
+    fun getSettingWithOverrideAndCustomFeaturesBool(
+        name: String,
+        customFeatures: List<String>,
+        defaultValue: Boolean = false,
+    ): Boolean =
+        getSettingWithOverrideAndCustomFeatures(name, customFeatures) as? Boolean ?: defaultValue
+
+    @JvmStatic
+    fun getSettingWithOverrideAndCustomFeaturesLong(
+        name: String,
+        customFeatures: List<String>,
+        defaultValue: Long = 0,
+    ): Long =
+        (getSettingWithOverrideAndCustomFeatures(name, customFeatures) as? Number)?.toLong() ?: defaultValue
+
+    @JvmStatic
+    fun getSettingWithOverrideAndCustomFeaturesDouble(
+        name: String,
+        customFeatures: List<String>,
+        defaultValue: Double = 0.0,
+    ): Double =
+        (getSettingWithOverrideAndCustomFeatures(name, customFeatures) as? Number)?.toDouble() ?: defaultValue
+
+    private fun stringListOrDefault(value: Any?, defaultValue: List<String>): List<String> =
+        (value as? List<*>)?.mapNotNull { it as? String } ?: defaultValue
+
+    private fun dictionaryOrDefault(value: Any?, defaultValue: Map<String, Any?>): Map<String, Any?> =
+        (value as? Map<*, *>)?.entries?.associate { (key, mapValue) -> key.toString() to mapValue } ?: defaultValue
+""".strip("\n"),
+}
+CUSTOM_COMPANION_MEMBER_SECTIONS = {
+    "FastNoiseLite": """
+        @JvmStatic
+        fun fromResource(value: Resource): FastNoiseLite? =
+            if (value.isClass("FastNoiseLite")) FastNoiseLite(value.handle) else null
+""".strip("\n"),
+    "PlaneMesh": """
+        @JvmStatic
+        fun fromResource(value: Resource): PlaneMesh? =
+            if (value.isClass("PlaneMesh")) PlaneMesh(value.handle) else null
+""".strip("\n"),
+    "SphereMesh": """
+        @JvmStatic
+        fun fromResource(value: Resource): SphereMesh? =
+            if (value.isClass("SphereMesh")) SphereMesh(value.handle) else null
+""".strip("\n"),
+}
+
+
+def wrapper_has_wrap(api_dir: Path, class_name: str) -> bool:
+    path = api_dir / f"{class_name}.kt"
+    if not path.exists():
+        return False
+    content = path.read_text(encoding="utf-8")
+    return "fun wrap(handle: MemorySegment)" in content
+
+
+def api_object_wrapper_type(type_name: str, wrapper_classes: set[str]) -> str | None:
+    if type_name == "Object":
+        return "GodotObject"
+    special_wrapper = SPECIAL_OBJECT_WRAPPER_TYPES.get(type_name)
+    if special_wrapper in wrapper_classes:
+        return special_wrapper
+    if type_name in wrapper_classes:
+        return type_name
+    return None
+
+
+def typed_object_array_element(logical_type: str) -> str | None:
+    prefix = "TypedObjectArray::"
+    return logical_type.removeprefix(prefix) if logical_type.startswith(prefix) else None
+
+
+def is_resource_like(type_name: str, api_classes: dict[str, ApiClass]) -> bool:
+    return type_name in {"Resource", "RefCounted"} or "Resource" in ancestors(type_name, api_classes) or "RefCounted" in ancestors(type_name, api_classes)
+
+
+def arg_name(name: str, index: int) -> str:
+    candidate = camel_name(name) or f"arg{index + 1}"
+    return f"{candidate}Value" if candidate in RESERVED_WORDS else candidate
+
+
+def arg_name_for_method(class_name: str, method_name: str, name: str, index: int) -> str:
+    return PARAMETER_NAME_OVERRIDES.get((class_name, method_name, name), arg_name(name, index))
+
+
+def method_function_name(class_name: str, method_name: str) -> str:
+    return METHOD_NAME_OVERRIDES.get((class_name, method_name), camel_name(method_name).removeprefix("_"))
+
+
+def upper_first(name: str) -> str:
+    return name[:1].upper() + name[1:] if name else name
+
+
+def kotlin_default_expression(default_value: str | None, logical_kind: str) -> str | None:
+    if default_value is None:
+        return None
+    if logical_kind == "bool" and default_value in {"true", "false"}:
+        return default_value
+    if logical_kind in {"int32"}:
+        try:
+            return str(int(default_value, 0))
+        except ValueError:
+            return None
+    if logical_kind in {"int64", "uint32", "enum", "bitfield"}:
+        try:
+            return f"{int(default_value, 0)}L"
+        except ValueError:
+            return None
+    if logical_kind == "float":
+        try:
+            value = float(default_value)
+        except ValueError:
+            return None
+        rendered = repr(value)
+        return rendered if "." in rendered else f"{rendered}.0"
+    if logical_kind == "String" and len(default_value) >= 2 and default_value[0] == default_value[-1] == '"':
+        return default_value
+    if logical_kind == "Variant" and default_value == "null":
+        return "null"
+    if logical_kind in {"Array", "PackedStringArray"} and default_value == "[]":
+        return "emptyList()"
+    if logical_kind == "Dictionary" and default_value == "{}":
+        return "emptyMap()"
+    return None
+
+
+def candidate_for(method: ApiMethod, object_types: set[str]) -> CallShape | None:
+    logical_args = method.logical_arg_kinds(object_types)
+    logical_return = method.logical_return_kind(object_types)
+    if typed_object_array_element(logical_return):
+        if not logical_args:
+            return CallShape("ptrcallNoArgsRetTypedObjectList", "List")
+        if logical_args == ("StringName",):
+            return CallShape("ptrcallWithStringNameArgRetTypedObjectList", "List")
+        if logical_args == ("bool",):
+            return CallShape("ptrcallWithBoolArgRetTypedObjectList", "List")
+        if logical_args == ("String", "bool"):
+            return CallShape("ptrcallWithStringAndBoolArgRetTypedObjectList", "List")
+        if logical_args == ("String", "int32", "int32"):
+            return CallShape("ptrcallWithStringTwoIntArgsRetTypedObjectList", "List")
+        if logical_args == ("int32", "int32", "int32", "bool", "bool"):
+            return CallShape("ptrcallWithThreeIntTwoBoolArgsRetTypedObjectList", "List")
+        if logical_args == ("int32", "int32", "int32", "bool", "float", "bool"):
+            return CallShape("ptrcallWithThreeIntBoolDoubleBoolArgsRetTypedObjectList", "List")
+        if logical_args == ("RID",):
+            return CallShape("ptrcallWithRIDArgRetTypedObjectList", "List")
+        if logical_args == ("RID", "TypedRIDArray", "Vector2i"):
+            return CallShape("ptrcallWithRIDRIDListVector2iArgsRetTypedObjectList", "List")
+        if len(logical_args) == 2 and typed_object_array_element(logical_args[0]) and logical_args[1] == "int32":
+            return CallShape("ptrcallWithObjectListIntArgsRetTypedObjectList", "List")
+    if logical_return == "void" and logical_args and typed_object_array_element(logical_args[0]):
+        if len(logical_args) == 1:
+            return CallShape("ptrcallWithObjectListArg", "Unit")
+    if logical_return == "void" and len(logical_args) == 2 and typed_object_array_element(logical_args[1]):
+        if logical_args[0] == "String":
+            return CallShape("ptrcallWithStringAndObjectListArgs", "Unit")
+        if logical_args[0] == "RID":
+            return CallShape("ptrcallWithRIDAndObjectListArgs", "Unit")
+    if len(logical_args) == 1 and typed_object_array_element(logical_args[0]) and logical_return == "enum":
+        return CallShape("ptrcallWithObjectListArgRetLong", "Long", "0L")
+    if len(logical_args) == 1 and typed_object_array_element(logical_args[0]) and logical_return == "int64":
+        return CallShape("ptrcallWithObjectListArgRetLong", "Long", "0L")
+    if len(logical_args) == 2 and typed_object_array_element(logical_args[0]) and logical_args[1] == "enum" and logical_return == "RID":
+        return CallShape("ptrcallWithObjectListLongArgsRetRID", "RID", "RID.EMPTY")
+    if len(logical_args) == 2 and typed_object_array_element(logical_args[0]) and logical_args[1] == "uint32" and logical_return == "int64":
+        return CallShape("ptrcallWithObjectListUInt32ArgsRetLong", "Long", "0L")
+    if (
+        len(logical_args) == 3
+        and typed_object_array_element(logical_args[0])
+        and typed_object_array_element(logical_args[1])
+        and logical_args[2] == "uint32"
+        and logical_return == "int64"
+    ):
+        return CallShape("ptrcallWithTwoObjectListUInt32ArgsRetLong", "Long", "0L")
+    if (
+        len(logical_args) == 3
+        and logical_args[0] == "TypedRIDArray"
+        and typed_object_array_element(logical_args[1])
+        and logical_args[2] == "uint32"
+        and logical_return == "RID"
+    ):
+        return CallShape("ptrcallWithRIDListObjectListUInt32ArgsRetRID", "RID", "RID.EMPTY")
+    if logical_args == ("TypedRIDArray", "int64", "uint32") and logical_return == "RID":
+        return CallShape("ptrcallWithRIDListLongUInt32ArgsRetRID", "RID", "RID.EMPTY")
+    if (
+        len(logical_args) == 4
+        and logical_args[0] == "TypedRIDArray"
+        and typed_object_array_element(logical_args[1])
+        and logical_args[2:] == ("int64", "uint32")
+        and logical_return == "RID"
+    ):
+        return CallShape("ptrcallWithRIDListObjectListLongUInt32ArgsRetRID", "RID", "RID.EMPTY")
+    if logical_args == ("uint32", "int64", "TypedRIDArray", "PackedInt64Array") and logical_return == "RID":
+        return CallShape("ptrcallWithUInt32LongRIDListPackedInt64ListArgsRetRID", "RID", "RID.EMPTY")
+    if (
+        len(logical_args) == 3
+        and typed_object_array_element(logical_args[0])
+        and logical_args[1:] == ("RID", "uint32")
+        and logical_return == "RID"
+    ):
+        return CallShape("ptrcallWithObjectListRIDUInt32ArgsRetRID", "RID", "RID.EMPTY")
+    if (
+        len(logical_args) == 3
+        and logical_args[0] == "RID"
+        and logical_args[1] == "uint32"
+        and typed_object_array_element(logical_args[2])
+        and logical_return == "RID"
+    ):
+        return CallShape("ptrcallWithRIDUInt32ObjectListArgsRetRID", "RID", "RID.EMPTY")
+    if (
+        len(logical_args) == 2
+        and logical_args[0] == "RID"
+        and typed_object_array_element(logical_args[1])
+        and logical_return == "RID"
+    ):
+        return CallShape("ptrcallWithRIDObjectListArgsRetRID", "RID", "RID.EMPTY")
+    if (
+        len(logical_args) == 3
+        and logical_args[0] == "RID"
+        and typed_object_array_element(logical_args[1])
+        and logical_args[2] == "Object"
+        and logical_return == "bool"
+    ):
+        return CallShape("ptrcallWithRIDObjectListObjectArgsRetBool", "Boolean", "false")
+    if (
+        len(logical_args) == 11
+        and logical_args[:4] == ("RID", "int64", "int64", "enum")
+        and logical_args[4:8] == ("Object", "Object", "Object", "Object")
+        and logical_args[8] == "bitfield"
+        and logical_args[9] == "uint32"
+        and typed_object_array_element(logical_args[10])
+        and logical_return == "RID"
+    ):
+        return CallShape("ptrcallWithRIDThreeLongFourObjectLongUInt32ObjectListArgsRetRID", "RID", "RID.EMPTY")
+    if logical_args == ("enum", "int32", "int32", "int32", "bool", "TypedObjectArray::Image"):
+        if logical_return == "enum":
+            return CallShape("ptrcallWithLongThreeIntBoolObjectListArgsRetLong", "Long", "0L")
+        if logical_return == "RID":
+            return CallShape("ptrcallWithLongThreeIntBoolObjectListArgsRetRID", "RID", "RID.EMPTY")
+    if logical_return == "Object" and logical_args == ("Variant",) and method.return_type in {"Node", "PropertyTweener"}:
+        return CallShape("ptrcallWithVariantArgRetObject", "MemorySegment", "MemorySegment.NULL")
+    if (
+        logical_return == "Object"
+        and logical_args == ("Object", "NodePath", "Variant", "float")
+        and method.return_type == "PropertyTweener"
+    ):
+        return CallShape("ptrcallWithObjectNodePathVariantDoubleArgsRetObject", "MemorySegment", "MemorySegment.NULL")
+    if (
+        logical_return == "Dictionary"
+        and logical_args == ("Dictionary", "TypedDictionaryArray")
+        and method.name in {"add_diff_hunks_into_diff_file", "add_line_diffs_into_diff_hunk"}
+    ):
+        return CallShape("ptrcallWithDictionaryDictionaryListArgsRetDictionary", "Map<String, Any?>", "emptyMap()")
+    if logical_return == "Transform3D" and logical_args == ("ConstVoidPtr",) and method.name == "transform_from_pose":
+        return CallShape("ptrcallWithConstVoidPtrArgRetTransform3D", "Transform3D", "Transform3D.IDENTITY")
+    if logical_return == "void" and logical_args == ("ConstVoidPtr",) and method.name == "set_custom_play_space":
+        return CallShape("ptrcallWithConstVoidPtrArg", "Unit")
+    if (
+        logical_return == "enum"
+        and logical_args == ("String", "ConstGDExtensionInitializationFunctionPtr")
+        and method.name == "load_extension_from_function"
+    ):
+        return CallShape("ptrcallWithStringConstGDExtensionInitializationFunctionPtrArgsRetLong", "Long", "0L")
+    if (
+        logical_return == "Object"
+        and logical_args == ("Callable",)
+        and method.return_type in {"CallbackTweener", "JavaScriptObject", "PropertyTweener"}
+    ):
+        return CallShape("ptrcallWithCallableArgRetObject", "MemorySegment", "MemorySegment.NULL")
+    if (
+        logical_return == "Object"
+        and logical_args == ("Callable", "Variant", "Variant", "float")
+        and method.return_type == "MethodTweener"
+    ):
+        return CallShape("ptrcallWithCallableVariantVariantDoubleArgsRetObject", "MemorySegment", "MemorySegment.NULL")
+    if logical_return == "enum" and logical_args == ("StringName", "Callable", "uint32") and method.name == "connect":
+        return CallShape("ptrcallWithStringNameCallableAndUInt32ArgsRetLong", "Long", "0L")
+    if logical_return == "void" and logical_args == ("StringName", "Callable") and method.name == "disconnect":
+        return CallShape("ptrcallWithStringNameAndCallableArgs", "Unit")
+    if logical_return == "bool" and logical_args == ("StringName", "Callable") and method.name == "is_connected":
+        return CallShape("ptrcallWithStringNameAndCallableArgsRetBool", "Boolean", "false")
+    if logical_return == "void":
+        callable_void_helpers = {
+            ("Callable",): "ptrcallWithCallableArg",
+            ("RID", "Callable"): "ptrcallWithRIDCallableArgs",
+            ("String", "Callable"): "ptrcallWithStringCallableArgs",
+            ("Object", "Callable"): "ptrcallWithObjectCallableArgs",
+            ("Callable", "int32"): "ptrcallWithCallableIntArgs",
+            ("int32", "Callable"): "ptrcallWithIntCallableArgs",
+            ("StringName", "Callable"): "ptrcallWithStringNameAndCallableArgs",
+            ("enum", "Callable"): "ptrcallWithLongCallableArgs",
+            ("RID", "enum", "Callable"): "ptrcallWithRIDLongCallableArgs",
+            ("String", "int32", "Callable"): "ptrcallWithStringIntCallableArgs",
+            ("RID", "int32", "Callable"): "ptrcallWithRIDIntCallableArgs",
+            ("Object", "Object", "Callable"): "ptrcallWithTwoObjectCallableArgs",
+            ("Object", "Object", "Object", "Callable"): "ptrcallWithThreeObjectCallableArgs",
+            ("String", "Callable", "Object"): "ptrcallWithStringCallableObjectArgs",
+            ("Object", "Callable", "String"): "ptrcallWithObjectCallableStringArgs",
+            ("Callable", "Callable"): "ptrcallWithTwoCallableArgs",
+            ("Callable", "Callable", "Callable"): "ptrcallWithThreeCallableArgs",
+            ("String", "Callable", "Callable"): "ptrcallWithStringTwoCallableArgs",
+            ("RID", "Callable", "Callable"): "ptrcallWithRIDTwoCallableArgs",
+            ("RID", "Callable", "Variant"): "ptrcallWithRIDCallableVariantArgs",
+            ("String", "String", "Callable", "String"): "ptrcallWithTwoStringCallableStringArgs",
+            ("RID", "bool", "Rect2", "Callable", "Callable"): "ptrcallWithRIDBoolRect2TwoCallableArgs",
+            ("StringName", "Callable", "Array", "enum"): "ptrcallWithStringNameCallableArrayLongArgs",
+            ("Callable", "TypedStringNameArray"): "ptrcallWithCallableStringNameListArgs",
+            ("Callable", "TypedStringNameArray", "Object"): "ptrcallWithCallableStringNameListObjectArgs",
+            ("Callable", "StringName", "String", "String", "TypedStringNameArray"): (
+                "ptrcallWithCallableStringNameTwoStringStringNameListArgs"
+            ),
+            ("Object", "Callable", "PackedInt32Array", "String"): "ptrcallWithObjectCallablePackedInt32ListStringArgs",
+        }
+        if logical_args in callable_void_helpers:
+            return CallShape(callable_void_helpers[logical_args], "Unit")
+    if logical_return == "int64":
+        callable_long_helpers = {
+            ("Callable", "bool", "String"): "ptrcallWithCallableBoolStringArgsRetLong",
+            ("Callable", "int32", "int32", "bool", "String"): "ptrcallWithCallableTwoIntBoolStringArgsRetLong",
+        }
+        if logical_args in callable_long_helpers:
+            return CallShape(callable_long_helpers[logical_args], "Long", "0L")
+    if logical_return == "bool" and logical_args == ("Callable",):
+        return CallShape("ptrcallWithCallableArgRetBool", "Boolean", "false")
+    if logical_return == "enum" and logical_args == ("Callable", "enum"):
+        return CallShape("ptrcallWithCallableLongArgsRetLong", "Long", "0L")
+    if logical_return == "Callable":
+        callable_return_helpers = {
+            (): "ptrcallNoArgsRetCallable",
+            ("int32",): "ptrcallWithIntArgRetCallable",
+            ("RID",): "ptrcallWithRIDArgRetCallable",
+            ("RID", "int32"): "ptrcallWithRIDIntArgsRetCallable",
+            ("String", "int32"): "ptrcallWithStringIntArgsRetCallable",
+        }
+        if logical_args in callable_return_helpers:
+            return CallShape(callable_return_helpers[logical_args], "GodotCallable?", "null")
+    if logical_return == "Object" and method.return_type == "FileAccess":
+        file_access_helpers = {
+            ("String", "enum"): "ptrcallWithStringAndLongArgsRetObject",
+            ("String", "enum", "PackedByteArray", "PackedByteArray"): (
+                "ptrcallWithStringLongByteArrayByteArrayArgsRetObject"
+            ),
+            ("String", "enum", "String"): "ptrcallWithStringLongStringArgsRetObject",
+            ("String", "enum", "enum"): "ptrcallWithStringTwoLongArgsRetObject",
+            ("enum", "String", "String", "bool"): "ptrcallWithLongTwoStringBoolArgsRetObject",
+        }
+        if logical_args in file_access_helpers:
+            return CallShape(file_access_helpers[logical_args], "MemorySegment", "MemorySegment.NULL")
+    if logical_return == "enum":
+        callable_enum_helpers = {
+            ("Object", "bool", "Callable", "Callable"): "ptrcallWithObjectBoolTwoCallableArgsRetLong",
+            ("RID", "uint32", "Callable"): "ptrcallWithRIDUInt32CallableArgsRetLong",
+            ("RID", "Callable", "uint32", "uint32"): "ptrcallWithRIDCallableTwoUInt32ArgsRetLong",
+            ("String", "String", "PackedStringArray", "Callable"): "ptrcallWithTwoStringPackedStringListCallableArgsRetLong",
+            ("String", "String", "String", "Callable"): "ptrcallWithThreeStringCallableArgsRetLong",
+            ("String", "String", "String", "bool", "enum", "PackedStringArray", "Callable", "int32"): (
+                "ptrcallWithThreeStringBoolLongPackedStringListCallableIntArgsRetLong"
+            ),
+            (
+                "String",
+                "String",
+                "String",
+                "String",
+                "bool",
+                "enum",
+                "PackedStringArray",
+                "TypedDictionaryArray",
+                "Callable",
+                "int32",
+            ): "ptrcallWithFourStringBoolLongPackedStringListDictionaryListCallableIntArgsRetLong",
+        }
+        if logical_args in callable_enum_helpers:
+            return CallShape(callable_enum_helpers[logical_args], "Long", "0L")
+    if logical_return == "int32":
+        callable_int_helpers = {
+            ("Object", "String", "Callable"): "ptrcallWithObjectStringCallableArgsRetInt",
+            ("String", "String", "Callable", "Callable", "Variant", "enum", "int32"): (
+                "ptrcallWithTwoStringTwoCallableVariantLongIntArgsRetInt"
+            ),
+            ("String", "Object", "String", "Callable", "Callable", "Variant", "enum", "int32"): (
+                "ptrcallWithStringObjectStringTwoCallableVariantLongIntArgsRetInt"
+            ),
+            ("String", "String", "int32", "int32", "Callable", "Callable", "Variant", "enum", "int32"): (
+                "ptrcallWithTwoStringTwoIntTwoCallableVariantLongIntArgsRetInt"
+            ),
+            ("RID", "String", "Callable", "Callable", "Variant", "enum", "int32"): (
+                "ptrcallWithRIDStringTwoCallableVariantLongIntArgsRetInt"
+            ),
+            ("RID", "Object", "String", "Callable", "Callable", "Variant", "enum", "int32"): (
+                "ptrcallWithRIDObjectStringTwoCallableVariantLongIntArgsRetInt"
+            ),
+            ("RID", "String", "int32", "int32", "Callable", "Callable", "Variant", "enum", "int32"): (
+                "ptrcallWithRIDStringTwoIntTwoCallableVariantLongIntArgsRetInt"
+            ),
+        }
+        if logical_args in callable_int_helpers:
+            return CallShape(callable_int_helpers[logical_args], "Int", "0")
+    if (
+        logical_return == "Object"
+        and logical_args in {("int64", "Callable"), ("enum", "Callable")}
+        and method.return_type == "OpenXRFutureResult"
+    ):
+        return CallShape("ptrcallWithLongCallableArgsRetObject", "MemorySegment", "MemorySegment.NULL")
+    if (
+        logical_return == "Object"
+        and logical_args == ("Object", "RID", "Callable")
+        and method.return_type == "OpenXRFutureResult"
+    ):
+        return CallShape("ptrcallWithObjectRIDCallableArgsRetObject", "MemorySegment", "MemorySegment.NULL")
+    if logical_return == "Object" and method.return_type == "OpenXRFutureResult":
+        if (
+            len(logical_args) == 3
+            and typed_object_array_element(logical_args[0])
+            and logical_args[1:] == ("Object", "Callable")
+        ):
+            return CallShape("ptrcallWithObjectListObjectCallableArgsRetObject", "MemorySegment", "MemorySegment.NULL")
+        if logical_args == ("RID", "PackedInt64Array", "Object", "Callable"):
+            return CallShape("ptrcallWithRIDPackedInt64ListObjectCallableArgsRetObject", "MemorySegment", "MemorySegment.NULL")
+    return CALL_SHAPES.get((logical_args, logical_return))
+
+
+def is_supported_vararg_method(method: ApiMethod, object_types: set[str]) -> bool:
+    if not method.is_vararg:
+        return False
+    logical_return = method.logical_return_kind(object_types)
+    if logical_return not in VARARG_RETURN_TYPES:
+        return False
+    logical_args = method.logical_arg_kinds(object_types)
+    return "Callable" not in logical_args and logical_return != "Callable"
+
+
+def unsupported_reason(
+    class_name: str,
+    method: ApiMethod,
+    object_types: set[str],
+    wrapper_classes: set[str],
+    api_classes: dict[str, ApiClass],
+    api_dir: Path,
+) -> str | None:
+    if class_name == "Object":
+        return "root Object methods are exposed through the hand-shaped GodotObject policy"
+    if (class_name, method.name) in OWNERSHIP_SENSITIVE_METHODS:
+        return "ownership-sensitive RefCounted lifetime method is hand-shaped"
+    if method.name.startswith("_"):
+        return "internal/virtual callback methods are not emitted as public wrappers"
+    if method.is_vararg and is_supported_vararg_method(method, object_types):
+        return None
+    if method.is_vararg:
+        return "vararg methods must use dynamic Object.call policy"
+    logical_args = method.logical_arg_kinds(object_types)
+    logical_return = method.logical_return_kind(object_types)
+    for arg_kind, arg_type in zip(logical_args, method.argument_types, strict=True):
+        array_element = typed_object_array_element(arg_kind)
+        if array_element:
+            wrapper_type = api_object_wrapper_type(array_element, wrapper_classes)
+            if wrapper_type is None:
+                return f"typed object-array argument wrapper is missing for {array_element}"
+    return_array_element = typed_object_array_element(logical_return)
+    if return_array_element:
+        return_wrapper = api_object_wrapper_type(return_array_element, wrapper_classes)
+        if return_wrapper is None:
+            return f"typed object-array return wrapper is missing for {return_array_element}"
+        if not wrapper_has_wrap(api_dir, return_wrapper):
+            return f"typed object-array return wrapper {return_wrapper} has no nullable wrap(handle) helper"
+    if "Object" in logical_args:
+        for arg_type in method.argument_types:
+            if arg_type == "Callable" and candidate_for(method, object_types) is not None:
+                continue
+            if arg_type in OWNERSHIP_SENSITIVE_OBJECT_TYPES:
+                return f"object argument wrapper {arg_type} is ownership/builtin-sensitive and must stay unsupported"
+            if arg_type in object_types and api_object_wrapper_type(arg_type, wrapper_classes) is None:
+                return f"object argument wrapper is missing for {arg_type}"
+    if logical_return == "Object":
+        if method.return_type in OWNERSHIP_SENSITIVE_OBJECT_TYPES:
+            return f"object return wrapper {method.return_type} is ownership/builtin-sensitive and must stay unsupported"
+        return_wrapper = api_object_wrapper_type(method.return_type, wrapper_classes)
+        if return_wrapper is None:
+            return f"object return wrapper is missing for {method.return_type}"
+        if not wrapper_has_wrap(api_dir, return_wrapper):
+            return f"object return wrapper {return_wrapper} has no nullable wrap(handle) helper"
+    if "Callable" in logical_args and candidate_for(method, object_types) is None:
+        return "object argument wrapper Callable is ownership/builtin-sensitive and must stay unsupported"
+    if logical_return == "Callable" and candidate_for(method, object_types) is None:
+        return "object return wrapper Callable is ownership/builtin-sensitive and must stay unsupported"
+    if candidate_for(method, object_types) is None:
+        return f"unsupported helper shape args={logical_args} return={logical_return}"
+    return None
+
+
+def kotlin_type(logical_type: str, type_name: str, wrapper_classes: set[str], api_classes: dict[str, ApiClass]) -> str:
+    array_element = typed_object_array_element(logical_type)
+    if array_element:
+        wrapper_type = api_object_wrapper_type(array_element, wrapper_classes)
+        if wrapper_type is None:
+            raise ValueError(f"unsupported typed object-array wrapper for {array_element}")
+        return f"List<{wrapper_type}>"
+    if logical_type == "Object":
+        wrapper_type = api_object_wrapper_type(type_name, wrapper_classes)
+        if wrapper_type is None:
+            raise ValueError(f"unsupported object wrapper for {type_name}")
+        return f"{wrapper_type}?" if is_resource_like(type_name, api_classes) else wrapper_type
+    if logical_type not in SCALAR_KOTLIN_TYPES:
+        raise ValueError(f"unsupported Kotlin type for {logical_type}")
+    return SCALAR_KOTLIN_TYPES[logical_type]
+
+
+def kotlin_return_type(
+    logical_type: str,
+    type_name: str,
+    wrapper_classes: set[str],
+    api_classes: dict[str, ApiClass],
+    api_dir: Path,
+) -> str:
+    if logical_type == "Callable":
+        return "GodotCallable?"
+    if logical_type == "Object":
+        wrapper_type = api_object_wrapper_type(type_name, wrapper_classes)
+        if wrapper_type is None:
+            raise ValueError(f"unsupported object wrapper for {type_name}")
+        return f"{wrapper_type}?" if wrapper_has_wrap(api_dir, wrapper_type) else wrapper_type
+    return kotlin_type(logical_type, type_name, wrapper_classes, api_classes)
+
+
+def object_arg_expression(name: str, type_name: str, api_classes: dict[str, ApiClass]) -> str:
+    return f"{name}?.requireOpenHandle() ?: MemorySegment.NULL" if is_resource_like(type_name, api_classes) else f"{name}.handle"
+
+
+def call_argument_expressions(
+    method: ApiMethod,
+    object_types: set[str],
+    api_classes: dict[str, ApiClass],
+    names: list[str] | None = None,
+) -> list[str]:
+    names = names or [arg_name(name, index) for index, name in enumerate(method.argument_names)]
+    expressions: list[str] = []
+    for name, type_name, logical_kind in zip(names, method.argument_types, method.logical_arg_kinds(object_types), strict=True):
+        if logical_kind == "Object":
+            expressions.append(object_arg_expression(name, type_name, api_classes))
+        elif logical_kind == "Callable":
+            expressions.extend([f"{name}.target.handle", f"{name}.method"])
+        else:
+            expressions.append(name)
+    return expressions
+
+
+def render_return_expression(call: str, method: ApiMethod, wrapper_classes: set[str]) -> str:
+    return_wrapper = api_object_wrapper_type(method.return_type, wrapper_classes)
+    if return_wrapper:
+        return f"{return_wrapper}.wrap({call})"
+    return call
+
+
+def render_method(
+    class_name: str,
+    method: ApiMethod,
+    shape: CallShape,
+    object_types: set[str],
+    wrapper_classes: set[str],
+    api_classes: dict[str, ApiClass],
+    api_dir: Path,
+    singleton: bool = False,
+) -> str:
+    function_name = method_function_name(class_name, method.name)
+    bind_name = f"{function_name}Bind"
+    logical_args = method.logical_arg_kinds(object_types)
+    param_names = [
+        arg_name_for_method(class_name, method.name, name, index)
+        for index, name in enumerate(method.argument_names)
+    ]
+    param_texts = []
+    for name, raw_name, kind, type_name, default_value in zip(
+        param_names,
+        method.argument_names,
+        logical_args,
+        method.argument_types,
+        method.argument_defaults,
+        strict=True,
+    ):
+        default_value = DEFAULT_VALUE_OVERRIDES.get((class_name, method.name, raw_name), default_value)
+        default_expression = kotlin_default_expression(default_value, kind)
+        type_text = kotlin_type(kind, type_name, wrapper_classes, api_classes)
+        param_texts.append(
+            f"{name}: {type_text} = {default_expression}" if default_expression is not None else f"{name}: {type_text}",
+        )
+    params = ", ".join(param_texts)
+    call_args = call_argument_expressions(method, object_types, api_classes, param_names)
+    return_array_element = typed_object_array_element(method.logical_return_kind(object_types))
+    if return_array_element:
+        return_wrapper = api_object_wrapper_type(return_array_element, wrapper_classes)
+        if return_wrapper is None:
+            raise ValueError(f"unsupported typed object-array wrapper for {return_array_element}")
+        call_args.append(f"{return_wrapper}::fromHandle")
+    if shape.function == "ptrcallWithObjectArgs":
+        receiver = "singleton" if singleton else ("MemorySegment.NULL" if method.is_static else "handle")
+        call = f"ObjectCalls.{shape.function}({bind_name}, {receiver}, listOf({', '.join(call_args)}))"
+    else:
+        receiver = "singleton" if singleton else ("MemorySegment.NULL" if method.is_static else "handle")
+        call = f"ObjectCalls.{shape.function}({', '.join([bind_name, receiver, *call_args])})"
+    return_expression = render_return_expression(call, method, wrapper_classes)
+    return_kind = method.logical_return_kind(object_types)
+    return_type_text = (
+        ""
+        if shape.kotlin_return == "Unit"
+        else f": {kotlin_return_type(return_kind, method.return_type, wrapper_classes, api_classes, api_dir)}"
+    )
+    lines = []
+    if singleton:
+        lines.append("    @JvmStatic")
+    lines.extend(
+        [
+            f"    fun {function_name}({params}){return_type_text} {{",
+            f"        {call}" if return_type_text == "" else f"        return {return_expression}",
+            "    }",
+        ],
+    )
+    return "\n".join(lines)
+
+
+def render_vararg_method(
+    class_name: str,
+    method: ApiMethod,
+    object_types: set[str],
+    wrapper_classes: set[str],
+    api_classes: dict[str, ApiClass],
+    api_dir: Path,
+    singleton: bool = False,
+) -> str:
+    function_name = method_function_name(class_name, method.name)
+    bind_name = f"{function_name}Bind"
+    logical_args = method.logical_arg_kinds(object_types)
+    param_names = [
+        arg_name_for_method(class_name, method.name, name, index)
+        for index, name in enumerate(method.argument_names)
+    ]
+    fixed_params = []
+    for name, raw_name, kind, type_name, default_value in zip(
+        param_names,
+        method.argument_names,
+        logical_args,
+        method.argument_types,
+        method.argument_defaults,
+        strict=True,
+    ):
+        default_value = DEFAULT_VALUE_OVERRIDES.get((class_name, method.name, raw_name), default_value)
+        default_expression = kotlin_default_expression(default_value, kind)
+        type_text = kotlin_type(kind, type_name, wrapper_classes, api_classes)
+        fixed_params.append(
+            f"{name}: {type_text} = {default_expression}" if default_expression is not None else f"{name}: {type_text}",
+        )
+    params = ", ".join([*fixed_params, "vararg extraArgs: Any?"])
+    fixed_args = ", ".join(param_names)
+    if fixed_args:
+        call_args = f"listOf({fixed_args}, *extraArgs)"
+    else:
+        call_args = "listOf(*extraArgs)"
+    receiver = "singleton" if singleton else ("MemorySegment.NULL" if method.is_static else "handle")
+    call = f"ObjectCalls.callWithVariantArgs({bind_name}, {receiver}, {call_args})"
+    return_kind = method.logical_return_kind(object_types)
+    if return_kind == "void":
+        lines = []
+        if singleton:
+            lines.append("    @JvmStatic")
+        lines.extend(
+            [
+                f"    fun {function_name}({params}) {{",
+                f"        {call}",
+                "    }",
+            ],
+        )
+        return "\n".join(lines)
+    return_type_text = kotlin_return_type(return_kind, method.return_type, wrapper_classes, api_classes, api_dir)
+    return_expression = f"({call} as Number).toLong()" if return_kind == "enum" else call
+    lines = []
+    if singleton:
+        lines.append("    @JvmStatic")
+    lines.extend(
+        [
+            f"    fun {function_name}({params}): {return_type_text} {{",
+            f"        return {return_expression}",
+            "    }",
+        ],
+    )
+    return "\n".join(lines)
+
+
+def rendered_method_names(
+    cls: ApiClass,
+    object_types: set[str],
+    wrapper_classes: set[str],
+    api_classes: dict[str, ApiClass],
+    api_dir: Path,
+) -> set[str]:
+    names: set[str] = set()
+    for method_list in cls.methods.values():
+        for method in method_list:
+            if unsupported_reason(cls.name, method, object_types, wrapper_classes, api_classes, api_dir) is None:
+                names.add(method.name)
+    return names
+
+
+def first_method(cls: ApiClass, name: str) -> ApiMethod | None:
+    methods = cls.methods.get(name)
+    return methods[0] if methods else None
+
+
+def property_setter_type(
+    setter_method: ApiMethod,
+    object_types: set[str],
+    wrapper_classes: set[str],
+    api_classes: dict[str, ApiClass],
+) -> str | None:
+    if not setter_method.argument_types:
+        return None
+    if any(default is None for default in setter_method.argument_defaults[1:]):
+        return None
+    if setter_method.logical_return_kind(object_types) != "void":
+        return None
+    setter_kind = setter_method.logical_arg_kinds(object_types)[0]
+    return kotlin_type(
+        setter_kind,
+        setter_method.argument_types[0],
+        wrapper_classes,
+        api_classes,
+    )
+
+
+def render_property(
+    cls: ApiClass,
+    prop: dict[str, object],
+    emitted_methods: set[str],
+    object_types: set[str],
+    wrapper_classes: set[str],
+    api_classes: dict[str, ApiClass],
+    api_dir: Path,
+) -> str | None:
+    getter = str(prop.get("getter") or "")
+    setter = str(prop.get("setter") or "")
+    if setter and setter not in emitted_methods and setter.startswith("_") and setter[1:] in emitted_methods:
+        setter = setter[1:]
+    if not getter or getter not in emitted_methods:
+        return None
+    getter_method = first_method(cls, getter)
+    if getter_method is None:
+        return None
+    if getter_method.argument_types:
+        return None
+    raw_property_name = str(prop.get("name") or "")
+    property_name = PROPERTY_NAME_OVERRIDES.get((cls.name, raw_property_name), camel_name(raw_property_name))
+    if not property_name:
+        return None
+
+    getter_kind = getter_method.logical_return_kind(object_types)
+    property_type = kotlin_return_type(
+        getter_kind,
+        getter_method.return_type,
+        wrapper_classes,
+        api_classes,
+        api_dir,
+    )
+    getter_call = f"{method_function_name(cls.name, getter)}()"
+
+    if setter and setter in emitted_methods:
+        setter_method = first_method(cls, setter)
+        setter_type = (
+            property_setter_type(setter_method, object_types, wrapper_classes, api_classes)
+            if setter_method is not None
+            else None
+        )
+        if setter_type != property_type:
+            setter = ""
+
+    if setter and setter in emitted_methods:
+        setter_call = f"{method_function_name(cls.name, setter)}(value)"
+        return "\n".join(
+            [
+                f"    var {property_name}: {property_type}",
+                f'        @JvmName("{property_name}Property")',
+                f"        get() = {getter_call}",
+                f'        @JvmName("set{upper_first(property_name)}Property")',
+                f"        set(value) = {setter_call}",
+            ],
+        )
+
+    return "\n".join(
+        [
+            f"    val {property_name}: {property_type}",
+            f'        @JvmName("{property_name}Property")',
+            f"        get() = {getter_call}",
+        ],
+    )
+
+
+def render_signal_constants(cls: ApiClass) -> str | None:
+    if not cls.signals:
+        return None
+    lines = ["    object Signals {"]
+    for signal in cls.signals:
+        name = str(signal.get("name") or "")
+        constant_name = camel_name(name)
+        if not name or not constant_name:
+            continue
+        lines.append(f'        const val {constant_name}: String = "{name}"')
+    lines.append("    }")
+    return "\n".join(lines) if len(lines) > 2 else None
+
+
+def render_companion_constants(cls: ApiClass) -> str | None:
+    lines: list[str] = []
+    seen: set[str] = set()
+    for constant in cls.constants:
+        name = str(constant.get("name") or "")
+        if not name or name in seen:
+            continue
+        value = constant.get("value")
+        if not isinstance(value, int):
+            continue
+        seen.add(name)
+        lines.append(f"        const val {name}: Long = {value}L")
+    for enum in cls.enums:
+        for value_spec in enum.get("values") or ():
+            name = str(value_spec.get("name") or "")
+            if not name or name in seen:
+                continue
+            value = value_spec.get("value")
+            if not isinstance(value, int):
+                continue
+            seen.add(name)
+            lines.append(f"        const val {name}: Long = {value}L")
+    return "\n".join(lines) if lines else None
+
+
+def outdent_companion_member(section: str) -> str:
+    return "\n".join(line[4:] if line.startswith("    ") else line for line in section.splitlines())
+
+
+def has_api_subclasses(class_name: str, api_classes: dict[str, ApiClass]) -> bool:
+    return any(candidate.inherits == class_name for candidate in api_classes.values())
+
+
+def render_wrap_helpers(class_name: str) -> str:
+    return "\n".join(
+        [
+            "        @JvmStatic",
+            f"        fun fromHandle(handle: MemorySegment): {class_name}? =",
+            "            wrap(handle)",
+            "",
+            f"        internal fun wrap(handle: MemorySegment): {class_name}? =",
+            f"            if (handle.address() == 0L) null else {class_name}(handle)",
+        ],
+    )
+
+
+def render_singleton_wrap_helpers(class_name: str) -> str:
+    return "\n".join(
+        [
+            "    @JvmStatic",
+            f"    fun fromHandle(handle: MemorySegment): {class_name}? =",
+            "        wrap(handle)",
+            "",
+            f"    internal fun wrap(handle: MemorySegment): {class_name}? =",
+            "        if (handle.address() == 0L) null else this",
+        ],
+    )
+
+
+def render_draft(
+    cls: ApiClass,
+    object_types: set[str],
+    wrapper_classes: set[str],
+    api_classes: dict[str, ApiClass],
+    api_dir: Path,
+    singleton_names: set[str] | None = None,
+) -> tuple[str, list[str]]:
+    imports = {"ObjectCalls", "MemorySegment"}
+    singleton = cls.name in (singleton_names or set())
+    emitted_methods = rendered_method_names(cls, object_types, wrapper_classes, api_classes, api_dir)
+    properties: list[str] = []
+    methods: list[str] = []
+    static_methods: list[str] = []
+    binds: list[str] = []
+    skips: list[str] = []
+
+    for prop in cls.properties:
+        rendered_property = render_property(
+            cls,
+            prop,
+            emitted_methods,
+            object_types,
+            wrapper_classes,
+            api_classes,
+            api_dir,
+        )
+        if rendered_property:
+            properties.append(rendered_property)
+            imports.add("JvmName")
+
+    for method_list in cls.methods.values():
+        for method in method_list:
+            reason = unsupported_reason(cls.name, method, object_types, wrapper_classes, api_classes, api_dir)
+            if reason:
+                skips.append(f"{method.signature} hash={method.hash}: {reason}")
+                continue
+            for kind in (*method.logical_arg_kinds(object_types), method.logical_return_kind(object_types)):
+                if kind in {
+                    "AABB",
+                    "Basis",
+                    "Callable",
+                    "Color",
+                    "NodePath",
+                    "Plane",
+                    "Projection",
+                    "PackedVector2Array",
+                    "PackedVector3Array",
+                    "PackedColorArray",
+                    "PackedVector4Array",
+                    "TypedRIDArray",
+                    "TypedStringArray",
+                    "TypedIntArray",
+                    "TypedNodePathArray",
+                    "TypedPackedVector2Array",
+                    "TypedPlaneArray",
+                    "TypedTransform3DArray",
+                    "TypedVector2Array",
+                    "TypedVector3Array",
+                    "TypedNodeArray",
+                    "TypedNode2DArray",
+                    "TypedNode3DArray",
+                    "TypedMaterialArray",
+                    "TypedVector2iArray",
+                    "TypedVector3iArray",
+                    "TypedStringNameArray",
+                    "TypedDictionaryArray",
+                    "Rect2",
+                    "Rect2i",
+                    "RID",
+                    "Quaternion",
+                    "Transform2D",
+                    "Transform3D",
+                    "Vector2",
+                    "Vector2i",
+                    "Vector3",
+                    "Vector3i",
+                    "Vector4",
+                }:
+                    if kind == "PackedVector2Array":
+                        imports.add("Vector2")
+                    elif kind == "Callable":
+                        pass
+                    elif kind == "PackedVector3Array":
+                        imports.add("Vector3")
+                    elif kind == "PackedColorArray":
+                        imports.add("Color")
+                    elif kind == "PackedVector4Array":
+                        imports.add("Vector4")
+                    elif kind == "TypedRIDArray":
+                        imports.add("RID")
+                    elif kind == "TypedNodePathArray":
+                        imports.add("NodePath")
+                    elif kind == "TypedPackedVector2Array":
+                        imports.add("Vector2")
+                    elif kind == "TypedPlaneArray":
+                        imports.add("Plane")
+                    elif kind == "TypedTransform3DArray":
+                        imports.add("Transform3D")
+                    elif kind in {"TypedVector2Array", "TypedVector3Array"}:
+                        imports.add(kind.removeprefix("Typed").removesuffix("Array"))
+                    elif kind in {
+                        "TypedNodeArray",
+                        "TypedNode2DArray",
+                        "TypedNode3DArray",
+                        "TypedMaterialArray",
+                        "TypedArea2DArray",
+                        "TypedArea3DArray",
+                        "TypedBaseButtonArray",
+                        "TypedPhysicsBody3DArray",
+                    }:
+                        pass
+                    elif kind in {"TypedVector2iArray", "TypedVector3iArray"}:
+                        imports.add(kind.removeprefix("Typed").removesuffix("Array"))
+                    elif kind in {
+                        "TypedStringArray",
+                        "TypedIntArray",
+                        "TypedStringNameArray",
+                        "TypedDictionaryArray",
+                    }:
+                        pass
+                    else:
+                        imports.add(kind)
+                if kind == "Object":
+                    imports.add("MemorySegment")
+            if method.is_vararg:
+                rendered_method = render_vararg_method(
+                    cls.name,
+                    method,
+                    object_types,
+                    wrapper_classes,
+                    api_classes,
+                    api_dir,
+                    singleton=singleton,
+                )
+            else:
+                shape = candidate_for(method, object_types)
+                assert shape is not None
+                rendered_method = render_method(
+                    cls.name,
+                    method,
+                    shape,
+                    object_types,
+                    wrapper_classes,
+                    api_classes,
+                    api_dir,
+                    singleton=singleton,
+                )
+            if method.is_static and not singleton:
+                static_methods.append("\n".join(f"    {line}" if line else line for line in rendered_method.splitlines()))
+            else:
+                methods.append(rendered_method)
+            binds.append(
+                "\n".join(
+                    [
+                        f"        private const val {const_name(method)} = {method.hash}L",
+                        f"        private val {method_function_name(cls.name, method.name)}Bind by lazy {{",
+                        f'            ObjectCalls.getMethodBind("{cls.name}", "{method.name}", {const_name(method)})',
+                        "        }",
+                    ],
+                ),
+            )
+
+    singleton_parent = cls.inherits in (singleton_names or set())
+    parent = "GodotObject" if cls.inherits in {"", "Object"} or singleton_parent else cls.inherits
+    class_keyword = "open class" if has_api_subclasses(cls.name, api_classes) else "class"
+    import_lines = sorted(f"import {DEFAULT_IMPORTS[name]}" for name in imports)
+    body_sections = []
+    if properties:
+        body_sections.append("\n\n".join(properties))
+    body_sections.append("\n\n".join(methods) if methods else "    // No conservative instance methods emitted yet.")
+    custom_members = CUSTOM_MEMBER_SECTIONS.get(cls.name)
+    if custom_members:
+        body_sections.append(custom_members)
+    signal_constants = render_signal_constants(cls)
+    if signal_constants:
+        body_sections.append(signal_constants)
+    if singleton:
+        singleton_constants = render_companion_constants(cls)
+        if singleton_constants:
+            body_sections.insert(0, outdent_companion_member(singleton_constants))
+        body_sections.append(render_singleton_wrap_helpers(cls.name))
+        bind_sections = [outdent_companion_member(section) for section in binds]
+        content = "\n".join(
+            [
+                "package net.multigesture.kanama.api",
+                "",
+                *import_lines,
+                "",
+                "/**",
+                f" * Generated from Godot docs: {cls.name}",
+                " */",
+                f"object {cls.name} {{",
+                "    private val singleton: MemorySegment by lazy {",
+                f'        ObjectCalls.getSingleton("{cls.name}")',
+                "    }",
+                "",
+                "\n\n".join(body_sections),
+                "",
+                "\n\n".join(bind_sections) if bind_sections else "    // No MethodBinds emitted yet.",
+                "}",
+                "",
+            ],
+        )
+    else:
+        companion_sections = []
+        if static_methods:
+            companion_sections.append("\n\n".join(static_methods))
+        companion_constants = render_companion_constants(cls)
+        if companion_constants:
+            companion_sections.append(companion_constants)
+        companion_sections.append(render_wrap_helpers(cls.name))
+        custom_companion_members = CUSTOM_COMPANION_MEMBER_SECTIONS.get(cls.name)
+        if custom_companion_members:
+            companion_sections.append(custom_companion_members)
+        companion_sections.append("\n\n".join(binds) if binds else "        // No MethodBinds emitted yet.")
+        content = "\n".join(
+            [
+                "package net.multigesture.kanama.api",
+                "",
+                *import_lines,
+                "",
+                "/**",
+                f" * Generated from Godot docs: {cls.name}",
+                " */",
+                f"{class_keyword} {cls.name}(handle: MemorySegment) : {parent}(handle) {{",
+                "\n\n".join(body_sections),
+                "",
+                "    companion object {",
+                "\n\n".join(companion_sections),
+                "    }",
+                "}",
+                "",
+            ],
+        )
+    return content, skips
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--api", type=Path, default=Path("extension_api.json"))
+    parser.add_argument("--api-dir", type=Path, default=Path("src/main/kotlin/net/multigesture/kanama/api"))
+    parser.add_argument("--class", dest="classes", action="append", default=[], help="Class to generate; repeatable.")
+    parser.add_argument(
+        "--emit-class",
+        dest="emit_classes",
+        action="append",
+        default=[],
+        help="Class to write into --api-dir as an adopted generated source; repeatable.",
+    )
+    parser.add_argument("--allow-overwrite", action="store_true", help="Allow --emit-class to replace an existing source file.")
+    parser.add_argument("--output-dir", type=Path, help="Write drafts to this directory. Defaults to stdout.")
+    parser.add_argument("--skip-report", type=Path, help="Write unsupported method reasons to this file.")
+    args = parser.parse_args()
+    if not args.classes and not args.emit_classes:
+        parser.error("at least one --class or --emit-class is required")
+
+    api_classes = load_api_classes(args.api)
+    singleton_names = load_api_singletons(args.api)
+    object_types = object_type_names(api_classes)
+    wrapper_classes = scan_wrapper_classes(args.api_dir)
+    skip_lines: list[str] = []
+
+    for class_name in args.classes:
+        cls = api_classes.get(class_name)
+        if cls is None:
+            raise SystemExit(f"{class_name}: not found in {args.api}")
+        content, skips = render_draft(cls, object_types, wrapper_classes, api_classes, args.api_dir, singleton_names)
+        skip_lines.extend(f"{class_name}: {skip}" for skip in skips)
+        if args.output_dir:
+            args.output_dir.mkdir(parents=True, exist_ok=True)
+            (args.output_dir / f"{class_name}.kt").write_text(content, encoding="utf-8")
+        else:
+            print(content)
+
+    for class_name in args.emit_classes:
+        cls = api_classes.get(class_name)
+        if cls is None:
+            raise SystemExit(f"{class_name}: not found in {args.api}")
+        content, skips = render_draft(cls, object_types, wrapper_classes, api_classes, args.api_dir, singleton_names)
+        skip_lines.extend(f"{class_name}: {skip}" for skip in skips)
+        target = args.api_dir / f"{class_name}.kt"
+        if target.exists() and not args.allow_overwrite and target.read_text(encoding="utf-8") != content:
+            raise SystemExit(f"{target}: exists and differs; pass --allow-overwrite to replace it")
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text(content, encoding="utf-8")
+
+    if args.skip_report:
+        args.skip_report.parent.mkdir(parents=True, exist_ok=True)
+        args.skip_report.write_text("\n".join(skip_lines) + ("\n" if skip_lines else ""), encoding="utf-8")
+    elif skip_lines:
+        print("// Unsupported methods:")
+        for line in skip_lines:
+            print(f"// - {line}")
+
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

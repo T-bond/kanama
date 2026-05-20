@@ -1,0 +1,157 @@
+<p align="center">
+  <img src="assets/kanama-logo.png" alt="Kanama logo" width="220">
+</p>
+
+<h1 align="center">Kanama</h1>
+
+<p align="center">
+  Kotlin for Godot through a GDExtension runtime powered by the JVM and the
+  Foreign Function & Memory API.
+</p>
+
+<p align="center">
+  <a href="LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/license-MIT-blue.svg"></a>
+  <img alt="Godot 4.7 beta 2" src="https://img.shields.io/badge/Godot-4.7_beta_2-478cbf.svg">
+  <img alt="JDK 25+" src="https://img.shields.io/badge/JDK-25%2B-f89820.svg">
+  <img alt="Android: experimental" src="https://img.shields.io/badge/Android-experimental-3ddc84.svg">
+  <img alt="Status: experimental" src="https://img.shields.io/badge/status-experimental-yellow.svg">
+</p>
+
+Kanama lets Kotlin scripts attach to Godot nodes through a GDExtension runtime.
+In the Godot editor, Kanama `.kt` files appear as script resources and can be
+attached directly to nodes like `.gd` scripts. Kanama aims to preserve the
+Godot workflow while giving game code access to Kotlin, Gradle, coroutines, and
+the JVM ecosystem.
+
+## Related Projects
+
+Kanama is experimental and uses a Panama/FFM-based GDExtension architecture.
+If you want a more established Kotlin integration for Godot today, also
+evaluate [Godot Kotlin/JVM](https://godot-kotl.in/en/stable/). It is a
+separate project with a different runtime and export model.
+
+## Status
+
+Kanama is experimental and desktop-first. The `0.1.0` preview baseline is
+Godot 4.7 beta 2. Use the
+[Godot 4.7 beta 2 archive](https://godotengine.org/download/archive/4.7-beta2/)
+for compatible editor/player binaries and Android export templates. Native
+packaged desktop exports are not release claims for the current preview.
+
+Android support is experimental for the v0.1.0 line: the current workflow builds
+a Godot Android plugin AAR, uses
+[PanamaPort](https://github.com/vova7878/PanamaPort) from Maven Central for the
+Android FFM layer, and has emulator/Pixel 7 smoke coverage for public demo APKs.
+Web export is not planned.
+
+See [Version Support](docs/reference/version-support.md) for the current test matrix and
+the `0.1.0` public preview criteria.
+
+## Highlights
+
+- Kotlin scripts attach to Godot nodes like GDScript
+- No engine fork, no engine module, no JNI glue in game code
+- Desktop runtime powered by the JDK Foreign Function & Memory API
+- Experimental Android runtime through Godot's Android plugin AAR flow
+- Hot reload and editor build tools for a fast iteration loop
+- Growing Godot API wrapper surface with generated KDoc from Godot docs
+- Desktop-first: macOS arm64, Windows x64, Linux x64, and Linux ARM64
+  editor/runtime smoke paths are validated for the current preview
+
+## Requirements
+
+Desktop/editor workflow:
+
+- Godot 4.7 beta 2 from the
+  [Godot 4.7 beta 2 archive](https://godotengine.org/download/archive/4.7-beta2/)
+- JDK 25+ (Temurin 25 recommended)
+- CMake 3.22.1+ and a platform C toolchain for the desktop native bootstrap
+  built by `installAddonJar`; Godot source is not required
+- macOS arm64, Windows x64, Linux x64, or Linux ARM64 for the current
+  editor/runtime smoke paths
+
+Experimental Android export workflow:
+
+- Godot 4.7 beta 2 Android export templates from the
+  [Godot 4.7 beta 2 archive](https://godotengine.org/download/archive/4.7-beta2/)
+- Android SDK API 36, build-tools 36.1.0, and NDK 29.0.14206865 for Godot export
+- CMake 3.22.1 for the Kanama Android plugin native bootstrap
+- JDK 21 for Android Gradle/export tooling
+- JDK 25 for normal Kanama desktop development
+
+## Quick Start
+
+```sh
+git clone https://github.com/falcon4ever/kanama
+cd kanama
+./gradlew installAddonJar \
+  -PkanamaProjectDir=/path/to/your/godot/project \
+  -PkanamaProjectScriptsDir=/path/to/your/godot/project
+```
+
+Then enable the Kanama plugin in Godot and press **Build Scripts**. The Gradle
+install task builds the host native bootstrap with CMake and copies it into the
+project addon together with the runtime jars.
+
+## Example
+
+```kotlin
+import net.multigesture.kanama.annotations.OnReady
+import net.multigesture.kanama.annotations.ScriptClass
+import net.multigesture.kanama.api.KanamaScript
+import net.multigesture.kanama.api.Node
+import java.lang.foreign.MemorySegment
+
+@ScriptClass(attachTo = "Node")
+class HelloKanama(godotObject: MemorySegment) :
+    KanamaScript<Node>(godotObject, ::Node) {
+    @OnReady
+    fun ready() {
+        self.print("Hello from Kotlin")
+    }
+}
+```
+
+## Documentation
+
+- [Getting Started](docs/getting-started/index.md)
+- [The Editor Loop](docs/getting-started/editor-workflow.md)
+- [Writing Kotlin Scripts](docs/game-dev/scripts.md)
+- [Calling Godot APIs](docs/game-dev/godot-api.md)
+- [Exports and Resources](docs/game-dev/properties-resources.md)
+- [Signals and Callbacks](docs/game-dev/signals.md)
+- [Porting GDScript](docs/game-dev/porting-gdscript.md)
+- [Kotlin Style](docs/game-dev/style-guide.md)
+- [Desktop and Packaging](docs/exporting/desktop.md)
+- [Android Experimental](docs/exporting/android.md)
+- [Version Support](docs/reference/version-support.md)
+- [API Coverage](docs/reference/api-coverage.md)
+- [C# Comparison](docs/reference/c-sharp-compat.md)
+- [Changelog](CHANGELOG.md)
+- [Contributor Guide](docs/contributing/index.md)
+
+MkDocs site: `pip install -r docs/requirements.txt && mkdocs serve`
+
+## Demos
+
+The companion demo repository is
+[falcon4ever/kanama-demos](https://github.com/falcon4ever/kanama-demos). Keep
+it beside this checkout:
+
+```text
+dev/
+  kanama/
+  kanama-demos/
+```
+
+Current demo ports cover starter kits, official Godot demos, and GDQuest 3D
+controller demos. The demo repo is also where new wrappers are validated
+against real gameplay before release.
+
+## Contributing
+
+See [CONTRIBUTING.md](CONTRIBUTING.md).
+
+## License
+
+MIT. See [LICENSE](LICENSE).

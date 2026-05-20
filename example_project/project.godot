@@ -1,0 +1,28 @@
+; Engine configuration file.
+; It's best edited using the editor UI and not directly,
+; since the parameters that go here are not all obvious.
+;
+; Format:
+;   [section] ; section goes between []
+;   param=value ; assign values to parameters
+
+config_version=5
+
+[application]
+
+config/name="Kanama Test"
+run/main_scene="uid://dk4ns76tyy6un"
+config/features=PackedStringArray("4.7")
+
+[autoload]
+
+KanamaSmokeAutoload="*res://KanamaSmokeAutoload.gd"
+
+[editor_plugins]
+
+enabled=PackedStringArray("res://addons/kanama_tools/plugin.cfg")
+
+[kanama]
+
+tools/auto_build_on_save=true
+tools/auto_build_debounce_ms=800

@@ -1,0 +1,2421 @@
+package net.multigesture.kanama.processor
+
+import com.google.devtools.ksp.getDeclaredFunctions
+import com.google.devtools.ksp.getDeclaredProperties
+import com.google.devtools.ksp.isPublic
+import com.google.devtools.ksp.processing.Dependencies
+import com.google.devtools.ksp.processing.Resolver
+import com.google.devtools.ksp.processing.SymbolProcessor
+import com.google.devtools.ksp.processing.SymbolProcessorEnvironment
+import com.google.devtools.ksp.processing.SymbolProcessorProvider
+import com.google.devtools.ksp.symbol.KSAnnotated
+import com.google.devtools.ksp.symbol.KSClassDeclaration
+import com.google.devtools.ksp.symbol.FileLocation
+import com.google.devtools.ksp.symbol.KSFile
+import com.google.devtools.ksp.symbol.KSFunctionDeclaration
+import com.google.devtools.ksp.symbol.KSPropertyDeclaration
+import com.google.devtools.ksp.symbol.KSType
+import java.io.File
+
+/**
+ * Phase 5 KSP processor.
+ *
+ * For each `@RegisterClass` type, emits a complete
+ * `<ClassName>Registrar` into
+ * `build/generated/ksp/main/kotlin/net/multigesture/kanama/generated`.
+ * The registrar covers:
+ *
+ *  - class registration (create/free/getVirtual upcalls + ClassDB.registerClass)
+ *  - `@RegisterFunction` methods (call/ptrcall upcalls + registerMethod)
+ *  - `@RegisterProperty` properties (synthetic get_/set_ methods + registerProperty)
+ *  - `@OnReady` / `@OnEnterTree` / `@OnExitTree` virtuals (per-virtual
+ *    dispatch keyed by interned StringName storage)
+ *
+ * A single `KanamaRegistry.registerAll(library)` aggregator is emitted
+ * at the end of the KSP round so `KanamaBinding` only calls one entry
+ * point regardless of how many classes exist.
+ *
+ * Current type-marshaling scope: `kotlin.Long` (→ `VariantType.INT`)
+ * for arguments, returns, and properties. `kotlin.Unit` for void
+ * returns. Richer types land in a later iteration.
+ */
+class KanamaProcessor(
+    private val env: SymbolProcessorEnvironment,
+) : SymbolProcessor {
+
+    private val registrarSimpleNames = linkedSetOf<String>()
+    private val scriptRegistrarSimpleNames = linkedSetOf<String>()
+    private val aggregatorSources = mutableListOf<KSFile>()
+    private val scriptAggregatorSources = mutableListOf<KSFile>()
+    private var scriptClassTypes: Map<String, ScriptClassTypeInfo> = emptyMap()
+
+    override fun process(resolver: Resolver): List<KSAnnotated> {
+        // Phase 5: @RegisterClass → full ClassDB type registration.
+        val symbols = resolver.getSymbolsWithAnnotation(REGISTER_CLASS_FQN)
+        for (symbol in symbols) {
+            if (symbol !is KSClassDeclaration) continue
+            val fqName = symbol.qualifiedName?.asString() ?: continue
+            val simpleName = symbol.simpleName.asString()
+            val registrarName = "${simpleName}Registrar"
+            if (!registrarSimpleNames.add(registrarName)) continue
+
+            val model = try {
+                buildClassModel(symbol, fqName)
+            } catch (e: IllegalArgumentException) {
+                env.logger.error("[kanama:ksp] ${e.message}", symbol)
+                continue
+            }
+            symbol.containingFile?.let { aggregatorSources += it }
+            emitRegistrar(model, symbol.containingFile!!)
+        }
+
+        // @ScriptClass -> ScriptInstance-backed attach-to-node registration.
+        val scriptSymbols = resolver.getSymbolsWithAnnotation(SCRIPT_CLASS_FQN)
+            .filterIsInstance<KSClassDeclaration>()
+            .toList()
+        scriptClassTypes = buildScriptClassTypeMap(scriptSymbols)
+        for (symbol in scriptSymbols) {
+            val fqName = symbol.qualifiedName?.asString() ?: continue
+            val simpleName = symbol.simpleName.asString()
+            val registrarName = "${simpleName}ScriptRegistrar"
+            if (!registrarSimpleNames.add(registrarName)) continue
+            scriptRegistrarSimpleNames += registrarName
+
+            val model = try {
+                buildScriptModel(symbol, fqName)
+            } catch (e: IllegalArgumentException) {
+                env.logger.error("[kanama:ksp] ${e.message}", symbol)
+                continue
+            }
+            symbol.containingFile?.let {
+                aggregatorSources += it
+                scriptAggregatorSources += it
+            }
+            emitScriptRegistrar(model, symbol.containingFile!!)
+        }
+
+        return emptyList()
+    }
+
+    private fun buildScriptClassTypeMap(scriptSymbols: List<KSClassDeclaration>): Map<String, ScriptClassTypeInfo> {
+        val byName = linkedMapOf<String, ScriptClassTypeInfo>()
+        for (symbol in scriptSymbols) {
+            val fqName = symbol.qualifiedName?.asString() ?: continue
+            val simpleName = symbol.simpleName.asString()
+            val attachTo = symbol.annotations
+                .firstOrNull { it.shortName.asString() == "ScriptClass" }
+                ?.arguments
+                ?.firstOrNull { it.name?.asString() == "attachTo" }
+                ?.value as? String
+                ?: "Node"
+            val isGlobalClass = symbol.annotations.any {
+                val name = it.shortName.asString()
+                name == "GlobalClass" || name == "ClassName"
+            }
+            val info = ScriptClassTypeInfo(fqName, simpleName, attachTo, isGlobalClass)
+            byName[fqName] = info
+        }
+        return byName
+    }
+
+    override fun finish() {
+        if (registrarSimpleNames.isEmpty()) return
+        emitAggregator(
+            fileName = "KanamaRegistry",
+            objectName = "KanamaRegistry",
+            registrars = registrarSimpleNames,
+            sources = aggregatorSources,
+        )
+        if (scriptRegistrarSimpleNames.isNotEmpty()) {
+            emitAggregator(
+                fileName = "KanamaScriptRegistry",
+                objectName = "KanamaScriptRegistry",
+                registrars = scriptRegistrarSimpleNames,
+                sources = scriptAggregatorSources,
+            )
+        }
+    }
+
+    private fun emitAggregator(
+        fileName: String,
+        objectName: String,
+        registrars: Iterable<String>,
+        sources: List<KSFile>,
+    ) {
+        val registrarList = registrars.toList()
+        val source = buildString {
+            appendLine("// Generated by KanamaProcessor — do not edit.")
+            appendLine("package $GENERATED_PACKAGE")
+            appendLine()
+            appendLine("import java.lang.foreign.MemorySegment")
+            appendLine()
+            appendLine("object $objectName {")
+            appendLine("    fun registerAll(library: MemorySegment) {")
+            for (name in registrarList) {
+                appendLine("        $name.register(library)")
+            }
+            appendLine("    }")
+            appendLine("}")
+        }
+        env.codeGenerator.createNewFile(
+            dependencies = Dependencies(aggregating = true, *sources.toTypedArray()),
+            packageName = GENERATED_PACKAGE,
+            fileName = fileName,
+        ).use { it.write(source.toByteArray(Charsets.UTF_8)) }
+        env.logger.warn(
+            "[kanama:ksp] generated $GENERATED_PACKAGE.$objectName " +
+                "with ${registrarList.size} class(es)",
+        )
+    }
+
+    // ---------- Model building ----------
+
+    private fun buildClassModel(cls: KSClassDeclaration, fqName: String): ClassModel {
+        val simpleName = cls.simpleName.asString()
+        val parent = cls.annotations
+            .firstOrNull { it.shortName.asString() == "RegisterClass" }
+            ?.arguments
+            ?.firstOrNull { it.name?.asString() == "parentClassName" }
+            ?.value as? String
+            ?: "Object"
+
+        val isTool = cls.annotations.any { it.shortName.asString() == "Tool" }
+
+        val methods = mutableListOf<MethodModel>()
+        val properties = mutableListOf<PropertyModel>()
+        val virtuals = mutableListOf<VirtualModel>()
+        val signals = mutableListOf<SignalModel>()
+
+        for (fn in cls.getDeclaredFunctions()) {
+            if (!fn.isPublic()) continue
+            for (ann in fn.annotations) {
+                val callName = "call${capitalize(fn.simpleName.asString())}"
+                val kotlinName = fn.simpleName.asString()
+                when (ann.shortName.asString()) {
+                    "RegisterFunction", "Method" -> methods += buildMethodModel(fn, ann, simpleName)
+                    "OnReady", "Ready"          -> virtuals += VirtualModel("_ready",            callName, kotlinName)
+                    "OnEnterTree", "EnterTree"  -> virtuals += VirtualModel("_enter_tree",       callName, kotlinName)
+                    "OnExitTree", "ExitTree"    -> virtuals += VirtualModel("_exit_tree",        callName, kotlinName)
+                    "OnProcess", "Process"      -> virtuals += VirtualModel("_process",          callName, kotlinName,
+                                             args = listOf(ArgModel("delta", TypeMapping.FLOAT)))
+                    "OnPhysicsProcess", "PhysicsProcess" ->
+                                         virtuals += VirtualModel("_physics_process",  callName, kotlinName,
+                                             args = listOf(ArgModel("delta", TypeMapping.FLOAT)))
+                    "OnInput", "Input"  -> virtuals += VirtualModel("_input",            callName, kotlinName,
+                                             args = listOf(ArgModel("event", TypeMapping.OBJECT, "net.multigesture.kanama.api.GodotObject")))
+                    "OnUnhandledInput", "UnhandledInput" ->
+                                         virtuals += VirtualModel("_unhandled_input",   callName, kotlinName,
+                                             args = listOf(ArgModel("event", TypeMapping.OBJECT, "net.multigesture.kanama.api.GodotObject")))
+                    "OnShortcutInput", "ShortcutInput" ->
+                                         virtuals += VirtualModel("_shortcut_input",    callName, kotlinName,
+                                             args = listOf(ArgModel("event", TypeMapping.OBJECT, "net.multigesture.kanama.api.GodotObject")))
+                    "OnUnhandledKeyInput", "UnhandledKeyInput" ->
+                                         virtuals += VirtualModel("_unhandled_key_input", callName, kotlinName,
+                                             args = listOf(ArgModel("event", TypeMapping.OBJECT, "net.multigesture.kanama.api.GodotObject")))
+                    "Signal"           -> signals += buildSignalModel(fn, ann, simpleName)
+                }
+            }
+        }
+
+        for (prop in cls.getDeclaredProperties()) {
+            if (prop.annotations.none { it.shortName.asString() == "RegisterProperty" || it.shortName.asString() == "Export" }) continue
+            properties += buildPropertyModel(prop, simpleName)
+        }
+
+        return ClassModel(
+            simpleName = simpleName,
+            fqName = fqName,
+            parentClassName = parent,
+            isTool = isTool,
+            methods = methods,
+            properties = properties,
+            virtuals = virtuals,
+            signals = signals,
+        )
+    }
+
+    private fun buildSignalModel(
+        fn: KSFunctionDeclaration,
+        ann: com.google.devtools.ksp.symbol.KSAnnotation,
+        ownerSimpleName: String,
+    ): SignalModel {
+        val kotlinName = fn.simpleName.asString()
+        val nameOverride = ann.arguments.firstOrNull { it.name?.asString() == "name" }?.value as? String
+        val godotName = if (nameOverride.isNullOrEmpty()) camelToSnake(kotlinName) else nameOverride
+        val args = fn.parameters.map { p ->
+            val name = p.name?.asString() ?: "arg"
+            val fq = p.type.resolve().declaration.qualifiedName?.asString()
+            val arg = fqToArgModel(name, fq) ?: throw IllegalArgumentException(
+                "$ownerSimpleName.$kotlinName: unsupported signal arg type '$fq' for '$name'",
+            )
+            arg
+        }
+        return SignalModel(godotName = godotName, args = args)
+    }
+
+    private fun buildMethodModel(
+        fn: KSFunctionDeclaration,
+        ann: com.google.devtools.ksp.symbol.KSAnnotation,
+        ownerSimpleName: String,
+    ): MethodModel {
+        val kotlinName = fn.simpleName.asString()
+        val nameOverride = ann.arguments.firstOrNull { it.name?.asString() == "name" }?.value as? String
+        val godotName = if (nameOverride.isNullOrEmpty()) camelToSnake(kotlinName) else nameOverride
+
+        val returnType = fn.returnType?.resolve()?.let { type ->
+            val fq = type.declaration.qualifiedName?.asString()
+            if (fq == "kotlin.Unit") null
+            else fqToTypeMapping(fq) ?: throw IllegalArgumentException(
+                "$ownerSimpleName.$kotlinName: unsupported return type '$fq'",
+            )
+        }
+
+        val args = fn.parameters.map { p ->
+            val name = p.name?.asString() ?: "arg"
+            val fq = p.type.resolve().declaration.qualifiedName?.asString()
+            val arg = fqToArgModel(name, fq) ?: throw IllegalArgumentException(
+                "$ownerSimpleName.$kotlinName: unsupported parameter type '$fq' for '$name'",
+            )
+            arg.copy(hasDefault = p.hasDefault)
+        }
+        val firstDefault = args.indexOfFirst { it.hasDefault }
+        if (firstDefault >= 0 && args.drop(firstDefault).any { !it.hasDefault }) {
+            throw IllegalArgumentException(
+                "$ownerSimpleName.$kotlinName: @RegisterFunction default arguments must be trailing",
+            )
+        }
+
+        return MethodModel(
+            kotlinName = kotlinName,
+            godotName = godotName,
+            returnType = returnType,
+            args = args,
+            kind = MethodKind.REGULAR,
+        )
+    }
+
+    private fun buildPropertyModel(
+        prop: KSPropertyDeclaration,
+        ownerSimpleName: String,
+    ): PropertyModel {
+        val kotlinName = prop.simpleName.asString()
+        val ann = prop.annotations.firstOrNull {
+            it.shortName.asString() == "RegisterProperty" || it.shortName.asString() == "Export"
+        }
+        val nameOverride = ann?.arguments?.firstOrNull { it.name?.asString() == "name" }?.value as? String
+        val godotName = if (nameOverride.isNullOrEmpty()) camelToSnake(kotlinName) else nameOverride
+        val fq = prop.type.resolve().declaration.qualifiedName?.asString()
+        val type = fqToTypeMapping(fq) ?: throw IllegalArgumentException(
+            "$ownerSimpleName.$kotlinName: unsupported property type '$fq'",
+        )
+        val hint = ann?.arguments?.firstOrNull { it.name?.asString() == "hint" }?.value as? Int ?: 0
+        val hintString = ann?.arguments?.firstOrNull { it.name?.asString() == "hintString" }?.value as? String ?: ""
+        val usage = ann?.arguments?.firstOrNull { it.name?.asString() == "usage" }?.value as? Int ?: 6
+        return PropertyModel(
+            kotlinName = kotlinName,
+            godotName = godotName,
+            type = type,
+            isMutable = prop.isMutable,
+            hint = hint,
+            hintString = hintString,
+            usage = usage,
+        )
+    }
+
+    // ---------- Emission ----------
+
+    private fun emitRegistrar(model: ClassModel, sourceFile: KSFile) {
+        val registrarName = "${model.simpleName}Registrar"
+        val source = CodeEmitter(model, registrarName).emit()
+
+        env.codeGenerator.createNewFile(
+            dependencies = Dependencies(aggregating = false, sourceFile),
+            packageName = GENERATED_PACKAGE,
+            fileName = registrarName,
+        ).use { it.write(source.toByteArray(Charsets.UTF_8)) }
+
+        env.logger.warn(
+            "[kanama:ksp] generated $GENERATED_PACKAGE.$registrarName " +
+                "for ${model.fqName} " +
+                "(parent=${model.parentClassName}, methods=${model.methods.size}, " +
+                "properties=${model.properties.size}, virtuals=${model.virtuals.size}, " +
+                "signals=${model.signals.size})",
+        )
+    }
+
+    private fun buildScriptModel(cls: KSClassDeclaration, fqName: String): ScriptModel {
+        val simpleName = cls.simpleName.asString()
+        val attachTo = cls.annotations
+            .firstOrNull { it.shortName.asString() == "ScriptClass" }
+            ?.arguments
+            ?.firstOrNull { it.name?.asString() == "attachTo" }
+            ?.value as? String
+            ?: "Node"
+        val isTool = cls.annotations.any { it.shortName.asString() == "Tool" }
+        val isGlobalClass = cls.annotations.any {
+            val name = it.shortName.asString()
+            name == "GlobalClass" || name == "ClassName"
+        }
+        warnOnKanamaScriptSelfMismatch(cls, attachTo)
+
+        val properties = mutableListOf<ScriptPropertyModel>()
+        val virtuals = mutableListOf<VirtualModel>()
+        val methods = mutableListOf<MethodModel>()
+        val signals = mutableListOf<SignalModel>()
+
+        for (fn in cls.getDeclaredFunctions()) {
+            if (!fn.isPublic()) continue
+            val annotationNames = fn.annotations.map { it.shortName.asString() }.toSet()
+            warnOnLikelyUnregisteredSceneCallback(cls, fn, annotationNames)
+            for (ann in fn.annotations) {
+                val kotlinName = fn.simpleName.asString()
+                when (ann.shortName.asString()) {
+                    "OnReady", "Ready"         -> virtuals += VirtualModel("_ready", kotlinName, kotlinName)
+                    "OnEnterTree", "EnterTree" -> virtuals += VirtualModel("_enter_tree", kotlinName, kotlinName)
+                    "OnExitTree", "ExitTree"   -> virtuals += VirtualModel("_exit_tree", kotlinName, kotlinName)
+                    "OnProcess", "Process"     -> virtuals += VirtualModel("_process", kotlinName, kotlinName,
+                                             args = listOf(ArgModel("delta", TypeMapping.FLOAT)))
+                    "OnPhysicsProcess", "PhysicsProcess" ->
+                                         virtuals += VirtualModel("_physics_process", kotlinName, kotlinName,
+                                             args = listOf(ArgModel("delta", TypeMapping.FLOAT)))
+                    "OnInput", "Input"  -> virtuals += VirtualModel("_input", kotlinName, kotlinName,
+                                             args = listOf(ArgModel("event", TypeMapping.OBJECT, "net.multigesture.kanama.api.GodotObject")))
+                    "OnUnhandledInput", "UnhandledInput" ->
+                                         virtuals += VirtualModel("_unhandled_input", kotlinName, kotlinName,
+                                             args = listOf(ArgModel("event", TypeMapping.OBJECT, "net.multigesture.kanama.api.GodotObject")))
+                    "OnShortcutInput", "ShortcutInput" ->
+                                         virtuals += VirtualModel("_shortcut_input", kotlinName, kotlinName,
+                                             args = listOf(ArgModel("event", TypeMapping.OBJECT, "net.multigesture.kanama.api.GodotObject")))
+                    "OnUnhandledKeyInput", "UnhandledKeyInput" ->
+                                         virtuals += VirtualModel("_unhandled_key_input", kotlinName, kotlinName,
+                                             args = listOf(ArgModel("event", TypeMapping.OBJECT, "net.multigesture.kanama.api.GodotObject")))
+                    "RegisterFunction", "Method" -> methods += buildMethodModel(fn, ann, simpleName)
+                    "Signal" -> signals += buildSignalModel(fn, ann, simpleName)
+                }
+            }
+        }
+
+        for (prop in cls.getDeclaredProperties()) {
+            if (prop.annotations.none { it.shortName.asString() == "ScriptProperty" || it.shortName.asString() == "Export" }) continue
+            val kotlinName = prop.simpleName.asString()
+            val ann = prop.annotations.firstOrNull {
+                it.shortName.asString() == "ScriptProperty" || it.shortName.asString() == "Export"
+            }
+            val nameOverride = ann?.arguments?.firstOrNull { it.name?.asString() == "name" }?.value as? String
+            val godotName = if (nameOverride.isNullOrEmpty()) camelToSnake(kotlinName) else nameOverride
+            val resolvedType = prop.type.resolve()
+            val fq = resolvedType.declaration.qualifiedName?.asString()
+            val scriptType = scriptPropertyTypeModel(resolvedType, simpleName, kotlinName, scriptClassTypes)
+            val hint = ann?.arguments?.firstOrNull { it.name?.asString() == "hint" }?.value as? Int ?: 0
+            val hintString = ann?.arguments?.firstOrNull { it.name?.asString() == "hintString" }?.value as? String ?: ""
+            val defaultLiteral = scriptPropertyDefaultLiteral(prop, scriptType.type)
+            val exportGroup = prop.annotations.firstOrNull { it.shortName.asString() == "ExportGroup" }
+                ?.let { group ->
+                    ScriptPropertyGroupModel(
+                        name = group.arguments.firstOrNull { it.name?.asString() == "name" }?.value as? String ?: "",
+                        prefix = group.arguments.firstOrNull { it.name?.asString() == "prefix" }?.value as? String ?: "",
+                        usage = PROPERTY_USAGE_GROUP,
+                    )
+                }
+            val exportSubgroup = prop.annotations.firstOrNull { it.shortName.asString() == "ExportSubgroup" }
+                ?.let { group ->
+                    ScriptPropertyGroupModel(
+                        name = group.arguments.firstOrNull { it.name?.asString() == "name" }?.value as? String ?: "",
+                        prefix = group.arguments.firstOrNull { it.name?.asString() == "prefix" }?.value as? String ?: "",
+                        usage = PROPERTY_USAGE_SUBGROUP,
+                    )
+                }
+            properties += ScriptPropertyModel(
+                kotlinName,
+                godotName,
+                scriptType.type,
+                prop.isMutable,
+                if (hint == 0) scriptType.hint else hint,
+                if (hintString.isEmpty()) scriptType.hintString else hintString,
+                defaultLiteral,
+                exportGroup,
+                exportSubgroup,
+                scriptType.objectWrapperFqName,
+                scriptType.arrayElementWrapperFqName,
+                scriptType.customScriptFqName,
+                scriptType.arrayElementCustomScriptFqName,
+                scriptType.customScriptIsResource,
+                scriptType.arrayElementCustomScriptIsResource,
+                scriptType.arrayElementString,
+            )
+        }
+
+        return ScriptModel(simpleName, fqName, attachTo, isTool, isGlobalClass, properties, virtuals, methods, signals)
+    }
+
+    private fun warnOnKanamaScriptSelfMismatch(cls: KSClassDeclaration, attachTo: String) {
+        for (superTypeRef in cls.superTypes) {
+            val superType = runCatching { superTypeRef.resolve() }.getOrNull() ?: continue
+            val superFqName = superType.declaration.qualifiedName?.asString() ?: continue
+            if (superFqName != KANAMA_API_SCRIPT_FQN) continue
+
+            val selfType = superType.arguments.firstOrNull()?.type?.resolve() ?: continue
+            val selfName = selfType.declaration.simpleName.asString()
+            if (selfName == attachTo) return
+
+            env.logger.warn(
+                "[kanama:ksp] ${cls.simpleName.asString()} extends KanamaScript<$selfName> " +
+                    "but @ScriptClass attaches to $attachTo. Prefer " +
+                    "KanamaScript<$attachTo>(godotObject, ::$attachTo) when `self` should match " +
+                    "the Godot base class.",
+                cls,
+            )
+            return
+        }
+    }
+
+    private fun warnOnLikelyUnregisteredSceneCallback(
+        cls: KSClassDeclaration,
+        fn: KSFunctionDeclaration,
+        annotationNames: Set<String>,
+    ) {
+        val callableAnnotations = setOf(
+            "RegisterFunction", "Method",
+            "OnReady", "Ready",
+            "OnEnterTree", "EnterTree",
+            "OnExitTree", "ExitTree",
+            "OnProcess", "Process",
+            "OnPhysicsProcess", "PhysicsProcess",
+            "OnInput", "Input",
+            "OnUnhandledInput", "UnhandledInput",
+            "OnShortcutInput", "ShortcutInput",
+            "OnUnhandledKeyInput", "UnhandledKeyInput",
+            "Signal",
+        )
+        if (annotationNames.any { it in callableAnnotations }) return
+
+        val kotlinName = fn.simpleName.asString()
+        if (!kotlinName.startsWith("on") || kotlinName.length <= 2 || !kotlinName[2].isUpperCase()) return
+
+        env.logger.warn(
+            "[kanama:ksp] ${cls.simpleName.asString()}.$kotlinName looks like a scene signal callback " +
+                "but is not exposed to Godot. Saved .tscn connections require " +
+                "@RegisterFunction(\"_${camelToSnake(kotlinName)}\") or an explicit matching method name.",
+            fn,
+        )
+    }
+
+    private fun emitScriptRegistrar(model: ScriptModel, sourceFile: KSFile) {
+        val registrarName = "${model.simpleName}ScriptRegistrar"
+        val source = ScriptCodeEmitter(model, registrarName).emit()
+
+        env.codeGenerator.createNewFile(
+            dependencies = Dependencies(aggregating = false, sourceFile),
+            packageName = GENERATED_PACKAGE,
+            fileName = registrarName,
+        ).use { it.write(source.toByteArray(Charsets.UTF_8)) }
+
+        env.logger.warn(
+            "[kanama:ksp] generated $GENERATED_PACKAGE.$registrarName " +
+                "for ${model.fqName} " +
+                "(attachTo=${model.attachTo}, props=${model.properties.size}, " +
+                "virtuals=${model.virtuals.size}, methods=${model.methods.size}, signals=${model.signals.size})",
+        )
+    }
+
+    companion object {
+        private const val GENERATED_PACKAGE = "net.multigesture.kanama.generated"
+        private const val REGISTER_CLASS_FQN = "net.multigesture.kanama.annotations.RegisterClass"
+        private const val SCRIPT_CLASS_FQN = "net.multigesture.kanama.annotations.ScriptClass"
+        private const val KANAMA_API_SCRIPT_FQN = "net.multigesture.kanama.api.KanamaScript"
+
+        fun camelToSnake(name: String): String = buildString {
+            for ((i, ch) in name.withIndex()) {
+                if (i > 0 && ch.isUpperCase()) append('_')
+                append(ch.lowercaseChar())
+            }
+        }
+
+        fun capitalize(s: String): String =
+            if (s.isEmpty()) s else s[0].uppercaseChar() + s.substring(1)
+
+        internal fun fqToTypeMapping(fq: String?): TypeMapping? = when (fq) {
+            "kotlin.Long"    -> TypeMapping.INT
+            "kotlin.Double"  -> TypeMapping.FLOAT
+            "kotlin.Boolean" -> TypeMapping.BOOL
+            "kotlin.String"  -> TypeMapping.STRING
+            "net.multigesture.kanama.types.Vector2" -> TypeMapping.VECTOR2
+            "net.multigesture.kanama.types.Vector2i" -> TypeMapping.VECTOR2I
+            "net.multigesture.kanama.types.Vector3" -> TypeMapping.VECTOR3
+            "net.multigesture.kanama.types.Vector3i" -> TypeMapping.VECTOR3I
+            "net.multigesture.kanama.types.NodePath" -> TypeMapping.NODE_PATH
+            "net.multigesture.kanama.api.GodotObject" -> TypeMapping.OBJECT
+            else             -> null
+        }
+
+        internal fun fqToArgModel(name: String, fq: String?): ArgModel? {
+            val objectWrapper = fq?.takeIf { it in SUPPORTED_OBJECT_WRAPPERS }
+            return if (objectWrapper != null) {
+                ArgModel(name, TypeMapping.OBJECT, objectWrapper)
+            } else {
+                fqToTypeMapping(fq)?.let { ArgModel(name, it) }
+            }
+        }
+
+        private val SUPPORTED_OBJECT_WRAPPERS = setOf(
+            "net.multigesture.kanama.api.GodotObject",
+            "net.multigesture.kanama.api.Node",
+            "net.multigesture.kanama.api.Node2D",
+            "net.multigesture.kanama.api.Node3D",
+            "net.multigesture.kanama.api.Control",
+            "net.multigesture.kanama.api.CanvasLayer",
+            "net.multigesture.kanama.api.Label",
+            "net.multigesture.kanama.api.Button",
+            "net.multigesture.kanama.api.TextureRect",
+            "net.multigesture.kanama.api.Area2D",
+            "net.multigesture.kanama.api.Area3D",
+            "net.multigesture.kanama.api.PhysicsBody3D",
+            "net.multigesture.kanama.api.CharacterBody3D",
+            "net.multigesture.kanama.api.RigidBody3D",
+            "net.multigesture.kanama.api.StaticBody3D",
+            "net.multigesture.kanama.api.VehicleBody3D",
+            "net.multigesture.kanama.api.VehicleWheel3D",
+            "net.multigesture.kanama.api.Sprite2D",
+            "net.multigesture.kanama.api.SpriteBase3D",
+            "net.multigesture.kanama.api.Sprite3D",
+            "net.multigesture.kanama.api.AnimatedSprite3D",
+            "net.multigesture.kanama.api.Camera3D",
+            "net.multigesture.kanama.api.SubViewport",
+            "net.multigesture.kanama.api.GridMap",
+            "net.multigesture.kanama.api.RayCast3D",
+            "net.multigesture.kanama.api.MeshInstance3D",
+            "net.multigesture.kanama.api.AnimationPlayer",
+            "net.multigesture.kanama.api.AudioStreamPlayer",
+            "net.multigesture.kanama.api.AudioStreamPlayer3D",
+            "net.multigesture.kanama.api.GPUParticles2D",
+            "net.multigesture.kanama.api.GPUParticles3D",
+            "net.multigesture.kanama.api.CPUParticles3D",
+            "net.multigesture.kanama.api.Timer",
+            "net.multigesture.kanama.api.PackedScene",
+            "net.multigesture.kanama.api.Texture2D",
+            "net.multigesture.kanama.api.NoiseTexture2D",
+            "net.multigesture.kanama.api.ShaderMaterial",
+            "net.multigesture.kanama.api.Curve",
+        )
+
+        private fun scriptPropertyTypeModel(
+            type: KSType,
+            className: String,
+            propertyName: String,
+            scriptClassTypes: Map<String, ScriptClassTypeInfo>,
+        ): ScriptPropertyTypeModel {
+            val fq = type.declaration.qualifiedName?.asString()
+            val objectWrapper = fq?.takeIf { it in SUPPORTED_OBJECT_WRAPPERS }
+            if (objectWrapper != null) {
+                return ScriptPropertyTypeModel(
+                    type = TypeMapping.OBJECT,
+                    hint = when (objectWrapper) {
+                        in SUPPORTED_RESOURCE_WRAPPERS -> PROPERTY_HINT_RESOURCE_TYPE
+                        in SUPPORTED_NODE_WRAPPERS -> PROPERTY_HINT_NODE_TYPE
+                        else -> 0
+                    },
+                    hintString = godotClassName(objectWrapper).takeIf {
+                        objectWrapper in SUPPORTED_RESOURCE_WRAPPERS || objectWrapper in SUPPORTED_NODE_WRAPPERS
+                    } ?: "",
+                    objectWrapperFqName = objectWrapper,
+                )
+            }
+            val customScript = fq?.let { scriptClassTypes[it] }?.takeIf { it.isExportableGlobal }
+            if (customScript != null) {
+                return ScriptPropertyTypeModel(
+                    type = TypeMapping.OBJECT,
+                    hint = customScript.propertyHint,
+                    hintString = customScript.simpleName,
+                    customScriptFqName = customScript.fqName,
+                    customScriptIsResource = customScript.isExportableResource,
+                )
+            }
+
+            if (fq == "kotlin.collections.List" || fq == "kotlin.collections.MutableList") {
+                val elementFq = type.arguments.firstOrNull()?.type?.resolve()?.declaration?.qualifiedName?.asString()
+                if (elementFq == "kotlin.String") {
+                    return ScriptPropertyTypeModel(
+                        type = TypeMapping.ARRAY,
+                        hint = PROPERTY_HINT_TYPE_STRING,
+                        hintString = "4:",
+                        arrayElementString = true,
+                    )
+                }
+                val elementWrapper = elementFq?.takeIf { it in SUPPORTED_OBJECT_WRAPPERS }
+                if (elementWrapper != null) {
+                    val elementHint = if (elementWrapper in SUPPORTED_RESOURCE_WRAPPERS) {
+                        "24/${PROPERTY_HINT_RESOURCE_TYPE}:${godotClassName(elementWrapper)}"
+                    } else {
+                        "24:"
+                    }
+                    return ScriptPropertyTypeModel(
+                        type = TypeMapping.ARRAY,
+                        hint = PROPERTY_HINT_TYPE_STRING,
+                        hintString = elementHint,
+                        arrayElementWrapperFqName = elementWrapper,
+                    )
+                }
+                val customElement = elementFq?.let { scriptClassTypes[it] }?.takeIf { it.isExportableGlobal }
+                if (customElement != null) {
+                    return ScriptPropertyTypeModel(
+                        type = TypeMapping.ARRAY,
+                        hint = PROPERTY_HINT_TYPE_STRING,
+                        hintString = "24/${customElement.propertyHint}:${customElement.simpleName}",
+                        arrayElementCustomScriptFqName = customElement.fqName,
+                        arrayElementCustomScriptIsResource = customElement.isExportableResource,
+                    )
+                }
+            }
+
+            return fqToTypeMapping(fq)?.let { ScriptPropertyTypeModel(it) }
+                ?: throw IllegalArgumentException("$className.$propertyName: unsupported ScriptProperty type '$fq'")
+        }
+
+        private const val PROPERTY_HINT_RESOURCE_TYPE = 17
+        private const val PROPERTY_HINT_TYPE_STRING = 23
+        private const val PROPERTY_HINT_NODE_TYPE = 34
+
+        private val SUPPORTED_RESOURCE_WRAPPERS = setOf(
+            "net.multigesture.kanama.api.PackedScene",
+            "net.multigesture.kanama.api.Texture2D",
+            "net.multigesture.kanama.api.NoiseTexture2D",
+            "net.multigesture.kanama.api.ShaderMaterial",
+            "net.multigesture.kanama.api.Curve",
+        )
+
+        private val SUPPORTED_NODE_WRAPPERS = setOf(
+            "net.multigesture.kanama.api.Node",
+            "net.multigesture.kanama.api.Node2D",
+            "net.multigesture.kanama.api.Node3D",
+            "net.multigesture.kanama.api.Control",
+            "net.multigesture.kanama.api.CanvasLayer",
+            "net.multigesture.kanama.api.Label",
+            "net.multigesture.kanama.api.Button",
+            "net.multigesture.kanama.api.TextureRect",
+            "net.multigesture.kanama.api.Area2D",
+            "net.multigesture.kanama.api.Area3D",
+            "net.multigesture.kanama.api.PhysicsBody3D",
+            "net.multigesture.kanama.api.CharacterBody3D",
+            "net.multigesture.kanama.api.RigidBody3D",
+            "net.multigesture.kanama.api.StaticBody3D",
+            "net.multigesture.kanama.api.VehicleBody3D",
+            "net.multigesture.kanama.api.VehicleWheel3D",
+            "net.multigesture.kanama.api.Sprite2D",
+            "net.multigesture.kanama.api.SpriteBase3D",
+            "net.multigesture.kanama.api.Sprite3D",
+            "net.multigesture.kanama.api.AnimatedSprite3D",
+            "net.multigesture.kanama.api.Camera3D",
+            "net.multigesture.kanama.api.SubViewport",
+            "net.multigesture.kanama.api.GridMap",
+            "net.multigesture.kanama.api.RayCast3D",
+            "net.multigesture.kanama.api.MeshInstance3D",
+            "net.multigesture.kanama.api.AnimationPlayer",
+            "net.multigesture.kanama.api.AudioStreamPlayer",
+            "net.multigesture.kanama.api.AudioStreamPlayer3D",
+            "net.multigesture.kanama.api.GPUParticles2D",
+            "net.multigesture.kanama.api.GPUParticles3D",
+            "net.multigesture.kanama.api.CPUParticles3D",
+            "net.multigesture.kanama.api.Timer",
+        )
+
+        private fun godotClassName(fqName: String): String =
+            fqName.substringAfterLast('.')
+    }
+}
+
+class KanamaProcessorProvider : SymbolProcessorProvider {
+    override fun create(environment: SymbolProcessorEnvironment): SymbolProcessor =
+        KanamaProcessor(environment)
+}
+
+private val KOTLIN_KEYWORDS = setOf(
+    "as", "break", "class", "continue", "do", "else", "false", "for", "fun",
+    "if", "in", "interface", "is", "null", "object", "package", "return",
+    "super", "this", "throw", "true", "try", "typealias", "typeof", "val",
+    "var", "when", "while",
+)
+
+private fun kotlinStringLiteral(value: String): String =
+    value.replace("\\", "\\\\").replace("\"", "\\\"")
+
+private fun constantIdentifier(name: String): String {
+    val parts = name
+        .trim('_')
+        .split('_', '-', ' ', '.', ':', '/')
+        .filter { it.isNotEmpty() }
+    val base = if (parts.isEmpty()) {
+        "name"
+    } else {
+        parts.mapIndexed { index, part ->
+            val cleaned = part.filter { it.isLetterOrDigit() || it == '_' }
+            if (cleaned.isEmpty()) {
+                ""
+            } else if (index == 0) {
+                cleaned.replaceFirstChar { it.lowercase() }
+            } else {
+                cleaned.replaceFirstChar { it.uppercase() }
+            }
+        }.joinToString("")
+    }.ifEmpty { "name" }
+    val validStart = base.first().isLetter() || base.first() == '_'
+    val identifier = if (validStart) base else "name${base.replaceFirstChar { it.uppercase() }}"
+    return if (identifier in KOTLIN_KEYWORDS) "`$identifier`" else identifier
+}
+
+private fun uniqueConstantIdentifier(name: String, seen: MutableSet<String>): String {
+    val base = constantIdentifier(name)
+    if (seen.add(base)) return base
+    val bare = base.removeSurrounding("`")
+    var index = 2
+    while (true) {
+        val candidateBare = "$bare$index"
+        val candidate = if (candidateBare in KOTLIN_KEYWORDS) "`$candidateBare`" else candidateBare
+        if (seen.add(candidate)) return candidate
+        index++
+    }
+}
+
+// ---------- Data models ----------
+
+internal data class ClassModel(
+    val simpleName: String,
+    val fqName: String,
+    val parentClassName: String,
+    val isTool: Boolean,
+    val methods: List<MethodModel>,
+    val properties: List<PropertyModel>,
+    val virtuals: List<VirtualModel>,
+    val signals: List<SignalModel>,
+)
+
+internal data class SignalModel(
+    val godotName: String,
+    val args: List<ArgModel>,
+)
+
+internal enum class MethodKind { REGULAR, PROPERTY_GETTER, PROPERTY_SETTER }
+
+internal data class MethodModel(
+    val kotlinName: String,
+    val godotName: String,
+    val returnType: TypeMapping?,
+    val args: List<ArgModel>,
+    val kind: MethodKind,
+    /** For property accessors: the property's Kotlin name. */
+    val propertyKotlinName: String? = null,
+)
+
+internal data class ArgModel(
+    val name: String,
+    val type: TypeMapping,
+    val objectWrapperFqName: String? = null,
+    val hasDefault: Boolean = false,
+) {
+    val kotlinType: String
+        get() = objectWrapperFqName ?: type.kotlinType
+
+    fun readFromScratch(s: String): String =
+        if (objectWrapperFqName != null) "$objectWrapperFqName(${s}.get(ADDRESS, 0))" else type.readFromScratch(s)
+
+    fun readPtrcallArg(ptr: String): String =
+        if (objectWrapperFqName != null) "$objectWrapperFqName($ptr.reinterpret(${type.ptrcallSizeBytes}).get(ADDRESS, 0))" else type.readPtrcallArg(ptr)
+
+    fun signalEmitValueExpr(): String =
+        if (type == TypeMapping.NODE_PATH) "$name.path" else name
+}
+
+internal data class PropertyModel(
+    val kotlinName: String,
+    val godotName: String,
+    val type: TypeMapping,
+    val isMutable: Boolean,
+    val hint: Int = 0,
+    val hintString: String = "",
+    val usage: Int = 6,
+)
+
+internal data class VirtualModel(
+    val virtualName: String,
+    /** Name of the generated static upcall function (e.g. `callReady`). */
+    val callFunctionName: String,
+    /** Kotlin method to invoke on the user instance. */
+    val kotlinMethodName: String,
+    /** Ptrcall-convention args passed by Godot when invoking the virtual. */
+    val args: List<ArgModel> = emptyList(),
+)
+
+// ---------- @ScriptClass models ----------
+
+internal data class ScriptModel(
+    val simpleName: String,
+    val fqName: String,
+    val attachTo: String,
+    val isTool: Boolean,
+    val isGlobalClass: Boolean,
+    val properties: List<ScriptPropertyModel>,
+    val virtuals: List<VirtualModel>,
+    val methods: List<MethodModel>,
+    val signals: List<SignalModel>,
+)
+
+internal data class ScriptPropertyModel(
+    val kotlinName: String,
+    val godotName: String,
+    val type: TypeMapping,
+    val isMutable: Boolean,
+    val hint: Int = 0,
+    val hintString: String = "",
+    val defaultLiteral: String? = null,
+    val exportGroup: ScriptPropertyGroupModel? = null,
+    val exportSubgroup: ScriptPropertyGroupModel? = null,
+    val objectWrapperFqName: String? = null,
+    val arrayElementWrapperFqName: String? = null,
+    val customScriptFqName: String? = null,
+    val arrayElementCustomScriptFqName: String? = null,
+    val customScriptIsResource: Boolean = false,
+    val arrayElementCustomScriptIsResource: Boolean = false,
+    val arrayElementString: Boolean = false,
+)
+
+internal data class ScriptPropertyGroupModel(
+    val name: String,
+    val prefix: String,
+    val usage: Int,
+)
+
+internal data class ScriptPropertyTypeModel(
+    val type: TypeMapping,
+    val hint: Int = 0,
+    val hintString: String = "",
+    val objectWrapperFqName: String? = null,
+    val arrayElementWrapperFqName: String? = null,
+    val customScriptFqName: String? = null,
+    val arrayElementCustomScriptFqName: String? = null,
+    val customScriptIsResource: Boolean = false,
+    val arrayElementCustomScriptIsResource: Boolean = false,
+    val arrayElementString: Boolean = false,
+)
+
+internal data class ScriptClassTypeInfo(
+    val fqName: String,
+    val simpleName: String,
+    val attachTo: String,
+    val isGlobalClass: Boolean,
+) {
+    val isExportableResource: Boolean
+        get() = isGlobalClass && attachTo == "Resource"
+    val isExportableGlobal: Boolean
+        get() = isGlobalClass
+    val propertyHint: Int
+        get() = if (isExportableResource) 17 else 34
+}
+
+private const val PROPERTY_USAGE_GROUP = 64
+private const val PROPERTY_USAGE_SUBGROUP = 256
+
+private val kotlinStringLiteralPattern = "\"(?:\\\\.|[^\"\\\\])*\""
+
+private fun scriptPropertyDefaultLiteral(prop: KSPropertyDeclaration, type: TypeMapping): String? {
+    val location = prop.location as? FileLocation ?: return null
+    val sourceLines = runCatching { File(location.filePath).readLines() }.getOrNull() ?: return null
+    if (sourceLines.isEmpty()) return null
+
+    val propertyName = prop.simpleName.asString()
+    val start = (location.lineNumber - 1).coerceIn(0, sourceLines.lastIndex)
+    val declarationLine = findPropertyDeclarationLine(sourceLines, start, propertyName) ?: return null
+    val declaration = collectPropertyDeclaration(sourceLines, declarationLine)
+    val initializer = extractPropertyInitializer(declaration) ?: return null
+    return normalizeScriptPropertyDefaultLiteral(initializer, type)
+}
+
+private fun findPropertyDeclarationLine(lines: List<String>, start: Int, propertyName: String): Int? {
+    val declarationPattern = Regex("""\b(?:var|val)\s+${Regex.escape(propertyName)}\b""")
+    val first = (start - 8).coerceAtLeast(0)
+    val last = (start + 16).coerceAtMost(lines.lastIndex)
+    return (first..last).firstOrNull { declarationPattern.containsMatchIn(lines[it]) }
+}
+
+private fun collectPropertyDeclaration(lines: List<String>, start: Int): String {
+    val parts = mutableListOf<String>()
+    var parenDepth = 0
+    for (i in start..(start + 8).coerceAtMost(lines.lastIndex)) {
+        val line = stripLineComment(lines[i]).trim()
+        if (line.isEmpty()) continue
+        parts += line
+        parenDepth += line.count { it == '(' } - line.count { it == ')' }
+        if (line.contains("=") && parenDepth <= 0) break
+    }
+    return parts.joinToString(" ")
+}
+
+private fun stripLineComment(line: String): String {
+    var inString = false
+    var escaped = false
+    for (i in 0 until line.lastIndex) {
+        val c = line[i]
+        when {
+            escaped -> escaped = false
+            c == '\\' && inString -> escaped = true
+            c == '"' -> inString = !inString
+            !inString && c == '/' && line[i + 1] == '/' -> return line.substring(0, i)
+        }
+    }
+    return line
+}
+
+private fun extractPropertyInitializer(declaration: String): String? {
+    val eq = declaration.indexOf('=')
+    if (eq < 0) return null
+    return declaration.substring(eq + 1).trim().removeSuffix(";").trim().takeIf { it.isNotEmpty() }
+}
+
+private fun normalizeScriptPropertyDefaultLiteral(initializer: String, type: TypeMapping): String? {
+    val intLiteral = Regex("""[-+]?\d+[lL]?""")
+    val doubleLiteral = Regex("""[-+]?(?:\d+\.\d*|\.\d+)(?:[eE][-+]?\d+)?[dD]?""")
+    val numberLiteral = Regex("""[-+]?(?:\d+\.\d*|\.\d+|\d+)(?:[eE][-+]?\d+)?[fFdDlL]?""")
+    val boolLiteral = Regex("""true|false""")
+    val stringLiteral = Regex(kotlinStringLiteralPattern)
+    val nodePathLiteral = Regex("""(?:net\.multigesture\.kanama\.types\.)?NodePath\(\s*($kotlinStringLiteralPattern)\s*\)""")
+    val mathToRadiansLiteral = Regex("""(?:java\.lang\.)?Math\.toRadians\(\s*($numberLiteral)\s*\)""")
+
+    return when (type) {
+        TypeMapping.INT -> initializer.takeIf { intLiteral.matches(it) }
+        TypeMapping.FLOAT -> initializer.takeIf { doubleLiteral.matches(it) }
+            ?: mathToRadiansLiteral.matchEntire(initializer)?.groupValues?.get(1)?.let { "Math.toRadians($it)" }
+        TypeMapping.BOOL -> initializer.takeIf { boolLiteral.matches(it) }
+        TypeMapping.STRING -> initializer.takeIf { stringLiteral.matches(it) }
+        TypeMapping.OBJECT -> initializer.takeIf { it == "null" }
+        TypeMapping.ARRAY -> initializer.takeIf { it == "emptyList()" || it == "listOf()" }?.let { "emptyList()" }
+        TypeMapping.NODE_PATH -> nodePathLiteral.matchEntire(initializer)
+            ?.groupValues
+            ?.get(1)
+            ?.let { "net.multigesture.kanama.types.NodePath($it)" }
+        TypeMapping.VECTOR2 -> normalizeVectorDefaultLiteral(
+            initializer = initializer,
+            packageClass = "net.multigesture.kanama.types.Vector2",
+            simpleClass = "Vector2",
+            components = 2,
+            componentPattern = numberLiteral,
+        )
+        TypeMapping.VECTOR2I -> normalizeVectorDefaultLiteral(
+            initializer = initializer,
+            packageClass = "net.multigesture.kanama.types.Vector2i",
+            simpleClass = "Vector2i",
+            components = 2,
+            componentPattern = intLiteral,
+        )
+        TypeMapping.VECTOR3 -> normalizeVectorDefaultLiteral(
+            initializer = initializer,
+            packageClass = "net.multigesture.kanama.types.Vector3",
+            simpleClass = "Vector3",
+            components = 3,
+            componentPattern = numberLiteral,
+        )
+        TypeMapping.VECTOR3I -> normalizeVectorDefaultLiteral(
+            initializer = initializer,
+            packageClass = "net.multigesture.kanama.types.Vector3i",
+            simpleClass = "Vector3i",
+            components = 3,
+            componentPattern = intLiteral,
+        )
+    }
+}
+
+private fun normalizeVectorDefaultLiteral(
+    initializer: String,
+    packageClass: String,
+    simpleClass: String,
+    components: Int,
+    componentPattern: Regex,
+): String? {
+    val qualifiedPrefix = Regex.escape(packageClass)
+    val simplePrefix = Regex.escape(simpleClass)
+    val zero = Regex("""(?:$qualifiedPrefix|$simplePrefix)\.ZERO""")
+    if (zero.matches(initializer)) return "$packageClass.ZERO"
+
+    val constructor = Regex("""(?:$qualifiedPrefix|$simplePrefix)\((.*)\)""")
+    val args = constructor.matchEntire(initializer)?.groupValues?.get(1)
+        ?.split(",")
+        ?.map { it.trim() }
+        ?: return null
+    if (args.size != components || args.any { !componentPattern.matches(it) }) return null
+    return "$packageClass(${args.joinToString(", ")})"
+}
+
+internal enum class TypeMapping(
+    val variantTypeEnum: String,
+    val valueLayout: String,
+    /** Number of bytes the raw value occupies in a ptrcall arg/return slot. */
+    val ptrcallSizeBytes: Int,
+    val kotlinLiteralZero: String,
+    val kotlinType: String,
+    /**
+     * True for types (STRING) whose scratch segment holds a heap-allocated
+     * Godot object. The emitter must emit GodotStrings.destroyString() after
+     * reading the scratch value or after variantFromType copies from it.
+     */
+    val needsScratchDestroy: Boolean = false,
+) {
+    INT("INT", "JAVA_LONG", 8, "0L", "Long"),
+    FLOAT("FLOAT", "JAVA_DOUBLE", 8, "0.0", "Double"),
+    BOOL("BOOL", "JAVA_BYTE", 1, "false", "Boolean"),
+    STRING("STRING", "JAVA_LONG", 8, "\"\"", "String", needsScratchDestroy = true),
+    VECTOR2("VECTOR2", "JAVA_FLOAT", 8, "net.multigesture.kanama.types.Vector2(0f, 0f)", "net.multigesture.kanama.types.Vector2"),
+    VECTOR2I("VECTOR2I", "JAVA_INT", 8, "net.multigesture.kanama.types.Vector2i(0, 0)", "net.multigesture.kanama.types.Vector2i"),
+    VECTOR3("VECTOR3", "JAVA_FLOAT", 12, "net.multigesture.kanama.types.Vector3(0f, 0f, 0f)", "net.multigesture.kanama.types.Vector3"),
+    VECTOR3I("VECTOR3I", "JAVA_INT", 12, "net.multigesture.kanama.types.Vector3i(0, 0, 0)", "net.multigesture.kanama.types.Vector3i"),
+    NODE_PATH(
+        "STRING",
+        "JAVA_LONG",
+        8,
+        "net.multigesture.kanama.types.NodePath.EMPTY",
+        "net.multigesture.kanama.types.NodePath",
+        needsScratchDestroy = true,
+    ),
+    OBJECT("OBJECT", "ADDRESS", 8, "net.multigesture.kanama.api.GodotObject(MemorySegment.ofAddress(1L))", "net.multigesture.kanama.api.GodotObject"),
+    ARRAY("ARRAY", "JAVA_LONG", 8, "emptyList<Any?>()", "List<Any?>"),
+    ;
+
+    /** Expression to read a Kotlin value from a scratch MemorySegment named [s]. */
+    fun readFromScratch(s: String): String = when (this) {
+        BOOL   -> "$s.get(JAVA_BYTE, 0) != 0.toByte()"
+        STRING -> "GodotStrings.readString($s)"
+        VECTOR2 -> "net.multigesture.kanama.types.Vector2($s.get(JAVA_FLOAT, 0), $s.get(JAVA_FLOAT, 4))"
+        VECTOR2I -> "net.multigesture.kanama.types.Vector2i($s.get(JAVA_INT, 0), $s.get(JAVA_INT, 4))"
+        VECTOR3 -> "net.multigesture.kanama.types.Vector3($s.get(JAVA_FLOAT, 0), $s.get(JAVA_FLOAT, 4), $s.get(JAVA_FLOAT, 8))"
+        VECTOR3I -> "net.multigesture.kanama.types.Vector3i($s.get(JAVA_INT, 0), $s.get(JAVA_INT, 4), $s.get(JAVA_INT, 8))"
+        NODE_PATH -> "net.multigesture.kanama.types.NodePath(GodotStrings.readString($s))"
+        OBJECT -> "net.multigesture.kanama.api.GodotObject($s.get(ADDRESS, 0))"
+        ARRAY -> "emptyList<Any?>()"
+        else   -> "$s.get($valueLayout, 0)"
+    }
+
+    /** Statement to write Kotlin value [v] into a scratch MemorySegment named [s]. */
+    fun writeToScratch(s: String, v: String): String = when (this) {
+        BOOL   -> "$s.set(JAVA_BYTE, 0, if ($v) 1.toByte() else 0.toByte())"
+        STRING -> "GodotStrings.initString($s, $v)"
+        VECTOR2 -> "{ $s.set(JAVA_FLOAT, 0, $v.x); $s.set(JAVA_FLOAT, 4, $v.y) }"
+        VECTOR2I -> "{ $s.set(JAVA_INT, 0, $v.x); $s.set(JAVA_INT, 4, $v.y) }"
+        VECTOR3 -> "{ $s.set(JAVA_FLOAT, 0, $v.x); $s.set(JAVA_FLOAT, 4, $v.y); $s.set(JAVA_FLOAT, 8, $v.z) }"
+        VECTOR3I -> "{ $s.set(JAVA_INT, 0, $v.x); $s.set(JAVA_INT, 4, $v.y); $s.set(JAVA_INT, 8, $v.z) }"
+        NODE_PATH -> "GodotStrings.initString($s, $v.path)"
+        OBJECT -> "$s.set(ADDRESS, 0, $v.handle)"
+        ARRAY -> "{}"
+        else   -> "$s.set($valueLayout, 0, $v)"
+    }
+
+    /**
+     * Expression to read a Kotlin value from a ptrcall arg pointer [ptr].
+     * For STRING the ptr IS the GDExtensionConstStringPtr; no reinterpret needed.
+     * String ptrcall args are borrowed (not owned) — no destroy.
+     */
+    fun readPtrcallArg(ptr: String): String = when (this) {
+        BOOL   -> "$ptr.reinterpret($ptrcallSizeBytes).get(JAVA_BYTE, 0) != 0.toByte()"
+        STRING -> "GodotStrings.readString($ptr)"
+        VECTOR2 -> "net.multigesture.kanama.types.Vector2($ptr.reinterpret($ptrcallSizeBytes).get(JAVA_FLOAT, 0), $ptr.reinterpret($ptrcallSizeBytes).get(JAVA_FLOAT, 4))"
+        VECTOR2I -> "net.multigesture.kanama.types.Vector2i($ptr.reinterpret($ptrcallSizeBytes).get(JAVA_INT, 0), $ptr.reinterpret($ptrcallSizeBytes).get(JAVA_INT, 4))"
+        VECTOR3 -> "net.multigesture.kanama.types.Vector3($ptr.reinterpret($ptrcallSizeBytes).get(JAVA_FLOAT, 0), $ptr.reinterpret($ptrcallSizeBytes).get(JAVA_FLOAT, 4), $ptr.reinterpret($ptrcallSizeBytes).get(JAVA_FLOAT, 8))"
+        VECTOR3I -> "net.multigesture.kanama.types.Vector3i($ptr.reinterpret($ptrcallSizeBytes).get(JAVA_INT, 0), $ptr.reinterpret($ptrcallSizeBytes).get(JAVA_INT, 4), $ptr.reinterpret($ptrcallSizeBytes).get(JAVA_INT, 8))"
+        NODE_PATH -> "net.multigesture.kanama.types.NodePath(GodotStrings.readString($ptr))"
+        OBJECT -> "net.multigesture.kanama.api.GodotObject($ptr.reinterpret($ptrcallSizeBytes).get(ADDRESS, 0))"
+        ARRAY -> "emptyList<Any?>()"
+        else   -> "$ptr.reinterpret($ptrcallSizeBytes).get($valueLayout, 0)"
+    }
+
+    /**
+     * Statement to write Kotlin value [v] into ptrcall return pointer `rRet`.
+     * For STRING, the caller (Godot) owns the returned String; no destroy.
+     */
+    fun writePtrcallReturn(v: String): String = when (this) {
+        BOOL   -> "rRet.reinterpret($ptrcallSizeBytes).set(JAVA_BYTE, 0, if ($v) 1.toByte() else 0.toByte())"
+        STRING -> "GodotStrings.initString(rRet, $v)"
+        VECTOR2 -> "{ rRet.reinterpret($ptrcallSizeBytes).set(JAVA_FLOAT, 0, $v.x); rRet.reinterpret($ptrcallSizeBytes).set(JAVA_FLOAT, 4, $v.y) }"
+        VECTOR2I -> "{ rRet.reinterpret($ptrcallSizeBytes).set(JAVA_INT, 0, $v.x); rRet.reinterpret($ptrcallSizeBytes).set(JAVA_INT, 4, $v.y) }"
+        VECTOR3 -> "{ rRet.reinterpret($ptrcallSizeBytes).set(JAVA_FLOAT, 0, $v.x); rRet.reinterpret($ptrcallSizeBytes).set(JAVA_FLOAT, 4, $v.y); rRet.reinterpret($ptrcallSizeBytes).set(JAVA_FLOAT, 8, $v.z) }"
+        VECTOR3I -> "{ rRet.reinterpret($ptrcallSizeBytes).set(JAVA_INT, 0, $v.x); rRet.reinterpret($ptrcallSizeBytes).set(JAVA_INT, 4, $v.y); rRet.reinterpret($ptrcallSizeBytes).set(JAVA_INT, 8, $v.z) }"
+        NODE_PATH -> "GodotStrings.initString(rRet, $v.path)"
+        OBJECT -> "rRet.reinterpret($ptrcallSizeBytes).set(ADDRESS, 0, $v.handle)"
+        ARRAY -> "{}"
+        else   -> "rRet.reinterpret($ptrcallSizeBytes).set($valueLayout, 0, $v)"
+    }
+}
+
+// ---------- Code emission ----------
+
+internal class CodeEmitter(
+    private val model: ClassModel,
+    private val registrarName: String,
+) {
+    private val sb = StringBuilder()
+
+    fun emit(): String {
+        header()
+        classOpen()
+        privateFields()
+        registerFunction()
+        createInstance()
+        freeInstance()
+        getVirtualFunction()
+        virtualCallFunctions()
+        coroutineScopeHelpers()
+        methodUpcalls()
+        propertyUpcalls()
+        classClose()
+        signalHelpers()
+        nameConstants()
+        return sb.toString()
+    }
+
+    private fun signalHelpers() {
+        if (model.signals.isEmpty()) return
+        sb.appendLine()
+        sb.appendLine("object ${model.simpleName}Signals {")
+        val seen = mutableSetOf<String>()
+        for (s in model.signals) {
+            val functionName = uniqueConstantIdentifier(s.godotName, seen)
+            val kotlinParams = s.args.joinToString(", ") { "${it.name}: ${it.kotlinType}" }
+            val argList = s.args.joinToString(", ") {
+                "Signals.Arg(VariantType.${it.type.variantTypeEnum}, ${it.signalEmitValueExpr()})"
+            }
+            val argsExpr = if (s.args.isEmpty()) "emptyList()" else "listOf($argList)"
+            sb.appendLine("    fun $functionName(instance: ${model.simpleName}${if (kotlinParams.isNotEmpty()) ", $kotlinParams" else ""}) {")
+            sb.appendLine("        Signals.emit(instance.godotObject, \"${kotlinStringLiteral(s.godotName)}\", $argsExpr)")
+            sb.appendLine("    }")
+        }
+        sb.appendLine("}")
+    }
+
+    private fun nameConstants() {
+        val methods = model.methods.filter { it.kind == MethodKind.REGULAR }
+        if (methods.isEmpty() && model.properties.isEmpty() && model.signals.isEmpty()) return
+        sb.appendLine()
+        sb.appendLine("object ${model.simpleName}Names {")
+        if (methods.isNotEmpty()) {
+            sb.appendLine("    object Methods {")
+            val seen = mutableSetOf<String>()
+            for (m in methods) {
+                sb.appendLine("        const val ${uniqueConstantIdentifier(m.godotName, seen)}: String = \"${kotlinStringLiteral(m.godotName)}\"")
+            }
+            sb.appendLine("    }")
+        }
+        if (model.properties.isNotEmpty()) {
+            sb.appendLine("    object Properties {")
+            val seen = mutableSetOf<String>()
+            for (p in model.properties) {
+                sb.appendLine("        const val ${uniqueConstantIdentifier(p.godotName, seen)}: String = \"${kotlinStringLiteral(p.godotName)}\"")
+            }
+            sb.appendLine("    }")
+        }
+        if (model.signals.isNotEmpty()) {
+            sb.appendLine("    object Signals {")
+            val seen = mutableSetOf<String>()
+            for (s in model.signals) {
+                sb.appendLine("        const val ${uniqueConstantIdentifier(s.godotName, seen)}: String = \"${kotlinStringLiteral(s.godotName)}\"")
+            }
+            sb.appendLine("    }")
+        }
+        sb.appendLine("}")
+    }
+
+    private fun header() {
+        sb.appendLine("// Generated by KanamaProcessor — do not edit.")
+        sb.appendLine("// Source: ${model.fqName}")
+        sb.appendLine("package net.multigesture.kanama.generated")
+        sb.appendLine()
+        sb.appendLine("import net.multigesture.kanama.binding.ObjectRegistry")
+        sb.appendLine("import net.multigesture.kanama.binding.runtime.ClassDB")
+        sb.appendLine("import net.multigesture.kanama.binding.runtime.GodotStrings")
+        sb.appendLine("import net.multigesture.kanama.binding.runtime.Signals")
+        sb.appendLine("import net.multigesture.kanama.binding.runtime.Upcalls")
+        sb.appendLine("import net.multigesture.kanama.binding.runtime.VariantConverters")
+        sb.appendLine("import net.multigesture.kanama.binding.runtime.VariantType")
+        sb.appendLine("import net.multigesture.kanama.ffi.GodotFFI")
+        sb.appendLine("import ${model.fqName}")
+        sb.appendLine("import java.lang.foreign.Arena")
+        sb.appendLine("import java.lang.foreign.FunctionDescriptor")
+        sb.appendLine("import java.lang.foreign.MemorySegment")
+        sb.appendLine("import java.lang.foreign.ValueLayout.ADDRESS")
+        sb.appendLine("import java.lang.foreign.ValueLayout.JAVA_BYTE")
+        sb.appendLine("import java.lang.foreign.ValueLayout.JAVA_FLOAT")
+        sb.appendLine("import java.lang.foreign.ValueLayout.JAVA_DOUBLE")
+        sb.appendLine("import java.lang.foreign.ValueLayout.JAVA_INT")
+        sb.appendLine("import java.lang.foreign.ValueLayout.JAVA_LONG")
+        sb.appendLine("import java.lang.invoke.MethodType")
+        sb.appendLine()
+    }
+
+    private fun classOpen() {
+        sb.appendLine("object $registrarName {")
+        sb.appendLine()
+    }
+
+    private fun classClose() {
+        sb.appendLine("}")
+    }
+
+    private fun privateFields() {
+        sb.appendLine("    private lateinit var cls: ClassDB.RegisteredClass")
+        for (v in model.virtuals) {
+            sb.appendLine("    private var ${v.virtualName.trimStart('_')}NameValue: Long = 0L")
+            sb.appendLine("    private lateinit var ${v.virtualName.trimStart('_')}CallStub: MemorySegment")
+        }
+        sb.appendLine()
+    }
+
+    private fun registerFunction() {
+        sb.appendLine("    fun register(library: MemorySegment) {")
+        // Pre-cache interned virtual name longs + build per-virtual stubs.
+        for (v in model.virtuals) {
+            val slot = v.virtualName.trimStart('_')
+            sb.appendLine("        ${slot}NameValue = GodotStrings.stringNameStorage(\"${v.virtualName}\")")
+            sb.appendLine("        ${slot}CallStub = Upcalls.stub(")
+            sb.appendLine("            $registrarName::class.java, \"${v.callFunctionName}\",")
+            sb.appendLine("            MethodType.methodType(")
+            sb.appendLine("                Void.TYPE,")
+            sb.appendLine("                MemorySegment::class.java,")
+            sb.appendLine("                MemorySegment::class.java,")
+            sb.appendLine("                MemorySegment::class.java,")
+            sb.appendLine("            ),")
+            sb.appendLine("            FunctionDescriptor.ofVoid(ADDRESS, ADDRESS, ADDRESS),")
+            sb.appendLine("        )")
+        }
+        sb.appendLine("        val createInstanceStub = Upcalls.stub(")
+        sb.appendLine("            $registrarName::class.java, \"createInstance\",")
+        sb.appendLine("            MethodType.methodType(")
+        sb.appendLine("                MemorySegment::class.java,")
+        sb.appendLine("                MemorySegment::class.java,")
+        sb.appendLine("                java.lang.Byte.TYPE,")
+        sb.appendLine("            ),")
+        sb.appendLine("            FunctionDescriptor.of(ADDRESS, ADDRESS, JAVA_BYTE),")
+        sb.appendLine("        )")
+        sb.appendLine("        val freeInstanceStub = Upcalls.stub(")
+        sb.appendLine("            $registrarName::class.java, \"freeInstance\",")
+        sb.appendLine("            MethodType.methodType(")
+        sb.appendLine("                Void.TYPE,")
+        sb.appendLine("                MemorySegment::class.java,")
+        sb.appendLine("                MemorySegment::class.java,")
+        sb.appendLine("            ),")
+        sb.appendLine("            FunctionDescriptor.ofVoid(ADDRESS, ADDRESS),")
+        sb.appendLine("        )")
+        sb.appendLine("        val getVirtualStub = Upcalls.stub(")
+        sb.appendLine("            $registrarName::class.java, \"getVirtual\",")
+        sb.appendLine("            MethodType.methodType(")
+        sb.appendLine("                MemorySegment::class.java,")
+        sb.appendLine("                MemorySegment::class.java,")
+        sb.appendLine("                MemorySegment::class.java,")
+        sb.appendLine("                java.lang.Integer.TYPE,")
+        sb.appendLine("            ),")
+        sb.appendLine("            FunctionDescriptor.of(ADDRESS, ADDRESS, ADDRESS, JAVA_INT),")
+        sb.appendLine("        )")
+        sb.appendLine("        cls = ClassDB.registerClass(")
+        sb.appendLine("            library,")
+        sb.appendLine("            ClassDB.ClassSpec(")
+        sb.appendLine("                name = \"${model.simpleName}\",")
+        sb.appendLine("                parentName = \"${model.parentClassName}\",")
+        sb.appendLine("                isTool = ${model.isTool},")
+        sb.appendLine("                createInstance = createInstanceStub,")
+        sb.appendLine("                freeInstance = freeInstanceStub,")
+        sb.appendLine("                getVirtual = getVirtualStub,")
+        sb.appendLine("            ),")
+        sb.appendLine("        )")
+        sb.appendLine("        System.err.println(\"[kanama:kt] registered class ${model.simpleName} : ${model.parentClassName}\")")
+
+        // Emit method registration calls for @RegisterFunction methods.
+        for (m in model.methods) {
+            emitMethodRegistration(m)
+        }
+        // Emit synthetic get_/set_ methods + property registration.
+        for (p in model.properties) {
+            emitPropertyAccessorRegistration(p)
+            sb.appendLine("        ClassDB.registerProperty(")
+            sb.appendLine("            library,")
+            sb.appendLine("            cls,")
+            sb.appendLine("            propertyName = \"${p.godotName}\",")
+            sb.appendLine("            type = VariantType.${p.type.variantTypeEnum},")
+            sb.appendLine("            setterName = \"set_${p.godotName}\",")
+            sb.appendLine("            getterName = \"get_${p.godotName}\",")
+            if (p.hint != 0) sb.appendLine("            hint = ${p.hint},")
+            if (p.hintString.isNotEmpty()) sb.appendLine("            hintString = \"${p.hintString}\",")
+            if (p.usage != 6) sb.appendLine("            usage = ${p.usage},")
+            sb.appendLine("        )")
+            sb.appendLine("        System.err.println(\"[kanama:kt] registered property ${model.simpleName}.${p.godotName}\")")
+        }
+        for (s in model.signals) {
+            val argsExpr = if (s.args.isEmpty()) {
+                "emptyList()"
+            } else {
+                s.args.joinToString(prefix = "listOf(", postfix = ")") {
+                    """ClassDB.SignalArg("${it.name}", VariantType.${it.type.variantTypeEnum})"""
+                }
+            }
+            sb.appendLine("        ClassDB.registerSignal(")
+            sb.appendLine("            library,")
+            sb.appendLine("            cls,")
+            sb.appendLine("            signalName = \"${s.godotName}\",")
+            sb.appendLine("            args = $argsExpr,")
+            sb.appendLine("        )")
+            sb.appendLine("        System.err.println(\"[kanama:kt] registered signal ${model.simpleName}.${s.godotName}\")")
+        }
+
+        sb.appendLine("    }")
+        sb.appendLine()
+    }
+
+    private fun emitMethodRegistration(m: MethodModel) {
+        val returnExpr = if (m.returnType != null) {
+            "VariantType.${m.returnType.variantTypeEnum}"
+        } else {
+            "null"
+        }
+        val argsExpr = if (m.args.isEmpty()) {
+            "emptyList()"
+        } else {
+            m.args.joinToString(
+                prefix = "listOf(",
+                postfix = ")",
+            ) { """ClassDB.MethodArg("${it.name}", VariantType.${it.type.variantTypeEnum})""" }
+        }
+        sb.appendLine("        ClassDB.registerMethod(")
+        sb.appendLine("            library,")
+        sb.appendLine("            cls,")
+        sb.appendLine("            ClassDB.MethodSpec(")
+        sb.appendLine("                name = \"${m.godotName}\",")
+        sb.appendLine("                returnType = $returnExpr,")
+        sb.appendLine("                args = $argsExpr,")
+        sb.appendLine("                callStub = Upcalls.stub(")
+        sb.appendLine("                    $registrarName::class.java, \"${callFunctionName(m)}\",")
+        sb.appendLine("                    methodCallType, methodCallDescriptor,")
+        sb.appendLine("                ),")
+        sb.appendLine("                ptrcallStub = Upcalls.stub(")
+        sb.appendLine("                    $registrarName::class.java, \"${ptrcallFunctionName(m)}\",")
+        sb.appendLine("                    methodPtrcallType, methodPtrcallDescriptor,")
+        sb.appendLine("                ),")
+        sb.appendLine("            ),")
+        sb.appendLine("        )")
+        sb.appendLine("        System.err.println(\"[kanama:kt] registered method ${model.simpleName}.${m.godotName}\")")
+    }
+
+    private fun emitPropertyAccessorRegistration(p: PropertyModel) {
+        // Generate a GETTER method model
+        val getter = MethodModel(
+            kotlinName = "get_${p.godotName}",
+            godotName = "get_${p.godotName}",
+            returnType = p.type,
+            args = emptyList(),
+            kind = MethodKind.PROPERTY_GETTER,
+            propertyKotlinName = p.kotlinName,
+        )
+        emitMethodRegistration(getter)
+        if (p.isMutable) {
+            val setter = MethodModel(
+                kotlinName = "set_${p.godotName}",
+                godotName = "set_${p.godotName}",
+                returnType = null,
+                args = listOf(ArgModel("value", p.type)),
+                kind = MethodKind.PROPERTY_SETTER,
+                propertyKotlinName = p.kotlinName,
+            )
+            emitMethodRegistration(setter)
+        }
+    }
+
+    private fun createInstance() {
+        sb.appendLine("    @JvmStatic")
+        sb.appendLine("    fun createInstance(userdata: MemorySegment, notifyPostinitialize: Byte): MemorySegment {")
+        sb.appendLine("        val classdbConstruct = GodotFFI.lookup(")
+        sb.appendLine("            \"classdb_construct_object2\",")
+        sb.appendLine("            FunctionDescriptor.of(ADDRESS, ADDRESS),")
+        sb.appendLine("        )")
+        sb.appendLine("        val objectSetInstance = GodotFFI.lookup(")
+        sb.appendLine("            \"object_set_instance\",")
+        sb.appendLine("            FunctionDescriptor.ofVoid(ADDRESS, ADDRESS, ADDRESS),")
+        sb.appendLine("        )")
+        sb.appendLine("        val obj = classdbConstruct.invoke(cls.parentName) as MemorySegment")
+        sb.appendLine("        val kotlinInstance = ${model.simpleName}(obj)")
+        sb.appendLine("        val handle = ObjectRegistry.register(kotlinInstance)")
+        sb.appendLine("        objectSetInstance.invoke(obj, cls.className, MemorySegment.ofAddress(handle))")
+        sb.appendLine("        System.err.println(")
+        sb.appendLine("            \"[kanama:kt] ${model.simpleName}.createInstance handle=\" + handle +")
+        sb.appendLine("                \" obj=0x\" + obj.address().toString(16)")
+        sb.appendLine("        )")
+        sb.appendLine("        return obj")
+        sb.appendLine("    }")
+        sb.appendLine()
+    }
+
+    private fun freeInstance() {
+        sb.appendLine("    @JvmStatic")
+        sb.appendLine("    fun freeInstance(userdata: MemorySegment, instance: MemorySegment) {")
+        sb.appendLine("        val handle = instance.address()")
+        sb.appendLine("        ObjectRegistry.unregister(handle)")
+        sb.appendLine("        System.err.println(\"[kanama:kt] ${model.simpleName}.freeInstance handle=\" + handle)")
+        sb.appendLine("    }")
+        sb.appendLine()
+    }
+
+    private fun getVirtualFunction() {
+        sb.appendLine("    @JvmStatic")
+        sb.appendLine("    fun getVirtual(userdata: MemorySegment, name: MemorySegment, hash: Int): MemorySegment {")
+        if (model.virtuals.isEmpty()) {
+            sb.appendLine("        return MemorySegment.NULL")
+        } else {
+            sb.appendLine("        val v = name.reinterpret(8).get(JAVA_LONG, 0)")
+            sb.appendLine("        return when (v) {")
+            for (virt in model.virtuals) {
+                val slot = virt.virtualName.trimStart('_')
+                sb.appendLine("            ${slot}NameValue -> ${slot}CallStub")
+            }
+            sb.appendLine("            else -> MemorySegment.NULL")
+            sb.appendLine("        }")
+        }
+        sb.appendLine("    }")
+        sb.appendLine()
+    }
+
+    private fun virtualCallFunctions() {
+        for (v in model.virtuals) {
+            sb.appendLine("    @JvmStatic")
+            sb.appendLine("    fun ${v.callFunctionName}(instance: MemorySegment, args: MemorySegment, ret: MemorySegment) {")
+            sb.appendLine("        val kotlinInstance = ObjectRegistry.get(instance.address()) as? ${model.simpleName} ?: return")
+            if (v.args.isEmpty()) {
+                sb.appendLine("        kotlinInstance.${v.kotlinMethodName}()")
+            } else {
+                // Virtual args use the ptrcall convention: args is an array of typed pointers.
+                sb.appendLine("        val argsArray = args.reinterpret(${v.args.size * 8}L)")
+                val argVars = v.args.mapIndexed { i, arg ->
+                    val varName = "arg${i}Value"
+                    sb.appendLine("        val $varName = ${arg.readPtrcallArg("argsArray.get(ADDRESS, ${i * 8}L)")}")
+                    varName
+                }
+                sb.appendLine("        kotlinInstance.${v.kotlinMethodName}(${argVars.joinToString(", ")})")
+            }
+            if (v.virtualName == "_exit_tree") {
+                sb.appendLine("        cancelKanamaScope(kotlinInstance)")
+            }
+            sb.appendLine("    }")
+            sb.appendLine()
+        }
+    }
+
+    private fun coroutineScopeHelpers() {
+        if (model.virtuals.none { it.virtualName == "_exit_tree" }) return
+        sb.appendLine("    private fun cancelKanamaScope(instance: Any) {")
+        sb.appendLine("        (instance as? net.multigesture.kanama.api.KanamaCoroutineOwner)?.kanamaScope?.cancel()")
+        sb.appendLine("    }")
+        sb.appendLine()
+    }
+
+    private fun methodUpcalls() {
+        // Shared method-call / ptrcall type + descriptor constants.
+        if (model.methods.isNotEmpty() || model.properties.isNotEmpty()) {
+            sb.appendLine("    private val methodCallType: MethodType = MethodType.methodType(")
+            sb.appendLine("        Void.TYPE,")
+            sb.appendLine("        MemorySegment::class.java,")
+            sb.appendLine("        MemorySegment::class.java,")
+            sb.appendLine("        MemorySegment::class.java,")
+            sb.appendLine("        java.lang.Long.TYPE,")
+            sb.appendLine("        MemorySegment::class.java,")
+            sb.appendLine("        MemorySegment::class.java,")
+            sb.appendLine("    )")
+            sb.appendLine("    private val methodCallDescriptor: FunctionDescriptor = FunctionDescriptor.ofVoid(")
+            sb.appendLine("        ADDRESS, ADDRESS, ADDRESS, JAVA_LONG, ADDRESS, ADDRESS,")
+            sb.appendLine("    )")
+            sb.appendLine("    private val methodPtrcallType: MethodType = MethodType.methodType(")
+            sb.appendLine("        Void.TYPE,")
+            sb.appendLine("        MemorySegment::class.java,")
+            sb.appendLine("        MemorySegment::class.java,")
+            sb.appendLine("        MemorySegment::class.java,")
+            sb.appendLine("        MemorySegment::class.java,")
+            sb.appendLine("    )")
+            sb.appendLine("    private val methodPtrcallDescriptor: FunctionDescriptor = FunctionDescriptor.ofVoid(")
+            sb.appendLine("        ADDRESS, ADDRESS, ADDRESS, ADDRESS,")
+            sb.appendLine("    )")
+            sb.appendLine()
+        }
+        for (m in model.methods) {
+            emitMethodCallUpcall(m)
+            emitMethodPtrcallUpcall(m)
+        }
+    }
+
+    private fun propertyUpcalls() {
+        for (p in model.properties) {
+            val getter = MethodModel(
+                kotlinName = "get_${p.godotName}",
+                godotName = "get_${p.godotName}",
+                returnType = p.type,
+                args = emptyList(),
+                kind = MethodKind.PROPERTY_GETTER,
+                propertyKotlinName = p.kotlinName,
+            )
+            emitMethodCallUpcall(getter)
+            emitMethodPtrcallUpcall(getter)
+            if (p.isMutable) {
+                val setter = MethodModel(
+                    kotlinName = "set_${p.godotName}",
+                    godotName = "set_${p.godotName}",
+                    returnType = null,
+                    args = listOf(ArgModel("value", p.type)),
+                    kind = MethodKind.PROPERTY_SETTER,
+                    propertyKotlinName = p.kotlinName,
+                )
+                emitMethodCallUpcall(setter)
+                emitMethodPtrcallUpcall(setter)
+            }
+        }
+    }
+
+    /** The Kotlin expression that invokes this method on a user-class instance. */
+    private fun invocationExpr(m: MethodModel, argVars: List<String>): String = when (m.kind) {
+        MethodKind.REGULAR -> "kotlinInstance.${m.kotlinName}(${argVars.joinToString(", ")})"
+        MethodKind.PROPERTY_GETTER -> "kotlinInstance.${m.propertyKotlinName}"
+        MethodKind.PROPERTY_SETTER -> "kotlinInstance.${m.propertyKotlinName} = ${argVars.single()}"
+    }
+
+    private fun callFunctionName(m: MethodModel): String = when (m.kind) {
+        MethodKind.REGULAR -> "call_${m.godotName}"
+        MethodKind.PROPERTY_GETTER, MethodKind.PROPERTY_SETTER -> "call_${m.godotName}"
+    }
+
+    private fun ptrcallFunctionName(m: MethodModel): String = "ptrcall_${m.godotName}"
+
+    private fun emitMethodCallUpcall(m: MethodModel) {
+        sb.appendLine("    @JvmStatic")
+        sb.appendLine("    fun ${callFunctionName(m)}(")
+        sb.appendLine("        methodUserdata: MemorySegment,")
+        sb.appendLine("        instance: MemorySegment,")
+        sb.appendLine("        args: MemorySegment,")
+        sb.appendLine("        argCount: Long,")
+        sb.appendLine("        rReturn: MemorySegment,")
+        sb.appendLine("        rError: MemorySegment,")
+        sb.appendLine("    ) {")
+        sb.appendLine("        val kotlinInstance = ObjectRegistry.get(instance.address()) as? ${model.simpleName} ?: return")
+        if (m.args.isEmpty() && m.returnType == null) {
+            sb.appendLine("        ${invocationExpr(m, emptyList())}")
+        } else {
+            sb.appendLine("        Arena.ofConfined().use { arena ->")
+            val argVars = mutableListOf<String>()
+            if (m.args.isNotEmpty()) {
+                sb.appendLine("            val argsArray = args.reinterpret(${m.args.size * 8}L)")
+                m.args.forEachIndexed { i, arg ->
+                    val scratch = "arg${i}Scratch"
+                    val value = "arg${i}Value"
+                    sb.appendLine("            val $scratch = arena.allocate(${arg.type.valueLayout})")
+                    sb.appendLine("            VariantConverters.variantToType(VariantType.${arg.type.variantTypeEnum})")
+                    sb.appendLine("                .invoke($scratch, argsArray.get(ADDRESS, ${i * 8}L))")
+                    sb.appendLine("            val $value = ${arg.readFromScratch(scratch)}")
+                    if (arg.type.needsScratchDestroy)
+                        sb.appendLine("            GodotStrings.destroyString($scratch)")
+                    argVars += value
+                }
+            }
+            val invocation = invocationExpr(m, argVars)
+            if (m.returnType != null) {
+                sb.appendLine("            val result = $invocation")
+                sb.appendLine("            val retScratch = arena.allocate(${m.returnType.valueLayout})")
+                sb.appendLine("            ${m.returnType.writeToScratch("retScratch", "result")}")
+                sb.appendLine("            VariantConverters.variantFromType(VariantType.${m.returnType.variantTypeEnum}).invoke(rReturn, retScratch)")
+                if (m.returnType.needsScratchDestroy)
+                    sb.appendLine("            GodotStrings.destroyString(retScratch)")
+            } else {
+                sb.appendLine("            $invocation")
+            }
+            sb.appendLine("        }")
+        }
+        sb.appendLine("    }")
+        sb.appendLine()
+    }
+
+    private fun emitMethodPtrcallUpcall(m: MethodModel) {
+        sb.appendLine("    @JvmStatic")
+        sb.appendLine("    fun ${ptrcallFunctionName(m)}(")
+        sb.appendLine("        methodUserdata: MemorySegment,")
+        sb.appendLine("        instance: MemorySegment,")
+        sb.appendLine("        args: MemorySegment,")
+        sb.appendLine("        rRet: MemorySegment,")
+        sb.appendLine("    ) {")
+        sb.appendLine("        val kotlinInstance = ObjectRegistry.get(instance.address()) as? ${model.simpleName} ?: return")
+        val argVars = mutableListOf<String>()
+        if (m.args.isNotEmpty()) {
+            sb.appendLine("        val argsArray = args.reinterpret(${m.args.size * 8}L)")
+            m.args.forEachIndexed { i, arg ->
+                val value = "arg${i}Value"
+                sb.appendLine("        val $value = ${arg.readPtrcallArg("argsArray.get(ADDRESS, ${i * 8}L)")}")
+                argVars += value
+            }
+        }
+        val invocation = invocationExpr(m, argVars)
+        if (m.returnType != null) {
+            sb.appendLine("        val result = $invocation")
+            sb.appendLine("        ${m.returnType.writePtrcallReturn("result")}")
+        } else {
+            sb.appendLine("        $invocation")
+        }
+        sb.appendLine("    }")
+        sb.appendLine()
+    }
+}
+
+// ---------- ScriptCodeEmitter ----------
+
+internal class ScriptCodeEmitter(
+    private val model: ScriptModel,
+    private val registrarName: String,
+) {
+    private val sb = StringBuilder()
+
+    fun emit(): String {
+        header()
+        objectOpen()
+        internedNames()
+        registerFunction()
+        factory()
+        coroutineScopeHelpers()
+        emitCleanupHelpers()
+        objectClose()
+        signalHelpers()
+        nameConstants()
+        return sb.toString()
+    }
+
+    private fun signalHelpers() {
+        if (model.signals.isEmpty()) return
+        sb.appendLine()
+        sb.appendLine("object ${model.simpleName}Signals {")
+        val seen = mutableSetOf<String>()
+        for (s in model.signals) {
+            val functionName = uniqueConstantIdentifier(s.godotName, seen)
+            val kotlinParams = s.args.joinToString(", ") { "${it.name}: ${it.kotlinType}" }
+            val argList = s.args.joinToString(", ") {
+                "Signals.Arg(VariantType.${it.type.variantTypeEnum}, ${it.signalEmitValueExpr()})"
+            }
+            val argsExpr = if (s.args.isEmpty()) "emptyList()" else "listOf($argList)"
+            sb.appendLine("    fun $functionName(instance: ${model.simpleName}${if (kotlinParams.isNotEmpty()) ", $kotlinParams" else ""}) {")
+            sb.appendLine("        Signals.emit(instance.godotObject, \"${kotlinStringLiteral(s.godotName)}\", $argsExpr)")
+            sb.appendLine("    }")
+        }
+        sb.appendLine("}")
+    }
+
+    private fun nameConstants() {
+        if (model.virtuals.isEmpty() && model.methods.isEmpty() && model.properties.isEmpty() && model.signals.isEmpty()) return
+        sb.appendLine()
+        sb.appendLine("object ${model.simpleName}Names {")
+        if (model.virtuals.isNotEmpty() || model.methods.isNotEmpty()) {
+            sb.appendLine("    object Methods {")
+            val seen = mutableSetOf<String>()
+            for (v in model.virtuals) {
+                sb.appendLine("        const val ${uniqueConstantIdentifier(v.virtualName, seen)}: String = \"${kotlinStringLiteral(v.virtualName)}\"")
+            }
+            for (m in model.methods) {
+                sb.appendLine("        const val ${uniqueConstantIdentifier(m.godotName, seen)}: String = \"${kotlinStringLiteral(m.godotName)}\"")
+            }
+            sb.appendLine("    }")
+        }
+        if (model.properties.isNotEmpty()) {
+            sb.appendLine("    object Properties {")
+            val seen = mutableSetOf<String>()
+            for (p in model.properties) {
+                sb.appendLine("        const val ${uniqueConstantIdentifier(p.godotName, seen)}: String = \"${kotlinStringLiteral(p.godotName)}\"")
+            }
+            sb.appendLine("    }")
+        }
+        if (model.signals.isNotEmpty()) {
+            sb.appendLine("    object Signals {")
+            val seen = mutableSetOf<String>()
+            for (s in model.signals) {
+                sb.appendLine("        const val ${uniqueConstantIdentifier(s.godotName, seen)}: String = \"${kotlinStringLiteral(s.godotName)}\"")
+            }
+            sb.appendLine("    }")
+        }
+        sb.appendLine("}")
+    }
+
+    private fun header() {
+        sb.appendLine("// Generated by KanamaProcessor — do not edit.")
+        sb.appendLine("// Source: ${model.fqName}")
+        sb.appendLine("package net.multigesture.kanama.generated")
+        sb.appendLine()
+        sb.appendLine("import net.multigesture.kanama.binding.KanamaScript")
+        sb.appendLine("import net.multigesture.kanama.binding.KanamaScriptInstance")
+        sb.appendLine("import net.multigesture.kanama.binding.ScriptBridge")
+        sb.appendLine("import net.multigesture.kanama.binding.runtime.BuiltinTypes")
+        sb.appendLine("import net.multigesture.kanama.binding.runtime.ClassDB")
+        sb.appendLine("import net.multigesture.kanama.binding.runtime.GodotStrings")
+        sb.appendLine("import net.multigesture.kanama.binding.runtime.SignalCallbackRegistry")
+        sb.appendLine("import net.multigesture.kanama.binding.runtime.Signals")
+        sb.appendLine("import net.multigesture.kanama.binding.runtime.VariantConverters")
+        sb.appendLine("import net.multigesture.kanama.binding.runtime.VariantType")
+        sb.appendLine("import ${model.fqName}")
+        sb.appendLine("import java.lang.foreign.Arena")
+        sb.appendLine("import java.lang.foreign.MemorySegment")
+        sb.appendLine("import java.lang.foreign.ValueLayout.ADDRESS")
+        sb.appendLine("import java.lang.foreign.ValueLayout.JAVA_BYTE")
+        sb.appendLine("import java.lang.foreign.ValueLayout.JAVA_FLOAT")
+        sb.appendLine("import java.lang.foreign.ValueLayout.JAVA_DOUBLE")
+        sb.appendLine("import java.lang.foreign.ValueLayout.JAVA_INT")
+        sb.appendLine("import java.lang.foreign.ValueLayout.JAVA_LONG")
+        sb.appendLine()
+    }
+
+    private fun objectOpen() {
+        sb.appendLine("object $registrarName {")
+        sb.appendLine()
+    }
+
+    private fun objectClose() {
+        sb.appendLine("}")
+    }
+
+    private fun internedNames() {
+        // Lifecycle virtuals
+        for (i in 0..3) {
+            sb.appendLine("    private var ${nameVar("__kanama_signal_dispatch$i")}: Long = 0L")
+        }
+        for (v in model.virtuals) {
+            sb.appendLine("    private var ${nameVar(v.virtualName)}: Long = 0L")
+        }
+        // @RegisterFunction methods
+        for (m in model.methods) {
+            sb.appendLine("    private var ${nameVar(m.godotName)}: Long = 0L")
+        }
+        // @Signal declarations
+        for (s in model.signals) {
+            sb.appendLine("    private var ${nameVar(s.godotName)}: Long = 0L")
+        }
+        // @ScriptProperty properties
+        for (p in model.properties) {
+            sb.appendLine("    private var ${nameVar(p.godotName)}: Long = 0L")
+        }
+        if (model.properties.isNotEmpty()) {
+            sb.appendLine("    private var propertyListPtr: MemorySegment = MemorySegment.NULL")
+            for (p in model.properties) {
+                val defaultName = p.kotlinName.replaceFirstChar { it.uppercase() }
+                sb.appendLine("    private var default$defaultName: ${scriptPropertyKotlinType(p)} = ${p.defaultLiteral ?: scriptPropertyZeroLiteral(p)}")
+                sb.appendLine("    private var default${defaultName}Available: Boolean = ${p.defaultLiteral != null}")
+            }
+        }
+        sb.appendLine()
+    }
+
+    private fun registerFunction() {
+        sb.appendLine("    fun register(library: MemorySegment) {")
+        for (i in 0..3) {
+            sb.appendLine("        ${nameVar("__kanama_signal_dispatch$i")} = GodotStrings.stringNameStorage(\"__kanama_signal_dispatch$i\")")
+        }
+        for (v in model.virtuals) {
+            sb.appendLine("        ${nameVar(v.virtualName)} = GodotStrings.stringNameStorage(\"${v.virtualName}\")")
+        }
+        for (m in model.methods) {
+            sb.appendLine("        ${nameVar(m.godotName)} = GodotStrings.stringNameStorage(\"${m.godotName}\")")
+        }
+        for (s in model.signals) {
+            sb.appendLine("        ${nameVar(s.godotName)} = GodotStrings.stringNameStorage(\"${s.godotName}\")")
+        }
+        for (p in model.properties) {
+            sb.appendLine("        ${nameVar(p.godotName)} = GodotStrings.stringNameStorage(\"${p.godotName}\")")
+        }
+        if (model.properties.isNotEmpty()) {
+            val specs = scriptPropertyListSpecExpressions().joinToString(",\n            ")
+            sb.appendLine("        propertyListPtr = ClassDB.buildPropertyList(listOf(")
+            sb.appendLine("            $specs,")
+            sb.appendLine("        ))")
+            val dynamicDefaultProperties = model.properties.filter { it.defaultLiteral == null }
+            if (dynamicDefaultProperties.isNotEmpty()) {
+                // KSP does not expose initializer expressions directly. The
+                // processor emits source-literal defaults for simple constants,
+                // then falls back to constructing a NULL-handle instance only
+                // for properties whose initializer could not be read safely.
+                sb.appendLine("        try {")
+                sb.appendLine("            val defaults = ${model.simpleName}(MemorySegment.NULL)")
+                for (p in dynamicDefaultProperties) {
+                    val defaultName = p.kotlinName.replaceFirstChar { it.uppercase() }
+                    sb.appendLine("            default$defaultName = defaults.${p.kotlinName}")
+                    sb.appendLine("            default${defaultName}Available = true")
+                }
+                sb.appendLine("        } catch (t: Throwable) {")
+                sb.appendLine("            System.err.println(\"[kanama:kt] ${model.simpleName}: dynamic default-property extraction skipped (constructor touched godotObject?): \${t.message}\")")
+                sb.appendLine("        }")
+            }
+        }
+        sb.appendLine("        KanamaScript.construct(")
+        sb.appendLine("            instanceBaseType = \"${model.attachTo}\",")
+        sb.appendLine("            isTool = ${model.isTool},")
+        sb.appendLine("            kotlinClassName = \"${model.fqName}\",")
+        sb.appendLine("            globalName = \"${if (model.isGlobalClass) model.simpleName else ""}\",")
+        sb.appendLine("            factory = $registrarName::factory,")
+        sb.appendLine("            hasMethod = $registrarName::hasMethod,")
+        sb.appendLine("            getMethodArgumentCount = $registrarName::getMethodArgumentCount,")
+        sb.appendLine("            hasScriptSignal = $registrarName::hasScriptSignal,")
+        sb.appendLine("            writeScriptMethodList = $registrarName::writeScriptMethodList,")
+        sb.appendLine("            writeScriptPropertyList = $registrarName::writeScriptPropertyList,")
+        sb.appendLine("            writeScriptSignalList = $registrarName::writeScriptSignalList,")
+        sb.appendLine("            writeMethodInfo = $registrarName::writeMethodInfo,")
+        if (model.properties.isNotEmpty()) {
+            sb.appendLine("            hasPropertyDefault = $registrarName::hasPropertyDefault,")
+            sb.appendLine("            writePropertyDefault = $registrarName::writePropertyDefault,")
+            // Hand the script-level property list to KanamaScript so the
+            // editor placeholder instance (used for non-@Tool scripts in
+            // editor mode) can expose @ScriptProperty fields in the
+            // inspector without invoking the user's factory.
+            sb.appendLine("            propertyListPtr = propertyListPtr,")
+            sb.appendLine("            propertyCount = ${scriptPropertyListEntryCount()},")
+        }
+        sb.appendLine("        )")
+        sb.appendLine("    }")
+        sb.appendLine()
+        emitMethodMetadataHelpers()
+        emitScriptMetadataWriters()
+        if (model.properties.isNotEmpty()) {
+            emitPropertyDefaultHelpers()
+        }
+    }
+
+    private fun emitMethodMetadataHelpers() {
+        val methodCases = linkedSetOf<Pair<String, Int>>()
+        for (i in 0..3) {
+            methodCases += (nameVar("__kanama_signal_dispatch$i") to i + 1)
+        }
+        for (v in model.virtuals) {
+            methodCases += (nameVar(v.virtualName) to v.args.size)
+        }
+        for (m in model.methods) {
+            methodCases += (nameVar(m.godotName) to m.args.size)
+        }
+
+        sb.appendLine("    private fun hasMethod(name: Long): Boolean = when (name) {")
+        if (methodCases.isEmpty()) {
+            sb.appendLine("        else -> false")
+        } else {
+            for ((nameVar, _) in methodCases) {
+                sb.appendLine("        $nameVar -> true")
+            }
+            sb.appendLine("        else -> false")
+        }
+        sb.appendLine("    }")
+        sb.appendLine()
+
+        sb.appendLine("    private fun getMethodArgumentCount(name: Long): Int = when (name) {")
+        if (methodCases.isEmpty()) {
+            sb.appendLine("        else -> -1")
+        } else {
+            for ((nameVar, count) in methodCases) {
+                sb.appendLine("        $nameVar -> $count")
+            }
+            sb.appendLine("        else -> -1")
+        }
+        sb.appendLine("    }")
+        sb.appendLine()
+    }
+
+    private fun emitScriptMetadataWriters() {
+        data class MethodMetaRow(val godotName: String, val argCount: Int)
+        val methodRows = mutableListOf<MethodMetaRow>()
+        for (v in model.virtuals) {
+            methodRows += MethodMetaRow(v.virtualName, v.args.size)
+        }
+        for (m in model.methods) {
+            methodRows += MethodMetaRow(m.godotName, m.args.size)
+        }
+        val methodReturnExprByName = linkedMapOf<String, String>()
+        for (v in model.virtuals) {
+            methodReturnExprByName[v.virtualName] = "VariantType.NIL.id"
+        }
+        for (m in model.methods) {
+            methodReturnExprByName[m.godotName] =
+                m.returnType?.let { "VariantType.${it.variantTypeEnum}.id" } ?: "VariantType.NIL.id"
+        }
+
+        sb.appendLine("    private fun hasScriptSignal(name: Long): Boolean = when (name) {")
+        if (model.signals.isEmpty()) {
+            sb.appendLine("        else -> false")
+        } else {
+            for (s in model.signals) {
+                sb.appendLine("        ${nameVar(s.godotName)} -> true")
+            }
+            sb.appendLine("        else -> false")
+        }
+        sb.appendLine("    }")
+        sb.appendLine()
+
+        sb.appendLine("    private fun writeScriptMethodList(ret: MemorySegment) {")
+        if (methodRows.isEmpty()) {
+            sb.appendLine("        BuiltinTypes.construct(VariantType.ARRAY, ret)")
+        } else {
+            sb.appendLine("        BuiltinTypes.initArrayOfDictionaries(ret, listOf(")
+            methodRows.forEachIndexed { index, row ->
+                val comma = if (index == methodRows.lastIndex) "" else ","
+                val retExpr = methodReturnExprByName[row.godotName] ?: "VariantType.NIL.id"
+                sb.appendLine(
+                    "            mapOf(\"name\" to \"${row.godotName}\", \"args_count\" to ${row.argCount}, \"flags\" to 1, \"id\" to $index, \"return_type\" to $retExpr)$comma"
+                )
+            }
+            sb.appendLine("        ))")
+        }
+        sb.appendLine("    }")
+        sb.appendLine()
+
+        sb.appendLine("    private fun writeScriptPropertyList(ret: MemorySegment) {")
+        if (model.properties.isEmpty()) {
+            sb.appendLine("        BuiltinTypes.construct(VariantType.ARRAY, ret)")
+        } else {
+            val rows = scriptPropertyListDictionaryExpressions()
+            sb.appendLine("        BuiltinTypes.initArrayOfDictionaries(ret, listOf(")
+            rows.forEachIndexed { index, row ->
+                val comma = if (index == rows.lastIndex) "" else ","
+                sb.appendLine("            $row$comma")
+            }
+            sb.appendLine("        ))")
+        }
+        sb.appendLine("    }")
+        sb.appendLine()
+
+        sb.appendLine("    private fun writeScriptSignalList(ret: MemorySegment) {")
+        if (model.signals.isEmpty()) {
+            sb.appendLine("        BuiltinTypes.construct(VariantType.ARRAY, ret)")
+        } else {
+            sb.appendLine("        BuiltinTypes.initArrayOfDictionaries(ret, listOf(")
+            model.signals.forEachIndexed { index, s ->
+                val comma = if (index == model.signals.lastIndex) "" else ","
+                sb.appendLine(
+                    "            mapOf(\"name\" to \"${s.godotName}\", \"args_count\" to ${s.args.size}, \"id\" to $index)$comma"
+                )
+            }
+            sb.appendLine("        ))")
+        }
+        sb.appendLine("    }")
+        sb.appendLine()
+
+        sb.appendLine("    private fun writeMethodInfo(name: Long, ret: MemorySegment): Boolean = when (name) {")
+        if (methodRows.isEmpty()) {
+            sb.appendLine("        else -> false")
+        } else {
+            methodRows.forEachIndexed { index, row ->
+                val retExpr = methodReturnExprByName[row.godotName] ?: "VariantType.NIL.id"
+                sb.appendLine("        ${nameVar(row.godotName)} -> {")
+                sb.appendLine(
+                    "            BuiltinTypes.initDictionary(ret, mapOf(\"name\" to \"${row.godotName}\", \"args_count\" to ${row.argCount}, \"flags\" to 1, \"id\" to $index, \"return_type\" to $retExpr))"
+                )
+                sb.appendLine("            true")
+                sb.appendLine("        }")
+            }
+            sb.appendLine("        else -> false")
+        }
+        sb.appendLine("    }")
+        sb.appendLine()
+    }
+
+    private fun scriptPropertyListEntryCount(): Int =
+        model.properties.sumOf { property ->
+            1 + (if (property.exportGroup != null) 1 else 0) + (if (property.exportSubgroup != null) 1 else 0)
+        }
+
+    private fun scriptPropertyListSpecExpressions(): List<String> =
+        buildList {
+            for (p in model.properties) {
+                p.exportGroup?.let { add(scriptGroupPropertySpecExpression(it)) }
+                p.exportSubgroup?.let { add(scriptGroupPropertySpecExpression(it)) }
+                add(scriptPropertySpecExpression(p))
+            }
+        }
+
+    private fun scriptPropertyListDictionaryExpressions(): List<String> =
+        buildList {
+            for (p in model.properties) {
+                p.exportGroup?.let { add(scriptGroupPropertyDictionaryExpression(it)) }
+                p.exportSubgroup?.let { add(scriptGroupPropertyDictionaryExpression(it)) }
+                add(scriptPropertyDictionaryExpression(p))
+            }
+        }
+
+    private fun scriptGroupPropertySpecExpression(group: ScriptPropertyGroupModel): String =
+        "ClassDB.PropertySpec(\"${kotlinStringLiteral(group.name)}\", VariantType.NIL, 0, \"${kotlinStringLiteral(group.prefix)}\", ${group.usage})"
+
+    private fun scriptPropertySpecExpression(p: ScriptPropertyModel): String {
+        val declaredType = scriptPropertyDeclaredVariantType(p)
+        return "ClassDB.PropertySpec(\"${kotlinStringLiteral(p.godotName)}\", VariantType.$declaredType, ${p.hint}, \"${kotlinStringLiteral(p.hintString)}\")"
+    }
+
+    private fun scriptGroupPropertyDictionaryExpression(group: ScriptPropertyGroupModel): String =
+        "mapOf(\"name\" to \"${kotlinStringLiteral(group.name)}\", \"type\" to VariantType.NIL.id, \"hint\" to 0, \"hint_string\" to \"${kotlinStringLiteral(group.prefix)}\", \"usage\" to ${group.usage})"
+
+    private fun scriptPropertyDictionaryExpression(p: ScriptPropertyModel): String {
+        val declaredType = scriptPropertyDeclaredVariantType(p)
+        return "mapOf(\"name\" to \"${kotlinStringLiteral(p.godotName)}\", \"type\" to VariantType.$declaredType.id, \"hint\" to ${p.hint}, \"hint_string\" to \"${kotlinStringLiteral(p.hintString)}\", \"usage\" to 6)"
+    }
+
+    private fun scriptPropertyDeclaredVariantType(p: ScriptPropertyModel): String =
+        // Property declaration type vs marshal type can diverge. NodePath uses
+        // STRING marshaling internally, but the inspector declaration must be
+        // NODE_PATH so Godot renders a node picker and `.tscn` NodePath values
+        // deserialize into the slot.
+        if (p.type == TypeMapping.NODE_PATH) "NODE_PATH" else p.type.variantTypeEnum
+
+    private fun emitPropertyDefaultHelpers() {
+        sb.appendLine("    private fun hasPropertyDefault(name: Long): Boolean = when (name) {")
+        for (p in model.properties) {
+            sb.appendLine("        ${nameVar(p.godotName)} -> default${p.kotlinName.replaceFirstChar { it.uppercase() }}Available")
+        }
+        sb.appendLine("        else -> false")
+        sb.appendLine("    }")
+        sb.appendLine()
+
+        sb.appendLine("    private fun writePropertyDefault(name: Long, ret: MemorySegment): Boolean = when (name) {")
+        for (p in model.properties) {
+            sb.appendLine("        ${nameVar(p.godotName)} -> {")
+            sb.appendLine("            ${variantWritePropertyRetExpr(p, "default${p.kotlinName.replaceFirstChar { it.uppercase() }}")}")
+            sb.appendLine("            true")
+            sb.appendLine("        }")
+        }
+        sb.appendLine("        else -> false")
+        sb.appendLine("    }")
+        sb.appendLine()
+    }
+
+    private fun factory() {
+        sb.appendLine("    private fun factory(godotObject: MemorySegment): KanamaScriptInstance {")
+        sb.appendLine("        val kt = ${model.simpleName}(godotObject)")
+        sb.appendLine("        return KanamaScriptInstance(")
+        sb.appendLine("            kotlinObject = kt,")
+        sb.appendLine("            ownerObject = godotObject,")
+        if (model.properties.isNotEmpty()) {
+            sb.appendLine("            propertyListPtr = propertyListPtr,")
+            sb.appendLine("            propertyCount = ${scriptPropertyListEntryCount()},")
+        }
+        emitDispatchCall()
+        emitDispatchSet()
+        emitDispatchGet()
+        emitDispatchHasMethod()
+        sb.appendLine("            cleanup = { cleanupKanamaOwnedProperties(kt) },")
+        sb.appendLine("        )")
+        sb.appendLine("    }")
+    }
+
+    private fun emitDispatchCall() {
+        val allCallable = model.virtuals + model.methods.map {
+            VirtualModel(it.godotName, "", it.kotlinName, it.args)
+        }
+        sb.appendLine("            dispatchCall = { name, args, argCount, ret, error ->")
+        sb.appendLine("                when (name) {")
+        for (i in 0..3) {
+            sb.appendLine("                    ${nameVar("__kanama_signal_dispatch$i")} -> {")
+            sb.appendLine("                        if (argCount < ${i + 1}) { false } else {")
+            sb.appendLine("                            val argsArray = args.reinterpret(${(i + 1) * 8}L)")
+            sb.appendLine("                            val callbackId = Arena.ofConfined().use { a ->")
+            sb.appendLine("                                val idScratch = a.allocate(JAVA_LONG)")
+            sb.appendLine("                                VariantConverters.variantToType(VariantType.INT).invoke(idScratch, argsArray.get(ADDRESS, ${i * 8}L))")
+            sb.appendLine("                                idScratch.get(JAVA_LONG, 0)")
+            sb.appendLine("                            }")
+            if (i == 0) {
+                sb.appendLine("                            SignalCallbackRegistry.invoke(callbackId, emptyList())")
+            } else {
+                sb.appendLine("                            val signalArgs = Arena.ofConfined().use { a ->")
+                sb.appendLine("                                listOf(")
+                for (argIndex in 0 until i) {
+                    val comma = if (argIndex == i - 1) "" else ","
+                    sb.appendLine("                                    BuiltinTypes.readVariantScalar(argsArray.get(ADDRESS, ${argIndex * 8}L), a)$comma")
+                }
+                sb.appendLine("                                )")
+                sb.appendLine("                            }")
+                sb.appendLine("                            SignalCallbackRegistry.invoke(callbackId, signalArgs)")
+            }
+            sb.appendLine("                            true")
+            sb.appendLine("                        }")
+            sb.appendLine("                    }")
+        }
+        for (v in model.virtuals) {
+            sb.append("                    ${nameVar(v.virtualName)} -> { ")
+            if (v.args.isEmpty()) {
+                sb.append("kt.${v.kotlinMethodName}()")
+            } else {
+                // Extract Variant args (call_func receives Variant pointers, not ptrcall)
+                val argExprs = v.args.mapIndexed { i, arg ->
+                    variantReadArgExpr(arg, "args.reinterpret(${(i + 1) * 8}L).get(ADDRESS, ${i * 8}L)", "arg$i")
+                }
+                sb.append(argExprs.joinToString("; ") + "; kt.${v.kotlinMethodName}(${v.args.indices.joinToString(", ") { "arg$it" }})")
+            }
+            if (v.virtualName == "_exit_tree") {
+                sb.append("; cancelKanamaScope(kt)")
+            }
+            sb.appendLine("; true }")
+        }
+        for (m in model.methods) {
+            emitMethodDispatchCase(m)
+        }
+        sb.appendLine("                    else -> false")
+        sb.appendLine("                }")
+        sb.appendLine("            },")
+    }
+
+    private fun emitMethodDispatchCase(m: MethodModel) {
+        val defaultStart = m.args.indexOfFirst { it.hasDefault }
+        val requiredCount = if (defaultStart < 0) m.args.size else defaultStart
+        sb.appendLine("                    ${nameVar(m.godotName)} -> {")
+        sb.appendLine("                        when {")
+        if (defaultStart < 0) {
+            emitMethodDispatchBranch(m, m.args.size, "argCount >= ${m.args.size}")
+        } else {
+            for (count in requiredCount..m.args.size) {
+                emitMethodDispatchBranch(m, count, "argCount == ${count}L")
+            }
+        }
+        sb.appendLine("                            else -> false")
+        sb.appendLine("                        }")
+        sb.appendLine("                    }")
+    }
+
+    private fun emitMethodDispatchBranch(m: MethodModel, argCount: Int, condition: String) {
+        sb.appendLine("                            $condition -> {")
+        val argExprs = m.args.take(argCount).mapIndexed { i, arg ->
+            variantReadArgExpr(arg, "args.reinterpret(${(i + 1) * 8}L).get(ADDRESS, ${i * 8}L)", "marg$i")
+        }
+        for (expr in argExprs) {
+            sb.appendLine("                                $expr")
+        }
+        val callArgs = (0 until argCount).joinToString(", ") { "marg$it" }
+        if (m.returnType != null) {
+            sb.appendLine("                                val r = kt.${m.kotlinName}($callArgs)")
+            sb.appendLine("                                ${variantWriteRetExpr(m.returnType, "r")}")
+        } else {
+            sb.appendLine("                                kt.${m.kotlinName}($callArgs)")
+        }
+        sb.appendLine("                                true")
+        sb.appendLine("                            }")
+    }
+
+    private fun coroutineScopeHelpers() {
+        if (model.virtuals.none { it.virtualName == "_exit_tree" }) return
+        sb.appendLine("    private fun cancelKanamaScope(instance: Any) {")
+        sb.appendLine("        (instance as? net.multigesture.kanama.api.KanamaCoroutineOwner)?.kanamaScope?.cancel()")
+        sb.appendLine("    }")
+        sb.appendLine()
+    }
+
+    private fun emitDispatchSet() {
+        val mutable = model.properties.filter { it.isMutable }
+        if (mutable.isEmpty()) {
+            sb.appendLine("            dispatchSet = { _, _ -> false },")
+            return
+        }
+        sb.appendLine("            dispatchSet = { name, value ->")
+        sb.appendLine("                when (name) {")
+        for (p in mutable) {
+            sb.appendLine("                    ${nameVar(p.godotName)} -> {")
+            sb.appendLine("                        ${variantReadPropertyExpr(p, "value", "v")}")
+            sb.appendLine("                        ${cleanupPropertyExpr(p, "kt.${p.kotlinName}", "mutableSetOf()")}")
+            sb.appendLine("                        kt.${p.kotlinName} = v")
+            sb.appendLine("                        true")
+            sb.appendLine("                    }")
+        }
+        sb.appendLine("                    else -> false")
+        sb.appendLine("                }")
+        sb.appendLine("            },")
+    }
+
+    private fun emitCleanupHelpers() {
+        sb.appendLine("    private fun closeKanamaOwned(name: String, value: Any?) {")
+        sb.appendLine("        when (value) {")
+        sb.appendLine("            is AutoCloseable -> {")
+        sb.appendLine("                if (System.getenv(\"KANAMA_TRACE_SCRIPT_PROPERTY_CLEANUP\") == \"1\") {")
+        sb.appendLine("                    System.err.println(\"[kanama:kt] script property cleanup \" + name + \" type=\" + value::class.simpleName)")
+        sb.appendLine("                }")
+        sb.appendLine("                value.close()")
+        sb.appendLine("            }")
+        sb.appendLine("            is Iterable<*> -> value.forEachIndexed { index, item -> closeKanamaOwned(\"\$name[\$index]\", item) }")
+        sb.appendLine("        }")
+        sb.appendLine("    }")
+        sb.appendLine()
+        sb.appendLine("    internal fun cleanupKanamaOwnedProperties(kt: ${model.simpleName}) {")
+        sb.appendLine("        cleanupKanamaOwnedProperties(kt, mutableSetOf())")
+        sb.appendLine("    }")
+        sb.appendLine()
+        sb.appendLine("    internal fun cleanupKanamaOwnedProperties(kt: ${model.simpleName}, visited: MutableSet<Int>) {")
+        sb.appendLine("        if (!visited.add(System.identityHashCode(kt))) return")
+        for (p in model.properties) {
+            sb.appendLine("        ${cleanupPropertyExpr(p, "kt.${p.kotlinName}", "visited")}")
+        }
+        sb.appendLine("    }")
+        sb.appendLine()
+    }
+
+    private fun cleanupPropertyExpr(property: ScriptPropertyModel, valueExpr: String, visitedExpr: String): String =
+        when {
+            property.customScriptFqName != null -> {
+                val registrar = customScriptRegistrarName(property.customScriptFqName)
+                if (property.customScriptIsResource) {
+                    "$valueExpr?.let { $registrar.cleanupKanamaOwnedProperties(it, $visitedExpr); BuiltinTypes.releaseRefCounted(it.godotObject) }"
+                } else {
+                    "$valueExpr?.let { $registrar.cleanupKanamaOwnedProperties(it, $visitedExpr) }"
+                }
+            }
+            property.arrayElementCustomScriptFqName != null -> {
+                val registrar = customScriptRegistrarName(property.arrayElementCustomScriptFqName)
+                if (property.arrayElementCustomScriptIsResource) {
+                    "$valueExpr.forEach { $registrar.cleanupKanamaOwnedProperties(it, $visitedExpr); BuiltinTypes.releaseRefCounted(it.godotObject) }"
+                } else {
+                    "$valueExpr.forEach { $registrar.cleanupKanamaOwnedProperties(it, $visitedExpr) }"
+                }
+            }
+            else -> "closeKanamaOwned(\"${kotlinStringLiteral(property.godotName)}\", $valueExpr)"
+        }
+
+    private fun customScriptRegistrarName(fqName: String): String =
+        "${fqName.substringAfterLast('.')}ScriptRegistrar"
+
+    private fun emitDispatchGet() {
+        if (model.properties.isEmpty()) {
+            sb.appendLine("            dispatchGet = { _, _ -> false },")
+            return
+        }
+        sb.appendLine("            dispatchGet = { name, ret ->")
+        sb.appendLine("                when (name) {")
+        for (p in model.properties) {
+            sb.appendLine("                    ${nameVar(p.godotName)} -> {")
+            sb.appendLine("                        ${variantWritePropertyRetExpr(p, "kt.${p.kotlinName}")}")
+            sb.appendLine("                        true")
+            sb.appendLine("                    }")
+        }
+        sb.appendLine("                    else -> false")
+        sb.appendLine("                }")
+        sb.appendLine("            },")
+    }
+
+    private fun emitDispatchHasMethod() {
+        val allCallable = (0..3).map { "__kanama_signal_dispatch$it" } +
+            model.virtuals.map { it.virtualName } +
+            model.methods.map { it.godotName }
+        val checks = allCallable.joinToString(" || ") { "name == ${nameVar(it)}" }
+        sb.appendLine("            dispatchHasMethod = { name -> $checks },")
+    }
+
+    // ---- Variant helpers ----
+
+    /**
+     * Generates an expression that reads [variantPtr] into a local `val [localName]`
+     * of the appropriate Kotlin type. For simple scalars this is inline; for String
+     * or multi-step types it uses a block form.
+     */
+    private fun variantReadExpr(type: TypeMapping, variantPtr: String, localName: String): String = when (type) {
+        TypeMapping.INT    -> "val $localName = Arena.ofConfined().use { a -> val d = a.allocate(JAVA_LONG); VariantConverters.variantToType(VariantType.INT).invoke(d, $variantPtr); d.get(JAVA_LONG, 0) }"
+        TypeMapping.FLOAT  -> "val $localName = Arena.ofConfined().use { a -> val d = a.allocate(JAVA_DOUBLE); VariantConverters.variantToType(VariantType.FLOAT).invoke(d, $variantPtr); d.get(JAVA_DOUBLE, 0) }"
+        TypeMapping.BOOL   -> "val $localName = Arena.ofConfined().use { a -> val d = a.allocate(JAVA_BYTE); VariantConverters.variantToType(VariantType.BOOL).invoke(d, $variantPtr); d.get(JAVA_BYTE, 0) != 0.toByte() }"
+        TypeMapping.STRING -> "val $localName = Arena.ofConfined().use { a -> val d = a.allocate(8L, 8L); VariantConverters.variantToType(VariantType.STRING).invoke(d, $variantPtr); val s = GodotStrings.readString(d); GodotStrings.destroyString(d); s }"
+        TypeMapping.NODE_PATH -> "val $localName = Arena.ofConfined().use { a -> BuiltinTypes.readVariantNodePath($variantPtr, a) }"
+        TypeMapping.VECTOR2 -> "val $localName = Arena.ofConfined().use { a -> val d = a.allocate(8L, 4L); VariantConverters.variantToType(VariantType.VECTOR2).invoke(d, $variantPtr); net.multigesture.kanama.types.Vector2(d.get(JAVA_FLOAT, 0), d.get(JAVA_FLOAT, 4)) }"
+        TypeMapping.VECTOR2I -> "val $localName = Arena.ofConfined().use { a -> val d = a.allocate(8L, 4L); VariantConverters.variantToType(VariantType.VECTOR2I).invoke(d, $variantPtr); net.multigesture.kanama.types.Vector2i(d.get(JAVA_INT, 0), d.get(JAVA_INT, 4)) }"
+        TypeMapping.VECTOR3 -> "val $localName = Arena.ofConfined().use { a -> val d = a.allocate(12L, 4L); VariantConverters.variantToType(VariantType.VECTOR3).invoke(d, $variantPtr); net.multigesture.kanama.types.Vector3(d.get(JAVA_FLOAT, 0), d.get(JAVA_FLOAT, 4), d.get(JAVA_FLOAT, 8)) }"
+        TypeMapping.VECTOR3I -> "val $localName = Arena.ofConfined().use { a -> val d = a.allocate(12L, 4L); VariantConverters.variantToType(VariantType.VECTOR3I).invoke(d, $variantPtr); net.multigesture.kanama.types.Vector3i(d.get(JAVA_INT, 0), d.get(JAVA_INT, 4), d.get(JAVA_INT, 8)) }"
+        TypeMapping.OBJECT -> "val $localName = Arena.ofConfined().use { a -> val d = a.allocate(ADDRESS); VariantConverters.variantToType(VariantType.OBJECT).invoke(d, $variantPtr); net.multigesture.kanama.api.GodotObject(d.get(ADDRESS, 0)) }"
+        TypeMapping.ARRAY -> "val $localName = Arena.ofConfined().use { a -> BuiltinTypes.readVariantScalar($variantPtr, a) as? List<Any?> ?: emptyList() }"
+    }
+
+    private fun variantReadPropertyExpr(property: ScriptPropertyModel, variantPtr: String, localName: String): String =
+        when {
+            property.objectWrapperFqName != null -> {
+                val wrapperExpr = if (property.objectWrapperFqName in RESOURCE_WRAPPER_FROM_HANDLE) {
+                    "${property.objectWrapperFqName}::fromHandle"
+                } else {
+                    "{ handle -> ${property.objectWrapperFqName}(handle) }"
+                }
+                "val $localName = Arena.ofConfined().use { a -> BuiltinTypes.readVariantObjectRetained($variantPtr, a, $wrapperExpr) }"
+            }
+            property.arrayElementWrapperFqName != null ->
+                "val $localName = Arena.ofConfined().use { a -> BuiltinTypes.readVariantObjectArrayRetained($variantPtr, a, ${property.arrayElementWrapperFqName}::fromHandle) }"
+            property.customScriptFqName != null ->
+                if (property.customScriptIsResource) {
+                    "val $localName = Arena.ofConfined().use { a -> BuiltinTypes.readVariantObjectRetainedHandle($variantPtr, a) { handle -> ScriptBridge.kotlinObjectForOwner(handle) as? ${property.customScriptFqName} ?: ${property.customScriptFqName}(handle) } }"
+                } else {
+                    "val $localName = Arena.ofConfined().use { a -> BuiltinTypes.readVariantObject($variantPtr, a) { handle -> ScriptBridge.kotlinObjectForOwner(handle) as? ${property.customScriptFqName} ?: ${property.customScriptFqName}(handle) } }"
+                }
+            property.arrayElementCustomScriptFqName != null ->
+                if (property.arrayElementCustomScriptIsResource) {
+                    "val $localName = Arena.ofConfined().use { a -> BuiltinTypes.readVariantObjectArrayRetainedHandles($variantPtr, a) { handle -> ScriptBridge.kotlinObjectForOwner(handle) as? ${property.arrayElementCustomScriptFqName} ?: ${property.arrayElementCustomScriptFqName}(handle) } }"
+                } else {
+                    "val $localName = Arena.ofConfined().use { a -> BuiltinTypes.readVariantObjectArray($variantPtr, a) { handle -> ScriptBridge.kotlinObjectForOwner(handle) as? ${property.arrayElementCustomScriptFqName} ?: ${property.arrayElementCustomScriptFqName}(handle) } }"
+                }
+            property.arrayElementString ->
+                "val $localName = Arena.ofConfined().use { a -> BuiltinTypes.readVariantStringList($variantPtr, a) }"
+            else -> variantReadExpr(property.type, variantPtr, localName)
+        }
+
+    private fun variantReadArgExpr(arg: ArgModel, variantPtr: String, localName: String): String =
+        if (arg.objectWrapperFqName != null) {
+            if (arg.objectWrapperFqName in RESOURCE_WRAPPER_FROM_HANDLE) {
+                "val $localName = Arena.ofConfined().use { a -> BuiltinTypes.readVariantObject($variantPtr, a, ${arg.objectWrapperFqName}::fromHandle) ?: error(\"Expected ${arg.objectWrapperFqName} argument '${arg.name}'\") }"
+            } else {
+                "val $localName = Arena.ofConfined().use { a -> val d = a.allocate(ADDRESS); VariantConverters.variantToType(VariantType.OBJECT).invoke(d, $variantPtr); ${arg.objectWrapperFqName}(d.get(ADDRESS, 0)) }"
+            }
+        } else {
+            variantReadExpr(arg.type, variantPtr, localName)
+        }
+
+    /**
+     * Generates a statement that writes [valueExpr] into `ret` (a GDExtensionVariantPtr)
+     * using the from-type constructor.
+     */
+    private fun variantWriteRetExpr(type: TypeMapping, valueExpr: String): String = when (type) {
+        TypeMapping.INT    -> "Arena.ofConfined().use { a -> val s = a.allocate(JAVA_LONG); s.set(JAVA_LONG, 0, $valueExpr); VariantConverters.variantFromType(VariantType.INT).invoke(ret, s) }"
+        TypeMapping.FLOAT  -> "Arena.ofConfined().use { a -> val s = a.allocate(JAVA_DOUBLE); s.set(JAVA_DOUBLE, 0, $valueExpr); VariantConverters.variantFromType(VariantType.FLOAT).invoke(ret, s) }"
+        TypeMapping.BOOL   -> "Arena.ofConfined().use { a -> val s = a.allocate(JAVA_BYTE); s.set(JAVA_BYTE, 0, if ($valueExpr) 1.toByte() else 0.toByte()); VariantConverters.variantFromType(VariantType.BOOL).invoke(ret, s) }"
+        TypeMapping.STRING -> "Arena.ofConfined().use { a -> val s = a.allocate(8L, 8L); GodotStrings.initString(s, $valueExpr); VariantConverters.variantFromType(VariantType.STRING).invoke(ret, s); GodotStrings.destroyString(s) }"
+        TypeMapping.NODE_PATH -> "Arena.ofConfined().use { a -> BuiltinTypes.initVariantFromAny(ret, $valueExpr, a) }"
+        TypeMapping.VECTOR2 -> "Arena.ofConfined().use { a -> val s = a.allocate(8L, 4L); s.set(JAVA_FLOAT, 0, $valueExpr.x); s.set(JAVA_FLOAT, 4, $valueExpr.y); VariantConverters.variantFromType(VariantType.VECTOR2).invoke(ret, s) }"
+        TypeMapping.VECTOR2I -> "Arena.ofConfined().use { a -> val s = a.allocate(8L, 4L); s.set(JAVA_INT, 0, $valueExpr.x); s.set(JAVA_INT, 4, $valueExpr.y); VariantConverters.variantFromType(VariantType.VECTOR2I).invoke(ret, s) }"
+        TypeMapping.VECTOR3 -> "Arena.ofConfined().use { a -> val s = a.allocate(12L, 4L); s.set(JAVA_FLOAT, 0, $valueExpr.x); s.set(JAVA_FLOAT, 4, $valueExpr.y); s.set(JAVA_FLOAT, 8, $valueExpr.z); VariantConverters.variantFromType(VariantType.VECTOR3).invoke(ret, s) }"
+        TypeMapping.VECTOR3I -> "Arena.ofConfined().use { a -> val s = a.allocate(12L, 4L); s.set(JAVA_INT, 0, $valueExpr.x); s.set(JAVA_INT, 4, $valueExpr.y); s.set(JAVA_INT, 8, $valueExpr.z); VariantConverters.variantFromType(VariantType.VECTOR3I).invoke(ret, s) }"
+        TypeMapping.OBJECT -> "Arena.ofConfined().use { a -> val s = a.allocate(ADDRESS); s.set(ADDRESS, 0, $valueExpr.handle); VariantConverters.variantFromType(VariantType.OBJECT).invoke(ret, s) }"
+        TypeMapping.ARRAY -> "Arena.ofConfined().use { a -> BuiltinTypes.initVariantFromAny(ret, $valueExpr, a) }"
+    }
+
+    private fun variantWritePropertyRetExpr(property: ScriptPropertyModel, valueExpr: String): String =
+        when {
+            property.objectWrapperFqName != null ->
+                "Arena.ofConfined().use { a -> BuiltinTypes.initVariantFromAny(ret, $valueExpr, a) }"
+            property.arrayElementWrapperFqName != null ->
+                "Arena.ofConfined().use { a -> BuiltinTypes.initVariantFromAny(ret, $valueExpr, a) }"
+            property.customScriptFqName != null ->
+                "Arena.ofConfined().use { a -> BuiltinTypes.initVariantFromAny(ret, $valueExpr?.let { net.multigesture.kanama.api.GodotObject(it.godotObject) }, a) }"
+            property.arrayElementCustomScriptFqName != null ->
+                "Arena.ofConfined().use { a -> BuiltinTypes.initVariantFromAny(ret, $valueExpr.map { net.multigesture.kanama.api.GodotObject(it.godotObject) }, a) }"
+            property.arrayElementString ->
+                "Arena.ofConfined().use { a -> BuiltinTypes.initVariantFromAny(ret, $valueExpr, a) }"
+            else -> variantWriteRetExpr(property.type, valueExpr)
+        }
+
+    private fun scriptPropertyKotlinType(property: ScriptPropertyModel): String =
+        when {
+            property.objectWrapperFqName != null -> "${property.objectWrapperFqName}?"
+            property.arrayElementWrapperFqName != null -> "List<${property.arrayElementWrapperFqName}>"
+            property.customScriptFqName != null -> "${property.customScriptFqName}?"
+            property.arrayElementCustomScriptFqName != null -> "List<${property.arrayElementCustomScriptFqName}>"
+            property.arrayElementString -> "List<String>"
+            else -> property.type.kotlinType
+        }
+
+    private fun scriptPropertyZeroLiteral(property: ScriptPropertyModel): String =
+        when {
+            property.objectWrapperFqName != null -> "null"
+            property.arrayElementWrapperFqName != null -> "emptyList()"
+            property.customScriptFqName != null -> "null"
+            property.arrayElementCustomScriptFqName != null -> "emptyList()"
+            property.arrayElementString -> "emptyList()"
+            else -> property.type.kotlinLiteralZero
+        }
+
+    companion object {
+        private val RESOURCE_WRAPPER_FROM_HANDLE = setOf(
+            "net.multigesture.kanama.api.PackedScene",
+            "net.multigesture.kanama.api.Texture2D",
+            "net.multigesture.kanama.api.NoiseTexture2D",
+            "net.multigesture.kanama.api.ShaderMaterial",
+            "net.multigesture.kanama.api.Curve",
+        )
+
+        /** Turns a godot name like "_ready" or "my_speed" into a valid Kotlin field name. */
+        private fun nameVar(godotName: String): String =
+            godotName.trimStart('_')
+                .split('_')
+                .mapIndexed { i, part -> if (i == 0) part else part.replaceFirstChar { it.uppercase() } }
+                .joinToString("") + "NameValue"
+    }
+}

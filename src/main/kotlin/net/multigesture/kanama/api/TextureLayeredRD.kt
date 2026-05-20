@@ -1,0 +1,49 @@
+package net.multigesture.kanama.api
+
+import net.multigesture.kanama.binding.runtime.ObjectCalls
+import net.multigesture.kanama.types.RID
+import java.lang.foreign.MemorySegment
+import kotlin.jvm.JvmName
+
+/**
+ * Abstract base class for layered texture RD types.
+ *
+ * Generated from Godot docs: TextureLayeredRD
+ */
+open class TextureLayeredRD(handle: MemorySegment) : TextureLayered(handle) {
+    var textureRdRid: RID
+        @JvmName("textureRdRidProperty")
+        get() = getTextureRdRid()
+        @JvmName("setTextureRdRidProperty")
+        set(value) = setTextureRdRid(value)
+
+    /**
+     * The RID of the texture object created on the `RenderingDevice`.
+     *
+     * Generated from Godot docs: TextureLayeredRD.set_texture_rd_rid
+     */
+    fun setTextureRdRid(textureRdRid: RID) {
+        ObjectCalls.ptrcallWithRIDArg(setTextureRdRidBind, handle, textureRdRid)
+    }
+
+    /**
+     * The RID of the texture object created on the `RenderingDevice`.
+     *
+     * Generated from Godot docs: TextureLayeredRD.get_texture_rd_rid
+     */
+    fun getTextureRdRid(): RID {
+        return ObjectCalls.ptrcallNoArgsRetRID(getTextureRdRidBind, handle)
+    }
+
+    companion object {
+        private const val SET_TEXTURE_RD_RID_HASH = 2722037293L
+        private val setTextureRdRidBind by lazy {
+            ObjectCalls.getMethodBind("TextureLayeredRD", "set_texture_rd_rid", SET_TEXTURE_RD_RID_HASH)
+        }
+
+        private const val GET_TEXTURE_RD_RID_HASH = 2944877500L
+        private val getTextureRdRidBind by lazy {
+            ObjectCalls.getMethodBind("TextureLayeredRD", "get_texture_rd_rid", GET_TEXTURE_RD_RID_HASH)
+        }
+    }
+}

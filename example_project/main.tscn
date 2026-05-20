@@ -1,0 +1,86 @@
+[gd_scene format=3 uid="uid://dk4ns76tyy6un"]
+
+[ext_resource type="Script" uid="uid://bxig3cvfaq1ly" path="res://main.gd" id="1"]
+[ext_resource type="Script" uid="uid://cejvnas4d07ll" path="res://HelloScript.kt" id="2"]
+[ext_resource type="PackedScene" path="res://InstancedMesh.tscn" id="3"]
+[ext_resource type="Script" path="res://NonToolScript.kt" id="4"]
+
+[node name="Node" type="Node" unique_id=1909033900]
+script = ExtResource("1")
+
+[node name="HelloKanama" type="HelloKanama" parent="." unique_id=1006335313]
+
+[node name="HelloKanama" type="HelloKanama" parent="HelloKanama" unique_id=2003009567]
+
+[node name="Body3D" type="CharacterBody3D" parent="." unique_id=203884441]
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Body3D" unique_id=1214624735]
+
+[node name="SceneTarget3D" type="CharacterBody3D" parent="." unique_id=1318335501]
+
+[node name="Camera3D" type="Camera3D" parent="." unique_id=215602836]
+
+[node name="RayCast3D" type="RayCast3D" parent="." unique_id=2010347602]
+
+[node name="Area3D" type="Area3D" parent="." unique_id=1805642053]
+
+[node name="Audio3D" type="AudioStreamPlayer3D" parent="." unique_id=1960151517]
+
+[node name="Audio2D" type="AudioStreamPlayer" parent="." unique_id=1641179123]
+
+[node name="AnimationPlayer" type="AnimationPlayer" parent="." unique_id=2144611443]
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="." unique_id=1643266479]
+
+[node name="InstancedMesh" parent="." instance=ExtResource("3")]
+
+[node name="GPUParticles3D" type="GPUParticles3D" parent="." unique_id=1693955615]
+emitting = false
+
+[node name="CPUParticles3D" type="CPUParticles3D" parent="." unique_id=1447708431]
+emitting = false
+
+[node name="StaticBody3D" type="StaticBody3D" parent="." unique_id=1747749071]
+
+[node name="Timer" type="Timer" parent="." unique_id=1468177857]
+
+[node name="UiRoot" type="Control" parent="." unique_id=1723389241]
+offset_right = 240.0
+offset_bottom = 120.0
+
+[node name="SmokeLabel" type="Label" parent="UiRoot" unique_id=1835086219]
+offset_right = 120.0
+offset_bottom = 24.0
+text = "initial"
+
+[node name="SmokeButton" type="Button" parent="UiRoot" unique_id=1964830149]
+offset_top = 32.0
+offset_right = 120.0
+offset_bottom = 64.0
+text = "initial"
+
+[node name="SmokeOptionButton" type="OptionButton" parent="UiRoot"]
+offset_top = 72.0
+offset_right = 120.0
+offset_bottom = 104.0
+
+[node name="SmokeTabBar" type="TabBar" parent="UiRoot"]
+offset_left = 132.0
+offset_right = 240.0
+offset_bottom = 32.0
+
+[node name="SmokeLineEdit" type="LineEdit" parent="UiRoot"]
+offset_left = 132.0
+offset_top = 40.0
+offset_right = 240.0
+offset_bottom = 72.0
+
+[node name="ScriptNode" type="Node" parent="." unique_id=812352978]
+script = ExtResource("2")
+label = "from_tscn"
+target_path = NodePath("../SceneTarget3D")
+
+[node name="NonToolScriptNode" type="Node" parent="." unique_id=193847562]
+script = ExtResource("4")
+
+[node name="NonToolHelloKanama" type="NonToolHelloKanama" parent="." unique_id=512983746]

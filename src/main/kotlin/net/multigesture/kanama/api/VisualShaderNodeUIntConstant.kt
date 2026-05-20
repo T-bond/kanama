@@ -1,0 +1,36 @@
+package net.multigesture.kanama.api
+
+import net.multigesture.kanama.binding.runtime.ObjectCalls
+import java.lang.foreign.MemorySegment
+import kotlin.jvm.JvmName
+
+/**
+ * Generated from Godot docs: VisualShaderNodeUIntConstant
+ */
+class VisualShaderNodeUIntConstant(handle: MemorySegment) : VisualShaderNodeConstant(handle) {
+    var constant: Int
+        @JvmName("constantProperty")
+        get() = getConstant()
+        @JvmName("setConstantProperty")
+        set(value) = setConstant(value)
+
+    fun setConstant(constant: Int) {
+        ObjectCalls.ptrcallWithIntArg(setConstantBind, handle, constant)
+    }
+
+    fun getConstant(): Int {
+        return ObjectCalls.ptrcallNoArgsRetInt(getConstantBind, handle)
+    }
+
+    companion object {
+        private const val SET_CONSTANT_HASH = 1286410249L
+        private val setConstantBind by lazy {
+            ObjectCalls.getMethodBind("VisualShaderNodeUIntConstant", "set_constant", SET_CONSTANT_HASH)
+        }
+
+        private const val GET_CONSTANT_HASH = 3905245786L
+        private val getConstantBind by lazy {
+            ObjectCalls.getMethodBind("VisualShaderNodeUIntConstant", "get_constant", GET_CONSTANT_HASH)
+        }
+    }
+}
