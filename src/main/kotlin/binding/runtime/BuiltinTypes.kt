@@ -310,17 +310,17 @@ object BuiltinTypes {
         return wrapper(handle)
     }
 
-    fun <T> readVariantObjectArray(variant: MemorySegment, arena: Arena, wrapper: (MemorySegment) -> T?): List<T> {
+    fun <T : Any> readVariantObjectArray(variant: MemorySegment, arena: Arena, wrapper: (MemorySegment) -> T?): List<T> {
         val scratch = arena.allocate(8L, 8L)
         VariantConverters.variantToType(VariantType.ARRAY).invoke(scratch, variant)
         try {
-            return readArrayObjects(scratch).mapNotNull { wrapper(it.handle) }
+            return readArrayObjects(scratch, wrapper)
         } finally {
             destroyTyped(VariantType.ARRAY, scratch)
         }
     }
 
-    fun <T> readVariantObjectArrayRetained(variant: MemorySegment, arena: Arena, wrapper: (MemorySegment) -> T?): List<T> =
+    fun <T : Any> readVariantObjectArrayRetained(variant: MemorySegment, arena: Arena, wrapper: (MemorySegment) -> T?): List<T> =
         readVariantObjectArray(variant, arena, wrapper).also { values ->
             values.forEach { value ->
                 if (value is Resource) {
@@ -329,13 +329,13 @@ object BuiltinTypes {
             }
         }
 
-    fun <T> readVariantObjectArrayRetainedHandles(variant: MemorySegment, arena: Arena, wrapper: (MemorySegment) -> T?): List<T> {
+    fun <T : Any> readVariantObjectArrayRetainedHandles(variant: MemorySegment, arena: Arena, wrapper: (MemorySegment) -> T?): List<T> {
         val scratch = arena.allocate(8L, 8L)
         VariantConverters.variantToType(VariantType.ARRAY).invoke(scratch, variant)
         try {
-            return readArrayObjects(scratch).mapNotNull {
-                ObjectCalls.ptrcallNoArgsRetBool(referenceBind, it.handle)
-                wrapper(it.handle)
+            return readArrayObjects(scratch) { handle ->
+                ObjectCalls.ptrcallNoArgsRetBool(referenceBind, handle)
+                wrapper(handle)
             }
         } finally {
             destroyTyped(VariantType.ARRAY, scratch)
@@ -1288,7 +1288,10 @@ object BuiltinTypes {
      * Read an initialized Array whose elements are expected to be Object
      * variants. Returned wrappers are non-owning.
      */
-    fun readArrayObjects(src: MemorySegment): List<GodotObject> {
+    fun readArrayObjects(src: MemorySegment): List<GodotObject> =
+        readArrayObjects(src) { handle -> GodotObject(handle) }
+
+    fun <T : Any> readArrayObjects(src: MemorySegment, wrapper: (MemorySegment) -> T?): List<T> {
         val sizeHash = 3173160232L
         val getHash = 708700221L
         Arena.ofConfined().use { arena ->
@@ -1304,7 +1307,7 @@ object BuiltinTypes {
             val size = sizeRet.get(JAVA_LONG, 0).toInt()
             if (size <= 0) return emptyList()
 
-            val values = ArrayList<GodotObject>(size)
+            val values = ArrayList<T>(size)
             val indexArg = arena.allocate(JAVA_LONG)
             val valueVariant = arena.allocate(VARIANT_SIZE, 8L)
             val objectScratch = arena.allocate(ADDRESS)
@@ -1322,7 +1325,7 @@ object BuiltinTypes {
                     VariantConverters.variantToType(VariantType.OBJECT).invoke(objectScratch, valueVariant)
                     val handle = objectScratch.get(ADDRESS, 0)
                     if (handle.address() != 0L) {
-                        values += GodotObject(handle)
+                        wrapper(handle)?.let(values::add)
                     }
                 } finally {
                     variantDestroy.invoke(valueVariant)

@@ -364,16 +364,23 @@ def audit_typed_object_array_helpers(content: str) -> list[str]:
             errors.append(f"dynamic typed object-array helper {typed_helper} is missing")
             continue
         typed_line, typed_text = typed_result
-        if object_helper not in typed_text:
-            errors.append(
-                f"src/main/kotlin/binding/runtime/ObjectCalls.kt:{typed_line}: "
-                f"{typed_helper} does not funnel through {object_helper}",
-            )
-        if ".mapNotNull" not in typed_text or "wrapper(it.handle)" not in typed_text:
-            errors.append(
-                f"src/main/kotlin/binding/runtime/ObjectCalls.kt:{typed_line}: "
-                f"{typed_helper} does not map through nullable typed wrappers",
-            )
+        if object_helper in typed_text:
+            if ".mapNotNull" not in typed_text or "wrapper(it.handle)" not in typed_text:
+                errors.append(
+                    f"src/main/kotlin/binding/runtime/ObjectCalls.kt:{typed_line}: "
+                    f"{typed_helper} does not map through nullable typed wrappers",
+                )
+        else:
+            if "BuiltinTypes.readArrayObjects(ret, wrapper)" not in typed_text:
+                errors.append(
+                    f"src/main/kotlin/binding/runtime/ObjectCalls.kt:{typed_line}: "
+                    f"{typed_helper} does not decode directly through nullable typed wrappers",
+                )
+            if "callArrayReturn(" not in typed_text and "BuiltinTypes.destroyTyped(VariantType.ARRAY" not in typed_text:
+                errors.append(
+                    f"src/main/kotlin/binding/runtime/ObjectCalls.kt:{typed_line}: "
+                    f"{typed_helper} does not destroy Array storage",
+                )
     for object_arg_helper in sorted(DYNAMIC_TYPED_OBJECT_ARRAY_ARG_HELPERS):
         result = find_function_text(content, object_arg_helper)
         if result is None:

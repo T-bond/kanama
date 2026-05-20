@@ -52,5 +52,7 @@ class KanamaScriptInstance(
     val dispatchSet: (name: Long, value: MemorySegment) -> Boolean = { _, _ -> false },
     val dispatchGet: (name: Long, ret: MemorySegment) -> Boolean = { _, _ -> false },
     val dispatchHasMethod: (name: Long) -> Boolean = { false },
+    val dispatchProcess: ((delta: Double) -> Unit)? = null,
+    val dispatchPhysicsProcess: ((delta: Double) -> Unit)? = null,
     val cleanup: () -> Unit = {},
 )

@@ -115,6 +115,7 @@ flowchart LR
     subgraph JVM["JVM process"]
         UK["User Kotlin<br/>(MyNode.takeDamage)"]
         BIND["Binding layer<br/>(ClassRegistrar, Variant)"]
+        SB["ScriptBridge<br/>generated dispatch slots"]
         FFI["GodotFFI<br/>downcall handles"]
         STUBS["KanamaBinding<br/>upcall stubs"]
     end
@@ -126,7 +127,9 @@ flowchart LR
     BIND -->|"MethodHandle.invokeExact"| FFI
     FFI ==>|"Panama downcall"| GODOT
     GODOT ==>|"Panama upcall"| STUBS
-    STUBS -->|"dispatch to instance"| UK
+    STUBS -->|"script callback"| SB
+    SB -->|"direct _process / _physics_process"| UK
+    SB -->|"generic method/property dispatch"| BIND
 ```
 
 - **Downcalls (JVM → Godot)** — `Linker.downcallHandle(addr, descriptor)`
@@ -138,6 +141,27 @@ flowchart LR
   method. Used for: lifecycle callbacks (`initialize`, `deinitialize`),
   per-instance virtual dispatch (`_ready`, `_process`), and class create/free
   hooks.
+
+Hot runtime paths keep the same ABI but avoid unnecessary JVM-side work:
+
+- KSP-generated script registrars provide direct lambdas for `_process(delta)`
+  and `_physics_process(delta)`. `ScriptBridge.call_func` checks those slots
+  before the generic StringName `when` dispatch, so frame callbacks still enter
+  through Godot's ScriptInstance vtable but skip the generated method switch.
+- `ObjectCalls` uses small thread-local scratch buffers for selected high-rate
+  ptrcall shapes, such as scalar `float`, `Vector2`, and draw-texture calls.
+  These buffers are ordinary FFM `MemorySegment`s reused by the current JVM
+  thread, replacing fresh `Arena.ofConfined()` allocations for calls that do
+  not retain argument memory after the ptrcall returns.
+- Typed object-array decoders can wrap elements directly as the requested
+  type. For example, `Array[Node]` results no longer need a temporary
+  `GodotObject` wrapper for each element before becoming `Node`.
+
+The scratch buffers are a per-thread cache of tiny native argument/return
+slots, not a cache of Godot objects or Variant values. A ptrcall wrapper may use
+them only when the call is synchronous and Godot consumes the argument memory
+before returning. If Godot can retain the memory, the wrapper must still use an
+owned arena with the correct lifetime.
 
 **Where JNI shows up — and where it doesn't.** Panama (FFM) handles the
 JVM→native direction beautifully, but it has no story for *creating* a JVM

@@ -80,6 +80,19 @@ object ObjectCalls {
         getMethodBind("Object", "notification", 4023243586L)
     }
 
+    private class PtrcallScratch {
+        private val arena = Arena.ofAuto()
+        val args1: MemorySegment = arena.allocate(ADDRESS, 1)
+        val args3: MemorySegment = arena.allocate(ADDRESS, 3)
+        val doubleCell: MemorySegment = arena.allocate(JAVA_DOUBLE)
+        val objectCell: MemorySegment = arena.allocate(ADDRESS)
+        val vector2Cell: MemorySegment = arena.allocate(GodotReal.SIZE_BYTES * 2, GodotReal.ALIGN_BYTES)
+        val vector2Ret: MemorySegment = arena.allocate(GodotReal.SIZE_BYTES * 2, GodotReal.ALIGN_BYTES)
+        val colorCell: MemorySegment = arena.allocate(16L, 4L)
+    }
+
+    private val ptrcallScratch = ThreadLocal.withInitial { PtrcallScratch() }
+
     private fun <T> callArrayReturn(
         methodBind: MemorySegment,
         instance: MemorySegment,
@@ -1235,7 +1248,9 @@ object ObjectCalls {
         instance: MemorySegment,
         wrapper: (MemorySegment) -> T?,
     ): List<T> =
-        ptrcallNoArgsRetObjectList(methodBind, instance).mapNotNull { wrapper(it.handle) }
+        callArrayReturn(methodBind, instance, MemorySegment.NULL) { ret ->
+            BuiltinTypes.readArrayObjects(ret, wrapper)
+        }
 
     /**
      * Calls [methodBind] with no arguments and decodes an Array as scalar
@@ -1314,57 +1329,65 @@ object ObjectCalls {
         methodBind: MemorySegment,
         instance: MemorySegment,
     ): List<Node> =
-        callArrayReturn(methodBind, instance, MemorySegment.NULL, BuiltinTypes::readArrayObjects)
-            .map { Node(it.handle) }
+        callArrayReturn(methodBind, instance, MemorySegment.NULL) { ret ->
+            BuiltinTypes.readArrayObjects(ret, ::Node)
+        }
 
     fun ptrcallNoArgsRetTypedNode2DList(
         methodBind: MemorySegment,
         instance: MemorySegment,
     ): List<Node2D> =
-        callArrayReturn(methodBind, instance, MemorySegment.NULL, BuiltinTypes::readArrayObjects)
-            .map { Node2D(it.handle) }
+        callArrayReturn(methodBind, instance, MemorySegment.NULL) { ret ->
+            BuiltinTypes.readArrayObjects(ret, ::Node2D)
+        }
 
     fun ptrcallNoArgsRetTypedNode3DList(
         methodBind: MemorySegment,
         instance: MemorySegment,
     ): List<Node3D> =
-        callArrayReturn(methodBind, instance, MemorySegment.NULL, BuiltinTypes::readArrayObjects)
-            .map { Node3D(it.handle) }
+        callArrayReturn(methodBind, instance, MemorySegment.NULL) { ret ->
+            BuiltinTypes.readArrayObjects(ret, ::Node3D)
+        }
 
     fun ptrcallNoArgsRetTypedMaterialList(
         methodBind: MemorySegment,
         instance: MemorySegment,
     ): List<Material> =
-        callArrayReturn(methodBind, instance, MemorySegment.NULL, BuiltinTypes::readArrayObjects)
-            .mapNotNull { Material.wrap(it.handle) }
+        callArrayReturn(methodBind, instance, MemorySegment.NULL) { ret ->
+            BuiltinTypes.readArrayObjects(ret, Material::wrap)
+        }
 
     fun ptrcallNoArgsRetTypedArea2DList(
         methodBind: MemorySegment,
         instance: MemorySegment,
     ): List<Area2D> =
-        callArrayReturn(methodBind, instance, MemorySegment.NULL, BuiltinTypes::readArrayObjects)
-            .map { Area2D(it.handle) }
+        callArrayReturn(methodBind, instance, MemorySegment.NULL) { ret ->
+            BuiltinTypes.readArrayObjects(ret, ::Area2D)
+        }
 
     fun ptrcallNoArgsRetTypedArea3DList(
         methodBind: MemorySegment,
         instance: MemorySegment,
     ): List<Area3D> =
-        callArrayReturn(methodBind, instance, MemorySegment.NULL, BuiltinTypes::readArrayObjects)
-            .map { Area3D(it.handle) }
+        callArrayReturn(methodBind, instance, MemorySegment.NULL) { ret ->
+            BuiltinTypes.readArrayObjects(ret, ::Area3D)
+        }
 
     fun ptrcallNoArgsRetTypedBaseButtonList(
         methodBind: MemorySegment,
         instance: MemorySegment,
     ): List<BaseButton> =
-        callArrayReturn(methodBind, instance, MemorySegment.NULL, BuiltinTypes::readArrayObjects)
-            .map { BaseButton(it.handle) }
+        callArrayReturn(methodBind, instance, MemorySegment.NULL) { ret ->
+            BuiltinTypes.readArrayObjects(ret, ::BaseButton)
+        }
 
     fun ptrcallNoArgsRetTypedPhysicsBody3DList(
         methodBind: MemorySegment,
         instance: MemorySegment,
     ): List<PhysicsBody3D> =
-        callArrayReturn(methodBind, instance, MemorySegment.NULL, BuiltinTypes::readArrayObjects)
-            .map { PhysicsBody3D(it.handle) }
+        callArrayReturn(methodBind, instance, MemorySegment.NULL) { ret ->
+            BuiltinTypes.readArrayObjects(ret, ::PhysicsBody3D)
+        }
 
     fun ptrcallNoArgsRetVector2iList(
         methodBind: MemorySegment,
@@ -1497,15 +1520,24 @@ object ObjectCalls {
         instance: MemorySegment,
         boolArg: Boolean,
         wrapper: (MemorySegment) -> T?,
-    ): List<T> =
-        ptrcallWithBoolArgRetObjectList(methodBind, instance, boolArg).mapNotNull { wrapper(it.handle) }
+    ): List<T> {
+        Arena.ofConfined().use { arena ->
+            val arg = arena.allocate(JAVA_BYTE)
+            arg.set(JAVA_BYTE, 0, if (boolArg) 1.toByte() else 0.toByte())
+            val args = arena.allocate(ADDRESS, 1)
+            args.setAtIndex(ADDRESS, 0, arg)
+            return callArrayReturn(methodBind, instance, args) { ret ->
+                BuiltinTypes.readArrayObjects(ret, wrapper)
+            }
+        }
+    }
 
     fun ptrcallWithBoolArgRetTypedNodeList(
         methodBind: MemorySegment,
         instance: MemorySegment,
         boolArg: Boolean,
     ): List<Node> =
-        ptrcallWithBoolArgRetObjectList(methodBind, instance, boolArg).map { Node(it.handle) }
+        ptrcallWithBoolArgRetTypedObjectList(methodBind, instance, boolArg, ::Node)
 
     fun ptrcallWithStringAndBoolArgRetObjectList(
         methodBind: MemorySegment,
@@ -1538,8 +1570,24 @@ object ObjectCalls {
         text: String,
         boolArg: Boolean,
         wrapper: (MemorySegment) -> T?,
-    ): List<T> =
-        ptrcallWithStringAndBoolArgRetObjectList(methodBind, instance, text, boolArg).mapNotNull { wrapper(it.handle) }
+    ): List<T> {
+        Arena.ofConfined().use { arena ->
+            val stringCell = arena.allocate(8L, 8L)
+            val boolCell = arena.allocate(JAVA_BYTE)
+            try {
+                GodotStrings.initString(stringCell, text)
+                boolCell.set(JAVA_BYTE, 0, if (boolArg) 1.toByte() else 0.toByte())
+                val args = arena.allocate(ADDRESS, 2)
+                args.setAtIndex(ADDRESS, 0, stringCell)
+                args.setAtIndex(ADDRESS, 1, boolCell)
+                return callArrayReturn(methodBind, instance, args) { ret ->
+                    BuiltinTypes.readArrayObjects(ret, wrapper)
+                }
+            } finally {
+                GodotStrings.destroyString(stringCell)
+            }
+        }
+    }
 
     fun ptrcallWithStringTwoIntArgsRetObjectList(
         methodBind: MemorySegment,
@@ -1737,15 +1785,31 @@ object ObjectCalls {
         second: String,
         firstBool: Boolean,
         secondBool: Boolean,
-    ): List<Node> =
-        ptrcallWithTwoStringAndTwoBoolArgsRetObjectList(
-            methodBind,
-            instance,
-            first,
-            second,
-            firstBool,
-            secondBool,
-        ).map { Node(it.handle) }
+    ): List<Node> {
+        Arena.ofConfined().use { arena ->
+            val arg0 = arena.allocate(8L, 8L)
+            val arg1 = arena.allocate(8L, 8L)
+            val arg2 = arena.allocate(JAVA_BYTE)
+            val arg3 = arena.allocate(JAVA_BYTE)
+            try {
+                GodotStrings.initString(arg0, first)
+                GodotStrings.initString(arg1, second)
+                arg2.set(JAVA_BYTE, 0, if (firstBool) 1.toByte() else 0.toByte())
+                arg3.set(JAVA_BYTE, 0, if (secondBool) 1.toByte() else 0.toByte())
+                val args = arena.allocate(ADDRESS, 4)
+                args.setAtIndex(ADDRESS, 0, arg0)
+                args.setAtIndex(ADDRESS, 1, arg1)
+                args.setAtIndex(ADDRESS, 2, arg2)
+                args.setAtIndex(ADDRESS, 3, arg3)
+                return callArrayReturn(methodBind, instance, args) { ret ->
+                    BuiltinTypes.readArrayObjects(ret, ::Node)
+                }
+            } finally {
+                GodotStrings.destroyString(arg0)
+                GodotStrings.destroyString(arg1)
+            }
+        }
+    }
 
     /**
      * Calls [methodBind] with (StringName, Variant) and no return value.
@@ -9388,13 +9452,10 @@ object ObjectCalls {
         instance: MemorySegment,
         value: Double,
     ) {
-        Arena.ofConfined().use { arena ->
-            val arg0 = arena.allocate(java.lang.foreign.ValueLayout.JAVA_DOUBLE)
-            arg0.set(java.lang.foreign.ValueLayout.JAVA_DOUBLE, 0, value)
-            val arr = arena.allocate(ADDRESS, 1)
-            arr.setAtIndex(ADDRESS, 0, arg0)
-            objectMethodBindPtrcall.invoke(methodBind, instance, arr, MemorySegment.NULL)
-        }
+        val scratch = ptrcallScratch.get()
+        scratch.doubleCell.set(JAVA_DOUBLE, 0, value)
+        scratch.args1.setAtIndex(ADDRESS, 0, scratch.doubleCell)
+        objectMethodBindPtrcall.invoke(methodBind, instance, scratch.args1, MemorySegment.NULL)
     }
 
     /**
@@ -24490,14 +24551,12 @@ object ObjectCalls {
         methodBind: MemorySegment,
         instance: MemorySegment,
     ): Vector2 {
-        Arena.ofConfined().use { arena ->
-            val ret = arena.allocate(GodotReal.SIZE_BYTES * 2, GodotReal.ALIGN_BYTES)
-            objectMethodBindPtrcall.invoke(methodBind, instance, MemorySegment.NULL, ret)
-            return Vector2(
-                x = GodotReal.readIndex(ret, 0),
-                y = GodotReal.readIndex(ret, 1),
-            )
-        }
+        val scratch = ptrcallScratch.get()
+        objectMethodBindPtrcall.invoke(methodBind, instance, MemorySegment.NULL, scratch.vector2Ret)
+        return Vector2(
+            x = GodotReal.readIndex(scratch.vector2Ret, 0),
+            y = GodotReal.readIndex(scratch.vector2Ret, 1),
+        )
     }
 
     /**
@@ -25854,14 +25913,11 @@ object ObjectCalls {
         instance: MemorySegment,
         value: Vector2,
     ) {
-        Arena.ofConfined().use { arena ->
-            val vec = arena.allocate(GodotReal.SIZE_BYTES * 2, GodotReal.ALIGN_BYTES)
-            GodotReal.writeIndex(vec, 0, value.x)
-            GodotReal.writeIndex(vec, 1, value.y)
-            val arr = arena.allocate(ADDRESS, 1)
-            arr.setAtIndex(ADDRESS, 0, vec)
-            objectMethodBindPtrcall.invoke(methodBind, instance, arr, MemorySegment.NULL)
-        }
+        val scratch = ptrcallScratch.get()
+        GodotReal.writeIndex(scratch.vector2Cell, 0, value.x)
+        GodotReal.writeIndex(scratch.vector2Cell, 1, value.y)
+        scratch.args1.setAtIndex(ADDRESS, 0, scratch.vector2Cell)
+        objectMethodBindPtrcall.invoke(methodBind, instance, scratch.args1, MemorySegment.NULL)
     }
 
     fun ptrcallWithVector2ArgRetVector2(
@@ -31681,22 +31737,17 @@ object ObjectCalls {
         vector: Vector2,
         color: Color,
     ) {
-        Arena.ofConfined().use { arena ->
-            val objectCell = arena.allocate(ADDRESS)
-            val vectorCell = arena.allocate(GodotReal.SIZE_BYTES * 2, GodotReal.ALIGN_BYTES)
-            val colorCell = arena.allocate(16L, 4L)
-            objectCell.set(ADDRESS, 0, objectArg)
-            writeVector2(vectorCell, vector)
-            colorCell.set(JAVA_FLOAT, 0, color.r)
-            colorCell.set(JAVA_FLOAT, 4, color.g)
-            colorCell.set(JAVA_FLOAT, 8, color.b)
-            colorCell.set(JAVA_FLOAT, 12, color.a)
-            val args = arena.allocate(ADDRESS, 3)
-            args.setAtIndex(ADDRESS, 0, objectCell)
-            args.setAtIndex(ADDRESS, 1, vectorCell)
-            args.setAtIndex(ADDRESS, 2, colorCell)
-            objectMethodBindPtrcall.invoke(methodBind, instance, args, MemorySegment.NULL)
-        }
+        val scratch = ptrcallScratch.get()
+        scratch.objectCell.set(ADDRESS, 0, objectArg)
+        writeVector2(scratch.vector2Cell, vector)
+        scratch.colorCell.set(JAVA_FLOAT, 0, color.r)
+        scratch.colorCell.set(JAVA_FLOAT, 4, color.g)
+        scratch.colorCell.set(JAVA_FLOAT, 8, color.b)
+        scratch.colorCell.set(JAVA_FLOAT, 12, color.a)
+        scratch.args3.setAtIndex(ADDRESS, 0, scratch.objectCell)
+        scratch.args3.setAtIndex(ADDRESS, 1, scratch.vector2Cell)
+        scratch.args3.setAtIndex(ADDRESS, 2, scratch.colorCell)
+        objectMethodBindPtrcall.invoke(methodBind, instance, scratch.args3, MemorySegment.NULL)
     }
 
     /**

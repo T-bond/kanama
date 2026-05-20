@@ -4,6 +4,8 @@ import net.multigesture.kanama.binding.runtime.GodotStructs
 import net.multigesture.kanama.binding.runtime.BuiltinTypes
 import net.multigesture.kanama.binding.runtime.GodotStrings
 import net.multigesture.kanama.binding.runtime.ObjectCalls
+import net.multigesture.kanama.binding.runtime.VariantConverters
+import net.multigesture.kanama.binding.runtime.VariantType
 import net.multigesture.kanama.api.KanamaCoroutineOwner
 import net.multigesture.kanama.ffi.GodotFFI
 import java.lang.foreign.Arena
@@ -11,6 +13,7 @@ import java.lang.foreign.FunctionDescriptor
 import java.lang.foreign.MemorySegment
 import java.lang.foreign.ValueLayout.ADDRESS
 import java.lang.foreign.ValueLayout.JAVA_BYTE
+import java.lang.foreign.ValueLayout.JAVA_DOUBLE
 import java.lang.foreign.ValueLayout.JAVA_INT
 import java.lang.foreign.ValueLayout.JAVA_LONG
 import java.lang.invoke.MethodHandles
@@ -226,6 +229,9 @@ object ScriptBridge {
 
     private val physicsProcessNameValue by lazy { GodotStrings.stringNameStorage("_physics_process") }
     private val processNameValue by lazy { GodotStrings.stringNameStorage("_process") }
+    private val processDeltaScratch = ThreadLocal.withInitial {
+        Arena.ofAuto().allocate(JAVA_DOUBLE)
+    }
     private val nodeSetPhysicsProcessBind by lazy {
         ObjectCalls.getMethodBind("Node", "set_physics_process", 2586408642L)
     }
@@ -341,7 +347,9 @@ object ScriptBridge {
         rError: MemorySegment,
     ) {
         val methodLong = method.reinterpret(8).get(JAVA_LONG, 0)
-        val handled = si(data)?.dispatchCall?.invoke(methodLong, args, argCount, rRet, rError) == true
+        val instance = si(data)
+        val handled = instance?.dispatchDirectProcess(methodLong, args, argCount) == true ||
+            instance?.dispatchCall?.invoke(methodLong, args, argCount, rRet, rError) == true
         if (rError.address() != 0L) {
             if (handled) {
                 // GDEXTENSION_CALL_OK = 0
@@ -351,6 +359,28 @@ object ScriptBridge {
                 rError.reinterpret(12).set(JAVA_INT, 0, 1)
             }
         }
+    }
+
+    private fun KanamaScriptInstance.dispatchDirectProcess(
+        methodLong: Long,
+        args: MemorySegment,
+        argCount: Long,
+    ): Boolean {
+        if (argCount < 1L) return false
+        val dispatch = when (methodLong) {
+            processNameValue -> dispatchProcess
+            physicsProcessNameValue -> dispatchPhysicsProcess
+            else -> null
+        } ?: return false
+
+        val argsArray = args.reinterpret(8L)
+        val deltaScratch = processDeltaScratch.get()
+        VariantConverters.variantToType(VariantType.FLOAT).invoke(
+            deltaScratch,
+            argsArray.get(ADDRESS, 0L),
+        )
+        dispatch(deltaScratch.get(JAVA_DOUBLE, 0L))
+        return true
     }
 
     // --- Property type / validation ---
@@ -497,10 +527,10 @@ object ScriptBridge {
     }
 
     fun configureLifecycleProcessing(si: KanamaScriptInstance) {
-        if (si.dispatchHasMethod(physicsProcessNameValue)) {
+        if (si.dispatchPhysicsProcess != null || si.dispatchHasMethod(physicsProcessNameValue)) {
             ObjectCalls.ptrcallWithBoolArg(nodeSetPhysicsProcessBind, si.ownerObject, true)
         }
-        if (si.dispatchHasMethod(processNameValue)) {
+        if (si.dispatchProcess != null || si.dispatchHasMethod(processNameValue)) {
             ObjectCalls.ptrcallWithBoolArg(nodeSetProcessBind, si.ownerObject, true)
         }
     }

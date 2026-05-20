@@ -2086,6 +2086,7 @@ internal class ScriptCodeEmitter(
         emitDispatchSet()
         emitDispatchGet()
         emitDispatchHasMethod()
+        emitDirectLifecycleDispatch()
         sb.appendLine("            cleanup = { cleanupKanamaOwnedProperties(kt) },")
         sb.appendLine("        )")
         sb.appendLine("    }")
@@ -2286,6 +2287,15 @@ internal class ScriptCodeEmitter(
             model.methods.map { it.godotName }
         val checks = allCallable.joinToString(" || ") { "name == ${nameVar(it)}" }
         sb.appendLine("            dispatchHasMethod = { name -> $checks },")
+    }
+
+    private fun emitDirectLifecycleDispatch() {
+        model.virtuals.firstOrNull { it.virtualName == "_process" }?.let { virtual ->
+            sb.appendLine("            dispatchProcess = { delta -> kt.${virtual.kotlinMethodName}(delta) },")
+        }
+        model.virtuals.firstOrNull { it.virtualName == "_physics_process" }?.let { virtual ->
+            sb.appendLine("            dispatchPhysicsProcess = { delta -> kt.${virtual.kotlinMethodName}(delta) },")
+        }
     }
 
     // ---- Variant helpers ----
