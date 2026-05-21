@@ -786,6 +786,48 @@ private fun uniqueConstantIdentifier(name: String, seen: MutableSet<String>): St
     }
 }
 
+private fun signalHelperSuffix(godotName: String): String {
+    val id = constantIdentifier(godotName).removeSurrounding("`")
+    return id.replaceFirstChar { it.uppercase() }
+}
+
+private fun signalCallbackType(args: List<ArgModel>): String =
+    args.joinToString(prefix = "(", postfix = ") -> Unit") { it.kotlinType }
+
+private fun signalCallbackInvocation(args: List<ArgModel>): String =
+    if (args.isEmpty()) {
+        "callback()"
+    } else {
+        "callback(${args.indices.joinToString(", ") { signalArgumentValueExpr(args[it], it) }})"
+    }
+
+private fun signalArgumentValueExpr(arg: ArgModel, index: Int): String =
+    when {
+        arg.objectWrapperFqName != null ->
+            "((args.getOrNull($index) as? ${arg.objectWrapperFqName}) ?: (args.getOrNull($index) as? net.multigesture.kanama.api.GodotObject)?.let { ${arg.objectWrapperFqName}(it.handle) } ?: error(\"Signal argument '${arg.name}' was not ${arg.kotlinType}\"))"
+        arg.type == TypeMapping.INT -> "(args.getOrNull($index) as? Long ?: 0L)"
+        arg.type == TypeMapping.FLOAT -> "((args.getOrNull($index) as? Number)?.toDouble() ?: 0.0)"
+        arg.type == TypeMapping.BOOL -> "(args.getOrNull($index) as? Boolean ?: false)"
+        arg.type == TypeMapping.STRING -> "(args.getOrNull($index) as? String ?: \"\")"
+        arg.type == TypeMapping.NODE_PATH ->
+            "(args.getOrNull($index) as? net.multigesture.kanama.types.NodePath ?: (args.getOrNull($index) as? String)?.let { net.multigesture.kanama.types.NodePath(it) } ?: net.multigesture.kanama.types.NodePath.EMPTY)"
+        else -> "args.getOrNull($index) as ${arg.kotlinType}"
+    }
+
+private fun signalAwaitReturnType(args: List<ArgModel>): String =
+    when (args.size) {
+        0 -> "Unit"
+        1 -> args.single().kotlinType
+        else -> "List<Any?>"
+    }
+
+private fun signalAwaitReturnExpr(args: List<ArgModel>): String =
+    when (args.size) {
+        0 -> "Unit"
+        1 -> signalArgumentValueExpr(args.single(), 0)
+        else -> "args"
+    }
+
 // ---------- Data models ----------
 
 internal data class ClassModel(
@@ -1187,6 +1229,7 @@ internal class CodeEmitter(
         val seen = mutableSetOf<String>()
         for (s in model.signals) {
             val functionName = uniqueConstantIdentifier(s.godotName, seen)
+            val helperSuffix = signalHelperSuffix(s.godotName)
             val kotlinParams = s.args.joinToString(", ") { "${it.name}: ${it.kotlinType}" }
             val argList = s.args.joinToString(", ") {
                 "Signals.Arg(VariantType.${it.type.variantTypeEnum}, ${it.signalEmitValueExpr()})"
@@ -1194,6 +1237,27 @@ internal class CodeEmitter(
             val argsExpr = if (s.args.isEmpty()) "emptyList()" else "listOf($argList)"
             sb.appendLine("    fun $functionName(instance: ${model.simpleName}${if (kotlinParams.isNotEmpty()) ", $kotlinParams" else ""}) {")
             sb.appendLine("        Signals.emit(instance.godotObject, \"${kotlinStringLiteral(s.godotName)}\", $argsExpr)")
+            sb.appendLine("    }")
+            sb.appendLine()
+            sb.appendLine("    fun signal$helperSuffix(instance: ${model.simpleName}): net.multigesture.kanama.api.GodotSignal =")
+            sb.appendLine("        net.multigesture.kanama.api.GodotObject(instance.godotObject).signal(\"${kotlinStringLiteral(s.godotName)}\")")
+            sb.appendLine()
+            sb.appendLine("    fun connect$helperSuffix(")
+            sb.appendLine("        instance: ${model.simpleName},")
+            sb.appendLine("        target: net.multigesture.kanama.api.GodotObject,")
+            sb.appendLine("        flags: Long = net.multigesture.kanama.api.GodotObject.CONNECT_DEFAULT,")
+            sb.appendLine("        callback: ${signalCallbackType(s.args)},")
+            sb.appendLine("    ): net.multigesture.kanama.api.SignalConnection =")
+            sb.appendLine("        signal$helperSuffix(instance).connect(target, argumentCount = ${s.args.size}, flags = flags) { args ->")
+            sb.appendLine("            ${signalCallbackInvocation(s.args)}")
+            sb.appendLine("        }")
+            sb.appendLine()
+            sb.appendLine("    suspend fun await$helperSuffix(")
+            sb.appendLine("        instance: ${model.simpleName},")
+            sb.appendLine("        target: net.multigesture.kanama.api.GodotObject,")
+            sb.appendLine("    ): ${signalAwaitReturnType(s.args)} {")
+            sb.appendLine("        val args = signal$helperSuffix(instance).await(target, argumentCount = ${s.args.size})")
+            sb.appendLine("        return ${signalAwaitReturnExpr(s.args)}")
             sb.appendLine("    }")
         }
         sb.appendLine("}")
@@ -1699,6 +1763,7 @@ internal class ScriptCodeEmitter(
         val seen = mutableSetOf<String>()
         for (s in model.signals) {
             val functionName = uniqueConstantIdentifier(s.godotName, seen)
+            val helperSuffix = signalHelperSuffix(s.godotName)
             val kotlinParams = s.args.joinToString(", ") { "${it.name}: ${it.kotlinType}" }
             val argList = s.args.joinToString(", ") {
                 "Signals.Arg(VariantType.${it.type.variantTypeEnum}, ${it.signalEmitValueExpr()})"
@@ -1706,6 +1771,27 @@ internal class ScriptCodeEmitter(
             val argsExpr = if (s.args.isEmpty()) "emptyList()" else "listOf($argList)"
             sb.appendLine("    fun $functionName(instance: ${model.simpleName}${if (kotlinParams.isNotEmpty()) ", $kotlinParams" else ""}) {")
             sb.appendLine("        Signals.emit(instance.godotObject, \"${kotlinStringLiteral(s.godotName)}\", $argsExpr)")
+            sb.appendLine("    }")
+            sb.appendLine()
+            sb.appendLine("    fun signal$helperSuffix(instance: ${model.simpleName}): net.multigesture.kanama.api.GodotSignal =")
+            sb.appendLine("        net.multigesture.kanama.api.GodotObject(instance.godotObject).signal(\"${kotlinStringLiteral(s.godotName)}\")")
+            sb.appendLine()
+            sb.appendLine("    fun connect$helperSuffix(")
+            sb.appendLine("        instance: ${model.simpleName},")
+            sb.appendLine("        target: net.multigesture.kanama.api.GodotObject,")
+            sb.appendLine("        flags: Long = net.multigesture.kanama.api.GodotObject.CONNECT_DEFAULT,")
+            sb.appendLine("        callback: ${signalCallbackType(s.args)},")
+            sb.appendLine("    ): net.multigesture.kanama.api.SignalConnection =")
+            sb.appendLine("        signal$helperSuffix(instance).connect(target, argumentCount = ${s.args.size}, flags = flags) { args ->")
+            sb.appendLine("            ${signalCallbackInvocation(s.args)}")
+            sb.appendLine("        }")
+            sb.appendLine()
+            sb.appendLine("    suspend fun await$helperSuffix(")
+            sb.appendLine("        instance: ${model.simpleName},")
+            sb.appendLine("        target: net.multigesture.kanama.api.GodotObject,")
+            sb.appendLine("    ): ${signalAwaitReturnType(s.args)} {")
+            sb.appendLine("        val args = signal$helperSuffix(instance).await(target, argumentCount = ${s.args.size})")
+            sb.appendLine("        return ${signalAwaitReturnExpr(s.args)}")
             sb.appendLine("    }")
         }
         sb.appendLine("}")

@@ -44,6 +44,14 @@ PlayerSignals.coinCollected(this, coins)
 The Kotlin declaration exists so Godot sees `coin_collected` in script metadata
 and saved `.tscn` connections can keep referring to that signal.
 
+Generated signal helpers also include typed handles for code connections and
+awaits. For a `coinCollected(value: Long)` signal, KSP emits
+`PlayerSignals.signalCoinCollected(...)`,
+`PlayerSignals.connectCoinCollected(...)`, and
+`PlayerSignals.awaitCoinCollected(...)` alongside the existing typed emitter.
+The string-based `signal(PlayerNames.Signals.coinCollected)` style remains
+available when you need lower-level Godot API behavior.
+
 ## Connecting Signals
 
 For existing Godot signals, use `signal(name)` when you want a small handle:
@@ -182,6 +190,15 @@ connection.close()
 arguments today. `connectObject` is the common one-argument shortcut for signals
 such as `body_entered`. `await(target, argumentCount)` and `awaitObject(target)`
 are cancellation-aware suspend helpers built on the same dispatch path.
+
+For custom Kanama signals, prefer the generated typed helper when both the
+emitter and receiver are Kotlin-visible:
+
+```kotlin
+val connection = PlayerSignals.connectCoinCollected(playerScript, self) { coins ->
+    updateHud(coins)
+}
+```
 
 Generated method dispatch accepts common object wrappers directly, so a method
 connected to `body_entered` can take a typed wrapper:
