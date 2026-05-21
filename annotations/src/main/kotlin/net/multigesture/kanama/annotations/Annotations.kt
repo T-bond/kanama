@@ -49,8 +49,8 @@ annotation class RegisterProperty(
     val hint: Int = 0,
     /** Hint string (e.g. "0,100,1" for PROPERTY_HINT_RANGE). */
     val hintString: String = "",
-    /** PROPERTY_USAGE_* flags. 6 = PROPERTY_USAGE_DEFAULT. */
-    val usage: Int = 6,
+    /** PROPERTY_USAGE_* flags. Defaults to [PropertyUsage.DEFAULT]. */
+    val usage: Int = PropertyUsage.DEFAULT,
 )
 
 /**
@@ -65,6 +65,71 @@ object PropertyHint {
 
     /** Numeric range hint. Matches Godot's `PROPERTY_HINT_RANGE`. */
     const val RANGE = 1
+
+    /** Fixed-value enum hint. Matches Godot's `PROPERTY_HINT_ENUM`. */
+    const val ENUM = 2
+
+    /** Suggested enum values without restricting text input. Matches Godot's `PROPERTY_HINT_ENUM_SUGGESTION`. */
+    const val ENUM_SUGGESTION = 3
+
+    /** Exponential easing hint. Matches Godot's `PROPERTY_HINT_EXP_EASING`. */
+    const val EXP_EASING = 4
+
+    /** Bit flags hint. Matches Godot's `PROPERTY_HINT_FLAGS`. */
+    const val FLAGS = 6
+
+    /** File path relative to the project. Matches Godot's `PROPERTY_HINT_FILE`. */
+    const val FILE = 13
+
+    /** Directory path relative to the project. Matches Godot's `PROPERTY_HINT_DIR`. */
+    const val DIR = 14
+
+    /** Absolute file path. Matches Godot's `PROPERTY_HINT_GLOBAL_FILE`. */
+    const val GLOBAL_FILE = 15
+
+    /** Absolute directory path. Matches Godot's `PROPERTY_HINT_GLOBAL_DIR`. */
+    const val GLOBAL_DIR = 16
+
+    /** Resource type hint. Matches Godot's `PROPERTY_HINT_RESOURCE_TYPE`. */
+    const val RESOURCE_TYPE = 17
+
+    /** Multiline string hint. Matches Godot's `PROPERTY_HINT_MULTILINE_TEXT`. */
+    const val MULTILINE_TEXT = 18
+
+    /** Placeholder text hint. Matches Godot's `PROPERTY_HINT_PLACEHOLDER_TEXT`. */
+    const val PLACEHOLDER_TEXT = 20
+
+    /** Color without alpha hint. Matches Godot's `PROPERTY_HINT_COLOR_NO_ALPHA`. */
+    const val COLOR_NO_ALPHA = 21
+
+    /** Typed-array hint string. Matches Godot's `PROPERTY_HINT_TYPE_STRING`. */
+    const val TYPE_STRING = 23
+
+    /** Node type hint. Matches Godot's `PROPERTY_HINT_NODE_TYPE`. */
+    const val NODE_TYPE = 34
+
+    /** Inspector tool button hint. Matches Godot's `PROPERTY_HINT_TOOL_BUTTON`. */
+    const val TOOL_BUTTON = 39
+}
+
+/**
+ * Godot property usage flag constants for inspector and serialization policy.
+ */
+object PropertyUsage {
+    const val NONE = 0
+    const val STORAGE = 2
+    const val EDITOR = 4
+    const val DEFAULT = STORAGE or EDITOR
+    const val GROUP = 64
+    const val CATEGORY = 128
+    const val SUBGROUP = 256
+    const val SCRIPT_VARIABLE = 4096
+    const val STORE_IF_NULL = 8192
+    const val UPDATE_ALL_IF_MODIFIED = 16384
+    const val SCRIPT_DEFAULT_VALUE = 32768
+    const val READ_ONLY = 268435456
+    const val SECRET = 536870912
+    const val NO_EDITOR = STORAGE
 }
 
 /**
@@ -79,7 +144,7 @@ annotation class Export(
     val name: String = "",
     val hint: Int = 0,
     val hintString: String = "",
-    val usage: Int = 6,
+    val usage: Int = PropertyUsage.DEFAULT,
 )
 
 /**
@@ -249,13 +314,32 @@ annotation class ScriptClass(val attachTo: String = "Node")
  * inspector-visible property routed through the [ScriptBridge] `set_func` /
  * `get_func` ScriptInstance callbacks.
  *
+ * @property name Optional engine-facing property name (snake_case). Defaults
+ *   to the Kotlin property name converted from camelCase.
  * @property hint  PROPERTY_HINT_* constant. 0 = PROPERTY_HINT_NONE. Prefer [PropertyHint] constants
  *   over raw integers in user-facing code.
  * @property hintString  Hint string (e.g. "0,100,1" for PROPERTY_HINT_RANGE).
+ * @property usage PROPERTY_USAGE_* flags. Defaults to [PropertyUsage.DEFAULT].
  */
 @Target(AnnotationTarget.PROPERTY)
 @Retention(AnnotationRetention.SOURCE)
-annotation class ScriptProperty(val hint: Int = 0, val hintString: String = "")
+annotation class ScriptProperty(
+    val name: String = "",
+    val hint: Int = 0,
+    val hintString: String = "",
+    val usage: Int = PropertyUsage.DEFAULT,
+)
+
+/**
+ * Starts an inspector export category before the annotated exported property.
+ *
+ * This mirrors Godot's category rows in the inspector. Because Kotlin
+ * annotations cannot be standalone declarations, place this on the first
+ * [ScriptProperty] or [Export] that should appear inside the category.
+ */
+@Target(AnnotationTarget.PROPERTY)
+@Retention(AnnotationRetention.SOURCE)
+annotation class ExportCategory(val name: String)
 
 /**
  * Starts an inspector export group before the annotated exported property.

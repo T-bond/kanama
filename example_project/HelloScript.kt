@@ -5,8 +5,10 @@ import net.multigesture.kanama.annotations.OnEnterTree
 import net.multigesture.kanama.annotations.OnExitTree
 import net.multigesture.kanama.annotations.OnProcess
 import net.multigesture.kanama.annotations.OnReady
+import net.multigesture.kanama.annotations.ExportCategory
 import net.multigesture.kanama.annotations.ExportGroup
 import net.multigesture.kanama.annotations.ExportSubgroup
+import net.multigesture.kanama.annotations.PropertyHint
 import net.multigesture.kanama.annotations.RegisterFunction
 import net.multigesture.kanama.annotations.Signal
 import net.multigesture.kanama.annotations.ScriptClass
@@ -92,13 +94,17 @@ import kotlinx.coroutines.launch
 class HelloScript(godotObject: MemorySegment) : KanamaScript<Node>(godotObject, ::Node), KanamaCoroutineOwner {
 	override val kanamaScope = KanamaScope()
 
+	@ExportCategory("Inspector Metadata")
 	@ExportGroup("Smoke Properties")
-	@ScriptProperty(hint = 1, hintString = "0,100,1")
+	@ScriptProperty(hint = PropertyHint.RANGE, hintString = "0,100,1")
 	var health: Long = 99
 
 	@ExportSubgroup("Runtime")
 	@ScriptProperty
 	var speed: Double = 5.1
+
+	@ScriptProperty(hint = PropertyHint.ENUM, hintString = "Easy,Normal,Hard")
+	var metadataMode: String = "Normal"
 
 	@ScriptProperty
 	var label: String = "hello"

@@ -6,14 +6,17 @@ Godot resources to Kotlin wrapper types.
 ## Exported Properties
 
 Use `@ScriptProperty` on `@ScriptClass` scripts and `@RegisterProperty` on
-registered classes. `@Export` is available as a migration-friendly alias.
+registered classes. `@Export` is available as a migration-friendly alias. Use
+`PropertyHint` and `PropertyUsage` constants instead of raw Godot integers when
+you need inspector metadata.
 
 ```kotlin
 @ScriptClass(attachTo = "Node")
 class Player(godotObject: MemorySegment) :
     KanamaScript<Node>(godotObject, ::Node) {
+    @ExportCategory("Tuning")
     @ExportGroup("Movement")
-    @ScriptProperty
+    @ScriptProperty(hint = PropertyHint.RANGE, hintString = "0,20,0.1")
     var speed: Double = 5.0
 
     @ExportSubgroup("Jump")
@@ -21,6 +24,12 @@ class Player(godotObject: MemorySegment) :
     var jumpVelocity: Double = 8.0
 }
 ```
+
+`@ScriptProperty(name = "...")` and `@Export(name = "...")` override the
+Godot-facing `snake_case` property name. `usage = PropertyUsage.READ_ONLY or
+PropertyUsage.EDITOR` and other usage flags are available for advanced
+inspector behavior, but ordinary exported gameplay data should keep the
+default usage.
 
 Simple source-literal defaults are preserved in generated script registrars:
 numeric, boolean, string, `NodePath("...")`, and `Math.toRadians(<number>)`

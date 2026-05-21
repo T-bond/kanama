@@ -408,6 +408,15 @@ class KanamaProcessor(
             val scriptType = scriptPropertyTypeModel(resolvedType, simpleName, kotlinName, scriptClassTypes)
             val hint = ann?.arguments?.firstOrNull { it.name?.asString() == "hint" }?.value as? Int ?: 0
             val hintString = ann?.arguments?.firstOrNull { it.name?.asString() == "hintString" }?.value as? String ?: ""
+            val usage = ann?.arguments?.firstOrNull { it.name?.asString() == "usage" }?.value as? Int ?: 6
+            val exportCategory = prop.annotations.firstOrNull { it.shortName.asString() == "ExportCategory" }
+                ?.let { category ->
+                    ScriptPropertyGroupModel(
+                        name = category.arguments.firstOrNull { it.name?.asString() == "name" }?.value as? String ?: "",
+                        prefix = "",
+                        usage = PROPERTY_USAGE_CATEGORY,
+                    )
+                }
             val defaultLiteral = scriptPropertyDefaultLiteral(prop, scriptType.type)
             val exportGroup = prop.annotations.firstOrNull { it.shortName.asString() == "ExportGroup" }
                 ?.let { group ->
@@ -433,8 +442,10 @@ class KanamaProcessor(
                 if (hint == 0) scriptType.hint else hint,
                 if (hintString.isEmpty()) scriptType.hintString else hintString,
                 defaultLiteral,
+                exportCategory,
                 exportGroup,
                 exportSubgroup,
+                usage,
                 scriptType.objectWrapperFqName,
                 scriptType.arrayElementWrapperFqName,
                 scriptType.customScriptFqName,
@@ -866,8 +877,10 @@ internal data class ScriptPropertyModel(
     val hint: Int = 0,
     val hintString: String = "",
     val defaultLiteral: String? = null,
+    val exportCategory: ScriptPropertyGroupModel? = null,
     val exportGroup: ScriptPropertyGroupModel? = null,
     val exportSubgroup: ScriptPropertyGroupModel? = null,
+    val usage: Int = 6,
     val objectWrapperFqName: String? = null,
     val arrayElementWrapperFqName: String? = null,
     val customScriptFqName: String? = null,
@@ -911,6 +924,7 @@ internal data class ScriptClassTypeInfo(
 }
 
 private const val PROPERTY_USAGE_GROUP = 64
+private const val PROPERTY_USAGE_CATEGORY = 128
 private const val PROPERTY_USAGE_SUBGROUP = 256
 
 private val kotlinStringLiteralPattern = "\"(?:\\\\.|[^\"\\\\])*\""
@@ -2007,12 +2021,16 @@ internal class ScriptCodeEmitter(
 
     private fun scriptPropertyListEntryCount(): Int =
         model.properties.sumOf { property ->
-            1 + (if (property.exportGroup != null) 1 else 0) + (if (property.exportSubgroup != null) 1 else 0)
+            1 +
+                (if (property.exportCategory != null) 1 else 0) +
+                (if (property.exportGroup != null) 1 else 0) +
+                (if (property.exportSubgroup != null) 1 else 0)
         }
 
     private fun scriptPropertyListSpecExpressions(): List<String> =
         buildList {
             for (p in model.properties) {
+                p.exportCategory?.let { add(scriptGroupPropertySpecExpression(it)) }
                 p.exportGroup?.let { add(scriptGroupPropertySpecExpression(it)) }
                 p.exportSubgroup?.let { add(scriptGroupPropertySpecExpression(it)) }
                 add(scriptPropertySpecExpression(p))
@@ -2022,6 +2040,7 @@ internal class ScriptCodeEmitter(
     private fun scriptPropertyListDictionaryExpressions(): List<String> =
         buildList {
             for (p in model.properties) {
+                p.exportCategory?.let { add(scriptGroupPropertyDictionaryExpression(it)) }
                 p.exportGroup?.let { add(scriptGroupPropertyDictionaryExpression(it)) }
                 p.exportSubgroup?.let { add(scriptGroupPropertyDictionaryExpression(it)) }
                 add(scriptPropertyDictionaryExpression(p))
@@ -2033,7 +2052,7 @@ internal class ScriptCodeEmitter(
 
     private fun scriptPropertySpecExpression(p: ScriptPropertyModel): String {
         val declaredType = scriptPropertyDeclaredVariantType(p)
-        return "ClassDB.PropertySpec(\"${kotlinStringLiteral(p.godotName)}\", VariantType.$declaredType, ${p.hint}, \"${kotlinStringLiteral(p.hintString)}\")"
+        return "ClassDB.PropertySpec(\"${kotlinStringLiteral(p.godotName)}\", VariantType.$declaredType, ${p.hint}, \"${kotlinStringLiteral(p.hintString)}\", ${p.usage})"
     }
 
     private fun scriptGroupPropertyDictionaryExpression(group: ScriptPropertyGroupModel): String =
@@ -2041,7 +2060,7 @@ internal class ScriptCodeEmitter(
 
     private fun scriptPropertyDictionaryExpression(p: ScriptPropertyModel): String {
         val declaredType = scriptPropertyDeclaredVariantType(p)
-        return "mapOf(\"name\" to \"${kotlinStringLiteral(p.godotName)}\", \"type\" to VariantType.$declaredType.id, \"hint\" to ${p.hint}, \"hint_string\" to \"${kotlinStringLiteral(p.hintString)}\", \"usage\" to 6)"
+        return "mapOf(\"name\" to \"${kotlinStringLiteral(p.godotName)}\", \"type\" to VariantType.$declaredType.id, \"hint\" to ${p.hint}, \"hint_string\" to \"${kotlinStringLiteral(p.hintString)}\", \"usage\" to ${p.usage})"
     }
 
     private fun scriptPropertyDeclaredVariantType(p: ScriptPropertyModel): String =
