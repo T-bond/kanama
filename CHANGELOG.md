@@ -5,6 +5,26 @@ All notable user-facing changes will be recorded here.
 This project uses a Keep a Changelog-style format and follows semantic
 versioning once public releases begin.
 
+## Unreleased
+
+### Added
+
+- Editor workflow helpers for opening Kotlin sources and common build actions
+  from the Kanama Tools dock.
+- Additional export inspector metadata support, including property hints,
+  categories, groups, subgroups, and inspector tool buttons.
+- Typed signal helper overloads for common connect, emit, and await usage while
+  keeping the existing string-based signal APIs available.
+- Convenience editor-time script helpers for `@Tool` scripts, including editor
+  hint checks and inspector/property-list refresh.
+- Generated engine-wide `MethodName`, `PropertyName`, and `SignalName`
+  constants for type-safe Godot API name references.
+
+### Changed
+
+- Runtime and local CI smoke checks now assert the QoL metadata, tool button,
+  and generated name-constant coverage.
+
 ## 0.1.0 - 2026-05-19
 
 ### Added

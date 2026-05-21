@@ -212,16 +212,16 @@ if ! rg -q 'ClassDB\.PropertySpec\("Runtime", VariantType\.NIL, 0, "", 256\)' "$
   echo "[local_ci] generated script-property export subgroup is missing" >&2
   exit 1
 fi
-if ! rg -q 'ClassDB\.PropertySpec\("smoke_scene", VariantType\.OBJECT, 17, "PackedScene"\)' "$hello_script_registrar"; then
+if ! rg -q 'ClassDB\.PropertySpec\("smoke_scene", VariantType\.OBJECT, 17, "PackedScene", 6\)' "$hello_script_registrar"; then
   echo "[local_ci] generated script-property PackedScene export metadata is missing" >&2
   exit 1
 fi
-if ! rg -q 'ClassDB\.PropertySpec\("smoke_textures", VariantType\.ARRAY, 23, "24/17:Texture2D"\)' "$hello_script_registrar"; then
+if ! rg -q 'ClassDB\.PropertySpec\("smoke_textures", VariantType\.ARRAY, 23, "24/17:Texture2D", 6\)' "$hello_script_registrar"; then
   echo "[local_ci] generated script-property typed Texture2D array metadata is missing" >&2
   exit 1
 fi
 resource_owner_registrar="$ROOT_DIR/project-scripts/build/generated/ksp/main/kotlin/net/multigesture/kanama/generated/ResourceOwnerSmokeScriptRegistrar.kt"
-if ! rg -q 'ClassDB\.PropertySpec\("smoke_resource", VariantType\.OBJECT, 17, "SmokeResource"\)' "$resource_owner_registrar"; then
+if ! rg -q 'ClassDB\.PropertySpec\("smoke_resource", VariantType\.OBJECT, 17, "SmokeResource", 6\)' "$resource_owner_registrar"; then
   echo "[local_ci] generated script-property custom Resource metadata is missing" >&2
   exit 1
 fi
@@ -234,8 +234,8 @@ if ! rg -q 'val kt = SelfSmoke\(godotObject\)' "$self_smoke_registrar"; then
   echo "[local_ci] generated self-smoke registrar does not construct the KanamaScript base-class example" >&2
   exit 1
 fi
-if ! rg -q 'propertyCount = 8' "$hello_script_registrar"; then
-  echo "[local_ci] generated script-property list count does not include group entries" >&2
+if ! rg -q 'propertyCount = 11' "$hello_script_registrar"; then
+  echo "[local_ci] generated script-property list count does not include metadata/tool-button entries" >&2
   exit 1
 fi
 if ! rg -q 'cleanup = \{ cleanupKanamaOwnedProperties\(kt\) \}' "$hello_script_registrar"; then
