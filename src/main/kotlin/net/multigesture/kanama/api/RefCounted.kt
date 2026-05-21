@@ -19,6 +19,7 @@ open class RefCounted internal constructor(
 ) : GodotObject(handle), AutoCloseable {
 
     private var closed = false
+    private var wrapperReferenceReleased = false
 
     /**
      * Returns the current reference count.
@@ -49,9 +50,11 @@ open class RefCounted internal constructor(
      */
     @ManualGodotLifetimeApi
     override fun close() {
-        if (closed) return
-        closed = true
-        if (ObjectCalls.ptrcallNoArgsRetBool(unreferenceBind, handle)) {
+        if (closed || wrapperReferenceReleased) return
+        wrapperReferenceReleased = true
+        val shouldDestroy = ObjectCalls.ptrcallNoArgsRetBool(unreferenceBind, handle)
+        if (shouldDestroy) {
+            closed = true
             ObjectCalls.destroyObject(handle)
         }
     }

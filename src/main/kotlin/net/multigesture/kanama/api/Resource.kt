@@ -20,6 +20,7 @@ open class Resource internal constructor(
 ) : AutoCloseable {
 
     protected var closed = false
+    private var wrapperReferenceReleased = false
 
     val isNull: Boolean
         get() = handle.address() == 0L
@@ -325,6 +326,7 @@ open class Resource internal constructor(
     internal fun retainForKotlinWrapper(): MemorySegment {
         checkOpen()
         ObjectCalls.ptrcallNoArgsRetBool(referenceBind, handle)
+        wrapperReferenceReleased = false
         return handle
     }
 
@@ -338,9 +340,11 @@ open class Resource internal constructor(
      */
     @ManualGodotLifetimeApi
     override open fun close() {
-        if (closed || isNull) return
-        closed = true
-        if (ObjectCalls.ptrcallNoArgsRetBool(unreferenceBind, handle)) {
+        if (closed || wrapperReferenceReleased || isNull) return
+        wrapperReferenceReleased = true
+        val shouldDestroy = ObjectCalls.ptrcallNoArgsRetBool(unreferenceBind, handle)
+        if (shouldDestroy) {
+            closed = true
             ObjectCalls.destroyObject(handle)
         }
     }
