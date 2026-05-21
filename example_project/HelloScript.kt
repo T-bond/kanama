@@ -47,16 +47,19 @@ import net.multigesture.kanama.api.Mathf
 import net.multigesture.kanama.api.MainThread
 import net.multigesture.kanama.api.ManualGodotLifetimeApi
 import net.multigesture.kanama.api.MeshInstance3D
+import net.multigesture.kanama.api.MethodName
 import net.multigesture.kanama.api.Node
 import net.multigesture.kanama.api.OS
 import net.multigesture.kanama.api.OptionButton
 import net.multigesture.kanama.api.PackedScene
 import net.multigesture.kanama.api.ProjectSettings
+import net.multigesture.kanama.api.PropertyName
 import net.multigesture.kanama.api.Resource
 import net.multigesture.kanama.api.ResourceLoader
 import net.multigesture.kanama.api.ResourceSaver
 import net.multigesture.kanama.api.RayCast3D
 import net.multigesture.kanama.api.SceneTree
+import net.multigesture.kanama.api.SignalName
 import net.multigesture.kanama.api.StandardMaterial3D
 import net.multigesture.kanama.api.StaticBody3D
 import net.multigesture.kanama.api.TabBar
@@ -149,6 +152,10 @@ class HelloScript(godotObject: MemorySegment) : KanamaScript<Node>(godotObject, 
 		val mathClampF: Float = Mathf.clamp(12f, 0f, 10f)
 		val mathSinF: Float = Mathf.sin(0f)
 		val mathSqrtF: Float = Mathf.sqrt(9f)
+		val generatedNameConstantsOk =
+			MethodName.play == "play" &&
+				PropertyName.visible == "visible" &&
+				SignalName.treeExited == "tree_exited"
 		ProjectSettings.setSetting("kanama/smoke/string_list", listOf("alpha", "beta"))
 		ProjectSettings.setSetting(
 			"kanama/smoke/dictionary",
@@ -1214,6 +1221,7 @@ class HelloScript(godotObject: MemorySegment) : KanamaScript<Node>(godotObject, 
 		System.err.println(
 			"[kanama:kt] Mathf lerp=$mathLerp clamp=$mathClamp wrap=$mathWrap approx=$mathApprox round=$mathRound lerpf=$mathLerpF clampf=$mathClampF sinf=$mathSinF sqrtf=$mathSqrtF"
 		)
+		System.err.println("[kanama:kt] Generated name constants ok=$generatedNameConstantsOk")
 		System.err.println("[kanama:kt] ProjectSettings string_list=${listSetting.joinToString("|")}")
 		System.err.println(
 			"[kanama:kt] ProjectSettings dictionary name=${dictionarySetting["name"]} " +

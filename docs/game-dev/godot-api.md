@@ -69,6 +69,19 @@ val audio = self.getNodeOrNull("/root/Audio")
 audio?.call("play", "res://sounds/jump.ogg")
 ```
 
+For built-in Godot names used at dynamic boundaries, Kanama generates
+engine-wide constants from `extension_api.json`:
+
+```kotlin
+audio?.call(MethodName.play, "res://sounds/jump.ogg")
+player.signal(SignalName.treeExited)
+self.getTree().setGroup("enemies", PropertyName.visible, false)
+```
+
+Script-local generated names such as `PlayerNames.Methods.onBodyEntered` remain
+the right choice for methods, properties, and signals declared by your own
+Kanama scripts.
+
 For now, project autoloads should be resolved through the scene tree root
 (`/root/<Name>`). `Engine.getSingleton()` remains useful for engine singletons,
 but project autoloads are not treated as engine singletons in the current smoke

@@ -306,6 +306,13 @@ def check_adopted_source(output_dir: Path, class_name: str, allow_virtual_skips:
 
 
 def main() -> int:
+    name_constants = subprocess.run(
+        [sys.executable, str(ROOT / "scripts/generate_name_constants.py"), "--check"],
+        cwd=ROOT,
+    )
+    if name_constants.returncode != 0:
+        return name_constants.returncode
+
     with tempfile.TemporaryDirectory(prefix="kanama-wrapper-generator-") as tmp:
         output_dir = Path(tmp)
         if check_fixture(output_dir, "TextureRect", expected_skip_report=False) != 0:

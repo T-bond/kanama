@@ -43,6 +43,16 @@ loudly. Adopted classes with skipped methods are only accepted when every skip
 is a Godot virtual callback that belongs to the future override-registration
 design rather than the public ptrcall wrapper surface.
 
+Engine-wide `MethodName`, `PropertyName`, and `SignalName` constants are
+generated from `extension_api.json` separately from the class wrapper drafts:
+
+```sh
+python3 scripts/generate_name_constants.py
+```
+
+`scripts/check_wrapper_generator.py` runs the same generator in `--check` mode,
+so a Godot API refresh fails loudly if the committed name constants are stale.
+
 ## KDoc Maintenance
 
 Public Godot-backed wrappers and builtin value types carry generated KDoc
