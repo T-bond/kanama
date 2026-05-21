@@ -14,6 +14,7 @@ import net.multigesture.kanama.annotations.Signal
 import net.multigesture.kanama.annotations.ScriptClass
 import net.multigesture.kanama.annotations.ScriptProperty
 import net.multigesture.kanama.annotations.Tool
+import net.multigesture.kanama.annotations.ToolButton
 import net.multigesture.kanama.api.AnimationMixer
 import net.multigesture.kanama.api.AnimationPlayer
 import net.multigesture.kanama.api.Area3D
@@ -117,6 +118,12 @@ class HelloScript(godotObject: MemorySegment) : KanamaScript<Node>(godotObject, 
 
 	@ScriptProperty
 	var smokeTextures: List<Texture2D> = emptyList()
+
+	@ToolButton(text = "Reset Health", icon = "Reload")
+	fun resetHealth() {
+		health = 99
+		notifyInspectorChanged()
+	}
 
 	private var smokeSignalBodyClass: String = ""
 	private var smokeScriptSignalMessage: String = ""

@@ -157,6 +157,35 @@ annotation class Export(
 annotation class Tool
 
 /**
+ * Exposes a zero-argument function as a clickable inspector button.
+ *
+ * Use on `@Tool @ScriptClass` scripts. The generated script metadata exposes
+ * a Callable property with Godot's tool-button hint; clicking it in the
+ * inspector invokes the annotated function on the edited script instance.
+ *
+ * @property text Button label shown in the inspector.
+ * @property icon Optional editor icon name from Godot's `EditorIcons` theme.
+ * @property name Optional engine-facing property name. Defaults to the
+ *   function name converted from camelCase.
+ */
+@Target(AnnotationTarget.FUNCTION)
+@Retention(AnnotationRetention.SOURCE)
+annotation class ToolButton(
+    val text: String,
+    val icon: String = "",
+    val name: String = "",
+)
+
+/** Alias for [ToolButton], mirroring Godot C# `[ExportToolButton]`. */
+@Target(AnnotationTarget.FUNCTION)
+@Retention(AnnotationRetention.SOURCE)
+annotation class ExportToolButton(
+    val text: String,
+    val icon: String = "",
+    val name: String = "",
+)
+
+/**
  * Exposes the class globally — i.e. it appears under "Node" in the
  * Add Node dialog even without being explicitly referenced. Matches
  * the GDScript `class_name` directive.

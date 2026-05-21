@@ -35,6 +35,28 @@ Simple source-literal defaults are preserved in generated script registrars:
 numeric, boolean, string, `NodePath("...")`, and `Math.toRadians(<number>)`
 initializers show up as inspector defaults.
 
+## Inspector Buttons
+
+Use `@ToolButton` on a zero-argument function in a `@Tool @ScriptClass` to
+show a clickable button in the inspector:
+
+```kotlin
+@ScriptClass(attachTo = "Node")
+@Tool
+class Spawner(godotObject: MemorySegment) :
+    KanamaScript<Node>(godotObject, ::Node) {
+    @ToolButton(text = "Rebuild", icon = "Reload")
+    fun rebuild() {
+        rebuildPreview()
+        notifyInspectorChanged()
+    }
+}
+```
+
+`@ExportToolButton` is available as an alias for C# migration. The generated
+button is editor-facing metadata only; keep the script in `@Tool` mode and
+guard editor-only work the same way you would for any other tool script.
+
 ## Node References
 
 Exported node references should use the target wrapper type when the original

@@ -362,11 +362,19 @@ class KanamaProcessor(
         val virtuals = mutableListOf<VirtualModel>()
         val methods = mutableListOf<MethodModel>()
         val signals = mutableListOf<SignalModel>()
+        val toolButtons = mutableListOf<ToolButtonModel>()
 
         for (fn in cls.getDeclaredFunctions()) {
             if (!fn.isPublic()) continue
             val annotationNames = fn.annotations.map { it.shortName.asString() }.toSet()
             warnOnLikelyUnregisteredSceneCallback(cls, fn, annotationNames)
+            if (annotationNames.any { it == "ToolButton" || it == "ExportToolButton" } &&
+                annotationNames.any { it == "RegisterFunction" || it == "Method" }
+            ) {
+                throw IllegalArgumentException(
+                    "$simpleName.${fn.simpleName.asString()}: @ToolButton cannot be combined with @RegisterFunction/@Method",
+                )
+            }
             for (ann in fn.annotations) {
                 val kotlinName = fn.simpleName.asString()
                 when (ann.shortName.asString()) {
@@ -391,6 +399,16 @@ class KanamaProcessor(
                                              args = listOf(ArgModel("event", TypeMapping.OBJECT, "net.multigesture.kanama.api.GodotObject")))
                     "RegisterFunction", "Method" -> methods += buildMethodModel(fn, ann, simpleName)
                     "Signal" -> signals += buildSignalModel(fn, ann, simpleName)
+                    "ToolButton", "ExportToolButton" -> {
+                        if (!isTool) {
+                            throw IllegalArgumentException(
+                                "$simpleName.$kotlinName: @ToolButton requires @Tool on the script class",
+                            )
+                        }
+                        val button = buildToolButtonModel(fn, ann, simpleName)
+                        toolButtons += button
+                        methods += button.method
+                    }
                 }
             }
         }
@@ -456,7 +474,47 @@ class KanamaProcessor(
             )
         }
 
-        return ScriptModel(simpleName, fqName, attachTo, isTool, isGlobalClass, properties, virtuals, methods, signals)
+        return ScriptModel(simpleName, fqName, attachTo, isTool, isGlobalClass, properties, toolButtons, virtuals, methods, signals)
+    }
+
+    private fun buildToolButtonModel(
+        fn: KSFunctionDeclaration,
+        ann: com.google.devtools.ksp.symbol.KSAnnotation,
+        ownerSimpleName: String,
+    ): ToolButtonModel {
+        val kotlinName = fn.simpleName.asString()
+        if (fn.parameters.isNotEmpty()) {
+            throw IllegalArgumentException("$ownerSimpleName.$kotlinName: @ToolButton functions must not take parameters")
+        }
+        val returnFq = fn.returnType?.resolve()?.declaration?.qualifiedName?.asString()
+        if (returnFq != null && returnFq != "kotlin.Unit") {
+            throw IllegalArgumentException("$ownerSimpleName.$kotlinName: @ToolButton functions must return Unit")
+        }
+        val sourceArgs = toolButtonAnnotationArgsFromSource(fn)
+        val nameOverride = (ann.arguments.firstOrNull { it.name?.asString() == "name" }?.value as? String)
+            ?: sourceArgs.name
+        val methodName = camelToSnake(kotlinName)
+        val propertyName = if (nameOverride.isNullOrEmpty()) "${methodName}_button" else nameOverride
+        val text = (ann.arguments.firstOrNull { it.name?.asString() == "text" }?.value as? String)
+            ?: (ann.arguments.firstOrNull { it.name?.asString() == "value" }?.value as? String)
+            ?: (ann.arguments.firstOrNull()?.value as? String)
+            ?: sourceArgs.text
+            ?: humanizeGodotName(methodName)
+        val icon = (ann.arguments.firstOrNull { it.name?.asString() == "icon" }?.value as? String)
+            ?: sourceArgs.icon
+            ?: ""
+        return ToolButtonModel(
+            propertyName = propertyName,
+            text = text.ifEmpty { propertyName },
+            icon = icon,
+            method = MethodModel(
+                kotlinName = kotlinName,
+                godotName = methodName,
+                returnType = null,
+                args = emptyList(),
+                kind = MethodKind.REGULAR,
+            ),
+        )
     }
 
     private fun warnOnKanamaScriptSelfMismatch(cls: KSClassDeclaration, attachTo: String) {
@@ -828,6 +886,51 @@ private fun signalAwaitReturnExpr(args: List<ArgModel>): String =
         else -> "args"
     }
 
+private data class ToolButtonAnnotationArgs(
+    val text: String? = null,
+    val icon: String? = null,
+    val name: String? = null,
+)
+
+private fun toolButtonAnnotationArgsFromSource(fn: KSFunctionDeclaration): ToolButtonAnnotationArgs {
+    val location = fn.location as? FileLocation ?: return ToolButtonAnnotationArgs()
+    val sourceLines = runCatching { File(location.filePath).readLines() }.getOrNull() ?: return ToolButtonAnnotationArgs()
+    val start = (location.lineNumber - 8).coerceAtLeast(0)
+    val end = (location.lineNumber - 1).coerceIn(0, sourceLines.lastIndex)
+    val annotation = (start..end)
+        .map { sourceLines[it].trim() }
+        .firstOrNull { it.startsWith("@ToolButton(") || it.startsWith("@ExportToolButton(") }
+        ?: return ToolButtonAnnotationArgs()
+    val body = annotation.substringAfter('(', "").substringBeforeLast(')', "")
+    fun namedString(name: String): String? =
+        Regex("""\b${Regex.escape(name)}\s*=\s*($kotlinStringLiteralPattern)""")
+            .find(body)
+            ?.groupValues
+            ?.get(1)
+            ?.let(::unquoteKotlinStringLiteral)
+    val firstString = Regex(kotlinStringLiteralPattern)
+        .find(body)
+        ?.value
+        ?.let(::unquoteKotlinStringLiteral)
+    return ToolButtonAnnotationArgs(
+        text = namedString("text") ?: namedString("value") ?: firstString,
+        icon = namedString("icon"),
+        name = namedString("name"),
+    )
+}
+
+private fun unquoteKotlinStringLiteral(value: String): String =
+    value.removePrefix("\"").removeSuffix("\"")
+        .replace("\\\"", "\"")
+        .replace("\\\\", "\\")
+
+private fun humanizeGodotName(name: String): String =
+    name.trim('_')
+        .split('_')
+        .filter { it.isNotEmpty() }
+        .joinToString(" ") { part -> part.replaceFirstChar { it.uppercase() } }
+        .ifEmpty { name }
+
 // ---------- Data models ----------
 
 internal data class ClassModel(
@@ -906,10 +1009,21 @@ internal data class ScriptModel(
     val isTool: Boolean,
     val isGlobalClass: Boolean,
     val properties: List<ScriptPropertyModel>,
+    val toolButtons: List<ToolButtonModel>,
     val virtuals: List<VirtualModel>,
     val methods: List<MethodModel>,
     val signals: List<SignalModel>,
 )
+
+internal data class ToolButtonModel(
+    val propertyName: String,
+    val text: String,
+    val icon: String,
+    val method: MethodModel,
+) {
+    val hintString: String
+        get() = if (icon.isEmpty()) text else "$text,$icon"
+}
 
 internal data class ScriptPropertyModel(
     val kotlinName: String,
@@ -968,6 +1082,8 @@ internal data class ScriptClassTypeInfo(
 private const val PROPERTY_USAGE_GROUP = 64
 private const val PROPERTY_USAGE_CATEGORY = 128
 private const val PROPERTY_USAGE_SUBGROUP = 256
+private const val PROPERTY_USAGE_EDITOR = 4
+private const val PROPERTY_HINT_TOOL_BUTTON = 39
 
 private val kotlinStringLiteralPattern = "\"(?:\\\\.|[^\"\\\\])*\""
 
@@ -1741,6 +1857,8 @@ internal class ScriptCodeEmitter(
     private val registrarName: String,
 ) {
     private val sb = StringBuilder()
+    private val hasInspectableProperties: Boolean
+        get() = model.properties.isNotEmpty() || model.toolButtons.isNotEmpty()
 
     fun emit(): String {
         header()
@@ -1798,7 +1916,7 @@ internal class ScriptCodeEmitter(
     }
 
     private fun nameConstants() {
-        if (model.virtuals.isEmpty() && model.methods.isEmpty() && model.properties.isEmpty() && model.signals.isEmpty()) return
+        if (model.virtuals.isEmpty() && model.methods.isEmpty() && model.properties.isEmpty() && model.toolButtons.isEmpty() && model.signals.isEmpty()) return
         sb.appendLine()
         sb.appendLine("object ${model.simpleName}Names {")
         if (model.virtuals.isNotEmpty() || model.methods.isNotEmpty()) {
@@ -1817,6 +1935,9 @@ internal class ScriptCodeEmitter(
             val seen = mutableSetOf<String>()
             for (p in model.properties) {
                 sb.appendLine("        const val ${uniqueConstantIdentifier(p.godotName, seen)}: String = \"${kotlinStringLiteral(p.godotName)}\"")
+            }
+            for (button in model.toolButtons) {
+                sb.appendLine("        const val ${uniqueConstantIdentifier(button.propertyName, seen)}: String = \"${kotlinStringLiteral(button.propertyName)}\"")
             }
             sb.appendLine("    }")
         }
@@ -1887,7 +2008,11 @@ internal class ScriptCodeEmitter(
         for (p in model.properties) {
             sb.appendLine("    private var ${nameVar(p.godotName)}: Long = 0L")
         }
-        if (model.properties.isNotEmpty()) {
+        // @ToolButton callable properties
+        for (button in model.toolButtons) {
+            sb.appendLine("    private var ${nameVar(button.propertyName)}: Long = 0L")
+        }
+        if (hasInspectableProperties) {
             sb.appendLine("    private var propertyListPtr: MemorySegment = MemorySegment.NULL")
             for (p in model.properties) {
                 val defaultName = p.kotlinName.replaceFirstChar { it.uppercase() }
@@ -1915,7 +2040,10 @@ internal class ScriptCodeEmitter(
         for (p in model.properties) {
             sb.appendLine("        ${nameVar(p.godotName)} = GodotStrings.stringNameStorage(\"${p.godotName}\")")
         }
-        if (model.properties.isNotEmpty()) {
+        for (button in model.toolButtons) {
+            sb.appendLine("        ${nameVar(button.propertyName)} = GodotStrings.stringNameStorage(\"${button.propertyName}\")")
+        }
+        if (hasInspectableProperties) {
             val specs = scriptPropertyListSpecExpressions().joinToString(",\n            ")
             sb.appendLine("        propertyListPtr = ClassDB.buildPropertyList(listOf(")
             sb.appendLine("            $specs,")
@@ -1954,6 +2082,8 @@ internal class ScriptCodeEmitter(
         if (model.properties.isNotEmpty()) {
             sb.appendLine("            hasPropertyDefault = $registrarName::hasPropertyDefault,")
             sb.appendLine("            writePropertyDefault = $registrarName::writePropertyDefault,")
+        }
+        if (hasInspectableProperties) {
             // Hand the script-level property list to KanamaScript so the
             // editor placeholder instance (used for non-@Tool scripts in
             // editor mode) can expose @ScriptProperty fields in the
@@ -2056,7 +2186,7 @@ internal class ScriptCodeEmitter(
         sb.appendLine()
 
         sb.appendLine("    private fun writeScriptPropertyList(ret: MemorySegment) {")
-        if (model.properties.isEmpty()) {
+        if (!hasInspectableProperties) {
             sb.appendLine("        BuiltinTypes.construct(VariantType.ARRAY, ret)")
         } else {
             val rows = scriptPropertyListDictionaryExpressions()
@@ -2111,7 +2241,7 @@ internal class ScriptCodeEmitter(
                 (if (property.exportCategory != null) 1 else 0) +
                 (if (property.exportGroup != null) 1 else 0) +
                 (if (property.exportSubgroup != null) 1 else 0)
-        }
+        } + model.toolButtons.size
 
     private fun scriptPropertyListSpecExpressions(): List<String> =
         buildList {
@@ -2120,6 +2250,9 @@ internal class ScriptCodeEmitter(
                 p.exportGroup?.let { add(scriptGroupPropertySpecExpression(it)) }
                 p.exportSubgroup?.let { add(scriptGroupPropertySpecExpression(it)) }
                 add(scriptPropertySpecExpression(p))
+            }
+            for (button in model.toolButtons) {
+                add(toolButtonPropertySpecExpression(button))
             }
         }
 
@@ -2131,6 +2264,9 @@ internal class ScriptCodeEmitter(
                 p.exportSubgroup?.let { add(scriptGroupPropertyDictionaryExpression(it)) }
                 add(scriptPropertyDictionaryExpression(p))
             }
+            for (button in model.toolButtons) {
+                add(toolButtonPropertyDictionaryExpression(button))
+            }
         }
 
     private fun scriptGroupPropertySpecExpression(group: ScriptPropertyGroupModel): String =
@@ -2141,6 +2277,9 @@ internal class ScriptCodeEmitter(
         return "ClassDB.PropertySpec(\"${kotlinStringLiteral(p.godotName)}\", VariantType.$declaredType, ${p.hint}, \"${kotlinStringLiteral(p.hintString)}\", ${p.usage})"
     }
 
+    private fun toolButtonPropertySpecExpression(button: ToolButtonModel): String =
+        "ClassDB.PropertySpec(\"${kotlinStringLiteral(button.propertyName)}\", VariantType.CALLABLE, $PROPERTY_HINT_TOOL_BUTTON, \"${kotlinStringLiteral(button.hintString)}\", $PROPERTY_USAGE_EDITOR)"
+
     private fun scriptGroupPropertyDictionaryExpression(group: ScriptPropertyGroupModel): String =
         "mapOf(\"name\" to \"${kotlinStringLiteral(group.name)}\", \"type\" to VariantType.NIL.id, \"hint\" to 0, \"hint_string\" to \"${kotlinStringLiteral(group.prefix)}\", \"usage\" to ${group.usage})"
 
@@ -2148,6 +2287,9 @@ internal class ScriptCodeEmitter(
         val declaredType = scriptPropertyDeclaredVariantType(p)
         return "mapOf(\"name\" to \"${kotlinStringLiteral(p.godotName)}\", \"type\" to VariantType.$declaredType.id, \"hint\" to ${p.hint}, \"hint_string\" to \"${kotlinStringLiteral(p.hintString)}\", \"usage\" to ${p.usage})"
     }
+
+    private fun toolButtonPropertyDictionaryExpression(button: ToolButtonModel): String =
+        "mapOf(\"name\" to \"${kotlinStringLiteral(button.propertyName)}\", \"type\" to VariantType.CALLABLE.id, \"hint\" to $PROPERTY_HINT_TOOL_BUTTON, \"hint_string\" to \"${kotlinStringLiteral(button.hintString)}\", \"usage\" to $PROPERTY_USAGE_EDITOR)"
 
     private fun scriptPropertyDeclaredVariantType(p: ScriptPropertyModel): String =
         // Property declaration type vs marshal type can diverge. NodePath uses
@@ -2183,7 +2325,7 @@ internal class ScriptCodeEmitter(
         sb.appendLine("        return KanamaScriptInstance(")
         sb.appendLine("            kotlinObject = kt,")
         sb.appendLine("            ownerObject = godotObject,")
-        if (model.properties.isNotEmpty()) {
+        if (hasInspectableProperties) {
             sb.appendLine("            propertyListPtr = propertyListPtr,")
             sb.appendLine("            propertyCount = ${scriptPropertyListEntryCount()},")
         }
@@ -2369,7 +2511,7 @@ internal class ScriptCodeEmitter(
         "${fqName.substringAfterLast('.')}ScriptRegistrar"
 
     private fun emitDispatchGet() {
-        if (model.properties.isEmpty()) {
+        if (model.properties.isEmpty() && model.toolButtons.isEmpty()) {
             sb.appendLine("            dispatchGet = { _, _ -> false },")
             return
         }
@@ -2378,6 +2520,12 @@ internal class ScriptCodeEmitter(
         for (p in model.properties) {
             sb.appendLine("                    ${nameVar(p.godotName)} -> {")
             sb.appendLine("                        ${variantWritePropertyRetExpr(p, "kt.${p.kotlinName}")}")
+            sb.appendLine("                        true")
+            sb.appendLine("                    }")
+        }
+        for (button in model.toolButtons) {
+            sb.appendLine("                    ${nameVar(button.propertyName)} -> {")
+            sb.appendLine("                        ${variantWriteToolButtonRetExpr(button)}")
             sb.appendLine("                        true")
             sb.appendLine("                    }")
         }
@@ -2496,6 +2644,9 @@ internal class ScriptCodeEmitter(
                 "Arena.ofConfined().use { a -> BuiltinTypes.initVariantFromAny(ret, $valueExpr, a) }"
             else -> variantWriteRetExpr(property.type, valueExpr)
         }
+
+    private fun variantWriteToolButtonRetExpr(button: ToolButtonModel): String =
+        "Arena.ofConfined().use { a -> val callable = BuiltinTypes.allocateCallable(a); BuiltinTypes.initCallable(callable, godotObject, \"${kotlinStringLiteral(button.method.godotName)}\"); VariantConverters.variantFromType(VariantType.CALLABLE).invoke(ret, callable); BuiltinTypes.destroyTyped(VariantType.CALLABLE, callable) }"
 
     private fun scriptPropertyKotlinType(property: ScriptPropertyModel): String =
         when {
