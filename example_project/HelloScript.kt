@@ -862,7 +862,7 @@ class HelloScript(godotObject: MemorySegment) : KanamaScript<Node>(godotObject, 
 			MainThread.awaitNextFrame()
 			SceneTree.delaySeconds(0.001)
 		}
-		selfNode.notifyPropertyListChanged()
+		notifyInspectorChanged()
 		selfNode.setMessageTranslation(false)
 		val objectCanTranslateDisabled = selfNode.canTranslateMessages()
 		selfNode.setMessageTranslation(true)

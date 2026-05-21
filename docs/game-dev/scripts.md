@@ -205,4 +205,6 @@ classes must be in the same project and the referenced class must be
   declarations.
 - **`@Tool` scripts run in the editor.** Guard editor-only code against
   partially initialized scenes — exported node references may be `null` during
-  editor tool execution.
+  editor tool execution. From a `KanamaScript` subclass, use `isEditorHint()`
+  for editor checks and `notifyInspectorChanged()` after changing editor-time
+  property-list state.

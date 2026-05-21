@@ -36,6 +36,22 @@ abstract class KanamaScript<Self : Any>(
      * Wrap this script's Godot object as another compatible Kanama wrapper type.
      */
     inline fun <T> selfAs(ctor: (MemorySegment) -> T): T = ctor(godotObject)
+
+    /**
+     * Refresh the Godot inspector after exported property metadata changes.
+     *
+     * This is mainly useful from `@Tool` scripts whose visible properties,
+     * groups, or usage flags depend on editor-time state.
+     */
+    fun notifyInspectorChanged() {
+        GodotObject(godotObject).notifyPropertyListChanged()
+    }
+
+    /**
+     * True when the script is running inside the Godot editor.
+     */
+    fun isEditorHint(): Boolean =
+        Engine.isEditorHint()
 }
 
 /**
