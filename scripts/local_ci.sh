@@ -152,6 +152,12 @@ python3 "$ROOT_DIR/scripts/audit_variant_marshalling_policy.py"
 echo "[local_ci] GodotObject script-path audit"
 python3 "$ROOT_DIR/scripts/audit_godot_object_script_paths.py"
 
+echo "[local_ci] runtime node/RPC guardrail audit"
+python3 "$ROOT_DIR/scripts/audit_runtime_node_lookups.py" "$ROOT_DIR/example_project"
+
+echo "[local_ci] replicated script-property guardrail audit"
+python3 "$ROOT_DIR/scripts/audit_replicated_script_properties.py" "$ROOT_DIR/example_project"
+
 echo "[local_ci] value-type builtin parity audit"
 python3 "$ROOT_DIR/scripts/audit_value_type_wrappers.py" --strict
 
@@ -178,6 +184,14 @@ if ! rg -q 'is_editor_process' "$ROOT_DIR/bootstrap/bootstrap.c"; then
 fi
 if ! rg -q 'KANAMA_JDWP_PORT' "$ROOT_DIR/bootstrap/bootstrap.c"; then
   echo "[local_ci] JDWP environment override is missing" >&2
+  exit 1
+fi
+if ! rg -q 'tools/java_preflight_enabled' "$ROOT_DIR/example_project/addons/kanama_tools/plugin.gd" "$ROOT_DIR/templates/starter/addons/kanama_tools/plugin.gd"; then
+  echo "[local_ci] Java runtime preflight setting is not registered in editor tools" >&2
+  exit 1
+fi
+if ! rg -Fq 'libjvm not found. Kanama desktop runtime requires a JDK 25+' "$ROOT_DIR/bootstrap/bootstrap.c"; then
+  echo "[local_ci] native bootstrap missing clear libjvm diagnostic" >&2
   exit 1
 fi
 
@@ -251,6 +265,22 @@ if ! rg -q 'closeKanamaOwned\("smoke_scene", kt\.smokeScene\)' "$hello_script_re
 fi
 if ! rg -q 'BuiltinTypes\.initVariantDictionary\(ret, mapOf\(' "$hello_script_registrar"; then
   echo "[local_ci] generated RPC config must return a Variant-wrapped Dictionary" >&2
+  exit 1
+fi
+if ! rg -q 'object HelloScriptMethods' "$hello_script_registrar"; then
+  echo "[local_ci] generated method helper object is missing" >&2
+  exit 1
+fi
+if ! rg -q 'fun greet\(instance: HelloScript, name: String\): String =' "$hello_script_registrar"; then
+  echo "[local_ci] generated direct method helper is missing" >&2
+  exit 1
+fi
+if ! rg -q 'fun greet\(target: net\.multigesture\.kanama\.api\.GodotObject, name: String\): String\? =' "$hello_script_registrar"; then
+  echo "[local_ci] generated GodotObject method helper is missing" >&2
+  exit 1
+fi
+if ! rg -q 'fun resetHealth\(target: net\.multigesture\.kanama\.api\.GodotObject\): Boolean' "$hello_script_registrar"; then
+  echo "[local_ci] generated Unit-returning GodotObject method helper is missing" >&2
   exit 1
 fi
 if ! rg -q 'object HelloScriptRpcs' "$hello_script_registrar"; then

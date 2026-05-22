@@ -353,8 +353,8 @@ object ScriptBridge {
                 instance?.dispatchCall?.invoke(methodLong, args, argCount, rRet, rError) == true
         } catch (t: Throwable) {
             System.err.println(
-                "[kanama:kt] script method failed method=0x${methodLong.toString(16)} " +
-                    "instance=0x${data.address().toString(16)}: ${t::class.qualifiedName}: ${t.message}",
+                "[kanama:kt] script method failed ${formatScriptCallContext(instance, data, methodLong, argCount)}: " +
+                    "${t::class.qualifiedName}: ${t.message}",
             )
             t.printStackTrace(System.err)
             if (rError.address() != 0L) {
@@ -374,6 +374,22 @@ object ScriptBridge {
                 rError.reinterpret(12).set(JAVA_INT, 0, 1)
             }
         }
+    }
+
+    private fun formatScriptCallContext(
+        instance: KanamaScriptInstance?,
+        data: MemorySegment,
+        methodLong: Long,
+        argCount: Long,
+    ): String {
+        val script = instance?.script
+        val scriptName = script?.globalName?.takeIf { it.isNotEmpty() }
+            ?: script?.kotlinClassName?.takeIf { it.isNotEmpty() }
+            ?: instance?.kotlinObject?.javaClass?.name
+            ?: "<unknown>"
+        val ownerAddress = instance?.ownerObject?.address() ?: 0L
+        return "script=$scriptName method=0x${methodLong.toString(16)} args=$argCount " +
+            "instance=0x${data.address().toString(16)} owner=0x${ownerAddress.toString(16)}"
     }
 
     private fun KanamaScriptInstance.dispatchDirectProcess(

@@ -944,6 +944,42 @@ private fun signalAwaitReturnExpr(args: List<ArgModel>): String =
         else -> "args"
     }
 
+private fun StringBuilder.appendMethodHelpers(simpleName: String, methods: List<MethodModel>) {
+    val regularMethods = methods.filter { it.kind == MethodKind.REGULAR }
+    if (regularMethods.isEmpty()) return
+
+    appendLine()
+    appendLine("object ${simpleName}Methods {")
+    for (method in regularMethods) {
+        val kotlinParams = method.args.joinToString(", ") { "${it.name}: ${it.kotlinType}" }
+        val params = if (kotlinParams.isNotEmpty()) ", $kotlinParams" else ""
+        val argNames = method.args.joinToString(", ") { it.name }
+        val helperArgs = if (argNames.isNotEmpty()) ", $argNames" else ""
+        val directArgs = argNames
+        val returnType = method.returnType?.kotlinType
+
+        if (returnType == null) {
+            appendLine("    fun ${method.kotlinName}(instance: $simpleName$params) {")
+            appendLine("        instance.${method.kotlinName}($directArgs)")
+            appendLine("    }")
+            appendLine()
+            appendLine("    fun ${method.kotlinName}(target: net.multigesture.kanama.api.GodotObject$params): Boolean {")
+            appendLine("        val instance = target.kotlinScriptInstance<$simpleName>() ?: return false")
+            appendLine("        ${method.kotlinName}(instance$helperArgs)")
+            appendLine("        return true")
+            appendLine("    }")
+        } else {
+            appendLine("    fun ${method.kotlinName}(instance: $simpleName$params): $returnType =")
+            appendLine("        instance.${method.kotlinName}($directArgs)")
+            appendLine()
+            appendLine("    fun ${method.kotlinName}(target: net.multigesture.kanama.api.GodotObject$params): $returnType? =")
+            appendLine("        target.kotlinScriptInstance<$simpleName>()?.let { ${method.kotlinName}(it$helperArgs) }")
+        }
+        appendLine()
+    }
+    appendLine("}")
+}
+
 private fun StringBuilder.appendRpcHelpers(simpleName: String, methods: List<MethodModel>) {
     val rpcMethods = methods.filter { it.kind == MethodKind.REGULAR && it.rpc != null }
     if (rpcMethods.isEmpty()) return
@@ -1482,6 +1518,7 @@ internal class CodeEmitter(
         propertyUpcalls()
         classClose()
         signalHelpers()
+        sb.appendMethodHelpers(model.simpleName, model.methods)
         sb.appendRpcHelpers(model.simpleName, model.methods)
         nameConstants()
         return sb.toString()
@@ -1573,6 +1610,7 @@ internal class CodeEmitter(
         sb.appendLine("import net.multigesture.kanama.binding.runtime.VariantConverters")
         sb.appendLine("import net.multigesture.kanama.binding.runtime.VariantType")
         sb.appendLine("import net.multigesture.kanama.ffi.GodotFFI")
+        sb.appendLine("import net.multigesture.kanama.api.kotlinScriptInstance")
         sb.appendLine("import ${model.fqName}")
         sb.appendLine("import java.lang.foreign.Arena")
         sb.appendLine("import java.lang.foreign.FunctionDescriptor")
@@ -2019,6 +2057,7 @@ internal class ScriptCodeEmitter(
         emitCleanupHelpers()
         objectClose()
         signalHelpers()
+        sb.appendMethodHelpers(model.simpleName, model.methods)
         sb.appendRpcHelpers(model.simpleName, model.methods)
         nameConstants()
         return sb.toString()
@@ -2117,6 +2156,7 @@ internal class ScriptCodeEmitter(
         sb.appendLine("import net.multigesture.kanama.binding.runtime.Signals")
         sb.appendLine("import net.multigesture.kanama.binding.runtime.VariantConverters")
         sb.appendLine("import net.multigesture.kanama.binding.runtime.VariantType")
+        sb.appendLine("import net.multigesture.kanama.api.kotlinScriptInstance")
         sb.appendLine("import ${model.fqName}")
         sb.appendLine("import java.lang.foreign.Arena")
         sb.appendLine("import java.lang.foreign.MemorySegment")

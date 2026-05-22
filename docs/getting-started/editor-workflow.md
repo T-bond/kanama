@@ -14,6 +14,11 @@ When enabled, the plugin also registers a basic Kotlin syntax highlighter for
 small edits; IntelliJ IDEA remains the recommended editor for Kotlin navigation,
 completion, refactoring, and debugging.
 
+The plugin also checks desktop Java setup when it loads. Kanama needs a JDK 25+
+distribution that contains `libjvm`; if `JAVA_HOME` is missing or points at a
+JDK without the expected `lib/server/libjvm.*` file, the plugin shows a Godot
+warning before you hit a harder runtime failure.
+
 ```mermaid
 flowchart LR
     EDIT["Edit .kt in IntelliJ"]
@@ -73,6 +78,7 @@ Useful editor settings:
 | `kanama/tools/auto_build_on_save` | Watches `.kt` files and runs a debounced script build. |
 | `kanama/tools/reload_scene_after_sync` | Reloads the current scene after a successful sync. |
 | `kanama/tools/developer_mode` | Shows runtime build actions intended for Kanama maintainers. |
+| `kanama/tools/java_preflight_enabled` | Shows editor warnings when desktop `libjvm` cannot be found. |
 
 `Build Runtime` is hidden unless `developer_mode` is enabled. Normal game
 projects should use `Build Scripts`; runtime rebuilds are mainly for Kanama

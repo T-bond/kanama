@@ -159,6 +159,37 @@ PlayerSignals.hitEnemy(this, 10L)
 For multiplayer RPC methods, KSP also generates typed `*Rpcs` helpers from
 `@Rpc` declarations. See [Multiplayer](multiplayer.md).
 
+## Registered Method Helpers
+
+KSP generates a `*Methods` helper object for every Kanama script method
+registered with `@RegisterFunction`. Use these helpers when Kotlin code needs
+to invoke another Kanama script's public Godot-facing method:
+
+```kotlin
+@RegisterFunction
+fun damage(amount: Double) {
+    health -= amount
+}
+
+// Direct script instance.
+PlayerMethods.damage(playerScript, 5.0)
+
+// Generic GodotObject from a collision or lookup.
+if (!PlayerMethods.damage(collider, 5.0)) {
+    // The collider was not backed by Player.
+}
+```
+
+For non-`Unit` methods, the `GodotObject` overload returns a nullable value:
+
+```kotlin
+val label = HudMethods.currentLabel(hudObject) ?: return
+```
+
+These helpers are for Kanama-to-Kanama calls. For mixed GDScript/Kanama
+projects, keep using signals, registered Godot names, or `GodotObject.call`
+where the target is a GDScript object or an intentionally dynamic autoload.
+
 ## Node Lookup
 
 GDScript's `$NodeName` shorthand does not exist in Kanama. Use exported
@@ -204,8 +235,9 @@ classes must be in the same project and the referenced class must be
   `@RegisterFunction` method has Kotlin default parameters, Godot still requires
   all arguments when calling it. Pass them explicitly or use overloads.
 - **KSP must run** before IntelliJ resolves generated helpers like
-  `PlayerSignals` or `PlayerRpcs`. Run a Gradle sync or build after adding new
-  `@Signal` or `@Rpc` declarations.
+  `PlayerMethods`, `PlayerSignals`, or `PlayerRpcs`. Run a Gradle sync or
+  build after adding new `@RegisterFunction`, `@Signal`, or `@Rpc`
+  declarations.
 - **`@Tool` scripts run in the editor.** Guard editor-only code against
   partially initialized scenes — exported node references may be `null` during
   editor tool execution. From a `KanamaScript` subclass, use `isEditorHint()`

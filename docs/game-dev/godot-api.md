@@ -25,9 +25,10 @@ generator reach and skip categories.
 
 When writing gameplay code, prefer typed wrappers such as `Node`, `Node3D`,
 `CharacterBody3D`, `Area3D`, `AnimationPlayer`, `Control`, `ResourceLoader`,
-`Input`, and `Mathf` whenever they exist. Use `GodotObject.call(...)` only at
-dynamic boundaries such as mixed GDScript/Kanama interop or APIs that are not
-wrapped yet.
+`Input`, and `Mathf` whenever they exist. For your own Kanama scripts, prefer
+generated `*Methods`, `*Signals`, `*Rpcs`, and `*Names` helpers. Use
+`GodotObject.call(...)` only at dynamic boundaries such as mixed
+GDScript/Kanama interop or APIs that are not wrapped yet.
 
 ### Generated KDoc
 
@@ -79,8 +80,9 @@ self.getTree().setGroup("enemies", PropertyName.visible, false)
 ```
 
 Script-local generated names such as `PlayerNames.Methods.onBodyEntered` remain
-the right choice for methods, properties, and signals declared by your own
-Kanama scripts.
+the right choice when Godot APIs need a method, property, or signal name. When
+Kotlin code is invoking another Kanama script method directly, prefer the
+generated `PlayerMethods.damage(...)`-style helpers instead of string dispatch.
 
 For now, project autoloads should be resolved through the scene tree root
 (`/root/<Name>`). `Engine.getSingleton()` remains useful for engine singletons,

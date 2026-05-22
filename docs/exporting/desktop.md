@@ -20,6 +20,26 @@ The source repository contains the example project, starter template, native
 bootstrap, Gradle build, and local CI scripts used to build and validate the
 addon. Packaged consumer artifacts are separate from this source checkout.
 
+## Asset Store And Binary Install Readiness
+
+Asset Store-style installs change the failure mode: users may add the Kanama
+addon from inside Godot and never see terminal output. The optional
+`addons/kanama_tools` editor plugin therefore checks desktop Java setup when it
+loads and warns in Godot if it cannot find `libjvm`.
+
+For desktop runtime, Kanama needs a JDK 25+ distribution that contains
+`libjvm`. The check looks under `JAVA_HOME` first, then tries the same
+best-effort platform fallback paths used by the native bootstrap. If the check
+fails, install a supported JDK and set `JAVA_HOME` before running the project.
+
+Packaged addon artifacts should keep this layout predictable:
+
+- `addons/kanama/kanama.jar`,
+- `addons/kanama/kanama-scripts.jar` for project scripts,
+- `addons/kanama/kanama.gdextension`,
+- the platform native bootstrap library referenced by `kanama.gdextension`,
+- optional `addons/kanama_tools` editor plugin files and starter docs.
+
 ## Source Install
 
 For now, clone the repository and use the Gradle tasks from the repo root:

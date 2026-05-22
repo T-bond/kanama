@@ -94,21 +94,45 @@ static char *path_parent_in_place(char *path) {
     return path;
 }
 
+static const char *jvm_relative_lib_path(void) {
+#ifdef _WIN32
+    return "bin\\server\\jvm.dll";
+#elif defined(__APPLE__)
+    return "lib/server/libjvm.dylib";
+#else
+    return "lib/server/libjvm.so";
+#endif
+}
+
+static void build_java_home_jvm_path(char *path, size_t path_size, const char *java_home) {
+#ifdef _WIN32
+    snprintf(path, path_size, "%s\\%s", java_home, jvm_relative_lib_path());
+#else
+    snprintf(path, path_size, "%s/%s", java_home, jvm_relative_lib_path());
+#endif
+}
+
+static void print_missing_jvm_diagnostic(void) {
+#ifndef __ANDROID__
+    const char *java_home = getenv("JAVA_HOME");
+    fprintf(stderr, "[kanama] error: libjvm not found. Kanama desktop runtime requires a JDK 25+ install.\n");
+    if (java_home && *java_home) {
+        char expected[1024];
+        build_java_home_jvm_path(expected, sizeof expected, java_home);
+        fprintf(stderr, "[kanama] checked JAVA_HOME=%s but did not find %s\n", java_home, expected);
+    } else {
+        fprintf(stderr, "[kanama] JAVA_HOME is not set. Set it to a JDK 25+ home directory.\n");
+    }
+    fprintf(stderr, "[kanama] expected libjvm relative path: %s\n", jvm_relative_lib_path());
+    fprintf(stderr, "[kanama] install hint: use Temurin 25+ or another JDK 25+ build that includes libjvm.\n");
+#endif
+}
+
 static const char *find_jvm_lib(void) {
     static char path[1024];
     const char *java_home = getenv("JAVA_HOME");
     if (java_home && *java_home) {
-#ifdef _WIN32
-        snprintf(path, sizeof path, "%s\\bin\\server\\jvm.dll", java_home);
-#else
-        snprintf(path, sizeof path, "%s/lib/server/%s", java_home,
-#ifdef __APPLE__
-            "libjvm.dylib"
-#else
-            "libjvm.so"
-#endif
-        );
-#endif
+        build_java_home_jvm_path(path, sizeof path, java_home);
         if (access(path, F_OK) == 0) {
             return path;
         }
@@ -363,8 +387,7 @@ static int start_jvm(const char *jar_path) {
 #else
     const char *jvm_lib = find_jvm_lib();
     if (!jvm_lib) {
-        fprintf(stderr, "[kanama] error: libjvm not found "
-                        "(set JAVA_HOME to a JDK 25+ install)\n");
+        print_missing_jvm_diagnostic();
         return -1;
     }
     fprintf(stderr, "[kanama] using libjvm: %s\n", jvm_lib);

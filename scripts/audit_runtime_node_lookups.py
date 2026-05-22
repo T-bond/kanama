@@ -48,6 +48,7 @@ class Finding:
     path: Path
     line_no: int
     scope: Scope | None
+    kind: str
     text: str
 
 
@@ -81,11 +82,13 @@ def audit_file(path: Path) -> list[Finding]:
             scopes.append(Scope("lambda", stripped, line_no, depth))
 
         if RAW_RPC_RE.search(line):
-            findings.append(Finding(path, line_no, scopes[-1] if scopes else None, stripped))
+            findings.append(Finding(path, line_no, scopes[-1] if scopes else None, "raw RPC string call", stripped))
 
         active_scope = scopes[-1] if scopes else None
-        if active_scope is not None and (LOOKUP_RE.search(line) or DYNAMIC_CALL_RE.search(line)):
-            findings.append(Finding(path, line_no, active_scope, stripped))
+        if active_scope is not None and LOOKUP_RE.search(line):
+            findings.append(Finding(path, line_no, active_scope, "runtime required node lookup", stripped))
+        if active_scope is not None and DYNAMIC_CALL_RE.search(line):
+            findings.append(Finding(path, line_no, active_scope, "dynamic GodotObject.call", stripped))
 
         depth += brace_delta(line)
         while scopes and depth <= scopes[-1].depth:
@@ -114,7 +117,7 @@ def main() -> int:
             print(
                 f"{finding.path}:{finding.line_no}: "
                 f"{scope} "
-                f"contains runtime required node lookup or dynamic call: {finding.text}"
+                f"contains {finding.kind}: {finding.text}"
             )
         return 1
 
