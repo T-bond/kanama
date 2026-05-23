@@ -261,7 +261,7 @@ tasks.register<Copy>("syncExampleAddonJar") {
     dependsOn(tasks.named("jar"))
     dependsOn(":project-scripts:jar")
     from(layout.buildDirectory.file("libs/kanama.jar"))
-    from(layout.projectDirectory.file("project-scripts/build/libs/kanama-scripts.jar"))
+    from(project(":project-scripts").tasks.named<Jar>("jar").flatMap { it.archiveFile })
     into(layout.projectDirectory.dir("example_project/addons/kanama"))
 }
 
@@ -291,7 +291,7 @@ tasks.register<Copy>("installAddonJar") {
         include("*.gdextension", "*.uid", "*.dylib", "*.so", "*.dll")
     }
     from(layout.buildDirectory.file("libs/kanama.jar"))
-    from(layout.projectDirectory.file("project-scripts/build/libs/kanama-scripts.jar"))
+    from(project(":project-scripts").tasks.named<Jar>("jar").flatMap { it.archiveFile })
     into(targetProjectDir.map { file(it).resolve("addons/kanama") })
     outputs.file(extensionListFile)
 

@@ -15,7 +15,7 @@ platform split is the runtime underneath that FFM layer.
 flowchart TB
     subgraph PROJECT["Godot project"]
         USER["User Kotlin code<br/>@ScriptClass / @GlobalClass"]
-        KSP["KSP-generated registrars<br/>KanamaRegistry / KanamaScriptRegistry"]
+        KSP["KSP-generated registrars<br/>KanamaRegistry / KanamaClassRegistry / KanamaScriptRegistry"]
     end
 
     subgraph JVM["Desktop JVM (JDK 25)"]

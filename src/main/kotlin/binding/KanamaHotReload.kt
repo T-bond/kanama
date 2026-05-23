@@ -17,11 +17,15 @@ object KanamaHotReload {
     @Volatile
     private var scriptClassLoader: ChildFirstClassLoader? = null
 
+    @Volatile
+    private var projectClassLoader: ChildFirstClassLoader? = null
+
     private val lock = Any()
     private var lastScriptsJarMtime: Long = -1L
     private var nextCheckNanos: Long = 0L
     private var nextLoaderId: Long = 1L
     private var nextRetiredLoaderCheckNanos: Long = 0L
+    private var projectClassesRegistered: Boolean = false
     private val retiredLoaders = ArrayList<RetiredLoader>()
 
     private const val CHECK_INTERVAL_NANOS: Long = 500_000_000L
@@ -48,11 +52,17 @@ object KanamaHotReload {
                 scriptClassLoader?.close()
             } catch (_: Throwable) {
             }
+            try {
+                projectClassLoader?.close()
+            } catch (_: Throwable) {
+            }
             scriptClassLoader = null
+            projectClassLoader = null
             lastScriptsJarMtime = -1L
             nextCheckNanos = 0L
             nextRetiredLoaderCheckNanos = 0L
             nextLoaderId = 1L
+            projectClassesRegistered = false
             retiredLoaders.clear()
             library = MemorySegment.NULL
         }
@@ -78,6 +88,30 @@ object KanamaHotReload {
                 return
             }
             if (!force && mtime == lastScriptsJarMtime) return
+
+            if (!projectClassesRegistered) {
+                val classLoader = ChildFirstClassLoader(
+                    urls = arrayOf(scriptsJar.toUri().toURL()),
+                    parent = KanamaHotReload::class.java.classLoader,
+                    childFirstPrefixes = childFirstPrefixes,
+                    reloadId = 0,
+                )
+                try {
+                    if (registerProjectClasses(classLoader, lib)) {
+                        projectClassLoader = classLoader
+                        projectClassesRegistered = true
+                    } else {
+                        classLoader.close()
+                        projectClassesRegistered = true
+                    }
+                } catch (t: Throwable) {
+                    try {
+                        classLoader.close()
+                    } catch (_: Throwable) {
+                    }
+                    throw t
+                }
+            }
 
             val newLoader = ChildFirstClassLoader(
                 urls = arrayOf(scriptsJar.toUri().toURL()),
@@ -120,6 +154,22 @@ object KanamaHotReload {
                 )
             }
         }
+    }
+
+    private fun registerProjectClasses(loader: ClassLoader, library: MemorySegment): Boolean {
+        val registryClass = try {
+            loader.loadClass("net.multigesture.kanama.generated.KanamaClassRegistry")
+        } catch (_: ClassNotFoundException) {
+            return false
+        }
+        val registerAll = registryClass.getMethod("registerAll", MemorySegment::class.java)
+        if (Modifier.isStatic(registerAll.modifiers)) {
+            registerAll.invoke(null, library)
+        } else {
+            val instance = registryClass.getField("INSTANCE").get(null)
+            registerAll.invoke(instance, library)
+        }
+        return true
     }
 
     private fun retireLoader(loader: ChildFirstClassLoader?) {

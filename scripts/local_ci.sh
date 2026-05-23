@@ -199,7 +199,13 @@ echo "[local_ci] gradle sync"
 "$ROOT_DIR/gradlew" -p "$ROOT_DIR" syncExampleAddonJar
 
 echo "[local_ci] KSP script-property default literals"
-default_probe_registrar="$ROOT_DIR/project-scripts/build/generated/ksp/main/kotlin/net/multigesture/kanama/generated/DefaultProbeScriptScriptRegistrar.kt"
+find_project_script_registrar() {
+  find "$ROOT_DIR/project-scripts/build" \
+    -path "*/generated/ksp/main/kotlin/net/multigesture/kanama/generated/$1" \
+    -type f | sort | tail -n 1
+}
+
+default_probe_registrar="$(find_project_script_registrar "DefaultProbeScriptScriptRegistrar.kt")"
 if [[ ! -f "$default_probe_registrar" ]]; then
   echo "[local_ci] missing generated default-probe registrar" >&2
   exit 1
@@ -216,7 +222,7 @@ if rg -q 'val defaults = DefaultProbeScript\(MemorySegment\.NULL\)' "$default_pr
   echo "[local_ci] default-probe registrar still constructs a NULL-handle default instance" >&2
   exit 1
 fi
-hello_script_registrar="$ROOT_DIR/project-scripts/build/generated/ksp/main/kotlin/net/multigesture/kanama/generated/HelloScriptScriptRegistrar.kt"
+hello_script_registrar="$(find_project_script_registrar "HelloScriptScriptRegistrar.kt")"
 if [[ ! -f "$hello_script_registrar" ]]; then
   echo "[local_ci] missing generated hello-script registrar" >&2
   exit 1
@@ -237,12 +243,12 @@ if ! rg -q 'ClassDB\.PropertySpec\("smoke_textures", VariantType\.ARRAY, 23, "24
   echo "[local_ci] generated script-property typed Texture2D array metadata is missing" >&2
   exit 1
 fi
-resource_owner_registrar="$ROOT_DIR/project-scripts/build/generated/ksp/main/kotlin/net/multigesture/kanama/generated/ResourceOwnerSmokeScriptRegistrar.kt"
+resource_owner_registrar="$(find_project_script_registrar "ResourceOwnerSmokeScriptRegistrar.kt")"
 if ! rg -q 'ClassDB\.PropertySpec\("smoke_resource", VariantType\.OBJECT, 17, "SmokeResource", 6\)' "$resource_owner_registrar"; then
   echo "[local_ci] generated script-property custom Resource metadata is missing" >&2
   exit 1
 fi
-self_smoke_registrar="$ROOT_DIR/project-scripts/build/generated/ksp/main/kotlin/net/multigesture/kanama/generated/SelfSmokeScriptRegistrar.kt"
+self_smoke_registrar="$(find_project_script_registrar "SelfSmokeScriptRegistrar.kt")"
 if [[ ! -f "$self_smoke_registrar" ]]; then
   echo "[local_ci] missing generated self-smoke registrar" >&2
   exit 1

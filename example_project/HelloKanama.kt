@@ -15,12 +15,8 @@ import net.multigesture.kanama.generated.HelloKanamaSignals
 import java.lang.foreign.MemorySegment
 
 /**
- * Canonical Kanama example. Exercises the full Phase 5 annotation
- * surface: class registration, a method with an int return, a mutable
- * int property, and all three lifecycle virtuals. The KSP processor
- * (`net.multigesture.kanama.processor.KanamaProcessor`) emits a
- * `HelloKanamaRegistrar` into `build/generated/ksp/main/kotlin` and
- * `KanamaRegistry.registerAll(library)` wires it into the engine.
+ * Canonical @RegisterClass smoke class for the example project. It stays out
+ * of the framework runtime jar so real games only register their own classes.
  */
 @RegisterClass(parentClassName = "Node")
 @Tool
@@ -40,7 +36,7 @@ class HelloKanama(val godotObject: MemorySegment) {
     @RegisterFunction
     fun greet(name: String): String {
         val msg = "Hello, $name! (ping=$pingCount)"
-        System.err.println("[kanama:kt] HelloKanama.greet(\"$name\") → \"$msg\"")
+        System.err.println("[kanama:kt] HelloKanama.greet(\"$name\") -> \"$msg\"")
         return msg
     }
 
@@ -48,7 +44,7 @@ class HelloKanama(val godotObject: MemorySegment) {
     fun isActive(): Boolean {
         val result = counter > 0
         System.err.println(
-            "[kanama:kt] HelloKanama.isActive() → $result obj=0x${godotObject.address().toString(16)}"
+            "[kanama:kt] HelloKanama.isActive() -> $result obj=0x${godotObject.address().toString(16)}"
         )
         return result
     }
@@ -57,7 +53,7 @@ class HelloKanama(val godotObject: MemorySegment) {
     fun ping(): Long {
         pingCount += 1
         System.err.println(
-            "[kanama:kt] HelloKanama.ping() → $pingCount obj=0x${godotObject.address().toString(16)}"
+            "[kanama:kt] HelloKanama.ping() -> $pingCount obj=0x${godotObject.address().toString(16)}"
         )
         HelloKanamaSignals.pinged(this, pingCount)
         return pingCount

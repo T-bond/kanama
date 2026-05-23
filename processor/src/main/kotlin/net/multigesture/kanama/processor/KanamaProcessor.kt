@@ -45,8 +45,10 @@ class KanamaProcessor(
 ) : SymbolProcessor {
 
     private val registrarSimpleNames = linkedSetOf<String>()
+    private val classRegistrarSimpleNames = linkedSetOf<String>()
     private val scriptRegistrarSimpleNames = linkedSetOf<String>()
     private val aggregatorSources = mutableListOf<KSFile>()
+    private val classAggregatorSources = mutableListOf<KSFile>()
     private val scriptAggregatorSources = mutableListOf<KSFile>()
     private var scriptClassTypes: Map<String, ScriptClassTypeInfo> = emptyMap()
 
@@ -59,6 +61,7 @@ class KanamaProcessor(
             val simpleName = symbol.simpleName.asString()
             val registrarName = "${simpleName}Registrar"
             if (!registrarSimpleNames.add(registrarName)) continue
+            classRegistrarSimpleNames += registrarName
 
             val model = try {
                 buildClassModel(symbol, fqName)
@@ -66,7 +69,10 @@ class KanamaProcessor(
                 env.logger.error("[kanama:ksp] ${e.message}", symbol)
                 continue
             }
-            symbol.containingFile?.let { aggregatorSources += it }
+            symbol.containingFile?.let {
+                aggregatorSources += it
+                classAggregatorSources += it
+            }
             emitRegistrar(model, symbol.containingFile!!)
         }
 
@@ -127,6 +133,14 @@ class KanamaProcessor(
             registrars = registrarSimpleNames,
             sources = aggregatorSources,
         )
+        if (classRegistrarSimpleNames.isNotEmpty()) {
+            emitAggregator(
+                fileName = "KanamaClassRegistry",
+                objectName = "KanamaClassRegistry",
+                registrars = classRegistrarSimpleNames,
+                sources = classAggregatorSources,
+            )
+        }
         if (scriptRegistrarSimpleNames.isNotEmpty()) {
             emitAggregator(
                 fileName = "KanamaScriptRegistry",

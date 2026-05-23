@@ -16,19 +16,23 @@ Kanama supports reload for attachable script classes:
 1. `./gradlew syncExampleAddonJar` builds the checked-in example project, or
    `./gradlew installAddonJar -PkanamaProjectDir=/path/to/project -PkanamaProjectScriptsDir=/path/to/project`
    builds an external project:
-   - `kanama.jar`: the runtime and permanent registered classes.
-   - `kanama-scripts.jar`: project `.kt` scripts and generated script registrars.
+   - `kanama.jar`: the Kanama runtime and any runtime-bundled registrars.
+   - `kanama-scripts.jar`: project `.kt` scripts plus generated project class
+     and script registrars.
 2. Godot loads `kanama.jar` through `bootstrap.c`.
 3. `KanamaBinding.initializeCallback` registers the runtime:
    - `KanamaScript`
    - `KanamaScriptLanguage`
    - `.kt` resource loader/saver
-   - permanent `KanamaRegistry` entries from the runtime jar
+   - optional permanent `KanamaRegistry` entries from the runtime jar
 4. `KanamaHotReload.initialize()` loads `kanama-scripts.jar` through a
    child-first classloader.
-5. The generated `KanamaScriptRegistry` registers only `@ScriptClass`
-   templates.
-6. `KanamaScriptLanguage.callFrame()` periodically calls
+5. On first load, the generated `KanamaClassRegistry` registers project
+   `@RegisterClass` classes with ClassDB. These classes are permanent for the
+   Godot process.
+6. The generated `KanamaScriptRegistry` registers only reloadable
+   `@ScriptClass` templates.
+7. `KanamaScriptLanguage.callFrame()` periodically calls
    `KanamaHotReload.frameTick()`, which checks the script jar mtime and reloads
    changed templates.
 
@@ -77,7 +81,8 @@ script instance is freed.
 ## Current Behavior
 
 - `@RegisterClass` hot reload is not supported because Godot ClassDB extension
-  registrations are permanent for the process.
+  registrations are permanent for the process. Project `@RegisterClass`
+  changes require an editor/game restart.
 - Live in-place replacement of already-instanced nodes is partial; scene
   reload remains the reliable editor workflow.
 - The child-first package list is fixed in `KanamaHotReload`.

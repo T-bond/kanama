@@ -8,13 +8,13 @@ import net.multigesture.kanama.binding.KanamaHotReload
 import net.multigesture.kanama.binding.runtime.ClassDB
 import net.multigesture.kanama.binding.runtime.GodotStrings
 import net.multigesture.kanama.ffi.GodotFFI
-import net.multigesture.kanama.generated.KanamaRegistry
 import java.lang.foreign.Arena
 import java.lang.foreign.FunctionDescriptor
 import java.lang.foreign.MemoryLayout
 import java.lang.foreign.MemorySegment
 import java.lang.foreign.ValueLayout.ADDRESS
 import java.lang.foreign.ValueLayout.JAVA_INT
+import java.lang.reflect.Modifier
 import java.lang.invoke.MethodHandles
 import java.lang.invoke.MethodType
 
@@ -156,8 +156,8 @@ object KanamaBinding {
                 KanamaResourceFormatLoader.register(library)
                 // Register ResourceFormatSaver for `.kt` files.
                 KanamaResourceFormatSaver.register(library)
-                // Register all @RegisterClass / @ScriptClass types.
-                KanamaRegistry.registerAll(library)
+                // Register runtime-bundled @RegisterClass / @ScriptClass types, if any.
+                registerRuntimeClasses()
                 // Start editor/runtime script hot-reload loop.
                 KanamaHotReload.initialize(library)
             } catch (t: Throwable) {
@@ -165,6 +165,21 @@ object KanamaBinding {
                 t.printStackTrace(System.err)
                 throw t
             }
+        }
+    }
+
+    private fun registerRuntimeClasses() {
+        val registryClass = try {
+            Class.forName("net.multigesture.kanama.generated.KanamaRegistry")
+        } catch (_: ClassNotFoundException) {
+            return
+        }
+        val registerAll = registryClass.getMethod("registerAll", MemorySegment::class.java)
+        if (Modifier.isStatic(registerAll.modifiers)) {
+            registerAll.invoke(null, library)
+        } else {
+            val instance = registryClass.getField("INSTANCE").get(null)
+            registerAll.invoke(instance, library)
         }
     }
 
