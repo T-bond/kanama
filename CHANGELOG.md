@@ -7,6 +7,8 @@ versioning once public releases begin.
 
 ## Unreleased
 
+## 0.2.0 - 2026-05-26
+
 ### Added
 
 - Godot 4.7 beta 3 API baseline updates for generated wrappers, docs, and
