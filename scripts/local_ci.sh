@@ -243,6 +243,14 @@ if ! rg -q 'ClassDB\.PropertySpec\("smoke_textures", VariantType\.ARRAY, 23, "24
   echo "[local_ci] generated script-property typed Texture2D array metadata is missing" >&2
   exit 1
 fi
+if ! rg -q 'ClassDB\.PropertySpec\("smoke_resource", VariantType\.OBJECT, 17, "SmokeResource", 6\)' "$hello_script_registrar"; then
+  echo "[local_ci] generated script-property custom Resource metadata is missing" >&2
+  exit 1
+fi
+if ! rg -q 'ClassDB\.PropertySpec\("smoke_resources", VariantType\.ARRAY, 23, "24/17:SmokeResource", 6\)' "$hello_script_registrar"; then
+  echo "[local_ci] generated script-property custom Resource array metadata is missing" >&2
+  exit 1
+fi
 resource_owner_registrar="$(find_project_script_registrar "ResourceOwnerSmokeScriptRegistrar.kt")"
 if ! rg -q 'ClassDB\.PropertySpec\("smoke_resource", VariantType\.OBJECT, 17, "SmokeResource", 6\)' "$resource_owner_registrar"; then
   echo "[local_ci] generated script-property custom Resource metadata is missing" >&2
@@ -257,7 +265,7 @@ if ! rg -q 'val kt = SelfSmoke\(godotObject\)' "$self_smoke_registrar"; then
   echo "[local_ci] generated self-smoke registrar does not construct the KanamaScript base-class example" >&2
   exit 1
 fi
-if ! rg -q 'propertyCount = 11' "$hello_script_registrar"; then
+if ! rg -q 'propertyCount = 13' "$hello_script_registrar"; then
   echo "[local_ci] generated script-property list count does not include metadata/tool-button entries" >&2
   exit 1
 fi
@@ -267,6 +275,18 @@ if ! rg -q 'cleanup = \{ cleanupKanamaOwnedProperties\(kt\) \}' "$hello_script_r
 fi
 if ! rg -q 'closeKanamaOwned\("smoke_scene", kt\.smokeScene\)' "$hello_script_registrar"; then
   echo "[local_ci] generated script-property reassignment cleanup is missing" >&2
+  exit 1
+fi
+if ! rg -Fq 'kt.smokeResource?.let { BuiltinTypes.releaseRefCounted(it.godotObject) }' "$hello_script_registrar"; then
+  echo "[local_ci] generated custom Resource property cleanup does not release the retained handle" >&2
+  exit 1
+fi
+if ! rg -Fq 'kt.smokeResources.forEach { BuiltinTypes.releaseRefCounted(it.godotObject) }' "$hello_script_registrar"; then
+  echo "[local_ci] generated custom Resource array cleanup does not release retained handles" >&2
+  exit 1
+fi
+if rg -Fq 'SmokeResourceScriptRegistrar.cleanupKanamaOwnedProperties' "$hello_script_registrar"; then
+  echo "[local_ci] generated custom Resource cleanup must not recursively clean child script properties" >&2
   exit 1
 fi
 if ! rg -q 'BuiltinTypes\.initVariantDictionary\(ret, mapOf\(' "$hello_script_registrar"; then

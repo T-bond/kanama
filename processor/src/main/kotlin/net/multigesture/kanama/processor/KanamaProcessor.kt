@@ -2694,27 +2694,25 @@ internal class ScriptCodeEmitter(
 
     private fun cleanupPropertyExpr(property: ScriptPropertyModel, valueExpr: String, visitedExpr: String): String =
         when {
+            // A script property that references another script instance owns only
+            // the retained reference to that object. The referenced script's own
+            // properties are cleaned up by its script instance free path.
             property.customScriptFqName != null -> {
-                val registrar = customScriptRegistrarName(property.customScriptFqName)
                 if (property.customScriptIsResource) {
-                    "$valueExpr?.let { $registrar.cleanupKanamaOwnedProperties(it, $visitedExpr); BuiltinTypes.releaseRefCounted(it.godotObject) }"
+                    "$valueExpr?.let { BuiltinTypes.releaseRefCounted(it.godotObject) }"
                 } else {
-                    "$valueExpr?.let { $registrar.cleanupKanamaOwnedProperties(it, $visitedExpr) }"
+                    "Unit"
                 }
             }
             property.arrayElementCustomScriptFqName != null -> {
-                val registrar = customScriptRegistrarName(property.arrayElementCustomScriptFqName)
                 if (property.arrayElementCustomScriptIsResource) {
-                    "$valueExpr.forEach { $registrar.cleanupKanamaOwnedProperties(it, $visitedExpr); BuiltinTypes.releaseRefCounted(it.godotObject) }"
+                    "$valueExpr.forEach { BuiltinTypes.releaseRefCounted(it.godotObject) }"
                 } else {
-                    "$valueExpr.forEach { $registrar.cleanupKanamaOwnedProperties(it, $visitedExpr) }"
+                    "Unit"
                 }
             }
             else -> "closeKanamaOwned(\"${kotlinStringLiteral(property.godotName)}\", $valueExpr)"
         }
-
-    private fun customScriptRegistrarName(fqName: String): String =
-        "${fqName.substringAfterLast('.')}ScriptRegistrar"
 
     private fun emitDispatchGet() {
         if (model.properties.isEmpty() && model.toolButtons.isEmpty()) {

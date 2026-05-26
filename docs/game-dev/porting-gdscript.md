@@ -53,6 +53,10 @@ python3 scripts/audit_runtime_node_lookups.py /path/to/godot_project/kotlin-src
 python3 scripts/audit_replicated_script_properties.py /path/to/godot_project
 ```
 
+Both scripts accept multiple roots. Aggregate demo repositories can pass every
+`kotlin-src` or project root in one run; the public `kanama-demos` repo wires
+those checks into `./gradlew check`.
+
 ## Common Porting Patterns
 
 Mixed projects are valid while you migrate. A Kanama script can call a retained

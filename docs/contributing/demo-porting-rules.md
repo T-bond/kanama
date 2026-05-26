@@ -393,6 +393,15 @@ For a Kanama demo checked out beside the Kanama repo, build scripts with:
 The Godot editor can also run the same flow through the Kanama tools plugin's
 `Build Scripts` button.
 
+For public demo repo changes, run the aggregate guardrails from the demo repo:
+
+```bash
+./gradlew check
+```
+
+That task runs the parity audit, runtime node/RPC guardrail, and replicated
+script-property guardrail across the public demo set.
+
 Validate with the active Godot preview baseline and any compatibility build
 needed by the task:
 

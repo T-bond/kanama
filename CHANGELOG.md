@@ -9,8 +9,11 @@ versioning once public releases begin.
 
 ### Added
 
+- Godot 4.7 beta 3 API baseline updates for generated wrappers, docs, and
+  smoke validation.
 - Editor workflow helpers for opening Kotlin sources and common build actions
   from the Kanama Tools dock.
+- Basic Kotlin syntax highlighting in the Kanama Tools editor integration.
 - Additional export inspector metadata support, including property hints,
   categories, groups, subgroups, and inspector tool buttons.
 - Typed signal helper overloads for common connect, emit, and await usage while
@@ -19,11 +22,37 @@ versioning once public releases begin.
   hint checks and inspector/property-list refresh.
 - Generated engine-wide `MethodName`, `PropertyName`, and `SignalName`
   constants for type-safe Godot API name references.
+- Multiplayer and porting guardrail audits for risky runtime node lookups, raw
+  string dispatch, and `SceneReplicationConfig` custom properties.
+- Multiplayer docs covering generated RPC helpers, ENet peer setup, replicated
+  script properties, and review checklist items for ports.
 
 ### Changed
 
+- Script/runtime hot paths are leaner, including vector math, object-array
+  decoding, string-name handling, and common object call paths.
+- Runtime diagnostics now report more lifecycle and script binding context when
+  debugging editor/runtime integration failures.
+- Example project registries are separated from runtime registration paths so
+  local examples do not hide integration drift in external projects.
 - Runtime and local CI smoke checks now assert the QoL metadata, tool button,
   and generated name-constant coverage.
+- The replicated-script-property audit can now check multiple project roots in
+  one run, so demo aggregate checks can use the same guardrail script as local
+  CI.
+
+### Fixed
+
+- Script object lifecycle and property replay now preserve inspector-authored
+  values more reliably across load/reload paths.
+- Retained resource wrapper lifetime handling no longer drops resource handles
+  too early in common script property flows.
+- Custom resource script properties now release only the retained custom
+  resource handle during parent cleanup. They no longer recursively clean the
+  child script's exported resource properties, which could close shared
+  resources such as `PackedScene` models too early.
+- Getting-started, README, local docs preview, and release-validation examples
+  were corrected for the current source-first workflow.
 
 ## 0.1.0 - 2026-05-19
 

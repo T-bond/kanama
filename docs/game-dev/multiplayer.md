@@ -93,6 +93,8 @@ Run the replication audit on ports that use `MultiplayerSynchronizer`:
 python3 scripts/audit_replicated_script_properties.py /path/to/godot_project
 ```
 
+Pass multiple project roots to audit a demo collection in one run.
+
 ## Runtime Guardrails
 
 Avoid raw RPC strings and required node lookups inside hot callbacks such as
@@ -106,6 +108,23 @@ This audit catches common risky shapes:
 python3 scripts/audit_runtime_node_lookups.py /path/to/godot_project/kotlin-src
 ```
 
+Pass multiple source roots when reviewing several ports together.
+
 It is intentionally conservative. Treat findings as review prompts: raw RPC
 calls should usually become generated `*Rpcs` calls, and generic dynamic calls
 inside runtime callbacks deserve a reason.
+
+## Multiplayer Review Checklist
+
+Before treating a multiplayer port as stable, review the same boundaries that
+usually drift during GDScript-to-Kotlin ports:
+
+- authority is assigned at the same lifecycle point as the original project,
+  especially for nested `MultiplayerSynchronizer` nodes;
+- spawned player node names are stable across peers, usually matching peer ids;
+- every custom `.:property` in a `SceneReplicationConfig` is exposed with
+  `@ScriptProperty` or `@ScriptProperty(name = "...")`;
+- known Kotlin script targets use generated `*Rpcs` helpers or direct typed
+  calls instead of raw string dispatch; and
+- remaining dynamic `call`, `rpc`, or animation-tree property strings are real
+  dynamic boundaries and are covered by smoke or manual host/client testing.

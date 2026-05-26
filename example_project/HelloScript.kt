@@ -123,6 +123,12 @@ class HelloScript(godotObject: MemorySegment) : KanamaScript<Node>(godotObject, 
 	@ScriptProperty
 	var smokeTextures: List<Texture2D> = emptyList()
 
+	@ScriptProperty
+	var smokeResource: SmokeResource? = null
+
+	@ScriptProperty
+	var smokeResources: List<SmokeResource> = emptyList()
+
 	@ToolButton(text = "Reset Health", icon = "Reload")
 	fun resetHealth() {
 		health = 99

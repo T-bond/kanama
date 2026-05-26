@@ -45,6 +45,7 @@ class Node:
 
 @dataclass
 class Finding:
+    project_root: Path
     scene: Path
     node_path: str
     script_path: Path
@@ -147,38 +148,45 @@ def audit_scene(project_root: Path, scene: Path, property_cache: dict[Path, set[
             if property_name in BUILTIN_REPLICATED_PROPERTIES:
                 continue
             if property_name not in script_properties:
-                findings.append(Finding(scene, target.path, script_path, property_name))
+                findings.append(Finding(project_root, scene, target.path, script_path, property_name))
 
     return findings
 
 
 def main() -> int:
     parser = argparse.ArgumentParser()
-    parser.add_argument("project_root", type=Path)
+    parser.add_argument("project_roots", nargs="+", type=Path)
     args = parser.parse_args()
 
-    project_root = args.project_root.resolve()
-    property_cache: dict[Path, set[str]] = {}
-    scenes = sorted(project_root.rglob("*.tscn"))
-    findings = [
-        finding
-        for scene in scenes
-        for finding in audit_scene(project_root, scene, property_cache)
-    ]
+    all_findings: list[Finding] = []
+    total_scenes = 0
+    total_scripts = 0
 
-    if findings:
+    for root in args.project_roots:
+        project_root = root.resolve()
+        property_cache: dict[Path, set[str]] = {}
+        scenes = sorted(project_root.rglob("*.tscn"))
+        total_scenes += len(scenes)
+        all_findings.extend(
+            finding
+            for scene in scenes
+            for finding in audit_scene(project_root, scene, property_cache)
+        )
+        total_scripts += len(property_cache)
+
+    if all_findings:
         print("[replicated_script_properties] FAIL")
-        for finding in findings:
+        for finding in all_findings:
             print(
                 f"{finding.scene}:{finding.node_path}: "
-                f"{finding.script_path.relative_to(project_root)} does not expose "
+                f"{finding.script_path.relative_to(finding.project_root)} does not expose "
                 f"replicated property {finding.property_name!r}"
             )
         return 1
 
     print(
         f"[replicated_script_properties] PASS "
-        f"scenes={len(scenes)} scripts={len(property_cache)}"
+        f"projects={len(args.project_roots)} scenes={total_scenes} scripts={total_scripts}"
     )
     return 0
 

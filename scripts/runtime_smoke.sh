@@ -132,7 +132,7 @@ check "DisplayServer passive clipboard=(true|false) image=(true|false) clipboard
 check "DisplayServer tts speaking=(true|false) paused=(true|false) voices=[0-9]+ vk_height=[0-9]+ active_popup=-?[0-9]+ window_instance=-?[0-9]+ window_screen=-?[0-9]+ can_draw=(true|false) focused=(true|false) maximize_allowed=(true|false) max_dbl=(true|false) min_dbl=(true|false)"
 check "DisplayServer accessibility screen_reader=-?[0-9]+ contrast=-?[0-9]+ reduce_animation=-?[0-9]+ reduce_transparency=-?[0-9]+ window_max=-?[0-9]+,-?[0-9]+ window_min=-?[0-9]+,-?[0-9]+ window_pos=-?[0-9]+,-?[0-9]+ window_pos_decorated=-?[0-9]+,-?[0-9]+ window_size=-?[0-9]+,-?[0-9]+ window_size_decorated=-?[0-9]+,-?[0-9]+"
 check "kt script methods size = 9"
-check "kt script properties size = 11"
+check "kt script properties size = 13"
 check "kt script signals size = 1"
 check "kt script replace_smoke_scene = true"
 check "kt script rpc config ok = true"
