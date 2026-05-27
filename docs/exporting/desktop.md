@@ -46,6 +46,7 @@ For now, clone the repository and use the Gradle tasks from the repo root:
 
 ```sh
 ./gradlew syncExampleAddonJar
+./gradlew createStarterProject -PkanamaStarterProjectDir=/absolute/path/to/new_godot_project
 ./gradlew installAddonJar \
   -PkanamaProjectDir=/absolute/path/to/godot_project \
   -PkanamaProjectScriptsDir=/absolute/path/to/godot_project
@@ -61,10 +62,11 @@ the addon `.gdextension`/native bootstrap files into
 `<kanamaProjectDir>/addons/kanama`. It also creates or updates
 `<kanamaProjectDir>/.godot/extension_list.cfg` with
 `res://addons/kanama/kanama.gdextension`; without that entry, Godot may see the
-files on disk but never load the extension.
-`installStarterTemplate` copies `templates/starter` into an existing Godot
-project so consumers can start from a small attachable script and optional
-editor plugin.
+files on disk but never load the extension. `createStarterProject` copies the
+safe starter files plus a minimal `project.godot` and `main.tscn` for a new
+first project. `installStarterTemplate` copies only `templates/starter` into an
+existing Godot project so consumers can start from a small attachable script
+and optional editor plugin without replacing their project file or main scene.
 
 `kanamaProjectScriptsDir` can point at the project root or a dedicated scripts
 folder. For multiple source roots, use `-PkanamaProjectScriptsDirs=` with paths
@@ -173,6 +175,14 @@ Run the same local CI shortcut used during development:
 
 ```sh
 scripts/local_ci.sh /absolute/path/to/godot-4.7-beta3
+```
+
+For a release-facing source check, run the isolated clone gate. It clones
+`kanama` and `kanama-demos` into a temporary workspace, isolates Gradle and
+Maven-local state, then runs source CI and public demo desktop smokes:
+
+```sh
+scripts/fresh_clone_smoke.sh /absolute/path/to/godot-4.7-beta3
 ```
 
 When testing multiple engine versions:

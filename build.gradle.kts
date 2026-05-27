@@ -356,6 +356,33 @@ tasks.register<Copy>("installStarterTemplate") {
     }
 }
 
+tasks.register<Copy>("createStarterProject") {
+    val targetProjectDir = providers.gradleProperty("kanamaStarterProjectDir")
+    val allowOverwrite = providers.gradleProperty("kanamaStarterOverwrite")
+        .map(String::toBoolean)
+        .orElse(false)
+
+    from(layout.projectDirectory.dir("templates/starter"))
+    from(layout.projectDirectory.dir("templates/starter_project"))
+    into(targetProjectDir.map { file(it) })
+
+    doFirst {
+        if (!targetProjectDir.isPresent) {
+            throw GradleException(
+                "Missing -PkanamaStarterProjectDir=/absolute/path/to/new_godot_project for createStarterProject",
+            )
+        }
+
+        val targetProject = file(targetProjectDir.get())
+        if (targetProject.resolve("project.godot").exists() && !allowOverwrite.get()) {
+            throw GradleException(
+                "Refusing to overwrite existing project.godot in ${targetProject.absolutePath}. " +
+                    "Use installStarterTemplate for existing projects or pass -PkanamaStarterOverwrite=true.",
+            )
+        }
+    }
+}
+
 val kanamaAndroidDemoDir = providers.gradleProperty("kanamaAndroidDemoDir")
 val kanamaAndroidSdkDir = providers.environmentVariable("ANDROID_HOME")
     .orElse(providers.environmentVariable("ANDROID_SDK_ROOT"))

@@ -70,6 +70,12 @@ lives:
 tools/repo_dir="/absolute/path/to/kanama"
 ```
 
+Projects created with `createStarterProject` do not include a Gradle wrapper.
+In that case, **Build Scripts** runs `installAddonJar` from the Kanama source
+checkout resolved through `kanama/tools/repo_dir` or the sibling checkout
+autodetection. If a consumer project adds its own Gradle wrapper, the plugin
+expects that project to provide a `buildScripts` task.
+
 Useful editor settings:
 
 | Setting | Purpose |

@@ -84,14 +84,17 @@ Experimental Android export workflow:
 ```sh
 git clone https://github.com/falcon4ever/kanama
 cd kanama
+./gradlew createStarterProject \
+  -PkanamaStarterProjectDir=/path/to/kanama-starter
 ./gradlew installAddonJar \
-  -PkanamaProjectDir=/path/to/your/godot/project \
-  -PkanamaProjectScriptsDir=/path/to/your/godot/project
+  -PkanamaProjectDir=/path/to/kanama-starter \
+  -PkanamaProjectScriptsDir=/path/to/kanama-starter
 ```
 
-Then enable the Kanama plugin in Godot and press **Build Scripts**. The Gradle
-install task builds the host native bootstrap with CMake and copies it into the
-project addon together with the runtime jars.
+Open `/path/to/kanama-starter/project.godot` in Godot and press **Play**. The
+Gradle install task builds the host native bootstrap with CMake and copies it
+into the project addon together with the runtime jars. After editing
+`HelloScript.kt`, press **Build Scripts** in Godot or rerun `installAddonJar`.
 
 ## Example
 

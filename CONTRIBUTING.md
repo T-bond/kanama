@@ -13,6 +13,7 @@ kanama/
 ├── project-scripts/        # Gradle module for user Kotlin scripts
 ├── example_project/        # Godot smoke-test project
 ├── templates/starter/      # Starter project template
+├── templates/starter_project/ # Full first-project Godot files
 ├── scripts/                # Local CI and audit scripts
 └── docs/                   # MkDocs documentation
 ```
@@ -51,6 +52,13 @@ Typical validation:
 ./gradlew build
 python3 scripts/validate_godot_api.py --api extension_api.json
 ./scripts/local_ci.sh /path/to/godot-4.7-beta3
+```
+
+Before release-facing changes, validate from isolated clones instead of your
+development worktree:
+
+```sh
+./scripts/fresh_clone_smoke.sh /path/to/godot-4.7-beta3
 ```
 
 For a consumer project:

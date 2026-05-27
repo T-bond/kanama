@@ -52,103 +52,154 @@ flowchart LR
 Kanama `.kt` files are Godot script resources. Attach them to compatible nodes
 the same way you would attach a `.gd` script.
 
-## 1. Install the Starter Files
+## 1. Clone Kanama
 
-Create or open a Godot project, then copy the starter template into it:
+```sh
+git clone https://github.com/falcon4ever/kanama
+cd kanama
+```
+
+The current preview installs from this source checkout. Keep the checkout next
+to or near your Godot projects so the editor plugin can find `gradlew`, or set
+`kanama/tools/repo_dir` in Godot project settings.
+
+## 2. Create a Starter Project
+
+Use `createStarterProject` for a new, ready-to-open Godot project:
+
+```sh
+./gradlew createStarterProject \
+  -PkanamaStarterProjectDir=/absolute/path/to/kanama-starter
+```
+
+This creates a tiny `main.tscn` with `HelloScript.kt` attached to a `Node2D`
+and enables the optional `Kanama Tools` editor plugin.
+
+If you already have a Godot project, use the copy-only task instead:
 
 ```sh
 ./gradlew installStarterTemplate \
   -PkanamaStarterProjectDir=/absolute/path/to/godot_project
 ```
 
-The starter template adds `HelloScript.kt`, which is a minimal attachable
-Kotlin script for a `Node2D`.
+`installStarterTemplate` copies `HelloScript.kt` and `addons/kanama_tools`
+without creating or replacing `project.godot`.
 
-## 2. Build and Sync Kanama
+## 3. Build and Sync Kanama
 
-From the Kanama checkout:
+Build the runtime, native bootstrap, and project Kotlin scripts into the Godot
+project:
 
 ```sh
 ./gradlew installAddonJar \
-  -PkanamaProjectDir=/absolute/path/to/godot_project \
-  -PkanamaProjectScriptsDir=/absolute/path/to/godot_project
+  -PkanamaProjectDir=/absolute/path/to/kanama-starter \
+  -PkanamaProjectScriptsDir=/absolute/path/to/kanama-starter
 ```
 
-This builds the Kanama runtime and host native bootstrap, compiles the project
-Kotlin scripts into `kanama-scripts.jar`, copies the addon into
-`addons/kanama`, and registers the GDExtension in `.godot/extension_list.cfg`.
+This writes `addons/kanama`, compiles the project `.kt` files into
+`kanama-scripts.jar`, and registers the GDExtension in
+`.godot/extension_list.cfg`.
 
 If your Kotlin scripts live outside the project root, point
 `kanamaProjectScriptsDir` at that folder. For multiple roots, use
 `-PkanamaProjectScriptsDirs=` with path-separated or comma-separated paths.
 
-## 3. Attach the Script
+## 4. Open and Run
 
-1. Open the project in Godot.
-2. Add a `Node2D` to a scene.
-3. Attach `res://HelloScript.kt` to the node.
-4. Run the scene.
+1. Open `/absolute/path/to/kanama-starter/project.godot` in Godot.
+2. Confirm **Kanama Tools** is enabled in **Project > Project Settings > Plugins**.
+3. Press **Play**.
+4. Edit `HelloScript.kt`.
+5. Press **Build Scripts** in the Godot toolbar.
+6. Press **Play** again.
 
-`HelloScript.kt` prints a message from Kotlin when the node enters the scene.
+The starter scene updates a label from Kotlin and rotates the root `Node2D`.
 
-## 4. Edit the Script
+## 5. Edit the Script
 
-Kanama scripts are ordinary Kotlin files. Edit them in IntelliJ IDEA, then run
-`installAddonJar` again after changes.
+Kanama scripts are ordinary Kotlin files. Edit them in IntelliJ IDEA or another
+Kotlin-aware editor, then press **Build Scripts** or run `installAddonJar`
+again after changes.
 
 The starter script looks like this:
 
 ```kotlin
 package com.example.game
 
-import java.lang.foreign.MemorySegment
 import net.multigesture.kanama.annotations.ClassName
-import net.multigesture.kanama.annotations.Export
-import net.multigesture.kanama.annotations.OnPhysicsProcess
+import net.multigesture.kanama.annotations.OnProcess
 import net.multigesture.kanama.annotations.OnReady
+import net.multigesture.kanama.annotations.PropertyHint
 import net.multigesture.kanama.annotations.RegisterFunction
 import net.multigesture.kanama.annotations.ScriptClass
+import net.multigesture.kanama.annotations.ScriptProperty
 import net.multigesture.kanama.annotations.Tool
+import net.multigesture.kanama.api.GD
+import net.multigesture.kanama.api.KanamaScript
+import net.multigesture.kanama.api.Label
+import net.multigesture.kanama.api.Node2D
+import java.lang.foreign.MemorySegment
 
 @ScriptClass(attachTo = "Node2D")
 @ClassName
 @Tool
-class HelloScript(val godotObject: MemorySegment) {
-    @Export(hint = 1, hintString = "0,1000,1")
-    var speed: Long = 120
+class HelloScript(godotObject: MemorySegment) :
+    KanamaScript<Node2D>(godotObject, ::Node2D) {
+    @ScriptProperty(hint = PropertyHint.RANGE, hintString = "0,4,0.1")
+    var spinSpeed: Double = 0.6
+
+    @ScriptProperty
+    var greeting: String = "Hello from Kanama"
+
+    private var elapsedSeconds = 0.0
+    private var statusLabel: Label? = null
 
     @OnReady
     fun ready() {
-        System.err.println("[kanama:starter] HelloScript ready speed=$speed")
+        statusLabel = self.getNodeAsOrNull("Status", "Label", ::Label)
+        updateStatus("ready")
+        GD.print("[kanama:starter] $greeting")
     }
 
-    @OnPhysicsProcess
-    fun physicsProcess(delta: Double) {
+    @OnProcess
+    fun process(delta: Double) {
+        elapsedSeconds += delta
+        self.rotation = elapsedSeconds * spinSpeed
+        updateStatus("running for %.1fs".format(elapsedSeconds))
     }
 
     @RegisterFunction
-    fun greet(name: String): String = "Hello $name from Kanama"
+    fun greet(name: String): String = "$greeting, $name"
+
+    private fun updateStatus(state: String) {
+        statusLabel?.text = "$greeting\nKotlin script is $state."
+    }
 }
 ```
 
-The constructor receives the Godot object handle. Higher-level examples in the
-game development pages show typed `self` access, exported properties, signals,
-and callbacks.
+The constructor receives the Godot object handle. `KanamaScript<Node2D>` gives
+the script a typed `self` wrapper for the attached node. Higher-level examples
+in the game development pages show node references, custom signals, resources,
+RPC, and larger gameplay scripts.
 
-## 5. Enable the Editor Tools
+## Troubleshooting
 
-The starter template includes:
+| Symptom | Fix |
+| --- | --- |
+| Godot cannot find `libjvm`. | Install JDK 25+ and set `JAVA_HOME` to the JDK home directory. |
+| Godot still runs old Kotlin behavior. | Press **Build Scripts** or rerun `installAddonJar`; Kotlin changes must be compiled. |
+| `Build Scripts` cannot find `gradlew`. | Set `kanama/tools/repo_dir` to the Kanama source checkout in Godot project settings. |
+| Godot reports missing `res://*.kt` scripts. | Rerun `installAddonJar` and reopen/import the project once so the GDExtension is registered. |
 
-```text
-res://addons/kanama_tools
-```
+## Editor Tools
 
-Enable **Kanama Tools** in Godot's plugin settings for a `Build Scripts`
-toolbar button, `Open Kotlin` source-folder shortcut, optional build-on-save,
-scene reload after sync, and JDWP debugging settings.
+The starter template includes `res://addons/kanama_tools`. Enable **Kanama
+Tools** in Godot's plugin settings for the `Build Scripts` toolbar button,
+`Open Kotlin` source-folder shortcut, optional build-on-save, scene reload after
+sync, and JDWP debugging settings.
 
-See [The Editor Loop](editor-workflow.md) for the build button, hot reload, and
-IntelliJ debugger workflow.
+See [The Editor Loop](editor-workflow.md) for hot reload and the IntelliJ
+debugger workflow.
 
 ## Source Install Notes
 

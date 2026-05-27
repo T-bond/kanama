@@ -4,6 +4,7 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 HOST_UNAME="$(uname -s)"
 bootstrap_build_dir=""
+kanama_version="$(sed -nE 's/^version = "([^"]+)"/\1/p' "$ROOT_DIR/build.gradle.kts" | head -n 1)"
 
 cleanup() {
   if [[ -n "$bootstrap_build_dir" && -d "$bootstrap_build_dir" ]]; then
@@ -11,6 +12,26 @@ cleanup() {
   fi
 }
 trap cleanup EXIT
+
+ensure_gdextension_header() {
+  local godot_bin="$1"
+  local header_file="$ROOT_DIR/gdextension/gdextension_interface.h"
+  local tmp_dir
+
+  if [[ -f "$header_file" ]]; then
+    return
+  fi
+
+  echo "[local_ci] missing gdextension_interface.h; dumping from: $godot_bin"
+  tmp_dir="$(mktemp -d "${TMPDIR:-/tmp}/kanama_gdextension_header.XXXXXX")"
+  (
+    cd "$tmp_dir"
+    "$godot_bin" --headless --log-file "$tmp_dir/godot-gdextension-interface.log" --dump-gdextension-interface
+  )
+  mkdir -p "$ROOT_DIR/gdextension"
+  cp "$tmp_dir/gdextension_interface.h" "$header_file"
+  rm -rf "$tmp_dir"
+}
 
 usage() {
   cat <<'EOF'
@@ -86,6 +107,11 @@ for godot_bin in "${godot_bins[@]}"; do
 done
 
 echo "[local_ci] repo: $ROOT_DIR"
+if [[ -z "$kanama_version" ]]; then
+  echo "[local_ci] could not determine Kanama version from build.gradle.kts" >&2
+  exit 1
+fi
+ensure_gdextension_header "${godot_bins[0]}"
 
 echo "[local_ci] public docs local-path guard"
 if git -C "$ROOT_DIR" grep -nE '(/Users/[[:alnum:]_.-]+|/home/[[:alnum:]_.-]+|lmuller)' -- \
@@ -376,15 +402,18 @@ if ! rg -q '^res://addons/kanama/kanama\.gdextension$' "$install_check_dir/.godo
   exit 1
 fi
 
+echo "[local_ci] publish to mavenLocal"
+"$ROOT_DIR/gradlew" -p "$ROOT_DIR" publishKanamaToMavenLocal
+
 echo "[local_ci] mavenLocal publication"
-maven_local="${HOME}/.m2/repository/net/multigesture/kanama"
+maven_local="${KANAMA_MAVEN_LOCAL_REPO:-${HOME}/.m2/repository}/net/multigesture/kanama"
 for artifact in \
-  "kanama/0.1.0/kanama-0.1.0.jar" \
-  "kanama/0.1.0/kanama-0.1.0-sources.jar" \
-  "annotations/0.1.0/annotations-0.1.0.jar" \
-  "annotations/0.1.0/annotations-0.1.0-sources.jar" \
-  "processor/0.1.0/processor-0.1.0.jar" \
-  "processor/0.1.0/processor-0.1.0-sources.jar"; do
+  "kanama/$kanama_version/kanama-$kanama_version.jar" \
+  "kanama/$kanama_version/kanama-$kanama_version-sources.jar" \
+  "annotations/$kanama_version/annotations-$kanama_version.jar" \
+  "annotations/$kanama_version/annotations-$kanama_version-sources.jar" \
+  "processor/$kanama_version/processor-$kanama_version.jar" \
+  "processor/$kanama_version/processor-$kanama_version-sources.jar"; do
   if [[ ! -f "$maven_local/$artifact" ]]; then
     echo "[local_ci] missing mavenLocal artifact: $artifact" >&2
     exit 1

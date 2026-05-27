@@ -61,6 +61,13 @@ Run the local CI shortcut with one or more Godot binaries:
 scripts/local_ci.sh /absolute/path/to/godot-4.7-beta3
 ```
 
+Before tagging a release, run the isolated source-and-demo gate from a clean
+temporary clone:
+
+```sh
+scripts/fresh_clone_smoke.sh /absolute/path/to/godot-4.7-beta3
+```
+
 ```sh
 scripts/local_ci.sh \
   /absolute/path/to/godot-4.7-beta3 \
