@@ -93,6 +93,7 @@ includes ports that can be used as examples for common migration areas:
 | Godot 3D Squash the Creeps | instanced scenes, 3D physics, animation, signal wiring |
 | GDQuest 3D Third Person Controller | camera/control logic and CharacterBody3D movement |
 | Godot 4 3D Character Controller Tutorial | compact 3D movement and input |
+| Godot TPS Demo | larger 3D scenes, threaded loading, RPC helpers, multiplayer synchronizers, and scene reload cleanup |
 | Kenney Starter Kit 3D Platformer | `NodePath` exports, GDScript autoload interop, typed callbacks, coroutine delays |
 | Kenney Starter Kit Match-3 | UI, typed resource lists, textures, scene-authored data |
 | Kenney Starter Kit City Builder | tile/grid workflows and larger scene data |
