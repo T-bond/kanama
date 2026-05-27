@@ -6,6 +6,17 @@ plugins {
 group = "net.multigesture.kanama"
 version = "0.2.1"
 
+val packageMavenRepositoryDir = layout.buildDirectory.dir("package/maven")
+
+fun PublishingExtension.addKanamaPackageRepository() {
+    repositories {
+        maven {
+            name = "kanamaPackage"
+            url = rootProject.layout.buildDirectory.dir("package/maven").get().asFile.toURI()
+        }
+    }
+}
+
 subprojects {
     apply(plugin = "maven-publish")
 
@@ -27,6 +38,7 @@ subprojects {
                     from(components["java"])
                 }
             }
+            addKanamaPackageRepository()
         }
     }
 }
@@ -123,6 +135,7 @@ configure<PublishingExtension> {
             from(components["java"])
         }
     }
+    addKanamaPackageRepository()
 }
 
 dependencies {
@@ -273,6 +286,351 @@ tasks.register("publishKanamaToMavenLocal") {
         ":annotations:publishToMavenLocal",
         ":processor:publishToMavenLocal",
     )
+}
+
+val cleanKanamaPackageMavenRepository by tasks.registering(Delete::class) {
+    delete(packageMavenRepositoryDir)
+}
+
+allprojects {
+    tasks.matching { it.name == "publishMavenPublicationToKanamaPackageRepository" }.configureEach {
+        mustRunAfter(rootProject.tasks.named("cleanKanamaPackageMavenRepository"))
+    }
+}
+
+val publishKanamaPackageMavenRepository by tasks.registering {
+    group = "publishing"
+    description = "Publish Kanama runtime, annotations, and KSP processor jars to the package-local Maven repository."
+    dependsOn(cleanKanamaPackageMavenRepository)
+    dependsOn(
+        tasks.named("publishMavenPublicationToKanamaPackageRepository"),
+        ":annotations:publishMavenPublicationToKanamaPackageRepository",
+        ":processor:publishMavenPublicationToKanamaPackageRepository",
+    )
+}
+
+fun hostPlatformClassifier(): String {
+    val osName = System.getProperty("os.name").lowercase()
+    val archName = System.getProperty("os.arch").lowercase()
+    val os = when {
+        osName.contains("mac") || osName.contains("darwin") -> "macos"
+        osName.contains("windows") -> "windows"
+        osName.contains("linux") -> "linux"
+        else -> throw GradleException("Unsupported Kanama package host OS: $osName")
+    }
+    val arch = when (archName) {
+        "x86_64", "amd64" -> "x64"
+        "aarch64", "arm64" -> "arm64"
+        else -> throw GradleException("Unsupported Kanama package host architecture: $archName")
+    }
+    return "$os-$arch"
+}
+
+val packagePlatformClassifier = providers.gradleProperty("kanamaPlatformClassifier")
+    .orElse(providers.provider { hostPlatformClassifier() })
+
+fun expectedPackageNativeArch(classifier: String): String = when {
+    classifier.endsWith("-x64") -> "x64"
+    classifier.endsWith("-arm64") -> "arm64"
+    else -> throw GradleException("Unsupported Kanama package classifier: $classifier")
+}
+
+fun ByteArray.u16le(offset: Int): Int =
+    (this[offset].toInt() and 0xff) or ((this[offset + 1].toInt() and 0xff) shl 8)
+
+fun ByteArray.u16be(offset: Int): Int =
+    ((this[offset].toInt() and 0xff) shl 8) or (this[offset + 1].toInt() and 0xff)
+
+fun ByteArray.u32le(offset: Int): Long =
+    (this[offset].toLong() and 0xff) or
+        ((this[offset + 1].toLong() and 0xff) shl 8) or
+        ((this[offset + 2].toLong() and 0xff) shl 16) or
+        ((this[offset + 3].toLong() and 0xff) shl 24)
+
+fun ByteArray.u32be(offset: Int): Long =
+    ((this[offset].toLong() and 0xff) shl 24) or
+        ((this[offset + 1].toLong() and 0xff) shl 16) or
+        ((this[offset + 2].toLong() and 0xff) shl 8) or
+        (this[offset + 3].toLong() and 0xff)
+
+fun detectNativeBootstrapArch(file: File): String {
+    val bytes = file.readBytes()
+    if (bytes.size < 64) {
+        return "unknown"
+    }
+
+    if (
+        bytes[0] == 0x7f.toByte() &&
+        bytes[1] == 'E'.code.toByte() &&
+        bytes[2] == 'L'.code.toByte() &&
+        bytes[3] == 'F'.code.toByte()
+    ) {
+        val machine = if (bytes[5].toInt() == 2) bytes.u16be(18) else bytes.u16le(18)
+        return when (machine) {
+            62 -> "x64"
+            183 -> "arm64"
+            else -> "unknown-elf-$machine"
+        }
+    }
+
+    if (bytes[0] == 'M'.code.toByte() && bytes[1] == 'Z'.code.toByte()) {
+        val peOffset = bytes.u32le(0x3c).toInt()
+        if (peOffset + 6 < bytes.size) {
+            val machine = bytes.u16le(peOffset + 4)
+            return when (machine) {
+                0x8664 -> "x64"
+                0xaa64 -> "arm64"
+                else -> "unknown-pe-$machine"
+            }
+        }
+    }
+
+    val magicLe = bytes.u32le(0)
+    val magicBe = bytes.u32be(0)
+    if (magicLe == 0xfeedfacfL || magicLe == 0xfeedfaceL) {
+        return when (bytes.u32le(4)) {
+            0x01000007L -> "x64"
+            0x0100000cL -> "arm64"
+            else -> "unknown-mach-o-${bytes.u32le(4)}"
+        }
+    }
+    if (magicBe == 0xcafebabeL || magicBe == 0xcafebabfL) {
+        val nfatArch = bytes.u32be(4).toInt()
+        val archs = (0 until nfatArch).mapNotNull { index ->
+            val offset = 8 + (index * 20)
+            if (offset + 8 > bytes.size) {
+                null
+            } else {
+                when (bytes.u32be(offset)) {
+                    0x01000007L -> "x64"
+                    0x0100000cL -> "arm64"
+                    else -> null
+                }
+            }
+        }
+        if (archs.isNotEmpty()) {
+            return archs.distinct().joinToString("+")
+        }
+    }
+
+    return "unknown"
+}
+
+val verifyNativeBootstrapArtifact by tasks.registering {
+    group = "verification"
+    description = "Verify that the native bootstrap artifact matches the selected package platform."
+    dependsOn(buildNativeBootstrap)
+    inputs.file(nativeBootstrapArtifact)
+    inputs.property("kanamaPlatformClassifier", packagePlatformClassifier)
+
+    doLast {
+        val classifier = packagePlatformClassifier.get()
+        val expectedArch = expectedPackageNativeArch(classifier)
+        val actualArch = detectNativeBootstrapArch(nativeBootstrapArtifact.asFile)
+        if (expectedArch !in actualArch.split("+")) {
+            throw GradleException(
+                "Native bootstrap ${nativeBootstrapArtifact.asFile.absolutePath} is $actualArch, " +
+                    "but $classifier requires $expectedArch",
+            )
+        }
+    }
+}
+
+val packageGdextensionDescriptorFile = layout.buildDirectory.file("generated/package/kanama.gdextension")
+val generatePackageGdextensionDescriptor by tasks.registering {
+    outputs.file(packageGdextensionDescriptorFile)
+    doLast {
+        packageGdextensionDescriptorFile.get().asFile.apply {
+            parentFile.mkdirs()
+            writeText(
+                """
+                |[configuration]
+                |
+                |entry_symbol = "kanama_entry"
+                |compatibility_minimum = "4.3"
+                |
+                |[libraries]
+                |
+                |macos.debug = "res://addons/kanama/bin/macos-arm64/libkanama_bootstrap.dylib"
+                |macos.release = "res://addons/kanama/bin/macos-arm64/libkanama_bootstrap.dylib"
+                |linux.debug.x86_64 = "res://addons/kanama/bin/linux-x64/libkanama_bootstrap.so"
+                |linux.release.x86_64 = "res://addons/kanama/bin/linux-x64/libkanama_bootstrap.so"
+                |linux.debug.arm64 = "res://addons/kanama/bin/linux-arm64/libkanama_bootstrap.so"
+                |linux.release.arm64 = "res://addons/kanama/bin/linux-arm64/libkanama_bootstrap.so"
+                |windows.debug.x86_64 = "res://addons/kanama/bin/windows-x64/kanama_bootstrap.dll"
+                |windows.release.x86_64 = "res://addons/kanama/bin/windows-x64/kanama_bootstrap.dll"
+                |""".trimMargin() + System.lineSeparator(),
+            )
+        }
+    }
+}
+
+val packageExtensionListFile = layout.buildDirectory.file("generated/package/extension_list.cfg")
+val generatePackageExtensionList by tasks.registering {
+    outputs.file(packageExtensionListFile)
+    doLast {
+        packageExtensionListFile.get().asFile.apply {
+            parentFile.mkdirs()
+            writeText("res://addons/kanama/kanama.gdextension${System.lineSeparator()}")
+        }
+    }
+}
+
+val storeNativeArtifactDir = layout.buildDirectory.dir(
+    packagePlatformClassifier.map { "package/store-native/$it" },
+)
+val requiredStoreNativePaths = listOf(
+    "addons/kanama/bin/macos-arm64/libkanama_bootstrap.dylib",
+    "addons/kanama/bin/linux-x64/libkanama_bootstrap.so",
+    "addons/kanama/bin/linux-arm64/libkanama_bootstrap.so",
+    "addons/kanama/bin/windows-x64/kanama_bootstrap.dll",
+)
+
+val prepareStoreNativeArtifact by tasks.registering(Sync::class) {
+    group = "distribution"
+    description = "Stage this platform's native bootstrap for the all-platform store addon."
+    dependsOn(verifyNativeBootstrapArtifact)
+    into(storeNativeArtifactDir)
+    from(nativeBootstrapArtifact) {
+        into("addons/kanama/bin/${packagePlatformClassifier.get()}")
+    }
+}
+
+tasks.register<Zip>("packageStoreNativeArtifact") {
+    group = "distribution"
+    description = "Zip this platform's native bootstrap for store addon assembly."
+    dependsOn(prepareStoreNativeArtifact)
+    archiveFileName.set(packagePlatformClassifier.map { "kanama-store-native-v${project.version}-$it.zip" })
+    destinationDirectory.set(layout.buildDirectory.dir("distributions"))
+    isPreserveFileTimestamps = false
+    isReproducibleFileOrder = true
+    from(prepareStoreNativeArtifact)
+}
+
+tasks.register<Zip>("packageDesktopKit") {
+    group = "distribution"
+    description = "Build a source-free Kanama desktop starter kit for the selected host platform."
+    dependsOn(
+        tasks.named("jar"),
+        publishKanamaPackageMavenRepository,
+        generatePackageGdextensionDescriptor,
+        generatePackageExtensionList,
+        verifyNativeBootstrapArtifact,
+    )
+    archiveFileName.set(packagePlatformClassifier.map { "kanama-desktop-kit-v${project.version}-$it.zip" })
+    destinationDirectory.set(layout.buildDirectory.dir("distributions"))
+    duplicatesStrategy = DuplicatesStrategy.FAIL
+    isPreserveFileTimestamps = false
+    isReproducibleFileOrder = true
+
+    from(layout.projectDirectory.dir("templates/release-kit")) {
+        filter { line: String -> line.replace("@KANAMA_VERSION@", project.version.toString()) }
+    }
+    from(layout.projectDirectory.file("templates/starter/HelloScript.kt")) {
+        into("kotlin-src")
+    }
+    from(layout.projectDirectory.dir("templates/starter/addons/kanama_tools")) {
+        into("addons/kanama_tools")
+    }
+    from(packageGdextensionDescriptorFile) {
+        into("addons/kanama")
+        rename { "kanama.gdextension" }
+    }
+    from(layout.buildDirectory.file("libs/kanama.jar")) {
+        into("addons/kanama")
+    }
+    from(packageMavenRepositoryDir) {
+        into("addons/kanama/maven")
+    }
+    from(nativeBootstrapArtifact) {
+        into("addons/kanama/bin/${packagePlatformClassifier.get()}")
+    }
+    from(packageExtensionListFile) {
+        into(".godot")
+        rename { "extension_list.cfg" }
+    }
+    from(layout.projectDirectory.file("LICENSE")) {
+        into("addons/kanama")
+    }
+    from(layout.projectDirectory.file("gradlew")) {
+        filePermissions {
+            unix("rwxr-xr-x")
+        }
+    }
+    from(layout.projectDirectory.file("gradlew.bat"))
+    from(layout.projectDirectory.dir("gradle")) {
+        into("gradle")
+    }
+}
+
+tasks.register<Zip>("packageStoreAddon") {
+    group = "distribution"
+    description = "Build an install-safe Kanama addon zip for the Godot Asset Store."
+    dependsOn(
+        tasks.named("jar"),
+        publishKanamaPackageMavenRepository,
+        generatePackageGdextensionDescriptor,
+    )
+    val nativeArtifactsDir = providers.gradleProperty("kanamaStoreNativeArtifactsDir").map { file(it) }
+    if (nativeArtifactsDir.isPresent) {
+        inputs.dir(nativeArtifactsDir)
+        from(nativeArtifactsDir) {
+            include("addons/kanama/bin/**")
+        }
+        doFirst {
+            val nativeDir = nativeArtifactsDir.get()
+            val missing = requiredStoreNativePaths.filterNot { nativeDir.resolve(it).isFile }
+            if (missing.isNotEmpty()) {
+                throw GradleException(
+                    "Missing store native artifact(s) under ${nativeDir.absolutePath}: ${missing.joinToString()}",
+                )
+            }
+        }
+    } else {
+        dependsOn(prepareStoreNativeArtifact)
+        from(prepareStoreNativeArtifact) {
+            include("addons/kanama/bin/**")
+        }
+    }
+
+    archiveFileName.set("kanama-store-addon-v${project.version}.zip")
+    destinationDirectory.set(layout.buildDirectory.dir("distributions"))
+    duplicatesStrategy = DuplicatesStrategy.FAIL
+    isPreserveFileTimestamps = false
+    isReproducibleFileOrder = true
+
+    from(layout.projectDirectory.dir("templates/starter/addons/kanama_tools")) {
+        into("addons/kanama_tools")
+    }
+    from(packageGdextensionDescriptorFile) {
+        into("addons/kanama")
+        rename { "kanama.gdextension" }
+    }
+    from(layout.buildDirectory.file("libs/kanama.jar")) {
+        into("addons/kanama")
+    }
+    from(packageMavenRepositoryDir) {
+        into("addons/kanama/maven")
+    }
+    from(layout.projectDirectory.file("LICENSE")) {
+        into("addons/kanama")
+    }
+    from(layout.projectDirectory.file("templates/store-addon/README.md")) {
+        into("addons/kanama")
+    }
+    from(layout.projectDirectory.dir("templates/release-kit")) {
+        into("addons/kanama/templates/release-kit")
+        filter { line: String -> line.replace("@KANAMA_VERSION@", project.version.toString()) }
+    }
+    from(layout.projectDirectory.file("templates/starter/HelloScript.kt")) {
+        into("addons/kanama/templates/release-kit/kotlin-src")
+    }
+}
+
+tasks.register("packageDistributions") {
+    group = "distribution"
+    description = "Build the desktop kit, native store artifact, and local host store addon."
+    dependsOn("packageDesktopKit", "packageStoreNativeArtifact", "packageStoreAddon")
 }
 
 tasks.register<Copy>("installAddonJar") {

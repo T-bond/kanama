@@ -1,0 +1,121 @@
+name: package
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: package-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  desktop-kit:
+    name: ${{ matrix.classifier }}
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - classifier: macos-arm64
+            runner: macos-15
+          - classifier: linux-x64
+            runner: ubuntu-24.04
+          - classifier: linux-arm64
+            runner: ubuntu-24.04-arm
+          - classifier: windows-x64
+            runner: windows-2025
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "25"
+
+      - name: Build package artifacts
+        shell: bash
+        run: ./gradlew packageDesktopKit packageStoreNativeArtifact -PkanamaPlatformClassifier=${{ matrix.classifier }}
+
+      - name: Upload desktop kit
+        uses: actions/upload-artifact@v4
+        with:
+          name: kanama-desktop-kit-${{ matrix.classifier }}
+          path: build/distributions/kanama-desktop-kit-*.zip
+          if-no-files-found: error
+
+      - name: Upload store native artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: kanama-store-native-${{ matrix.classifier }}
+          path: build/package/store-native/${{ matrix.classifier }}
+          if-no-files-found: error
+
+  store-addon:
+    name: store-addon
+    runs-on: ubuntu-24.04
+    needs: desktop-kit
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "25"
+
+      - name: Download native artifacts
+        uses: actions/download-artifact@v4
+        with:
+          pattern: kanama-store-native-*
+          path: build/store-native-artifacts
+          merge-multiple: true
+
+      - name: Build store addon
+        run: ./gradlew packageStoreAddon -PkanamaBuildNativeBootstrap=false -PkanamaStoreNativeArtifactsDir=build/store-native-artifacts
+
+      - name: Upload store addon
+        uses: actions/upload-artifact@v4
+        with:
+          name: kanama-store-addon
+          path: build/distributions/kanama-store-addon-*.zip
+          if-no-files-found: error
+
+  publish-release:
+    name: publish-release
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-24.04
+    needs: store-addon
+    permissions:
+      contents: write
+
+    steps:
+      - name: Download desktop kits
+        uses: actions/download-artifact@v4
+        with:
+          pattern: kanama-desktop-kit-*
+          path: build/release-assets
+          merge-multiple: true
+
+      - name: Download store addon
+        uses: actions/download-artifact@v4
+        with:
+          name: kanama-store-addon
+          path: build/release-assets
+
+      - name: Publish GitHub release assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1 || \
+            gh release create "$GITHUB_REF_NAME" --title "$GITHUB_REF_NAME" --notes "Kanama $GITHUB_REF_NAME"
+          gh release upload "$GITHUB_REF_NAME" build/release-assets/*.zip --clobber

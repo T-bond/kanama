@@ -1,206 +1,122 @@
 # Desktop and Packaging
 
-Kanama is distributed as source on GitHub for the current development phase.
-The repository is the expected install/update path until release packaging is
-stabilized.
+Kanama has two desktop distribution shapes:
 
-## Current Distribution Model
+- **Desktop kit**: a complete starter Godot project for new users.
+- **Store addon**: an install-safe addon zip for existing projects and future
+  Godot Asset Store submission.
 
-- Supported runtime target: desktop Godot editor/player processes with a
-  regular JDK/JVM available.
-- Baseline engine target: Godot 4.7 beta 3 preview.
-- Compatible binaries: the
-  [Godot 4.7 beta 3 archive](https://godotengine.org/download/archive/4.7-beta3/).
-- Experimental runtime target: Android exports through a Godot Android plugin
-  AAR and Android-specific PanamaPort/ART bootstrap path.
-- Not planned: Web exports.
-- Unsupported today: iOS exports.
+Source checkout installs remain supported for development. See
+[Use a Source Checkout](../getting-started/source-checkout.md) for that path.
 
-The source repository contains the example project, starter template, native
-bootstrap, Gradle build, and local CI scripts used to build and validate the
-addon. Packaged consumer artifacts are separate from this source checkout.
+## Desktop Kit
 
-## Asset Store And Binary Install Readiness
-
-Asset Store-style installs change the failure mode: users may add the Kanama
-addon from inside Godot and never see terminal output. The optional
-`addons/kanama_tools` editor plugin therefore checks desktop Java setup when it
-loads and warns in Godot if it cannot find `libjvm`.
-
-For desktop runtime, Kanama needs a JDK 25+ distribution that contains
-`libjvm`. The check looks under `JAVA_HOME` first, then tries the same
-best-effort platform fallback paths used by the native bootstrap. If the check
-fails, install a supported JDK and set `JAVA_HOME` before running the project.
-
-Packaged addon artifacts should keep this layout predictable:
-
-- `addons/kanama/kanama.jar`,
-- `addons/kanama/kanama-scripts.jar` for project scripts,
-- `addons/kanama/kanama.gdextension`,
-- the platform native bootstrap library referenced by `kanama.gdextension`,
-- optional `addons/kanama_tools` editor plugin files and starter docs.
-
-## Source Install
-
-For now, clone the repository and use the Gradle tasks from the repo root:
+A desktop kit is built per platform:
 
 ```sh
-./gradlew syncExampleAddonJar
-./gradlew createStarterProject -PkanamaStarterProjectDir=/absolute/path/to/new_godot_project
-./gradlew installAddonJar \
-  -PkanamaProjectDir=/absolute/path/to/godot_project \
-  -PkanamaProjectScriptsDir=/absolute/path/to/godot_project
-./gradlew installStarterTemplate -PkanamaStarterProjectDir=/absolute/path/to/godot_project
+./gradlew packageDesktopKit
 ```
 
-`syncExampleAddonJar` updates the example project's Kanama runtime jars and
-native bootstrap and remains the local smoke-test path. `installAddonJar` is
-the current downstream project install path: it builds `kanama.jar`, builds the
-host native bootstrap with CMake, compiles Kotlin scripts from
-`kanamaProjectScriptsDir` into `kanama-scripts.jar`, and copies the jars plus
-the addon `.gdextension`/native bootstrap files into
-`<kanamaProjectDir>/addons/kanama`. It also creates or updates
-`<kanamaProjectDir>/.godot/extension_list.cfg` with
-`res://addons/kanama/kanama.gdextension`; without that entry, Godot may see the
-files on disk but never load the extension. `createStarterProject` copies the
-safe starter files plus a minimal `project.godot` and `main.tscn` for a new
-first project. `installStarterTemplate` copies only `templates/starter` into an
-existing Godot project so consumers can start from a small attachable script
-and optional editor plugin without replacing their project file or main scene.
+The output is:
 
-`kanamaProjectScriptsDir` can point at the project root or a dedicated scripts
-folder. For multiple source roots, use `-PkanamaProjectScriptsDirs=` with paths
-separated by the platform path separator (`:` on macOS/Linux, `;` on Windows)
-or commas.
+```text
+build/distributions/kanama-desktop-kit-v<version>-<platform>.zip
+```
 
-## Platform Artifacts
+The zip is rooted at the Godot project directory and contains:
 
-The `.gdextension` file already names desktop library slots:
+- `project.godot`, `main.tscn`, and `kotlin-src/HelloScript.kt`,
+- `build.gradle.kts`, `settings.gradle.kts`, `gradlew`, and Gradle wrapper
+  files,
+- `addons/kanama/kanama.jar`,
+- `addons/kanama/maven` with Kanama runtime, annotations, and processor
+  Gradle artifacts,
+- `addons/kanama/bin/<platform>/` with the native bootstrap,
+- `addons/kanama/kanama.gdextension`,
+- `addons/kanama_tools`, and
+- `.godot/extension_list.cfg`.
 
-| Platform | Library name | Current status |
+Validate a kit from a temporary project:
+
+```sh
+scripts/package_install_smoke.sh \
+  build/distributions/kanama-desktop-kit-v<version>-<platform>.zip \
+  /absolute/path/to/godot-4.7-beta3
+```
+
+The smoke unzips the kit, runs `./gradlew buildScripts`, confirms
+`kanama-scripts.jar`, and launches Godot when a binary is provided.
+
+## Store Addon
+
+The store addon is intentionally safer for existing projects. It does not place
+files at the project root. It contains:
+
+- `addons/kanama`,
+- `addons/kanama_tools`,
+- all available desktop native bootstrap binaries under
+  `addons/kanama/bin/<platform>/`,
+- the local Maven repo under `addons/kanama/maven`, and
+- release-kit Gradle templates under `addons/kanama/templates/release-kit`.
+
+Build a local host-only store addon:
+
+```sh
+./gradlew packageStoreAddon
+```
+
+The all-platform store addon is assembled by the GitHub package workflow after
+the matrix builds macOS arm64, Linux x64, Linux ARM64, and Windows x64 native
+artifacts.
+
+## GitHub Release Workflow
+
+The package workflow runs only on manual dispatch and `v*` tags. It does not
+run on pull requests.
+
+Matrix targets:
+
+| Platform | Runner | Artifact classifier |
 | --- | --- | --- |
-| macOS arm64 | `libkanama_bootstrap.dylib` | Current Godot 4.7 beta 3 preview baseline and primary local CI path. |
-| Linux arm64 | `libkanama_bootstrap.so` | Pending beta 3 revalidation; last local runtime, editor, and demo smoke validation passed with the 4.7 beta 2 ARM64 binary. |
-| Linux x86_64 | `libkanama_bootstrap.so` | Pending beta 3 revalidation; last local runtime, editor, and demo smoke validation passed with the 4.7 beta 2 x64 binary. |
-| Windows x86_64 | `kanama_bootstrap.dll` | Pending beta 3 revalidation; last local runtime/editor smoke validation passed with the 4.7 beta 2 console binary. Use PowerShell Gradle commands and Git Bash smoke marker checks. |
+| macOS arm64 | `macos-15` | `macos-arm64` |
+| Linux x64 | `ubuntu-24.04` | `linux-x64` |
+| Linux ARM64 | `ubuntu-24.04-arm` | `linux-arm64` |
+| Windows x64 | `windows-2025` | `windows-x64` |
 
-Validated platform support claims require a native bootstrap library and JVM
-loading smoke path for that platform.
+The release job grants `contents: write` only when publishing assets for a tag.
+All other package jobs use read-only repository permissions.
+
+## Runtime Requirements
+
+Desktop Kanama needs a JDK 25+ distribution that contains `libjvm`. The native
+bootstrap checks `JAVA_HOME` first, then platform fallback locations. The
+optional `addons/kanama_tools` editor plugin runs the same preflight and warns
+inside Godot if it cannot find `libjvm`.
 
 Native bootstrap libraries are generated build artifacts. Source repositories
 ignore `kanama_bootstrap.dll`, `libkanama_bootstrap.so`, and
 `libkanama_bootstrap.dylib`; rebuild the matching library locally for the
-platform under test instead of committing it. `syncExampleAddonJar` and
-`installAddonJar` run the `buildNativeBootstrap` Gradle task automatically; run
-`./gradlew buildNativeBootstrap` directly only when you need to refresh the
-native library without syncing an addon.
-
-Building the desktop native bootstrap from Kanama source requires CMake, a
-platform C toolchain, and JDK 25 headers. It does not require a Godot source
-checkout because Kanama tracks the required GDExtension headers.
-
-On macOS arm64, install JDK 25, use
-`/Applications/Godot.app/Contents/MacOS/Godot` or a Godot executable on
-`PATH`, and run Gradle commands with `./gradlew`.
-
-On Linux, set `JAVA_HOME` to a JDK 25+ install before launching Godot or running
-desktop smokes. The native bootstrap loads `${JAVA_HOME}/lib/server/libjvm.so`
-at runtime. Without `JAVA_HOME`, Kanama cannot register the `.kt` resource
-loader, and Godot may report misleading missing-script errors for existing
-`res://kotlin-src/*.kt` files.
-
-For repeatable Linux validation, build the native bootstrap from a clean
-checkout, preflight `libkanama_bootstrap.so` with `file`, `ldd`, and `readelf`
-before copying it into demos, set `XDG_DATA_HOME` to an isolated temporary
-directory for Godot state, and refresh each demo addon with `installAddonJar`
-before smoke checks.
-
-The Linux desktop smoke passes used Godot's OpenGL Compatibility path:
-
-```sh
-JAVA_HOME=/path/to/jdk-25 \
-godot --headless \
-  --rendering-driver opengl3 \
-  --rendering-method gl_compatibility \
-  --path /absolute/path/to/godot_project
-```
-
-On Windows, set `JAVA_HOME` to a JDK 25+ install before launching Godot or
-running smokes. The native bootstrap loads
-`%JAVA_HOME%\bin\server\jvm.dll` at runtime. Building the Windows bootstrap
-requires Visual Studio 2022 with the **Desktop development with C++** workload,
-including MSVC, the Windows SDK, and CMake tools for Windows.
-
-Use the Godot 4.7 beta 3 Windows console binary for smoke runs. Run Gradle
-commands with `.\gradlew.bat` in PowerShell. When installing Kanama into a demo
-or project, quote the full Gradle property argument and point
-`kanamaProjectScriptsDir` at the Kotlin source directory when the project root
-contains Android export build artifacts:
-
-```powershell
-.\gradlew.bat :project-scripts:jar installAddonJar `
-  "-PkanamaProjectDir=C:\path\to\godot-project" `
-  "-PkanamaProjectScriptsDir=C:\path\to\godot-project\kotlin-src"
-```
-
-## Android Track
-
-Android exports use a different runtime path from desktop: a Godot Android
-plugin AAR, ART, PanamaPort, and Android-specific packaging. Keep Android
-release wording experimental until the matching APK smoke path has passed.
-
-See [Android Experimental](android.md) for the current workflow, validation
-status, and boundaries.
+platform under test instead of committing it.
 
 ## Exported Games
 
-Export support is a separate release-readiness track from editor/source
-development. An exported desktop game must include or locate:
+Exported desktop game packaging is still a separate release-readiness track.
+An exported game must include or locate:
 
-- the platform bootstrap library referenced by the `.gdextension` file,
+- the platform bootstrap library referenced by `kanama.gdextension`,
 - `kanama.jar`,
-- the project's Kotlin scripts jar,
-- a compatible JDK/JVM runtime or a documented system-JDK requirement,
+- the project `kanama-scripts.jar`,
+- a compatible JDK/JVM runtime or a documented system-JDK requirement, and
 - platform-specific JVM loading paths handled by the bootstrap library.
 
-The current project validates editor/headless workflows on the platforms listed
-above. Exported desktop game packaging is not a release claim yet. Platform
-smoke validation does not mean native desktop export packaging is finished.
-Packaged exports need to state whether they bundle a JVM runtime or require
-users to install JDK 25+.
+The desktop kits validate editor/runtime onboarding. They do not yet claim a
+complete exported-game packaging story.
 
-## Local Release Checks
+## Android Track
 
-Run the same local CI shortcut used during development:
+Android exports use a different runtime path: a Godot Android plugin AAR, ART,
+PanamaPort, and Android-specific packaging. Keep Android release wording
+experimental until the matching APK smoke path has passed.
 
-```sh
-scripts/local_ci.sh /absolute/path/to/godot-4.7-beta3
-```
-
-For a release-facing source check, run the isolated clone gate. It clones
-`kanama` and `kanama-demos` into a temporary workspace, isolates Gradle and
-Maven-local state, then runs source CI and public demo desktop smokes:
-
-```sh
-scripts/fresh_clone_smoke.sh /absolute/path/to/godot-4.7-beta3
-```
-
-When testing multiple engine versions:
-
-```sh
-scripts/local_ci.sh \
-  /absolute/path/to/godot-4.7-beta3 \
-  /absolute/path/to/godot-4.7-stable
-```
-
-Release validation covers API validation, Gradle sync, bootstrap build, strict
-docs build, runtime smoke, `@Tool` smoke, and hot-reload smoke for every claimed
-Godot binary. The main headless runtime smoke is `scripts/runtime_smoke.sh`.
-
-## Packaged Addon Artifacts
-
-A packaged addon contains the runtime jars, native bootstrap libraries,
-`.gdextension` metadata, and editor plugin files needed by a consumer Godot
-project. These packaged native libraries are produced from ignored build
-outputs; they are not source-repo files. Packaged addons omit local build
-directories, crash logs, temporary smoke logs, and machine-specific paths.
+See [Android Experimental](android.md) for the current workflow, validation
+status, and boundaries.

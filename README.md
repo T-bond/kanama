@@ -35,8 +35,9 @@ separate project with a different runtime and export model.
 Kanama is experimental and desktop-first. The `0.2.1` preview baseline is
 Godot 4.7 beta 3. Use the
 [Godot 4.7 beta 3 archive](https://godotengine.org/download/archive/4.7-beta3/)
-for compatible editor/player binaries and Android export templates. Native
-packaged desktop exports are not release claims for the current preview.
+for compatible editor/player binaries and Android export templates. Desktop
+release kits are the packaging path for new projects; exported-game packaging
+remains a separate release-readiness track.
 
 Android support is experimental for the v0.2.1 line: the current workflow builds
 a Godot Android plugin AAR, uses
@@ -65,8 +66,9 @@ Desktop/editor workflow:
 - Godot 4.7 beta 3 from the
   [Godot 4.7 beta 3 archive](https://godotengine.org/download/archive/4.7-beta3/)
 - JDK 25+ (Temurin 25 recommended)
-- CMake 3.22.1+ and a platform C toolchain for the desktop native bootstrap
-  built by `installAddonJar`; Godot source is not required
+- CMake 3.22.1+ and a platform C toolchain for source checkout workflows that
+  build the desktop native bootstrap locally; release kits already include the
+  platform bootstrap
 - macOS arm64, Windows x64, Linux x64, or Linux ARM64 for the current
   editor/runtime smoke paths
 
@@ -81,6 +83,21 @@ Experimental Android export workflow:
 
 ## Quick Start
 
+For a release kit, download the matching desktop zip from a Kanama GitHub
+release and build the starter Kotlin script:
+
+```sh
+unzip kanama-desktop-kit-v<version>-<platform>.zip -d kanama-starter
+cd kanama-starter
+./gradlew buildScripts
+```
+
+Open `kanama-starter/project.godot` in Godot and press **Play**. After editing
+`kotlin-src/HelloScript.kt`, press **Build Scripts** in Godot or rerun
+`./gradlew buildScripts`.
+
+For the source checkout workflow:
+
 ```sh
 git clone https://github.com/falcon4ever/kanama
 cd kanama
@@ -90,11 +107,6 @@ cd kanama
   -PkanamaProjectDir=/path/to/kanama-starter \
   -PkanamaProjectScriptsDir=/path/to/kanama-starter
 ```
-
-Open `/path/to/kanama-starter/project.godot` in Godot and press **Play**. The
-Gradle install task builds the host native bootstrap with CMake and copies it
-into the project addon together with the runtime jars. After editing
-`HelloScript.kt`, press **Build Scripts** in Godot or rerun `installAddonJar`.
 
 ## Example
 
@@ -124,6 +136,9 @@ The latest public documentation is published at
 [falcon4ever.github.io/kanama](https://falcon4ever.github.io/kanama/).
 
 - [Getting Started](docs/getting-started/index.md)
+- [Use a Release Kit](docs/getting-started/release-kit.md)
+- [Use a Source Checkout](docs/getting-started/source-checkout.md)
+- [Work on Kanama](docs/getting-started/work-on-kanama.md)
 - [The Editor Loop](docs/getting-started/editor-workflow.md)
 - [Writing Kotlin Scripts](docs/game-dev/scripts.md)
 - [Calling Godot APIs](docs/game-dev/godot-api.md)

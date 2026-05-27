@@ -174,7 +174,7 @@ static const char *find_jvm_lib(void) {
     return NULL;
 }
 
-/* Find kanama.jar next to our own native library. */
+/* Find kanama.jar next to our own native library or in the addon root. */
 static int find_jar_next_to_self(char *out, size_t out_size) {
 #ifdef _WIN32
     HMODULE module = NULL;
@@ -201,15 +201,30 @@ static int find_jar_next_to_self(char *out, size_t out_size) {
     dylib_path[sizeof dylib_path - 1] = '\0';
     char *dir = path_parent_in_place(dylib_path);
 #endif
-    int n = snprintf(out, out_size, "%s%skanama.jar", dir, PATH_SEP);
-    if (n < 0 || (size_t)n >= out_size) {
-        return -1;
+
+    char search_dir[1024];
+    strncpy(search_dir, dir, sizeof search_dir - 1);
+    search_dir[sizeof search_dir - 1] = '\0';
+
+    for (int depth = 0; depth < 3; depth++) {
+        int n = snprintf(out, out_size, "%s%skanama.jar", search_dir, PATH_SEP);
+        if (n < 0 || (size_t)n >= out_size) {
+            return -1;
+        }
+        if (access(out, F_OK) == 0) {
+            return 0;
+        }
+        char before_parent[1024];
+        strncpy(before_parent, search_dir, sizeof before_parent - 1);
+        before_parent[sizeof before_parent - 1] = '\0';
+        path_parent_in_place(search_dir);
+        if (strcmp(search_dir, before_parent) == 0 || search_dir[0] == '\0') {
+            break;
+        }
     }
-    if (access(out, F_OK) != 0) {
-        fprintf(stderr, "[kanama] error: kanama.jar not found at %s\n", out);
-        return -1;
-    }
-    return 0;
+
+    fprintf(stderr, "[kanama] error: kanama.jar not found near native bootstrap; last checked %s\n", out);
+    return -1;
 }
 
 static int find_project_godot_from_jar(const char *jar_path, char *out, size_t out_size) {
