@@ -13,10 +13,46 @@ concurrency:
   group: package-${{ github.ref }}
   cancel-in-progress: false
 
+env:
+  GODOT_VERSION: 4.7-beta3
+
 jobs:
+  gdextension-header:
+    name: gdextension-header
+    runs-on: ubuntu-24.04
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Generate GDExtension header
+        shell: bash
+        run: |
+          tmp_dir="$(mktemp -d)"
+          godot_zip="$tmp_dir/godot.zip"
+          godot_bin="$tmp_dir/Godot_v${GODOT_VERSION}_linux.x86_64"
+          curl -L \
+            -o "$godot_zip" \
+            "https://github.com/godotengine/godot-builds/releases/download/${GODOT_VERSION}/Godot_v${GODOT_VERSION}_linux.x86_64.zip"
+          unzip -q "$godot_zip" -d "$tmp_dir"
+          (
+            cd "$tmp_dir"
+            "$godot_bin" --headless --log-file "$tmp_dir/godot-gdextension-interface.log" --dump-gdextension-interface
+          )
+          mkdir -p gdextension
+          cp "$tmp_dir/gdextension_interface.h" gdextension/gdextension_interface.h
+
+      - name: Upload GDExtension header
+        uses: actions/upload-artifact@v4
+        with:
+          name: kanama-gdextension-interface
+          path: gdextension/gdextension_interface.h
+          if-no-files-found: error
+
   desktop-kit:
     name: ${{ matrix.classifier }}
     runs-on: ${{ matrix.runner }}
+    needs: gdextension-header
     strategy:
       fail-fast: false
       matrix:
@@ -39,6 +75,12 @@ jobs:
         with:
           distribution: temurin
           java-version: "25"
+
+      - name: Download GDExtension header
+        uses: actions/download-artifact@v4
+        with:
+          name: kanama-gdextension-interface
+          path: gdextension
 
       - name: Build package artifacts
         shell: bash
