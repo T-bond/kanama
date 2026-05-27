@@ -88,6 +88,7 @@ object ScriptBridge {
     }
 
     fun applyOrRecordScriptPropertySet(ownerObject: MemorySegment, property: String, value: Any?) {
+        if (!shouldRecordScriptPropertySet(property)) return
         val ownerAddress = ownerObject.address()
         if (ownerAddress == 0L) return
         if (scriptInstanceByOwnerAddress[ownerAddress] != null) {
@@ -100,6 +101,10 @@ object ScriptBridge {
         pendingScriptPropertyValuesByOwnerAddress
             .computeIfAbsent(ownerAddress) { ConcurrentHashMap() }[property] = value ?: nullScriptPropertyValue
     }
+
+    private fun shouldRecordScriptPropertySet(property: String): Boolean =
+        // Slash-separated paths are indexed engine properties, not generated script property names.
+        '/' !in property
 
     fun trackScriptInstance(ownerObject: MemorySegment, scriptInstance: KanamaScriptInstance) {
         if (ownerObject.address() != 0L) {
