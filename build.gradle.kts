@@ -620,10 +620,23 @@ tasks.register<Zip>("packageStoreAddon") {
     }
     from(layout.projectDirectory.dir("templates/release-kit")) {
         into("addons/kanama/templates/release-kit")
+        exclude("project.godot", "main.tscn")
         filter { line: String -> line.replace("@KANAMA_VERSION@", project.version.toString()) }
     }
     from(layout.projectDirectory.file("templates/starter/HelloScript.kt")) {
         into("addons/kanama/templates/release-kit/kotlin-src")
+    }
+    from(layout.projectDirectory.file("gradlew")) {
+        into("addons/kanama/templates/release-kit")
+        filePermissions {
+            unix("rwxr-xr-x")
+        }
+    }
+    from(layout.projectDirectory.file("gradlew.bat")) {
+        into("addons/kanama/templates/release-kit")
+    }
+    from(layout.projectDirectory.dir("gradle")) {
+        into("addons/kanama/templates/release-kit/gradle")
     }
 }
 

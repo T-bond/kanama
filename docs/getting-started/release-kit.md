@@ -54,15 +54,9 @@ The `Kanama Tools` editor plugin is enabled by default. It adds:
 ## Existing Projects
 
 The desktop kit is meant for new projects. For an existing Godot project, use
-the store-ready addon zip once published, or copy the release kit pieces
-carefully:
-
-- `addons/kanama`,
-- `addons/kanama_tools`, and
-- the Gradle template files from `addons/kanama/templates/release-kit`.
-
-Do not blindly unzip a desktop kit over an existing project because it contains
-root project files such as `project.godot`, `build.gradle.kts`, and `gradlew`.
+[the store addon](store-addon.md). Do not unzip a desktop kit over an existing
+project because it contains root project files such as `project.godot`,
+`build.gradle.kts`, and `gradlew`.
 
 ## Troubleshooting
 

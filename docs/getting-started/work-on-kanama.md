@@ -48,7 +48,17 @@ Validate a desktop kit without a sibling Kanama checkout:
 
 ```sh
 scripts/package_install_smoke.sh \
+  --desktop-kit \
   build/distributions/kanama-desktop-kit-v<version>-<platform>.zip \
+  /absolute/path/to/godot-4.7-beta3
+```
+
+Validate a store addon through the same temporary-project smoke:
+
+```sh
+scripts/package_install_smoke.sh \
+  --store-addon \
+  build/distributions/kanama-store-addon-v<version>.zip \
   /absolute/path/to/godot-4.7-beta3
 ```
 

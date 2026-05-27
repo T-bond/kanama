@@ -57,7 +57,12 @@ files at the project root. It contains:
 - all available desktop native bootstrap binaries under
   `addons/kanama/bin/<platform>/`,
 - the local Maven repo under `addons/kanama/maven`, and
-- release-kit Gradle templates under `addons/kanama/templates/release-kit`.
+- release-kit Gradle and wrapper templates under
+  `addons/kanama/templates/release-kit`.
+
+The store addon intentionally does not include nested `project.godot` or
+`main.tscn` files under `addons/`, so installing it into an existing Godot
+project does not create a second embedded Godot project.
 
 Build a local host-only store addon:
 
@@ -67,7 +72,21 @@ Build a local host-only store addon:
 
 The all-platform store addon is assembled by the GitHub package workflow after
 the matrix builds macOS arm64, Linux x64, Linux ARM64, and Windows x64 native
-artifacts.
+artifacts. The workflow smokes every desktop kit and the assembled store addon
+before uploading artifacts.
+
+Validate a store addon from a temporary project:
+
+```sh
+scripts/package_install_smoke.sh \
+  --store-addon \
+  --require-all-store-platforms \
+  build/distributions/kanama-store-addon-v<version>.zip \
+  /absolute/path/to/godot-4.7-beta3
+```
+
+For a local host-only `packageStoreAddon` build, omit
+`--require-all-store-platforms`.
 
 ## GitHub Release Workflow
 

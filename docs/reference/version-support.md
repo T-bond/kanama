@@ -68,13 +68,18 @@ temporary clone:
 scripts/fresh_clone_smoke.sh /absolute/path/to/godot-4.7-beta3
 ```
 
-For package validation, build a desktop kit and smoke it without a sibling
-Kanama checkout:
+For package validation, build the packaged artifacts and smoke them without a
+sibling Kanama checkout:
 
 ```sh
-./gradlew packageDesktopKit
+./gradlew packageDistributions
 scripts/package_install_smoke.sh \
+  --desktop-kit \
   build/distributions/kanama-desktop-kit-v<version>-<platform>.zip \
+  /absolute/path/to/godot-4.7-beta3
+scripts/package_install_smoke.sh \
+  --store-addon \
+  build/distributions/kanama-store-addon-v<version>.zip \
   /absolute/path/to/godot-4.7-beta3
 ```
 

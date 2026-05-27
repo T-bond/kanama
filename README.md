@@ -84,7 +84,7 @@ Experimental Android export workflow:
 ## Quick Start
 
 For a release kit, download the matching desktop zip from a Kanama GitHub
-release and build the starter Kotlin script:
+release and build the starter Kotlin script. Use this path for a new project:
 
 ```sh
 unzip kanama-desktop-kit-v<version>-<platform>.zip -d kanama-starter
@@ -95,6 +95,9 @@ cd kanama-starter
 Open `kanama-starter/project.godot` in Godot and press **Play**. After editing
 `kotlin-src/HelloScript.kt`, press **Build Scripts** in Godot or rerun
 `./gradlew buildScripts`.
+
+For an existing Godot project, download `kanama-store-addon-v<version>.zip`
+instead and follow [Use a Store Addon](docs/getting-started/store-addon.md).
 
 For the source checkout workflow:
 
@@ -137,6 +140,7 @@ The latest public documentation is published at
 
 - [Getting Started](docs/getting-started/index.md)
 - [Use a Release Kit](docs/getting-started/release-kit.md)
+- [Use a Store Addon](docs/getting-started/store-addon.md)
 - [Use a Source Checkout](docs/getting-started/source-checkout.md)
 - [Work on Kanama](docs/getting-started/work-on-kanama.md)
 - [The Editor Loop](docs/getting-started/editor-workflow.md)

@@ -1,11 +1,12 @@
 # Getting Started
 
-Kanama supports three desktop install paths. Choose the path that matches what
+Kanama supports four desktop install paths. Choose the path that matches what
 you are trying to do.
 
 | Path | Use it when | Start here |
 | --- | --- | --- |
-| Release kit | You want to try Kanama or start a small Godot project without cloning Kanama source. | [Use a Release Kit](release-kit.md) |
+| Release kit | You want to try Kanama or start a small new Godot project without cloning Kanama source. | [Use a Release Kit](release-kit.md) |
+| Store addon | You want to add Kanama to an existing Godot project without cloning Kanama source. | [Use a Store Addon](store-addon.md) |
 | Source checkout | You want to use the current `main` branch or validate a local Kanama change in your own project. | [Use a Source Checkout](source-checkout.md) |
 | Contributor checkout | You want to work on Kanama runtime, wrappers, docs, native bootstrap, or release packaging. | [Work on Kanama](work-on-kanama.md) |
 
