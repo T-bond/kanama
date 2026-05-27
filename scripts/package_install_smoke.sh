@@ -99,7 +99,7 @@ fi
 
 cleanup() {
   if [[ "$created_work_dir" -eq 1 && "$keep_work_dir" != "1" ]]; then
-    rm -rf "$work_dir"
+    rm -rf "$work_dir" 2>/dev/null || true
   fi
 }
 trap cleanup EXIT
@@ -263,9 +263,9 @@ if ! grep -Fxq "res://addons/kanama/kanama.gdextension" "$project_dir/.godot/ext
 fi
 
 if [[ -x "$project_dir/gradlew" ]]; then
-  "$project_dir/gradlew" -p "$project_dir" buildScripts
+  "$project_dir/gradlew" --no-daemon -p "$project_dir" buildScripts
 else
-  bash "$project_dir/gradlew" -p "$project_dir" buildScripts
+  bash "$project_dir/gradlew" --no-daemon -p "$project_dir" buildScripts
 fi
 
 check_file "addons/kanama/kanama-scripts.jar"
