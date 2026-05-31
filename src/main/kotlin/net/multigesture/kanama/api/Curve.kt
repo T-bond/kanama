@@ -134,7 +134,7 @@ class Curve internal constructor(handle: MemorySegment) : Resource(handle) {
     }
 
     /**
-     * Sets the offset from `0.5`.
+     * Assigns the horizontal position `offset` to the point at `index`.
      *
      * Generated from Godot docs: Curve.set_point_offset
      */

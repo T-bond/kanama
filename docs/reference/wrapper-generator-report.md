@@ -17,9 +17,9 @@ Generated drafts are not automatically promoted. A class only becomes public sou
 | API classes | 1036 |
 | Classes with generated output | 844 |
 | Classes with complete method generation | 735 |
-| Methods generated | 15263/16820 (90.7%) |
+| Methods generated | 15265/16822 (90.7%) |
 | Methods skipped | 1557 |
-| Properties generated | 3656/4161 (87.9%) |
+| Properties generated | 3657/4162 (87.9%) |
 | Signals generated | 503/503 (100.0%) |
 
 ## Skip Categories
@@ -162,7 +162,7 @@ These classes have every method covered by the conservative generator. Promotion
 | Window | 133/134 (99.3%) | 28/41 | 16/16 | 1 |
 | TextServer | 242/244 (99.2%) | 0/0 | 0/0 | 2 |
 | PhysicsServer2D | 118/119 (99.2%) | 0/0 | 0/0 | 1 |
-| CanvasItem | 91/92 (98.9%) | 15/15 | 4/4 | 1 |
+| CanvasItem | 93/94 (98.9%) | 16/16 | 4/4 | 1 |
 | AccessibilityServer | 74/75 (98.7%) | 0/0 | 0/0 | 1 |
 | RichTextLabel | 136/138 (98.6%) | 30/30 | 4/4 | 2 |
 | NativeMenu | 68/69 (98.6%) | 0/0 | 0/0 | 1 |

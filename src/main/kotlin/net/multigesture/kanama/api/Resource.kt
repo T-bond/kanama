@@ -7,12 +7,6 @@ import java.lang.foreign.MemorySegment
 /**
  * Base class for serializable objects.
  *
- * Most gameplay code should not call [close] on `Resource` wrappers. Resources
- * loaded from disk, assigned to node properties, stored in scenes, or scheduled
- * for future use are usually owned or retained by Godot. Use Godot lifecycle APIs
- * and normal Kotlin reference cleanup unless the API contract explicitly says the
- * resource is caller-owned.
- *
  * Generated from Godot docs: Resource
  */
 open class Resource internal constructor(

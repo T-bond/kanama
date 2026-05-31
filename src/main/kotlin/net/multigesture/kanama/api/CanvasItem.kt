@@ -51,6 +51,12 @@ open class CanvasItem(handle: MemorySegment) : Node(handle) {
         @JvmName("setClipChildrenProperty")
         set(value) = setClipChildrenMode(value)
 
+    var oversamplingWithScale: Long
+        @JvmName("oversamplingWithScaleProperty")
+        get() = getOversamplingWithScale()
+        @JvmName("setOversamplingWithScaleProperty")
+        set(value) = setOversamplingWithScale(value)
+
     var lightMask: Int
         @JvmName("lightMaskProperty")
         get() = getLightMask()
@@ -1238,6 +1244,24 @@ open class CanvasItem(handle: MemorySegment) : Node(handle) {
         return ObjectCalls.ptrcallNoArgsRetLong(getClipChildrenModeBind, handle)
     }
 
+    /**
+     * If enabled, oversampling for this `CanvasItem` is automatically adjusted with scale.
+     *
+     * Generated from Godot docs: CanvasItem.set_oversampling_with_scale
+     */
+    fun setOversamplingWithScale(enabled: Long) {
+        ObjectCalls.ptrcallWithLongArg(setOversamplingWithScaleBind, handle, enabled)
+    }
+
+    /**
+     * If enabled, oversampling for this `CanvasItem` is automatically adjusted with scale.
+     *
+     * Generated from Godot docs: CanvasItem.get_oversampling_with_scale
+     */
+    fun getOversamplingWithScale(): Long {
+        return ObjectCalls.ptrcallNoArgsRetLong(getOversamplingWithScaleBind, handle)
+    }
+
     object Signals {
         const val draw: String = "draw"
         const val visibilityChanged: String = "visibility_changed"
@@ -1270,6 +1294,10 @@ open class CanvasItem(handle: MemorySegment) : Node(handle) {
         const val CLIP_CHILDREN_ONLY: Long = 1L
         const val CLIP_CHILDREN_AND_DRAW: Long = 2L
         const val CLIP_CHILDREN_MAX: Long = 3L
+        const val OVERSAMPLING_WITH_SCALE_PARENT_NODE: Long = 0L
+        const val OVERSAMPLING_WITH_SCALE_DISABLED: Long = 1L
+        const val OVERSAMPLING_WITH_SCALE_ENABLED: Long = 2L
+        const val OVERSAMPLING_WITH_SCALE_MAX: Long = 3L
 
         @JvmStatic
         fun fromHandle(handle: MemorySegment): CanvasItem? =
@@ -1731,6 +1759,16 @@ open class CanvasItem(handle: MemorySegment) : Node(handle) {
         private const val GET_CLIP_CHILDREN_MODE_HASH = 3581808349L
         private val getClipChildrenModeBind by lazy {
             ObjectCalls.getMethodBind("CanvasItem", "get_clip_children_mode", GET_CLIP_CHILDREN_MODE_HASH)
+        }
+
+        private const val SET_OVERSAMPLING_WITH_SCALE_HASH = 872218804L
+        private val setOversamplingWithScaleBind by lazy {
+            ObjectCalls.getMethodBind("CanvasItem", "set_oversampling_with_scale", SET_OVERSAMPLING_WITH_SCALE_HASH)
+        }
+
+        private const val GET_OVERSAMPLING_WITH_SCALE_HASH = 2026097197L
+        private val getOversamplingWithScaleBind by lazy {
+            ObjectCalls.getMethodBind("CanvasItem", "get_oversampling_with_scale", GET_OVERSAMPLING_WITH_SCALE_HASH)
         }
     }
 }

@@ -26,11 +26,11 @@ class RandomNumberGenerator(handle: MemorySegment) : RefCounted(handle) {
      * Initializes the random number generator state based on the given seed value. A given seed will
      * give a reproducible sequence of pseudo-random numbers. Note: The RNG does not have an avalanche
      * effect, and can output similar random streams given similar seeds. Consider using a hash
-     * function to improve your seed quality if they're sourced externally. Note: Setting this property
-     * produces a side effect of changing the internal `state`, so make sure to initialize the seed
-     * before modifying the `state`: Note: The default value of this property is pseudo-random, and
-     * changes when calling `randomize`. The `0` value documented here is a placeholder, and not the
-     * actual default seed.
+     * function to improve your seed quality if they're sourced externally. Note: The default value of
+     * this property is pseudo-random, and changes when calling `randomize`. The `0` value documented
+     * here is a placeholder, and not the actual default seed. Note: Setting this property produces a
+     * side effect of changing the internal `state`, so make sure to initialize the seed before
+     * modifying the `state`:
      *
      * Generated from Godot docs: RandomNumberGenerator.set_seed
      */
@@ -42,11 +42,11 @@ class RandomNumberGenerator(handle: MemorySegment) : RefCounted(handle) {
      * Initializes the random number generator state based on the given seed value. A given seed will
      * give a reproducible sequence of pseudo-random numbers. Note: The RNG does not have an avalanche
      * effect, and can output similar random streams given similar seeds. Consider using a hash
-     * function to improve your seed quality if they're sourced externally. Note: Setting this property
-     * produces a side effect of changing the internal `state`, so make sure to initialize the seed
-     * before modifying the `state`: Note: The default value of this property is pseudo-random, and
-     * changes when calling `randomize`. The `0` value documented here is a placeholder, and not the
-     * actual default seed.
+     * function to improve your seed quality if they're sourced externally. Note: The default value of
+     * this property is pseudo-random, and changes when calling `randomize`. The `0` value documented
+     * here is a placeholder, and not the actual default seed. Note: Setting this property produces a
+     * side effect of changing the internal `state`, so make sure to initialize the seed before
+     * modifying the `state`:
      *
      * Generated from Godot docs: RandomNumberGenerator.get_seed
      */

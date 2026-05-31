@@ -309,10 +309,9 @@ class LookAtModifier3D(handle: MemorySegment) : SkeletonModifier3D(handle) {
     /**
      * The relative option. If `true`, the rotation is applied relative to the pose. If `false`, the
      * rotation is applied relative to the rest. It means to replace the current pose with the
-     * `LookAtModifier3D`'s result. Note: This option affects the base angle for `use_angle_limitation`
-     * unlike `IterateIK3D`'s `JointLimitation3D`. Since the `LookAtModifier3D` relies strongly on
-     * Euler rotation, the axis that determines the limitation and the actual rotation are strongly
-     * tied together.
+     * `LookAtModifier3D`'s result. Note: This option affects the base angle for
+     * `use_angle_limitation`. Since the `LookAtModifier3D` relies strongly on Euler rotation, the axis
+     * that determines the limitation and the actual rotation are strongly tied together.
      *
      * Generated from Godot docs: LookAtModifier3D.set_relative
      */
@@ -323,10 +322,9 @@ class LookAtModifier3D(handle: MemorySegment) : SkeletonModifier3D(handle) {
     /**
      * The relative option. If `true`, the rotation is applied relative to the pose. If `false`, the
      * rotation is applied relative to the rest. It means to replace the current pose with the
-     * `LookAtModifier3D`'s result. Note: This option affects the base angle for `use_angle_limitation`
-     * unlike `IterateIK3D`'s `JointLimitation3D`. Since the `LookAtModifier3D` relies strongly on
-     * Euler rotation, the axis that determines the limitation and the actual rotation are strongly
-     * tied together.
+     * `LookAtModifier3D`'s result. Note: This option affects the base angle for
+     * `use_angle_limitation`. Since the `LookAtModifier3D` relies strongly on Euler rotation, the axis
+     * that determines the limitation and the actual rotation are strongly tied together.
      *
      * Generated from Godot docs: LookAtModifier3D.is_relative
      */

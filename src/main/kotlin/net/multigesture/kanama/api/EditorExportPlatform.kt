@@ -126,7 +126,8 @@ open class EditorExportPlatform(handle: MemorySegment) : RefCounted(handle) {
     }
 
     /**
-     * Creates a full project at `path` for the specified `preset`.
+     * Creates a full project at `path` for the specified `preset`. If `notify` is `true`, plugins
+     * using `EditorExportPlugin._export_begin` will be called during the process.
      *
      * Generated from Godot docs: EditorExportPlatform.export_project
      */

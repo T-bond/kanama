@@ -259,11 +259,11 @@ class SpringBoneSimulator3D(handle: MemorySegment) : SkeletonModifier3D(handle) 
 
     /**
      * Sets the rotation axis of the bone chain. If set to a specific axis, it acts like a hinge joint.
-     * The value is cached in each joint setting in the joint list. The axes are based on the
-     * `Skeleton3D.get_bone_rest`'s space, if `axis` is `SkeletonModifier3D.ROTATION_AXIS_CUSTOM`, you
-     * can specify any axis. Note: The rotation axis vector and the forward vector shouldn't be
-     * colinear to avoid unintended rotation since `SpringBoneSimulator3D` does not factor in twisting
-     * forces.
+     * The value is cached in each joint setting in the joint list. The axes are based on the reference
+     * pose's space, if `axis` is `SkeletonModifier3D.ROTATION_AXIS_CUSTOM`, you can specify any axis.
+     * In here, the reference pose is the bone pose immediately before the simulation. Note: The
+     * rotation axis vector and the forward vector shouldn't be colinear to avoid unintended rotation
+     * since `SpringBoneSimulator3D` does not factor in twisting forces.
      *
      * Generated from Godot docs: SpringBoneSimulator3D.set_rotation_axis
      */
@@ -522,10 +522,11 @@ class SpringBoneSimulator3D(handle: MemorySegment) : SkeletonModifier3D(handle) 
 
     /**
      * Sets the rotation axis at `joint` in the bone chain's joint list when `is_config_individual` is
-     * `true`. The axes are based on the `Skeleton3D.get_bone_rest`'s space, if `axis` is
-     * `SkeletonModifier3D.ROTATION_AXIS_CUSTOM`, you can specify any axis. Note: The rotation axis and
-     * the forward vector shouldn't be colinear to avoid unintended rotation since
-     * `SpringBoneSimulator3D` does not factor in twisting forces.
+     * `true`. The axes are based on the reference pose's space, if `axis` is
+     * `SkeletonModifier3D.ROTATION_AXIS_CUSTOM`, you can specify any axis. In here, the reference pose
+     * is the bone pose immediately before the simulation. Note: The rotation axis and the forward
+     * vector shouldn't be colinear to avoid unintended rotation since `SpringBoneSimulator3D` does not
+     * factor in twisting forces.
      *
      * Generated from Godot docs: SpringBoneSimulator3D.set_joint_rotation_axis
      */

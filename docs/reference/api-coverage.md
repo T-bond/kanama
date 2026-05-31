@@ -13,9 +13,9 @@ Generated drafts are emitted to `build/wrapper-generator/drafts` during local ru
 | API classes | 1036 |  |
 | Classes with generated output | 844 | `██████████░░` 81.5% |
 | Classes with complete method generation | 735 | `█████████░░░` 70.9% |
-| Methods generated | 15263/16820 (90.7%) | `███████████░` 90.7% |
+| Methods generated | 15265/16822 (90.7%) | `███████████░` 90.7% |
 | Methods skipped | 1557 |  |
-| Properties generated | 3656/4161 (87.9%) | `███████████░` 87.9% |
+| Properties generated | 3657/4162 (87.9%) | `███████████░` 87.9% |
 | Signals generated | 503/503 (100.0%) | `████████████` 100.0% |
 
 See [Wrapper Generator Report](wrapper-generator-report.md) for skip categories, missing helper shapes, and complete generated classes.
@@ -26,14 +26,14 @@ These numbers count only checked-in Kotlin API wrappers. Class coverage may incl
 Rows marked `inherited only` are promoted wrappers whose Godot class declares no own methods in `extension_api.json`; behavior comes from their parent wrapper.
 
 - Classes: 1032 / 1036 `████████████` 99.6%
-- Methods: 14955 / 16820 `███████████░` 88.9%
+- Methods: 14957 / 16822 `███████████░` 88.9%
 
 ## Promoted Source By Area
 
 | Area | Classes | Class Coverage | Methods | Method Coverage |
 | --- | ---: | --- | ---: | --- |
 | Core | 224/226 | `████████████` 99.1% | 2760/3466 | `██████████░░` 79.6% |
-| Scene | 26/26 | `████████████` 100.0% | 905/936 | `████████████` 96.7% |
+| Scene | 26/26 | `████████████` 100.0% | 907/938 | `████████████` 96.7% |
 | Resources | 305/306 | `████████████` 99.7% | 2847/3040 | `███████████░` 93.7% |
 | Input | 20/20 | `████████████` 100.0% | 219/238 | `███████████░` 92.0% |
 | UI | 69/69 | `████████████` 100.0% | 1694/1775 | `███████████░` 95.4% |
@@ -196,7 +196,7 @@ These notes summarize wrapper feedback from real ports. They are contextual sign
 | `CameraServer` | Core | 7/7 | `████████` 100.0% |
 | `CameraTexture` | 2D | 6/6 | `████████` 100.0% |
 | `CanvasGroup` | 2D | 6/6 | `████████` 100.0% |
-| `CanvasItem` | Scene | 91/92 | `████████` 98.9% |
+| `CanvasItem` | Scene | 93/94 | `████████` 98.9% |
 | `CanvasItemMaterial` | Resources | 12/12 | `████████` 100.0% |
 | `CanvasLayer` | Scene | 22/22 | `████████` 100.0% |
 | `CanvasModulate` | 2D | 2/2 | `████████` 100.0% |

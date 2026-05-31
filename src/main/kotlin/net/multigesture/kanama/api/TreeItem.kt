@@ -638,7 +638,8 @@ class TreeItem(handle: MemorySegment) : GodotObject(handle) {
     }
 
     /**
-     * Selects the given `column`.
+     * Selects the given `column`. If `set_as_cursor` is `true`, the `Tree`'s cursor will be moved to
+     * this item (only matters if `Tree.select_mode` is set to `Tree.SELECT_MULTI`).
      *
      * Generated from Godot docs: TreeItem.select
      */

@@ -11,7 +11,7 @@
 
 <p align="center">
   <a href="LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/license-MIT-blue.svg"></a>
-  <img alt="Godot 4.7 beta 3" src="https://img.shields.io/badge/Godot-4.7_beta_3-478cbf.svg">
+  <img alt="Godot 4.7 beta 4" src="https://img.shields.io/badge/Godot-4.7_beta_4-478cbf.svg">
   <img alt="JDK 25+" src="https://img.shields.io/badge/JDK-25%2B-f89820.svg">
   <img alt="Android: experimental" src="https://img.shields.io/badge/Android-experimental-3ddc84.svg">
   <img alt="Status: experimental" src="https://img.shields.io/badge/status-experimental-yellow.svg">
@@ -33,8 +33,8 @@ separate project with a different runtime and export model.
 ## Status
 
 Kanama is experimental and desktop-first. The `0.2.1` preview baseline is
-Godot 4.7 beta 3. Use the
-[Godot 4.7 beta 3 archive](https://godotengine.org/download/archive/4.7-beta3/)
+Godot 4.7 beta 4. Use the
+[Godot 4.7 beta 4 archive](https://godotengine.org/download/archive/4.7-beta4/)
 for compatible editor/player binaries and Android export templates. Desktop
 release kits are the packaging path for new projects; exported-game packaging
 remains a separate release-readiness track.
@@ -56,15 +56,15 @@ the `0.2.1` public preview criteria.
 - Experimental Android runtime through Godot's Android plugin AAR flow
 - Hot reload and editor build tools for a fast iteration loop
 - Growing Godot API wrapper surface with generated KDoc from Godot docs
-- Desktop-first: macOS arm64 is the primary beta 3 validation path; Windows
+- Desktop-first: macOS arm64 is the primary beta 4 validation path; Windows
   x64, Linux x64, and Linux ARM64 remain tracked smoke targets
 
 ## Requirements
 
 Desktop/editor workflow:
 
-- Godot 4.7 beta 3 from the
-  [Godot 4.7 beta 3 archive](https://godotengine.org/download/archive/4.7-beta3/)
+- Godot 4.7 beta 4 from the
+  [Godot 4.7 beta 4 archive](https://godotengine.org/download/archive/4.7-beta4/)
 - JDK 25+ (Temurin 25 recommended)
 - CMake 3.22.1+ and a platform C toolchain for source checkout workflows that
   build the desktop native bootstrap locally; release kits already include the
@@ -74,8 +74,8 @@ Desktop/editor workflow:
 
 Experimental Android export workflow:
 
-- Godot 4.7 beta 3 Android export templates from the
-  [Godot 4.7 beta 3 archive](https://godotengine.org/download/archive/4.7-beta3/)
+- Godot 4.7 beta 4 Android export templates from the
+  [Godot 4.7 beta 4 archive](https://godotengine.org/download/archive/4.7-beta4/)
 - Android SDK API 36, build-tools 36.1.0, and NDK 29.0.14206865 for Godot export
 - CMake 3.22.1 for the Kanama Android plugin native bootstrap
 - JDK 21 for Android Gradle/export tooling

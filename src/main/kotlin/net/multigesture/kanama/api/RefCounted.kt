@@ -6,12 +6,6 @@ import java.lang.foreign.MemorySegment
 /**
  * Base class for reference-counted objects.
  *
- * Most gameplay code should not call [close] on `RefCounted` wrappers. Values
- * returned by Godot APIs, assigned to scene nodes, scheduled as tweens, connected
- * to signals, or otherwise used after the current statement are usually owned by
- * Godot. Use Godot lifecycle APIs instead, and opt in to manual lifetime only for
- * values whose ownership contract is explicitly caller-owned.
- *
  * Generated from Godot docs: RefCounted
  */
 open class RefCounted internal constructor(

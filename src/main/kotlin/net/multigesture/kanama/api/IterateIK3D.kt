@@ -145,9 +145,10 @@ open class IterateIK3D(handle: MemorySegment) : ChainIK3D(handle) {
 
     /**
      * Sets the rotation axis at `joint` in the bone chain's joint list. The axes are based on the
-     * `Skeleton3D.get_bone_rest`'s space, if `axis` is `SkeletonModifier3D.ROTATION_AXIS_CUSTOM`, you
-     * can specify any axis. Note: The rotation axis and the forward vector shouldn't be colinear to
-     * avoid unintended rotation since `ChainIK3D` does not factor in twisting forces.
+     * reference pose's space, if `axis` is `SkeletonModifier3D.ROTATION_AXIS_CUSTOM`, you can specify
+     * any axis. In here, the reference pose is the bone pose immediately before processing IK. Note:
+     * The rotation axis and the forward vector shouldn't be colinear to avoid unintended rotation
+     * since `ChainIK3D` does not factor in twisting forces.
      *
      * Generated from Godot docs: IterateIK3D.set_joint_rotation_axis
      */
@@ -250,8 +251,9 @@ open class IterateIK3D(handle: MemorySegment) : ChainIK3D(handle) {
      * as the +Y axis and `get_joint_limitation_right_axis_vector` as the +X axis. If the +X and +Y
      * axes are not orthogonal, the +X axis is implicitly modified to make it orthogonal. Also, if the
      * length of `get_joint_limitation_right_axis_vector` is zero, the space is created by rotating the
-     * bone rest using the shortest arc that rotates the +Y axis of the bone rest to match the bone
-     * direction.
+     * reference pose using the shortest arc that rotates the +Y axis of the reference pose to match
+     * the bone direction. In here, the reference pose is the bone pose immediately before processing
+     * IK.
      *
      * Generated from Godot docs: IterateIK3D.set_joint_limitation_rotation_offset
      */
@@ -265,8 +267,9 @@ open class IterateIK3D(handle: MemorySegment) : ChainIK3D(handle) {
      * child) as the +Y axis and `get_joint_limitation_right_axis_vector` as the +X axis. If the +X and
      * +Y axes are not orthogonal, the +X axis is implicitly modified to make it orthogonal. Also, if
      * the length of `get_joint_limitation_right_axis_vector` is zero, the space is created by rotating
-     * the bone rest using the shortest arc that rotates the +Y axis of the bone rest to match the bone
-     * direction.
+     * the reference pose using the shortest arc that rotates the +Y axis of the reference pose to
+     * match the bone direction. In here, the reference pose is the bone pose immediately before
+     * processing IK.
      *
      * Generated from Godot docs: IterateIK3D.get_joint_limitation_rotation_offset
      */

@@ -10,9 +10,10 @@ import java.lang.foreign.MemorySegment
  */
 class OptimizedTranslation(handle: MemorySegment) : Translation(handle) {
     /**
-     * Generates and sets an optimized translation from the given `Translation` resource. Note:
-     * Messages in `from` should not use context or plural forms. Note: This method is intended to be
-     * used in the editor. It does nothing when called from an exported project.
+     * Generates and sets an optimized translation from the given `Translation` resource. Returns
+     * `true` if successful. Note: Messages in `from` should not use context or plural forms. Note:
+     * This method is intended to be used in the editor. It does nothing when called from an exported
+     * project.
      *
      * Generated from Godot docs: OptimizedTranslation.generate
      */

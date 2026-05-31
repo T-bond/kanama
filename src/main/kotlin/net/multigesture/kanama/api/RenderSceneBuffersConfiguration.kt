@@ -219,7 +219,9 @@ class RenderSceneBuffersConfiguration(handle: MemorySegment) : RefCounted(handle
     }
 
     /**
-     * Bias applied to mipmaps.
+     * Bias applied to mipmaps. Note: This property is only supported in the Forward+ and Mobile
+     * renderers, not Compatibility. In Compatibility, this property is always treated as if it was set
+     * to `0.0`.
      *
      * Generated from Godot docs: RenderSceneBuffersConfiguration.get_texture_mipmap_bias
      */
@@ -228,7 +230,9 @@ class RenderSceneBuffersConfiguration(handle: MemorySegment) : RefCounted(handle
     }
 
     /**
-     * Bias applied to mipmaps.
+     * Bias applied to mipmaps. Note: This property is only supported in the Forward+ and Mobile
+     * renderers, not Compatibility. In Compatibility, this property is always treated as if it was set
+     * to `0.0`.
      *
      * Generated from Godot docs: RenderSceneBuffersConfiguration.set_texture_mipmap_bias
      */

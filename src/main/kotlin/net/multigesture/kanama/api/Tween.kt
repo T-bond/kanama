@@ -6,10 +6,6 @@ import java.lang.foreign.MemorySegment
 /**
  * Lightweight object used for general-purpose animation via script, using `Tweener`s.
  *
- * `Tween` is a live Godot-owned object after it is created through `Node.createTween()` or
- * `SceneTree.createTween()`. Do not call `close()` on an active tween after scheduling
- * animation work; use `kill()` to cancel it and then drop Kotlin references.
- *
  * Generated from Godot docs: Tween
  */
 class Tween internal constructor(handle: MemorySegment) : RefCounted(handle) {

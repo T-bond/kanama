@@ -1697,11 +1697,13 @@ open class Viewport(handle: MemorySegment) : Node(handle) {
      * Enabling temporal antialiasing (`use_taa`) will automatically apply a `-0.5` offset to this
      * value, while enabling FXAA (`screen_space_aa`) will automatically apply a `-0.25` offset to this
      * value. If both TAA and FXAA are enabled at the same time, an offset of `-0.75` is applied to
-     * this value. Note: If `scaling_3d_scale` is lower than `1.0` (exclusive), `texture_mipmap_bias`
-     * is used to adjust the automatic mipmap bias which is calculated internally based on the scale
-     * factor. The formula for this is `log2(scaling_3d_scale) + mipmap_bias`. To control this property
-     * on the root viewport, set the
-     * `ProjectSettings.rendering/textures/default_filters/texture_mipmap_bias` project setting.
+     * this value. To control this property on the root viewport, set the
+     * `ProjectSettings.rendering/textures/default_filters/texture_mipmap_bias` project setting. Note:
+     * If `scaling_3d_scale` is lower than `1.0` (exclusive), `texture_mipmap_bias` is used to adjust
+     * the automatic mipmap bias which is calculated internally based on the scale factor. The formula
+     * for this is `log2(scaling_3d_scale) + mipmap_bias`. Note: This property is only supported in the
+     * Forward+ and Mobile renderers, not Compatibility. In Compatibility, this property is always
+     * treated as if it was set to `0.0`.
      *
      * Generated from Godot docs: Viewport.set_texture_mipmap_bias
      */
@@ -1716,11 +1718,13 @@ open class Viewport(handle: MemorySegment) : Node(handle) {
      * Enabling temporal antialiasing (`use_taa`) will automatically apply a `-0.5` offset to this
      * value, while enabling FXAA (`screen_space_aa`) will automatically apply a `-0.25` offset to this
      * value. If both TAA and FXAA are enabled at the same time, an offset of `-0.75` is applied to
-     * this value. Note: If `scaling_3d_scale` is lower than `1.0` (exclusive), `texture_mipmap_bias`
-     * is used to adjust the automatic mipmap bias which is calculated internally based on the scale
-     * factor. The formula for this is `log2(scaling_3d_scale) + mipmap_bias`. To control this property
-     * on the root viewport, set the
-     * `ProjectSettings.rendering/textures/default_filters/texture_mipmap_bias` project setting.
+     * this value. To control this property on the root viewport, set the
+     * `ProjectSettings.rendering/textures/default_filters/texture_mipmap_bias` project setting. Note:
+     * If `scaling_3d_scale` is lower than `1.0` (exclusive), `texture_mipmap_bias` is used to adjust
+     * the automatic mipmap bias which is calculated internally based on the scale factor. The formula
+     * for this is `log2(scaling_3d_scale) + mipmap_bias`. Note: This property is only supported in the
+     * Forward+ and Mobile renderers, not Compatibility. In Compatibility, this property is always
+     * treated as if it was set to `0.0`.
      *
      * Generated from Godot docs: Viewport.get_texture_mipmap_bias
      */
