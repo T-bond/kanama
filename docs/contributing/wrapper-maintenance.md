@@ -53,6 +53,27 @@ python3 scripts/generate_name_constants.py
 `scripts/check_wrapper_generator.py` runs the same generator in `--check` mode,
 so a Godot API refresh fails loudly if the committed name constants are stale.
 
+## Coverage Triage
+
+For v0.3.0 wrapper work, use the coverage reports as the baseline instead of
+waiting for another demo to expose a gap:
+
+1. Refresh `docs/reference/api-coverage.md` and
+   `docs/reference/wrapper-generator-report.md`.
+2. Start from the generator skip categories and missing helper shapes.
+3. Rank gaps by common Godot workflows: scene tree, resources, physics queries,
+   animation, UI, input, materials, signals, RPC, and export-facing APIs.
+4. Prefer removing raw escape hatches (`Object.call`, `Object.get`,
+   `Object.set`, string method names, manual handle casts) from normal user
+   workflows over broad class-count increases.
+5. Use public demos as regression coverage after choosing a wrapper slice, not
+   as the only source of wrapper priorities.
+
+The current coverage pages already separate promoted source coverage from
+generator capability. Treat low-coverage areas such as variant/dictionary
+helper shapes, typed arrays, and multiplayer/editor methods as API design work:
+add helper policy and audits before promoting wider wrappers.
+
 ## KDoc Maintenance
 
 Public Godot-backed wrappers and builtin value types carry generated KDoc
