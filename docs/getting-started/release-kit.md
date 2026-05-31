@@ -5,6 +5,11 @@ Kanama repository. A desktop kit is a complete starter Godot project with the
 Kanama addon, editor tools, Gradle wrapper, local Maven dependencies, and a
 starter Kotlin script.
 
+The generated `build.gradle.kts` is intentionally small. It applies the Kotlin
+and KSP plugins, declares the Kotlin script source folder, then delegates
+Kanama repositories, dependencies, and `buildScripts`/Godot helper tasks to
+`addons/kanama/kanama-project.gradle.kts`.
+
 ## 1. Download a Desktop Kit
 
 Download the matching artifact from the Kanama GitHub release:

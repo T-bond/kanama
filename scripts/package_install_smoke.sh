@@ -232,10 +232,8 @@ if [[ "$detected_kind" == "store-addon" ]]; then
     exit 1
   fi
 
-  cp -R "$project_dir/addons/kanama/templates/release-kit/." "$project_dir/"
   write_smoke_project_files
-  mkdir -p "$project_dir/.godot"
-  printf 'res://addons/kanama/kanama.gdextension\n' >"$project_dir/.godot/extension_list.cfg"
+  (cd "$project_dir" && sh addons/kanama/setup-kanama-project.sh)
 
   require_native_library "$(host_platform_classifier)"
   if [[ "$require_all_store_platforms" -eq 1 ]]; then
@@ -255,6 +253,7 @@ check_file "gradlew"
 check_file "kotlin-src/HelloScript.kt"
 check_file "addons/kanama/kanama.jar"
 check_file "addons/kanama/kanama.gdextension"
+check_file "addons/kanama/kanama-project.gradle.kts"
 check_file ".godot/extension_list.cfg"
 
 if ! grep -Fxq "res://addons/kanama/kanama.gdextension" "$project_dir/.godot/extension_list.cfg"; then

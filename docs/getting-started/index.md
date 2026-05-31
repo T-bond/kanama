@@ -1,7 +1,7 @@
 # Getting Started
 
-Kanama supports four desktop install paths. Choose the path that matches what
-you are trying to do.
+Kanama's normal desktop path is a packaged addon or desktop kit. Choose source
+only when you need unreleased Kanama changes or are working on Kanama itself.
 
 | Path | Use it when | Start here |
 | --- | --- | --- |
@@ -26,7 +26,8 @@ Desktop Kanama projects use:
 
 Source and contributor workflows also require CMake 3.22.1+ and the platform C
 toolchain because they build the native bootstrap locally. Release kits already
-contain the native bootstrap for their platform.
+contain the native bootstrap for their platform, and store addons contain the
+desktop native libraries included in the release artifact.
 
 ## How Kanama Fits Into Godot
 

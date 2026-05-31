@@ -12,8 +12,25 @@ This addon package is install-safe for existing Godot projects. It provides:
   `addons/kanama/templates/release-kit`.
 
 The template directory is safe to keep under `addons/`: it does not include a
-nested `project.godot` or `main.tscn`. Copy the Gradle template files to your
-project root only when you are ready to wire Kanama into that project.
+nested `project.godot` or `main.tscn`.
+
+From the root of your Godot project, initialize Kanama:
+
+```sh
+sh addons/kanama/setup-kanama-project.sh
+./gradlew buildScripts
+```
+
+On Windows:
+
+```powershell
+.\addons\kanama\setup-kanama-project.ps1
+.\gradlew.bat buildScripts
+```
+
+The setup script keeps existing root Gradle files by default. If your project
+already has Gradle files, merge the small template build shape manually or run
+with `--force` only when replacing those files is safe.
 
 Desktop projects require Godot 4.7 beta 3 or newer matching Kanama's supported
 version and JDK 25 or newer. Set `JAVA_HOME` if Kanama cannot find `libjvm`.

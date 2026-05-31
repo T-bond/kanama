@@ -23,37 +23,29 @@ On macOS, clear quarantine after unzipping a package you trust:
 xattr -dr com.apple.quarantine /absolute/path/to/project
 ```
 
-## 2. Add the Build Template
+## 2. Initialize the Project
 
-If the project does not already have a Gradle build, copy the packaged template
-files to the project root:
-
-```sh
-cp addons/kanama/templates/release-kit/build.gradle.kts .
-cp addons/kanama/templates/release-kit/settings.gradle.kts .
-cp addons/kanama/templates/release-kit/gradlew .
-cp addons/kanama/templates/release-kit/gradlew.bat .
-cp -R addons/kanama/templates/release-kit/gradle .
-mkdir -p kotlin-src
-cp addons/kanama/templates/release-kit/kotlin-src/HelloScript.kt kotlin-src/
-```
-
-If the project already has Gradle files, merge the Kanama repository,
-dependency, KSP, and `buildScripts` sections from the template instead of
-replacing your build.
-
-## 3. Register the Extension
-
-Kanama must be listed in Godot's extension list:
+From the Godot project root, run the packaged setup script:
 
 ```sh
-mkdir -p .godot
-printf 'res://addons/kanama/kanama.gdextension\n' > .godot/extension_list.cfg
+sh addons/kanama/setup-kanama-project.sh
 ```
 
-Then reopen or import the project in Godot.
+On Windows:
 
-## 4. Build Scripts
+```powershell
+.\addons\kanama\setup-kanama-project.ps1
+```
+
+The setup script copies the starter Gradle files when they are missing, adds
+`kotlin-src/HelloScript.kt`, and registers
+`res://addons/kanama/kanama.gdextension` in `.godot/extension_list.cfg`.
+
+If the project already has Gradle files, the setup script keeps them. Merge the
+small template `build.gradle.kts` shape manually, or run the script with
+`--force` only when replacing the root Gradle files is safe.
+
+## 3. Build Scripts
 
 Compile the Kotlin scripts:
 
@@ -69,6 +61,12 @@ On Windows:
 
 This writes `addons/kanama/kanama-scripts.jar`. Attach `.kt` scripts to nodes
 the same way you attach other Godot script resources.
+
+## 4. Open and Run
+
+Open or reopen the project in Godot, enable the `Kanama Tools` plugin if needed,
+and press **Play**. After editing Kotlin files, use **Build Scripts** in the
+editor or rerun `./gradlew buildScripts`.
 
 ## Troubleshooting
 

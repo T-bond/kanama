@@ -2,6 +2,9 @@
 
 This project is ready to run with the packaged Kanama addon.
 
+`build.gradle.kts` is intentionally small. Kanama's reusable repositories,
+dependencies, and build/run tasks live in `addons/kanama/kanama-project.gradle.kts`.
+
 ## Build Kotlin scripts
 
 ```sh

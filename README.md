@@ -97,7 +97,15 @@ Open `kanama-starter/project.godot` in Godot and press **Play**. After editing
 `./gradlew buildScripts`.
 
 For an existing Godot project, download `kanama-store-addon-v<version>.zip`
-instead and follow [Use a Store Addon](docs/getting-started/store-addon.md).
+instead, unzip it at the project root, then initialize the project:
+
+```sh
+sh addons/kanama/setup-kanama-project.sh
+./gradlew buildScripts
+```
+
+See [Use a Store Addon](docs/getting-started/store-addon.md) for the Windows
+command and existing-Gradle-project notes.
 
 For the source checkout workflow:
 

@@ -532,12 +532,19 @@ tasks.register<Zip>("packageDesktopKit") {
     from(layout.projectDirectory.dir("templates/starter/addons/kanama_tools")) {
         into("addons/kanama_tools")
     }
+    from(layout.projectDirectory.file("LICENSE")) {
+        into("addons/kanama_tools")
+    }
     from(packageGdextensionDescriptorFile) {
         into("addons/kanama")
         rename { "kanama.gdextension" }
     }
     from(layout.buildDirectory.file("libs/kanama.jar")) {
         into("addons/kanama")
+    }
+    from(layout.projectDirectory.file("templates/consumer-gradle/kanama-project.gradle.kts")) {
+        into("addons/kanama")
+        filter { line: String -> line.replace("@KANAMA_VERSION@", project.version.toString()) }
     }
     from(packageMavenRepositoryDir) {
         into("addons/kanama/maven")
@@ -602,12 +609,19 @@ tasks.register<Zip>("packageStoreAddon") {
     from(layout.projectDirectory.dir("templates/starter/addons/kanama_tools")) {
         into("addons/kanama_tools")
     }
+    from(layout.projectDirectory.file("LICENSE")) {
+        into("addons/kanama_tools")
+    }
     from(packageGdextensionDescriptorFile) {
         into("addons/kanama")
         rename { "kanama.gdextension" }
     }
     from(layout.buildDirectory.file("libs/kanama.jar")) {
         into("addons/kanama")
+    }
+    from(layout.projectDirectory.file("templates/consumer-gradle/kanama-project.gradle.kts")) {
+        into("addons/kanama")
+        filter { line: String -> line.replace("@KANAMA_VERSION@", project.version.toString()) }
     }
     from(packageMavenRepositoryDir) {
         into("addons/kanama/maven")
@@ -616,6 +630,15 @@ tasks.register<Zip>("packageStoreAddon") {
         into("addons/kanama")
     }
     from(layout.projectDirectory.file("templates/store-addon/README.md")) {
+        into("addons/kanama")
+    }
+    from(layout.projectDirectory.file("templates/store-addon/setup-kanama-project.sh")) {
+        into("addons/kanama")
+        filePermissions {
+            unix("rwxr-xr-x")
+        }
+    }
+    from(layout.projectDirectory.file("templates/store-addon/setup-kanama-project.ps1")) {
         into("addons/kanama")
     }
     from(layout.projectDirectory.dir("templates/release-kit")) {
