@@ -7,6 +7,22 @@ versioning once public releases begin.
 
 ## Unreleased
 
+## 0.2.2 - 2026-06-05
+
+### Changed
+
+- Updated the Kanama preview baseline to Godot 4.7 beta 5.
+- Refreshed `extension_api.json` and generated Godot API name constants for the
+  beta 5 version metadata; the beta 5 API/header body matches the beta 4 input
+  used by the previous preview.
+- Updated Gradle coordinates, release packaging defaults, documentation, and
+  demo project defaults for Kanama `0.2.2`.
+
+### Known Limitations
+
+- Android remains experimental. Godot 4.7 beta 5 Android APK smoke validation is
+  pending before changing Android support claims.
+
 ## 0.2.1 - 2026-05-26
 
 ### Added

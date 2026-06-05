@@ -1,9 +1,13 @@
 # Use a Release Kit
 
-Release kits are the default install path for trying Kanama without cloning the
-Kanama repository. A desktop kit is a complete starter Godot project with the
-Kanama addon, editor tools, Gradle wrapper, local Maven dependencies, and a
-starter Kotlin script.
+Release kits are generated package artifacts for trying Kanama without a
+sibling Kanama source checkout. A desktop kit is a complete starter Godot
+project with the Kanama addon, editor tools, Gradle wrapper, local Maven
+dependencies, and a starter Kotlin script.
+
+If no matching GitHub zip release exists yet, use
+[a source checkout](source-checkout.md) or build a local kit with
+`./gradlew packageDesktopKit`.
 
 The generated `build.gradle.kts` is intentionally small. It applies the Kotlin
 and KSP plugins, declares the Kotlin script source folder, then delegates
@@ -12,7 +16,8 @@ Kanama repositories, dependencies, and `buildScripts`/Godot helper tasks to
 
 ## 1. Download a Desktop Kit
 
-Download the matching artifact from the Kanama GitHub release:
+Use a locally built kit from `build/distributions/`, or download the matching
+artifact from a Kanama GitHub release when one exists:
 
 | Platform | Artifact |
 | --- | --- |

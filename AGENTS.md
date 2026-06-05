@@ -54,7 +54,7 @@ publishing or rewriting history:
 mkdocs build --strict
 python3 scripts/check_wrapper_generator.py
 ./gradlew jar
-./scripts/local_ci.sh /path/to/godot-4.7-beta4
+./scripts/local_ci.sh /path/to/godot-4.7-beta5
 ```
 
 Use demo-repo smoke tasks when a change affects real gameplay ports or Android

@@ -1,14 +1,19 @@
 # Use a Store Addon
 
-Use this path when you want to add Kanama to an existing Godot project without
-cloning the Kanama source repository. The store addon is install-safe: it adds
-files under `addons/` and keeps project-root Gradle files inside a template
-folder until you copy them.
+Use this path when you have a generated store-addon zip and want to add Kanama
+to an existing Godot project without a sibling Kanama source checkout. The
+store addon is install-safe: it adds files under `addons/` and keeps
+project-root Gradle files inside a template folder until you copy them.
+
+If no matching GitHub zip release exists yet, use
+[a source checkout](source-checkout.md) or build a local addon with
+`./gradlew packageStoreAddon`.
 
 ## 1. Download the Addon
 
-Download `kanama-store-addon-v<version>.zip` from a Kanama GitHub release and
-unzip it at the root of your Godot project.
+Use `build/distributions/kanama-store-addon-v<version>.zip` from a local
+package build, or download `kanama-store-addon-v<version>.zip` from a Kanama
+GitHub release when one exists. Unzip it at the root of your Godot project.
 
 The zip adds:
 

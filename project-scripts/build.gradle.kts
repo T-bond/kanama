@@ -7,7 +7,7 @@ import com.google.devtools.ksp.gradle.KspAATask
 import java.security.MessageDigest
 
 group = "net.multigesture.kanama"
-version = "0.2.1"
+version = "0.2.2"
 
 repositories {
     mavenCentral()

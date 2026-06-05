@@ -11,7 +11,7 @@
 
 <p align="center">
   <a href="LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/license-MIT-blue.svg"></a>
-  <img alt="Godot 4.7 beta 4" src="https://img.shields.io/badge/Godot-4.7_beta_4-478cbf.svg">
+  <img alt="Godot 4.7 beta 5" src="https://img.shields.io/badge/Godot-4.7_beta_5-478cbf.svg">
   <img alt="JDK 25+" src="https://img.shields.io/badge/JDK-25%2B-f89820.svg">
   <img alt="Android: experimental" src="https://img.shields.io/badge/Android-experimental-3ddc84.svg">
   <img alt="Status: experimental" src="https://img.shields.io/badge/status-experimental-yellow.svg">
@@ -32,21 +32,24 @@ separate project with a different runtime and export model.
 
 ## Status
 
-Kanama is experimental and desktop-first. The `0.2.1` preview baseline is
-Godot 4.7 beta 4. Use the
-[Godot 4.7 beta 4 archive](https://godotengine.org/download/archive/4.7-beta4/)
+Kanama is experimental and desktop-first. The `0.2.2` preview baseline is
+Godot 4.7 beta 5. Use the
+[Godot 4.7 beta 5 archive](https://godotengine.org/download/archive/4.7-beta5/)
 for compatible editor/player binaries and Android export templates. Desktop
-release kits are the packaging path for new projects; exported-game packaging
-remains a separate release-readiness track.
+release kits and store add-ons are package artifacts that can be built from
+source today and are the intended release path; exported-game packaging remains
+a separate release-readiness track.
 
-Android support is experimental for the v0.2.1 line: the current workflow builds
+Android support is experimental for the v0.2.2 line: the current workflow builds
 a Godot Android plugin AAR, uses
 [PanamaPort](https://github.com/vova7878/PanamaPort) from Maven Central for the
-Android FFM layer, and has emulator/Pixel 7 smoke coverage for public demo APKs.
+Android FFM layer, and keeps APK smoke validation as a separate gate. Godot 4.7
+beta 5 Android export revalidation is pending before updating Android support
+claims.
 Web export is not planned.
 
 See [Version Support](docs/reference/version-support.md) for the current test matrix and
-the `0.2.1` public preview criteria.
+the `0.2.2` public preview criteria.
 
 ## Highlights
 
@@ -56,15 +59,15 @@ the `0.2.1` public preview criteria.
 - Experimental Android runtime through Godot's Android plugin AAR flow
 - Hot reload and editor build tools for a fast iteration loop
 - Growing Godot API wrapper surface with generated KDoc from Godot docs
-- Desktop-first: macOS arm64 is the primary beta 4 validation path; Windows
+- Desktop-first: macOS arm64 is the primary beta 5 validation path; Windows
   x64, Linux x64, and Linux ARM64 remain tracked smoke targets
 
 ## Requirements
 
 Desktop/editor workflow:
 
-- Godot 4.7 beta 4 from the
-  [Godot 4.7 beta 4 archive](https://godotengine.org/download/archive/4.7-beta4/)
+- Godot 4.7 beta 5 from the
+  [Godot 4.7 beta 5 archive](https://godotengine.org/download/archive/4.7-beta5/)
 - JDK 25+ (Temurin 25 recommended)
 - CMake 3.22.1+ and a platform C toolchain for source checkout workflows that
   build the desktop native bootstrap locally; release kits already include the
@@ -74,8 +77,9 @@ Desktop/editor workflow:
 
 Experimental Android export workflow:
 
-- Godot 4.7 beta 4 Android export templates from the
-  [Godot 4.7 beta 4 archive](https://godotengine.org/download/archive/4.7-beta4/)
+- Godot 4.7 beta 5 Android export templates from the
+  [Godot 4.7 beta 5 archive](https://godotengine.org/download/archive/4.7-beta5/);
+  Kanama's beta 5 Android APK smoke matrix is pending revalidation
 - Android SDK API 36, build-tools 36.1.0, and NDK 29.0.14206865 for Godot export
 - CMake 3.22.1 for the Kanama Android plugin native bootstrap
 - JDK 21 for Android Gradle/export tooling
@@ -83,31 +87,7 @@ Experimental Android export workflow:
 
 ## Quick Start
 
-For a release kit, download the matching desktop zip from a Kanama GitHub
-release and build the starter Kotlin script. Use this path for a new project:
-
-```sh
-unzip kanama-desktop-kit-v<version>-<platform>.zip -d kanama-starter
-cd kanama-starter
-./gradlew buildScripts
-```
-
-Open `kanama-starter/project.godot` in Godot and press **Play**. After editing
-`kotlin-src/HelloScript.kt`, press **Build Scripts** in Godot or rerun
-`./gradlew buildScripts`.
-
-For an existing Godot project, download `kanama-store-addon-v<version>.zip`
-instead, unzip it at the project root, then initialize the project:
-
-```sh
-sh addons/kanama/setup-kanama-project.sh
-./gradlew buildScripts
-```
-
-See [Use a Store Addon](docs/getting-started/store-addon.md) for the Windows
-command and existing-Gradle-project notes.
-
-For the source checkout workflow:
+Use a source checkout for the current public onboarding path:
 
 ```sh
 git clone https://github.com/falcon4ever/kanama
@@ -118,6 +98,37 @@ cd kanama
   -PkanamaProjectDir=/path/to/kanama-starter \
   -PkanamaProjectScriptsDir=/path/to/kanama-starter
 ```
+
+Open `kanama-starter/project.godot` in Godot and press **Play**. After editing
+`kotlin-src/HelloScript.kt`, press **Build Scripts** in Godot or rerun
+`./gradlew buildScripts`.
+
+Package tasks can also build local desktop kit and store-addon zips for smoke
+testing:
+
+```sh
+./gradlew packageDistributions
+```
+
+If a matching GitHub zip release exists, a release kit can be used for a new
+project:
+
+```sh
+unzip kanama-desktop-kit-v<version>-<platform>.zip -d kanama-starter
+cd kanama-starter
+./gradlew buildScripts
+```
+
+For an existing Godot project and a locally built or published store-addon zip,
+unzip it at the project root, then initialize the project:
+
+```sh
+sh addons/kanama/setup-kanama-project.sh
+./gradlew buildScripts
+```
+
+The release-kit and store-addon pages describe those generated zip shapes; they
+become download flows once matching release artifacts are published.
 
 ## Example
 

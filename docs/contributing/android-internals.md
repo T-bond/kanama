@@ -1,12 +1,13 @@
 # Android Internals
 
 This page records the current Android implementation path. Android is an
-experimental Kanama target for the Godot 4.7 beta 4 preview baseline, and the
+experimental Kanama target for the Godot 4.7 beta 5 preview baseline, and the
 API/build flow is less settled than the desktop path.
 
 ## What Works
 
-Eight Kanama demo exports are covered by the Android smoke matrix:
+Eight Kanama demo exports are Android smoke targets. The Godot 4.7 beta 5
+Android matrix is pending revalidation:
 
 - `godot-demo-2d-dodge-the-creeps`
 - `Starter-Kit-3D-Platformer`
@@ -56,7 +57,7 @@ The build tools are also separate from the runtime:
 
 - Desktop development currently uses JDK 25.
 - Godot's Android Gradle export flow is run with JDK 21.
-- Godot 4.7 beta 4 Android export templates require Android SDK platform API
+- Godot 4.7 beta 5 Android export templates require Android SDK platform API
   36, build-tools 36.1.0, and NDK 29.0.14206865.
 - The exported Android game runs on ART and PanamaPort, not on a desktop JVM.
 
@@ -130,6 +131,6 @@ not leave demo processes alive after validation.
 
 Android validation uses the normal demo folders plus Android export metadata,
 the Kanama Android plugin AAR, `adb install`, logcat checks, screenshots, and a
-forced package stop after the run. Emulator validation is enough for the current
-experimental claim; physical device validation would be a stronger platform
-claim.
+forced package stop after the run. Keep beta 5 support wording pending until
+the matching APK smoke matrix passes; physical device validation remains a
+stronger platform claim.
