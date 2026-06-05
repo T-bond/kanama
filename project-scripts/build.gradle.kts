@@ -53,7 +53,7 @@ kotlin {
 dependencies {
     implementation(project(":"))
     implementation(project(":annotations"))
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.10.2")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.11.0")
     ksp(project(":processor"))
 }
 

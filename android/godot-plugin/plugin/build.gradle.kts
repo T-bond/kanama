@@ -277,5 +277,5 @@ tasks.named("preBuild") {
 dependencies {
     compileOnly(project(":godot-stubs"))
     implementation("io.github.vova7878.panama:Core:v0.1.3")
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.10.2")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.11.0")
 }

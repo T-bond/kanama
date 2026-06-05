@@ -23,7 +23,7 @@ repositories {
 dependencies {
     "implementation"("net.multigesture.kanama:kanama:${kanamaVersion.get()}")
     "implementation"("net.multigesture.kanama:annotations:${kanamaVersion.get()}")
-    "implementation"("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.10.2")
+    "implementation"("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.11.0")
     "ksp"("net.multigesture.kanama:processor:${kanamaVersion.get()}")
 }
 

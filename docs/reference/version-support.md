@@ -35,6 +35,12 @@ Release version changes should be paired with matching Gradle coordinates, docs
 snippets, demo project versions, badges, changelog headings, and a passing
 smoke matrix for every claimed target.
 
+## Build Toolchain
+
+The current source build uses Kotlin `2.3.21`, KSP `2.3.9`, and
+kotlinx.coroutines `1.11.0`. Gradle build cache is enabled for the main Kanama
+build and the experimental Android plugin build.
+
 ## Android
 
 Android is tracked separately from the desktop matrix. The current Android path

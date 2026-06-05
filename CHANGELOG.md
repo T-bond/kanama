@@ -7,6 +7,12 @@ versioning once public releases begin.
 
 ## Unreleased
 
+### Changed
+
+- Updated the build toolchain to Kotlin 2.3.21, KSP 2.3.9, and
+  kotlinx.coroutines 1.11.0, with Gradle build cache enabled for the main and
+  Android plugin builds.
+
 ## 0.2.2 - 2026-06-05
 
 ### Changed

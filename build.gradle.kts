@@ -1,6 +1,6 @@
 plugins {
-    kotlin("jvm") version "2.3.0" apply false
-    id("com.google.devtools.ksp") version "2.3.0" apply false
+    kotlin("jvm") version "2.3.21" apply false
+    id("com.google.devtools.ksp") version "2.3.9" apply false
 }
 
 group = "net.multigesture.kanama"
@@ -140,7 +140,7 @@ configure<PublishingExtension> {
 
 dependencies {
     "implementation"(project(":annotations"))
-    "implementation"("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.10.2")
+    "implementation"("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.11.0")
     "ksp"(project(":processor"))
 }
 
