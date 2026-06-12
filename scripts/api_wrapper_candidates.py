@@ -114,6 +114,36 @@ CALL_SHAPES: dict[tuple[tuple[str, ...], str], CallShape] = {
         "List<Vector2>",
         "emptyList()",
     ),
+    (("Vector3i",), "TypedVector3iArray"): CallShape(
+        "ptrcallWithVector3iArgRetVector3iList",
+        "List<Vector3i>",
+        "emptyList()",
+    ),
+    (("Vector3i", "int32"), "TypedVector3iArray"): CallShape(
+        "ptrcallWithVector3iAndIntArgRetVector3iList",
+        "List<Vector3i>",
+        "emptyList()",
+    ),
+    (("AABB",), "TypedVector3iArray"): CallShape(
+        "ptrcallWithAABBArgRetVector3iList",
+        "List<Vector3i>",
+        "emptyList()",
+    ),
+    (("int64",), "PackedColorArray"): CallShape(
+        "ptrcallWithLongArgRetPackedColorList",
+        "List<Color>",
+        "emptyList()",
+    ),
+    (("RID", "int64"), "PackedColorArray"): CallShape(
+        "ptrcallWithRIDAndLongArgRetPackedColorList",
+        "List<Color>",
+        "emptyList()",
+    ),
+    (("Dictionary",), "Array"): CallShape(
+        "ptrcallWithDictionaryArgRetArray",
+        "List<Any?>",
+        "emptyList()",
+    ),
     (("Object",), "void"): CallShape("ptrcallWithObjectArgs", "Unit"),
     (("Object",), "bool"): CallShape("ptrcallWithObjectArgRetBool", "Boolean", "false"),
     (("Object",), "int64"): CallShape("ptrcallWithObjectArgRetLong", "Long", "0L"),

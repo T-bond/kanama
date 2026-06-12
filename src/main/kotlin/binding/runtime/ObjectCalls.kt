@@ -27137,6 +27137,120 @@ object ObjectCalls {
         }
     }
 
+    fun ptrcallWithVector3iArgRetVector3iList(
+        methodBind: MemorySegment,
+        instance: MemorySegment,
+        value: Vector3i,
+    ): List<Vector3i> {
+        Arena.ofConfined().use { arena ->
+            val vec = arena.allocate(12L, 4L)
+            writeVector3i(vec, value)
+            val arr = arena.allocate(ADDRESS, 1)
+            arr.setAtIndex(ADDRESS, 0, vec)
+            return callArrayReturn(methodBind, instance, arr, BuiltinTypes::readArrayVector3i)
+        }
+    }
+
+    fun ptrcallWithVector3iAndIntArgRetVector3iList(
+        methodBind: MemorySegment,
+        instance: MemorySegment,
+        value: Vector3i,
+        intArg: Int,
+    ): List<Vector3i> {
+        Arena.ofConfined().use { arena ->
+            val vec = arena.allocate(12L, 4L)
+            writeVector3i(vec, value)
+            val intCell = arena.allocate(JAVA_INT)
+            intCell.set(JAVA_INT, 0, intArg)
+            val arr = arena.allocate(ADDRESS, 2)
+            arr.setAtIndex(ADDRESS, 0, vec)
+            arr.setAtIndex(ADDRESS, 1, intCell)
+            return callArrayReturn(methodBind, instance, arr, BuiltinTypes::readArrayVector3i)
+        }
+    }
+
+    fun ptrcallWithAABBArgRetVector3iList(
+        methodBind: MemorySegment,
+        instance: MemorySegment,
+        value: AABB,
+    ): List<Vector3i> {
+        Arena.ofConfined().use { arena ->
+            val aabb = arena.allocate(GodotReal.SIZE_BYTES * 6, GodotReal.ALIGN_BYTES)
+            writeAABB(aabb, value)
+            val arr = arena.allocate(ADDRESS, 1)
+            arr.setAtIndex(ADDRESS, 0, aabb)
+            return callArrayReturn(methodBind, instance, arr, BuiltinTypes::readArrayVector3i)
+        }
+    }
+
+    fun ptrcallWithLongArgRetPackedColorList(
+        methodBind: MemorySegment,
+        instance: MemorySegment,
+        value: Long,
+    ): List<Color> {
+        Arena.ofConfined().use { arena ->
+            val longCell = arena.allocate(JAVA_LONG)
+            longCell.set(JAVA_LONG, 0, value)
+            val args = arena.allocate(ADDRESS, 1)
+            args.setAtIndex(ADDRESS, 0, longCell)
+            val ret = BuiltinTypes.allocatePackedArray(arena)
+            objectMethodBindPtrcall.invoke(methodBind, instance, args, ret)
+            return try {
+                BuiltinTypes.readPackedColorArray(ret)
+            } finally {
+                BuiltinTypes.destroyTyped(VariantType.PACKED_COLOR_ARRAY, ret)
+            }
+        }
+    }
+
+    fun ptrcallWithRIDAndLongArgRetPackedColorList(
+        methodBind: MemorySegment,
+        instance: MemorySegment,
+        rid: RID,
+        value: Long,
+    ): List<Color> {
+        Arena.ofConfined().use { arena ->
+            val ridCell = arena.allocate(JAVA_LONG)
+            val valueCell = arena.allocate(JAVA_LONG)
+            ridCell.set(JAVA_LONG, 0, rid.value)
+            valueCell.set(JAVA_LONG, 0, value)
+            val args = arena.allocate(ADDRESS, 2)
+            args.setAtIndex(ADDRESS, 0, ridCell)
+            args.setAtIndex(ADDRESS, 1, valueCell)
+            val ret = BuiltinTypes.allocatePackedArray(arena)
+            objectMethodBindPtrcall.invoke(methodBind, instance, args, ret)
+            return try {
+                BuiltinTypes.readPackedColorArray(ret)
+            } finally {
+                BuiltinTypes.destroyTyped(VariantType.PACKED_COLOR_ARRAY, ret)
+            }
+        }
+    }
+
+    fun ptrcallWithDictionaryArgRetArray(
+        methodBind: MemorySegment,
+        instance: MemorySegment,
+        values: Map<String, Any?>,
+    ): List<Any?> {
+        Arena.ofConfined().use { arena ->
+            val dict = arena.allocate(8L, 8L)
+            try {
+                BuiltinTypes.initDictionary(dict, values)
+                val args = arena.allocate(ADDRESS, 1)
+                args.setAtIndex(ADDRESS, 0, dict)
+                val ret = arena.allocate(8L, 8L)
+                objectMethodBindPtrcall.invoke(methodBind, instance, args, ret)
+                return try {
+                    BuiltinTypes.readArrayScalars(ret)
+                } finally {
+                    BuiltinTypes.destroyTyped(VariantType.ARRAY, ret)
+                }
+            } finally {
+                BuiltinTypes.destroyTyped(VariantType.DICTIONARY, dict)
+            }
+        }
+    }
+
     fun ptrcallWithTwoVector3iArgs(
         methodBind: MemorySegment,
         instance: MemorySegment,

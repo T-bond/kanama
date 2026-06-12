@@ -21,7 +21,7 @@ Commits go straight to `main`, attributed `Co-Authored-By: Claude Fable 5`.
 | Task | Model | Status | Notes |
 |---|---|---|---|
 | 1.1 Scalar-combo CALL_SHAPES | sonnet | done | 2026-06-12: +19 shapes, +20 methods (15,265→15,285); fable-reviewed |
-| 1.2 Container returns (Array/Dictionary/Typed*/Packed*) | opus | todo | |
+| 1.2 Container returns (Array/Dictionary/Typed*/Packed*) | opus | done | 2026-06-12: +6 shapes, +14 methods (→15,299); (Dictionary)→Dictionary policy-blocked by design; fable-reviewed |
 | 1.3 Variant / RID returns | opus | todo | |
 | 1.4 Callable argument design | fable | todo | |
 
@@ -79,3 +79,8 @@ Gated on Phase 4 exit. Not started by decision.
   cosmetic doc fix). 19 new CALL_SHAPES, 18 new ObjectCalls helpers, +20
   methods. Remaining "unsupported helper shape" skips are all
   Variant/typedarray/Packed*-arg or container-return → Phases 1.2/1.3.
+- **2026-06-12** — Phase 1.2 done (opus impl, fable review: COMMIT, info-nits
+  only). 6 container-return shapes, +14 methods (→15,299). Skips now 1,523;
+  remaining helper-shape skips all carry Variant/typedarray/Packed*/Signal
+  args or Variant returns → Phase 1.3+. (Dictionary)→Dictionary stays
+  policy-blocked (non-String-key policy in audit_generator_shape_policy.py).
