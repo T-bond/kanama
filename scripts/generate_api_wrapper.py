@@ -632,9 +632,15 @@ def candidate_for(method: ApiMethod, object_types: set[str]) -> CallShape | None
     if (
         logical_return == "Object"
         and logical_args == ("Callable",)
-        and method.return_type in {"CallbackTweener", "JavaScriptObject", "PropertyTweener"}
+        and method.return_type in {"CallbackTweener", "JavaScriptObject", "OpenXRFutureResult", "PropertyTweener"}
     ):
         return CallShape("ptrcallWithCallableArgRetObject", "MemorySegment", "MemorySegment.NULL")
+    if (
+        logical_return == "Object"
+        and logical_args == ("String", "Callable")
+        and method.return_type == "JavaObject"
+    ):
+        return CallShape("ptrcallWithStringCallableArgsRetObject", "MemorySegment", "MemorySegment.NULL")
     if (
         logical_return == "Object"
         and logical_args == ("Callable", "Variant", "Variant", "float")
@@ -784,6 +790,20 @@ def candidate_for(method: ApiMethod, object_types: set[str]) -> CallShape | None
             return CallShape("ptrcallWithObjectListObjectCallableArgsRetObject", "MemorySegment", "MemorySegment.NULL")
         if logical_args == ("RID", "PackedInt64Array", "Object", "Callable"):
             return CallShape("ptrcallWithRIDPackedInt64ListObjectCallableArgsRetObject", "MemorySegment", "MemorySegment.NULL")
+        if (
+            len(logical_args) == 4
+            and logical_args[0] == "RID"
+            and typed_object_array_element(logical_args[1])
+            and logical_args[2:] == ("Object", "Callable")
+        ):
+            return CallShape("ptrcallWithRIDObjectListObjectCallableArgsRetObject", "MemorySegment", "MemorySegment.NULL")
+        if (
+            len(logical_args) == 5
+            and logical_args[0] == "RID"
+            and typed_object_array_element(logical_args[1])
+            and logical_args[2:] == ("Object", "Object", "Callable")
+        ):
+            return CallShape("ptrcallWithRIDObjectListTwoObjectCallableArgsRetObject", "MemorySegment", "MemorySegment.NULL")
     return CALL_SHAPES.get((logical_args, logical_return))
 
 

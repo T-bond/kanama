@@ -23,7 +23,7 @@ Commits go straight to `main`, attributed `Co-Authored-By: Claude Fable 5`.
 | 1.1 Scalar-combo CALL_SHAPES | sonnet | done | 2026-06-12: +19 shapes, +20 methods (15,265→15,285); fable-reviewed |
 | 1.2 Container returns (Array/Dictionary/Typed*/Packed*) | opus | done | 2026-06-12: +6 shapes, +14 methods (→15,299); (Dictionary)→Dictionary policy-blocked by design; fable-reviewed |
 | 1.3 Variant / RID returns | opus | done | 2026-06-12: +9 shapes, +14 methods (→15,313); typed-array args blocked (no init paths); fable-reviewed |
-| 1.4 Callable argument design | fable | todo | |
+| 1.4 Callable argument design | fable | done | 2026-06-12: design doc + 3 helpers, +6 methods (→15,319); lambda→Callable deferred by design (callable-args-design.md) |
 
 ## Phase 2 — iOS audited type widening
 
@@ -95,3 +95,28 @@ Gated on Phase 4 exit. Not started by decision.
   Remaining out-of-scope skips: Callable (1.4), Signal arg (Tween.tween_await),
   (Dictionary)→Dictionary policy gate, EditorExportPlatform.export_project,
   Font.find_variation.
+- **2026-06-12** — Phase 1.4 done (fable design + impl). Design doc:
+  [callable-args-design.md](./callable-args-design.md). Decision: generated
+  wrappers keep object+method `GodotCallable` (lifetime engine-side via
+  ObjectID; destroy cell after ptrcall — engine copy-constructs Callable
+  params); Kotlin-lambda→Callable deferred to a future custom-callable task
+  (callable_custom_create2, free_func-driven registry lifetime) with the
+  iOS C-shim counterpart noted. 3 new ObjectCalls helpers
+  (StringCallable→Object, RID+ObjectList+Object[+Object]+Callable→Object) +
+  hand-audited candidate_for entries (Callable stays out of CALL_SHAPES per
+  shape-policy audit). +6 methods (→15,319, skips 1,503): JavaClassWrapper
+  .create_sam_callback, OpenXRSpatialAnchorCapability
+  .create_default_persistence_context + .start_entity_discovery,
+  OpenXRSpatialMarkerTracking/PlaneTracking .start_entity_discovery,
+  OpenXRSpatialEntityExtension.discover_spatial_entities_with_component_data.
+  All remaining Callable skips are virtual `_*` or root-Object (deliberate).
+  Gates: fixtures, signature/shape/layout/variant-policy audits, exact -6
+  delta, compileKotlin — all pass. Phase 1 desktop/Android shape gaps:
+  complete except deliberately blocked items below.
+  Correction to the 1.3 blocked rationale: TypedObjectArray ARGS *do* have
+  an audited init path (`initArrayOfObjects`, reused by the 1.4 OpenXR
+  helpers) — only TypedRIDArray/TypedTransform3DArray genuinely lack init
+  paths. Follow-up: OpenXR `do_entity_update` ×2 (and possibly
+  `merge_importer_meshes`) could be unblocked today via the same path;
+  TypedRIDArray/Transform3DArray args, (Dictionary)→Dictionary policy gate,
+  and Signal arg (Tween.tween_await) remain blocked.

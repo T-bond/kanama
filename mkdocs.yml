@@ -69,6 +69,7 @@ nav:
       - Architecture Review (2026-06): internals/architecture-review-2026-06.md
       - Wrapper Coverage Roadmap: internals/wrapper-coverage-roadmap.md
       - Wrapper Coverage Tracker: internals/wrapper-coverage-tracker.md
+      - Callable Args Design (1.4): internals/callable-args-design.md
       - iOS Backend Architecture: internals/ios-backend-architecture.md
       - iOS Backend Roadmap: internals/ios-backend-roadmap.md
       - iOS Backend Hand-written Registry: internals/ios-backend-handwritten.md

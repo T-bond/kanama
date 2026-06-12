@@ -23888,6 +23888,104 @@ object ObjectCalls {
         }
     }
 
+    fun ptrcallWithStringCallableArgsRetObject(
+        methodBind: MemorySegment,
+        instance: MemorySegment,
+        value: String,
+        callableObject: MemorySegment,
+        callableMethod: String,
+    ): MemorySegment {
+        Arena.ofConfined().use { arena ->
+            val stringCell = arena.allocate(8L, 8L)
+            val callable = BuiltinTypes.allocateCallable(arena)
+            try {
+                GodotStrings.initString(stringCell, value)
+                BuiltinTypes.initCallable(callable, callableObject, callableMethod)
+                val arr = arena.allocate(ADDRESS, 2)
+                arr.setAtIndex(ADDRESS, 0, stringCell)
+                arr.setAtIndex(ADDRESS, 1, callable)
+                val ret = arena.allocate(ADDRESS)
+                objectMethodBindPtrcall.invoke(methodBind, instance, arr, ret)
+                return ret.get(ADDRESS, 0)
+            } finally {
+                BuiltinTypes.destroyTyped(VariantType.CALLABLE, callable)
+                GodotStrings.destroyString(stringCell)
+            }
+        }
+    }
+
+    fun ptrcallWithRIDObjectListObjectCallableArgsRetObject(
+        methodBind: MemorySegment,
+        instance: MemorySegment,
+        rid: RID,
+        values: List<*>,
+        objectArg: MemorySegment,
+        callableObject: MemorySegment,
+        callableMethod: String,
+    ): MemorySegment {
+        Arena.ofConfined().use { arena ->
+            val ridCell = arena.allocate(JAVA_LONG)
+            val arrayCell = arena.allocate(8L, 8L)
+            val objectCell = arena.allocate(ADDRESS)
+            val callable = BuiltinTypes.allocateCallable(arena)
+            try {
+                ridCell.set(JAVA_LONG, 0, rid.value)
+                BuiltinTypes.initArrayOfObjects(arrayCell, values)
+                objectCell.set(ADDRESS, 0, objectArg)
+                BuiltinTypes.initCallable(callable, callableObject, callableMethod)
+                val arr = arena.allocate(ADDRESS, 4)
+                arr.setAtIndex(ADDRESS, 0, ridCell)
+                arr.setAtIndex(ADDRESS, 1, arrayCell)
+                arr.setAtIndex(ADDRESS, 2, objectCell)
+                arr.setAtIndex(ADDRESS, 3, callable)
+                val ret = arena.allocate(ADDRESS)
+                objectMethodBindPtrcall.invoke(methodBind, instance, arr, ret)
+                return ret.get(ADDRESS, 0)
+            } finally {
+                BuiltinTypes.destroyTyped(VariantType.CALLABLE, callable)
+                BuiltinTypes.destroyTyped(VariantType.ARRAY, arrayCell)
+            }
+        }
+    }
+
+    fun ptrcallWithRIDObjectListTwoObjectCallableArgsRetObject(
+        methodBind: MemorySegment,
+        instance: MemorySegment,
+        rid: RID,
+        values: List<*>,
+        firstObjectArg: MemorySegment,
+        secondObjectArg: MemorySegment,
+        callableObject: MemorySegment,
+        callableMethod: String,
+    ): MemorySegment {
+        Arena.ofConfined().use { arena ->
+            val ridCell = arena.allocate(JAVA_LONG)
+            val arrayCell = arena.allocate(8L, 8L)
+            val firstObjectCell = arena.allocate(ADDRESS)
+            val secondObjectCell = arena.allocate(ADDRESS)
+            val callable = BuiltinTypes.allocateCallable(arena)
+            try {
+                ridCell.set(JAVA_LONG, 0, rid.value)
+                BuiltinTypes.initArrayOfObjects(arrayCell, values)
+                firstObjectCell.set(ADDRESS, 0, firstObjectArg)
+                secondObjectCell.set(ADDRESS, 0, secondObjectArg)
+                BuiltinTypes.initCallable(callable, callableObject, callableMethod)
+                val arr = arena.allocate(ADDRESS, 5)
+                arr.setAtIndex(ADDRESS, 0, ridCell)
+                arr.setAtIndex(ADDRESS, 1, arrayCell)
+                arr.setAtIndex(ADDRESS, 2, firstObjectCell)
+                arr.setAtIndex(ADDRESS, 3, secondObjectCell)
+                arr.setAtIndex(ADDRESS, 4, callable)
+                val ret = arena.allocate(ADDRESS)
+                objectMethodBindPtrcall.invoke(methodBind, instance, arr, ret)
+                return ret.get(ADDRESS, 0)
+            } finally {
+                BuiltinTypes.destroyTyped(VariantType.CALLABLE, callable)
+                BuiltinTypes.destroyTyped(VariantType.ARRAY, arrayCell)
+            }
+        }
+    }
+
     fun ptrcallNoArgsRetCallable(
         methodBind: MemorySegment,
         instance: MemorySegment,
