@@ -3332,6 +3332,26 @@ CALL_SHAPES: dict[tuple[tuple[str, ...], str], CallShape] = {
     ),
     (("Basis",), "void"): CallShape("ptrcallWithBasisArg", "Unit"),
     (("Basis",), "int32"): CallShape("ptrcallWithBasisArgRetInt", "Int", "0"),
+    # Phase 1.1 — new scalar-ish combinations (all arg/return kinds individually marshallable)
+    (("StringName", "enum"), "void"): CallShape("ptrcallWithStringNameAndLongArg", "Unit"),
+    (("String", "bitfield", "int64"), "enum"): CallShape("ptrcallWithStringTwoLongArgsRetLong", "Long", "0L"),
+    (("uint32",), "Vector2"): CallShape("ptrcallWithUInt32ArgRetVector2", "Vector2", "Vector2.ZERO"),
+    (("uint32", "Vector2"), "void"): CallShape("ptrcallWithUInt32AndVector2Args", "Unit"),
+    (("Vector3i",), "Vector3i"): CallShape("ptrcallWithVector3iArgRetVector3i", "Vector3i", "Vector3i.ZERO"),
+    (("String", "bool", "bool", "float"), "enum"): CallShape("ptrcallWithStringTwoBoolAndDoubleArgRetLong", "Long", "0L"),
+    (("bool", "bool", "float"), "PackedByteArray"): CallShape("ptrcallWithTwoBoolAndDoubleArgRetByteArray", "ByteArray", "ByteArray(0)"),
+    (("RID", "int32", "int32"), "int32"): CallShape("ptrcallWithRIDAndTwoIntArgsRetInt", "Int", "0"),
+    (("RID", "int32", "bool", "float", "Vector2"), "void"): CallShape("ptrcallWithRIDIntBoolDoubleVector2Args", "Unit"),
+    (("RID", "uint32"), "RID"): CallShape("ptrcallWithRIDAndUInt32ArgRetRID", "RID", "RID.EMPTY"),
+    (("RID", "uint32"), "int64"): CallShape("ptrcallWithRIDAndUInt32ArgRetLong", "Long", "0L"),
+    (("RID", "int32", "int32", "int32"), "void"): CallShape("ptrcallWithRIDAndThreeIntArgs", "Unit"),
+    (("RID", "bool", "bool", "bool", "Color"), "void"): CallShape("ptrcallWithRIDThreeBoolAndColorArgs", "Unit"),
+    (("Object", "float", "int32", "StringName"), "void"): CallShape("ptrcallWithObjectDoubleIntStringNameArgs", "Unit"),
+    (("Object", "Vector2", "int32", "StringName"), "void"): CallShape("ptrcallWithObjectVector2IntStringNameArgs", "Unit"),
+    (("int32", "int32", "enum", "Color", "bool"), "void"): CallShape("ptrcallWithTwoIntLongColorBoolArgs", "Unit"),
+    (("int32", "int32", "enum", "Color", "bool"), "RID"): CallShape("ptrcallWithTwoIntLongColorBoolArgsRetRID", "RID", "RID.EMPTY"),
+    (("int64", "uint32", "RID", "uint32", "uint32", "uint32"), "void"): CallShape("ptrcallWithLongUInt32RIDThreeUInt32Args", "Unit"),
+    (("uint32", "bitfield"), "RID"): CallShape("ptrcallWithUInt32AndLongArgRetRID", "RID", "RID.EMPTY"),
 }
 
 

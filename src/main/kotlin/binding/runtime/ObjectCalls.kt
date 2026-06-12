@@ -39364,6 +39364,553 @@ object ObjectCalls {
         }
     }
 
+    // --- Phase 1.1 helpers: new scalar-ish combinations ---
+
+    // (StringName, enum) -> void reuses the existing ptrcallWithStringNameAndLongArg;
+    // only a CALL_SHAPES entry was added in Phase 1.1.
+
+    /**
+     * Calls [methodBind] with (String, long, long) args and Long return.
+     * Used for String+bitfield+int64 -> enum shapes (e.g. ZIPPacker.add_directory).
+     */
+    fun ptrcallWithStringTwoLongArgsRetLong(
+        methodBind: MemorySegment,
+        instance: MemorySegment,
+        text: String,
+        first: Long,
+        second: Long,
+    ): Long {
+        Arena.ofConfined().use { arena ->
+            val stringCell = arena.allocate(8L, 8L)
+            val firstCell = arena.allocate(JAVA_LONG)
+            val secondCell = arena.allocate(JAVA_LONG)
+            val ret = arena.allocate(JAVA_LONG)
+            try {
+                GodotStrings.initString(stringCell, text)
+                firstCell.set(JAVA_LONG, 0, first)
+                secondCell.set(JAVA_LONG, 0, second)
+                val args = arena.allocate(ADDRESS, 3)
+                args.setAtIndex(ADDRESS, 0, stringCell)
+                args.setAtIndex(ADDRESS, 1, firstCell)
+                args.setAtIndex(ADDRESS, 2, secondCell)
+                objectMethodBindPtrcall.invoke(methodBind, instance, args, ret)
+                return ret.get(JAVA_LONG, 0)
+            } finally {
+                GodotStrings.destroyString(stringCell)
+            }
+        }
+    }
+
+    /**
+     * Calls [methodBind] with one uint32 arg and Vector2 return value.
+     * Used for e.g. CollisionObject2D.get_shape_owner_one_way_collision_direction.
+     */
+    fun ptrcallWithUInt32ArgRetVector2(
+        methodBind: MemorySegment,
+        instance: MemorySegment,
+        value: Long,
+    ): Vector2 {
+        Arena.ofConfined().use { arena ->
+            val arg = arena.allocate(JAVA_INT)
+            arg.set(JAVA_INT, 0, BuiltinTypes.requireUInt32(value))
+            val arr = arena.allocate(ADDRESS, 1)
+            arr.setAtIndex(ADDRESS, 0, arg)
+            val ret = arena.allocate(GodotReal.SIZE_BYTES * 2, GodotReal.ALIGN_BYTES)
+            objectMethodBindPtrcall.invoke(methodBind, instance, arr, ret)
+            return Vector2(
+                x = GodotReal.readIndex(ret, 0),
+                y = GodotReal.readIndex(ret, 1),
+            )
+        }
+    }
+
+    /**
+     * Calls [methodBind] with (uint32, Vector2) args and no return value.
+     * Used for e.g. CollisionObject2D.shape_owner_set_one_way_collision_direction.
+     */
+    fun ptrcallWithUInt32AndVector2Args(
+        methodBind: MemorySegment,
+        instance: MemorySegment,
+        value: Long,
+        vector: Vector2,
+    ) {
+        Arena.ofConfined().use { arena ->
+            val intCell = arena.allocate(JAVA_INT)
+            val vectorCell = arena.allocate(GodotReal.SIZE_BYTES * 2, GodotReal.ALIGN_BYTES)
+            intCell.set(JAVA_INT, 0, BuiltinTypes.requireUInt32(value))
+            GodotReal.writeIndex(vectorCell, 0, vector.x)
+            GodotReal.writeIndex(vectorCell, 1, vector.y)
+            val args = arena.allocate(ADDRESS, 2)
+            args.setAtIndex(ADDRESS, 0, intCell)
+            args.setAtIndex(ADDRESS, 1, vectorCell)
+            objectMethodBindPtrcall.invoke(methodBind, instance, args, MemorySegment.NULL)
+        }
+    }
+
+    /**
+     * Calls [methodBind] with one Vector3i arg and Vector3i return value.
+     * Used for e.g. GridMap.get_octant_coords_from_cell_coords.
+     */
+    fun ptrcallWithVector3iArgRetVector3i(
+        methodBind: MemorySegment,
+        instance: MemorySegment,
+        value: Vector3i,
+    ): Vector3i {
+        Arena.ofConfined().use { arena ->
+            val vec = arena.allocate(12L, 4L)
+            writeVector3i(vec, value)
+            val arr = arena.allocate(ADDRESS, 1)
+            arr.setAtIndex(ADDRESS, 0, vec)
+            val ret = arena.allocate(12L, 4L)
+            objectMethodBindPtrcall.invoke(methodBind, instance, arr, ret)
+            return readVector3i(ret)
+        }
+    }
+
+    /**
+     * Calls [methodBind] with (String, bool, bool, float) args and Long return.
+     * Used for e.g. Image.save_exr.
+     */
+    fun ptrcallWithStringTwoBoolAndDoubleArgRetLong(
+        methodBind: MemorySegment,
+        instance: MemorySegment,
+        text: String,
+        first: Boolean,
+        second: Boolean,
+        doubleArg: Double,
+    ): Long {
+        Arena.ofConfined().use { arena ->
+            val stringCell = arena.allocate(8L, 8L)
+            val firstCell = arena.allocate(JAVA_BYTE)
+            val secondCell = arena.allocate(JAVA_BYTE)
+            val doubleCell = arena.allocate(JAVA_DOUBLE)
+            val ret = arena.allocate(JAVA_LONG)
+            try {
+                GodotStrings.initString(stringCell, text)
+                firstCell.set(JAVA_BYTE, 0, if (first) 1.toByte() else 0.toByte())
+                secondCell.set(JAVA_BYTE, 0, if (second) 1.toByte() else 0.toByte())
+                doubleCell.set(JAVA_DOUBLE, 0, doubleArg)
+                val args = arena.allocate(ADDRESS, 4)
+                args.setAtIndex(ADDRESS, 0, stringCell)
+                args.setAtIndex(ADDRESS, 1, firstCell)
+                args.setAtIndex(ADDRESS, 2, secondCell)
+                args.setAtIndex(ADDRESS, 3, doubleCell)
+                objectMethodBindPtrcall.invoke(methodBind, instance, args, ret)
+                return ret.get(JAVA_LONG, 0)
+            } finally {
+                GodotStrings.destroyString(stringCell)
+            }
+        }
+    }
+
+    /**
+     * Calls [methodBind] with (bool, bool, float) args and PackedByteArray return.
+     * Used for e.g. Image.save_exr_to_buffer.
+     */
+    fun ptrcallWithTwoBoolAndDoubleArgRetByteArray(
+        methodBind: MemorySegment,
+        instance: MemorySegment,
+        first: Boolean,
+        second: Boolean,
+        doubleArg: Double,
+    ): ByteArray {
+        Arena.ofConfined().use { arena ->
+            val firstCell = arena.allocate(JAVA_BYTE)
+            val secondCell = arena.allocate(JAVA_BYTE)
+            val doubleCell = arena.allocate(JAVA_DOUBLE)
+            firstCell.set(JAVA_BYTE, 0, if (first) 1.toByte() else 0.toByte())
+            secondCell.set(JAVA_BYTE, 0, if (second) 1.toByte() else 0.toByte())
+            doubleCell.set(JAVA_DOUBLE, 0, doubleArg)
+            val args = arena.allocate(ADDRESS, 3)
+            args.setAtIndex(ADDRESS, 0, firstCell)
+            args.setAtIndex(ADDRESS, 1, secondCell)
+            args.setAtIndex(ADDRESS, 2, doubleCell)
+            val ret = BuiltinTypes.allocatePackedArray(arena)
+            objectMethodBindPtrcall.invoke(methodBind, instance, args, ret)
+            return try {
+                BuiltinTypes.readPackedByteArray(ret)
+            } finally {
+                BuiltinTypes.destroyTyped(VariantType.PACKED_BYTE_ARRAY, ret)
+            }
+        }
+    }
+
+    /**
+     * Calls [methodBind] with (RID, int32, int32) args and Int return.
+     * Used for e.g. NativeMenu.set_item_index.
+     */
+    fun ptrcallWithRIDAndTwoIntArgsRetInt(
+        methodBind: MemorySegment,
+        instance: MemorySegment,
+        rid: RID,
+        first: Int,
+        second: Int,
+    ): Int {
+        Arena.ofConfined().use { arena ->
+            val ridCell = arena.allocate(JAVA_LONG)
+            val firstCell = arena.allocate(JAVA_INT)
+            val secondCell = arena.allocate(JAVA_INT)
+            ridCell.set(JAVA_LONG, 0, rid.value)
+            firstCell.set(JAVA_INT, 0, first)
+            secondCell.set(JAVA_INT, 0, second)
+            val args = arena.allocate(ADDRESS, 3)
+            args.setAtIndex(ADDRESS, 0, ridCell)
+            args.setAtIndex(ADDRESS, 1, firstCell)
+            args.setAtIndex(ADDRESS, 2, secondCell)
+            val ret = arena.allocate(JAVA_INT)
+            objectMethodBindPtrcall.invoke(methodBind, instance, args, ret)
+            return ret.get(JAVA_INT, 0)
+        }
+    }
+
+    /**
+     * Calls [methodBind] with (RID, int32, bool, float, Vector2) args and no return value.
+     * Used for e.g. PhysicsServer2D.body_set_shape_as_one_way_collision.
+     */
+    fun ptrcallWithRIDIntBoolDoubleVector2Args(
+        methodBind: MemorySegment,
+        instance: MemorySegment,
+        rid: RID,
+        intArg: Int,
+        boolArg: Boolean,
+        doubleArg: Double,
+        vector: Vector2,
+    ) {
+        Arena.ofConfined().use { arena ->
+            val ridCell = arena.allocate(JAVA_LONG)
+            val intCell = arena.allocate(JAVA_INT)
+            val boolCell = arena.allocate(JAVA_BYTE)
+            val doubleCell = arena.allocate(JAVA_DOUBLE)
+            val vectorCell = arena.allocate(GodotReal.SIZE_BYTES * 2, GodotReal.ALIGN_BYTES)
+            ridCell.set(JAVA_LONG, 0, rid.value)
+            intCell.set(JAVA_INT, 0, intArg)
+            boolCell.set(JAVA_BYTE, 0, if (boolArg) 1.toByte() else 0.toByte())
+            doubleCell.set(JAVA_DOUBLE, 0, doubleArg)
+            GodotReal.writeIndex(vectorCell, 0, vector.x)
+            GodotReal.writeIndex(vectorCell, 1, vector.y)
+            val args = arena.allocate(ADDRESS, 5)
+            args.setAtIndex(ADDRESS, 0, ridCell)
+            args.setAtIndex(ADDRESS, 1, intCell)
+            args.setAtIndex(ADDRESS, 2, boolCell)
+            args.setAtIndex(ADDRESS, 3, doubleCell)
+            args.setAtIndex(ADDRESS, 4, vectorCell)
+            objectMethodBindPtrcall.invoke(methodBind, instance, args, MemorySegment.NULL)
+        }
+    }
+
+    /**
+     * Calls [methodBind] with (RID, uint32) args and RID return value.
+     * Used for e.g. RenderingDevice.hit_sbt_create.
+     */
+    fun ptrcallWithRIDAndUInt32ArgRetRID(
+        methodBind: MemorySegment,
+        instance: MemorySegment,
+        rid: RID,
+        value: Long,
+    ): RID {
+        Arena.ofConfined().use { arena ->
+            val ridCell = arena.allocate(JAVA_LONG)
+            val valueCell = arena.allocate(JAVA_INT)
+            ridCell.set(JAVA_LONG, 0, rid.value)
+            valueCell.set(JAVA_INT, 0, BuiltinTypes.requireUInt32(value))
+            val args = arena.allocate(ADDRESS, 2)
+            args.setAtIndex(ADDRESS, 0, ridCell)
+            args.setAtIndex(ADDRESS, 1, valueCell)
+            val ret = arena.allocate(JAVA_LONG)
+            objectMethodBindPtrcall.invoke(methodBind, instance, args, ret)
+            return RID(ret.get(JAVA_LONG, 0))
+        }
+    }
+
+    /**
+     * Calls [methodBind] with (RID, uint32) args and Long return value.
+     * Used for e.g. RenderingDevice.hit_sbt_range_alloc.
+     */
+    fun ptrcallWithRIDAndUInt32ArgRetLong(
+        methodBind: MemorySegment,
+        instance: MemorySegment,
+        rid: RID,
+        value: Long,
+    ): Long {
+        Arena.ofConfined().use { arena ->
+            val ridCell = arena.allocate(JAVA_LONG)
+            val valueCell = arena.allocate(JAVA_INT)
+            ridCell.set(JAVA_LONG, 0, rid.value)
+            valueCell.set(JAVA_INT, 0, BuiltinTypes.requireUInt32(value))
+            val args = arena.allocate(ADDRESS, 2)
+            args.setAtIndex(ADDRESS, 0, ridCell)
+            args.setAtIndex(ADDRESS, 1, valueCell)
+            val ret = arena.allocate(JAVA_LONG)
+            objectMethodBindPtrcall.invoke(methodBind, instance, args, ret)
+            return ret.get(JAVA_LONG, 0)
+        }
+    }
+
+    /**
+     * Calls [methodBind] with (RID, int32, int32, int32) args and no return value.
+     * Used for e.g. RenderingServer.viewport_set_size.
+     */
+    fun ptrcallWithRIDAndThreeIntArgs(
+        methodBind: MemorySegment,
+        instance: MemorySegment,
+        rid: RID,
+        first: Int,
+        second: Int,
+        third: Int,
+    ) {
+        Arena.ofConfined().use { arena ->
+            val ridCell = arena.allocate(JAVA_LONG)
+            val firstCell = arena.allocate(JAVA_INT)
+            val secondCell = arena.allocate(JAVA_INT)
+            val thirdCell = arena.allocate(JAVA_INT)
+            ridCell.set(JAVA_LONG, 0, rid.value)
+            firstCell.set(JAVA_INT, 0, first)
+            secondCell.set(JAVA_INT, 0, second)
+            thirdCell.set(JAVA_INT, 0, third)
+            val args = arena.allocate(ADDRESS, 4)
+            args.setAtIndex(ADDRESS, 0, ridCell)
+            args.setAtIndex(ADDRESS, 1, firstCell)
+            args.setAtIndex(ADDRESS, 2, secondCell)
+            args.setAtIndex(ADDRESS, 3, thirdCell)
+            objectMethodBindPtrcall.invoke(methodBind, instance, args, MemorySegment.NULL)
+        }
+    }
+
+    /**
+     * Calls [methodBind] with (RID, bool, bool, bool, Color) args and no return value.
+     * Used for e.g. AccessibilityServer.update_set_text_decorations.
+     */
+    fun ptrcallWithRIDThreeBoolAndColorArgs(
+        methodBind: MemorySegment,
+        instance: MemorySegment,
+        rid: RID,
+        first: Boolean,
+        second: Boolean,
+        third: Boolean,
+        color: Color,
+    ) {
+        Arena.ofConfined().use { arena ->
+            val ridCell = arena.allocate(JAVA_LONG)
+            val firstCell = arena.allocate(JAVA_BYTE)
+            val secondCell = arena.allocate(JAVA_BYTE)
+            val thirdCell = arena.allocate(JAVA_BYTE)
+            val colorCell = arena.allocate(16L, 4L)
+            ridCell.set(JAVA_LONG, 0, rid.value)
+            firstCell.set(JAVA_BYTE, 0, if (first) 1.toByte() else 0.toByte())
+            secondCell.set(JAVA_BYTE, 0, if (second) 1.toByte() else 0.toByte())
+            thirdCell.set(JAVA_BYTE, 0, if (third) 1.toByte() else 0.toByte())
+            // Color components are fixed 32-bit floats, unlike scalar float ptrcall slots.
+            colorCell.set(JAVA_FLOAT, 0, color.r)
+            colorCell.set(JAVA_FLOAT, 4, color.g)
+            colorCell.set(JAVA_FLOAT, 8, color.b)
+            colorCell.set(JAVA_FLOAT, 12, color.a)
+            val args = arena.allocate(ADDRESS, 5)
+            args.setAtIndex(ADDRESS, 0, ridCell)
+            args.setAtIndex(ADDRESS, 1, firstCell)
+            args.setAtIndex(ADDRESS, 2, secondCell)
+            args.setAtIndex(ADDRESS, 3, thirdCell)
+            args.setAtIndex(ADDRESS, 4, colorCell)
+            objectMethodBindPtrcall.invoke(methodBind, instance, args, MemorySegment.NULL)
+        }
+    }
+
+    /**
+     * Calls [methodBind] with (Object, float, int32, StringName) args and no return value.
+     * Used for e.g. AnimationNodeBlendSpace1D.add_blend_point.
+     */
+    fun ptrcallWithObjectDoubleIntStringNameArgs(
+        methodBind: MemorySegment,
+        instance: MemorySegment,
+        obj: MemorySegment,
+        doubleArg: Double,
+        intArg: Int,
+        name: String,
+    ) {
+        Arena.ofConfined().use { arena ->
+            val objCell = arena.allocate(ADDRESS)
+            val doubleCell = arena.allocate(JAVA_DOUBLE)
+            val intCell = arena.allocate(JAVA_INT)
+            objCell.set(ADDRESS, 0, obj)
+            doubleCell.set(JAVA_DOUBLE, 0, doubleArg)
+            intCell.set(JAVA_INT, 0, intArg)
+            val args = arena.allocate(ADDRESS, 4)
+            args.setAtIndex(ADDRESS, 0, objCell)
+            args.setAtIndex(ADDRESS, 1, doubleCell)
+            args.setAtIndex(ADDRESS, 2, intCell)
+            args.setAtIndex(ADDRESS, 3, GodotStrings.makeStringName(name))
+            objectMethodBindPtrcall.invoke(methodBind, instance, args, MemorySegment.NULL)
+        }
+    }
+
+    /**
+     * Calls [methodBind] with (Object, Vector2, int32, StringName) args and no return value.
+     * Used for e.g. AnimationNodeBlendSpace2D.add_blend_point.
+     */
+    fun ptrcallWithObjectVector2IntStringNameArgs(
+        methodBind: MemorySegment,
+        instance: MemorySegment,
+        obj: MemorySegment,
+        vector: Vector2,
+        intArg: Int,
+        name: String,
+    ) {
+        Arena.ofConfined().use { arena ->
+            val objCell = arena.allocate(ADDRESS)
+            val vectorCell = arena.allocate(GodotReal.SIZE_BYTES * 2, GodotReal.ALIGN_BYTES)
+            val intCell = arena.allocate(JAVA_INT)
+            objCell.set(ADDRESS, 0, obj)
+            GodotReal.writeIndex(vectorCell, 0, vector.x)
+            GodotReal.writeIndex(vectorCell, 1, vector.y)
+            intCell.set(JAVA_INT, 0, intArg)
+            val args = arena.allocate(ADDRESS, 4)
+            args.setAtIndex(ADDRESS, 0, objCell)
+            args.setAtIndex(ADDRESS, 1, vectorCell)
+            args.setAtIndex(ADDRESS, 2, intCell)
+            args.setAtIndex(ADDRESS, 3, GodotStrings.makeStringName(name))
+            objectMethodBindPtrcall.invoke(methodBind, instance, args, MemorySegment.NULL)
+        }
+    }
+
+    /**
+     * Calls [methodBind] with (int32, int32, enum/long, Color, bool) args and no return value.
+     * Used for e.g. DrawableTexture2D.setup.
+     */
+    fun ptrcallWithTwoIntLongColorBoolArgs(
+        methodBind: MemorySegment,
+        instance: MemorySegment,
+        first: Int,
+        second: Int,
+        longArg: Long,
+        color: Color,
+        boolArg: Boolean,
+    ) {
+        Arena.ofConfined().use { arena ->
+            val firstCell = arena.allocate(JAVA_INT)
+            val secondCell = arena.allocate(JAVA_INT)
+            val longCell = arena.allocate(JAVA_LONG)
+            val colorCell = arena.allocate(16L, 4L)
+            val boolCell = arena.allocate(JAVA_BYTE)
+            firstCell.set(JAVA_INT, 0, first)
+            secondCell.set(JAVA_INT, 0, second)
+            longCell.set(JAVA_LONG, 0, longArg)
+            // Color components are fixed 32-bit floats, unlike scalar float ptrcall slots.
+            colorCell.set(JAVA_FLOAT, 0, color.r)
+            colorCell.set(JAVA_FLOAT, 4, color.g)
+            colorCell.set(JAVA_FLOAT, 8, color.b)
+            colorCell.set(JAVA_FLOAT, 12, color.a)
+            boolCell.set(JAVA_BYTE, 0, if (boolArg) 1.toByte() else 0.toByte())
+            val args = arena.allocate(ADDRESS, 5)
+            args.setAtIndex(ADDRESS, 0, firstCell)
+            args.setAtIndex(ADDRESS, 1, secondCell)
+            args.setAtIndex(ADDRESS, 2, longCell)
+            args.setAtIndex(ADDRESS, 3, colorCell)
+            args.setAtIndex(ADDRESS, 4, boolCell)
+            objectMethodBindPtrcall.invoke(methodBind, instance, args, MemorySegment.NULL)
+        }
+    }
+
+    /**
+     * Calls [methodBind] with (int32, int32, enum/long, Color, bool) args and RID return value.
+     * Used for e.g. RenderingServer.texture_drawable_create.
+     */
+    fun ptrcallWithTwoIntLongColorBoolArgsRetRID(
+        methodBind: MemorySegment,
+        instance: MemorySegment,
+        first: Int,
+        second: Int,
+        longArg: Long,
+        color: Color,
+        boolArg: Boolean,
+    ): RID {
+        Arena.ofConfined().use { arena ->
+            val firstCell = arena.allocate(JAVA_INT)
+            val secondCell = arena.allocate(JAVA_INT)
+            val longCell = arena.allocate(JAVA_LONG)
+            val colorCell = arena.allocate(16L, 4L)
+            val boolCell = arena.allocate(JAVA_BYTE)
+            firstCell.set(JAVA_INT, 0, first)
+            secondCell.set(JAVA_INT, 0, second)
+            longCell.set(JAVA_LONG, 0, longArg)
+            // Color components are fixed 32-bit floats, unlike scalar float ptrcall slots.
+            colorCell.set(JAVA_FLOAT, 0, color.r)
+            colorCell.set(JAVA_FLOAT, 4, color.g)
+            colorCell.set(JAVA_FLOAT, 8, color.b)
+            colorCell.set(JAVA_FLOAT, 12, color.a)
+            boolCell.set(JAVA_BYTE, 0, if (boolArg) 1.toByte() else 0.toByte())
+            val args = arena.allocate(ADDRESS, 5)
+            args.setAtIndex(ADDRESS, 0, firstCell)
+            args.setAtIndex(ADDRESS, 1, secondCell)
+            args.setAtIndex(ADDRESS, 2, longCell)
+            args.setAtIndex(ADDRESS, 3, colorCell)
+            args.setAtIndex(ADDRESS, 4, boolCell)
+            val ret = arena.allocate(JAVA_LONG)
+            objectMethodBindPtrcall.invoke(methodBind, instance, args, ret)
+            return RID(ret.get(JAVA_LONG, 0))
+        }
+    }
+
+    /**
+     * Calls [methodBind] with (int64, uint32, RID, uint32, uint32, uint32) args and no return.
+     * Used for e.g. RenderingDevice.raytracing_list_trace_rays.
+     */
+    fun ptrcallWithLongUInt32RIDThreeUInt32Args(
+        methodBind: MemorySegment,
+        instance: MemorySegment,
+        longArg: Long,
+        first: Long,
+        rid: RID,
+        second: Long,
+        third: Long,
+        fourth: Long,
+    ) {
+        Arena.ofConfined().use { arena ->
+            val longCell = arena.allocate(JAVA_LONG)
+            val firstCell = arena.allocate(JAVA_INT)
+            val ridCell = arena.allocate(JAVA_LONG)
+            val secondCell = arena.allocate(JAVA_INT)
+            val thirdCell = arena.allocate(JAVA_INT)
+            val fourthCell = arena.allocate(JAVA_INT)
+            longCell.set(JAVA_LONG, 0, longArg)
+            firstCell.set(JAVA_INT, 0, BuiltinTypes.requireUInt32(first))
+            ridCell.set(JAVA_LONG, 0, rid.value)
+            secondCell.set(JAVA_INT, 0, BuiltinTypes.requireUInt32(second))
+            thirdCell.set(JAVA_INT, 0, BuiltinTypes.requireUInt32(third))
+            fourthCell.set(JAVA_INT, 0, BuiltinTypes.requireUInt32(fourth))
+            val args = arena.allocate(ADDRESS, 6)
+            args.setAtIndex(ADDRESS, 0, longCell)
+            args.setAtIndex(ADDRESS, 1, firstCell)
+            args.setAtIndex(ADDRESS, 2, ridCell)
+            args.setAtIndex(ADDRESS, 3, secondCell)
+            args.setAtIndex(ADDRESS, 4, thirdCell)
+            args.setAtIndex(ADDRESS, 5, fourthCell)
+            objectMethodBindPtrcall.invoke(methodBind, instance, args, MemorySegment.NULL)
+        }
+    }
+
+    /**
+     * Calls [methodBind] with (uint32, bitfield/long) args and RID return value.
+     * Used for e.g. RenderingDevice.tlas_create.
+     */
+    fun ptrcallWithUInt32AndLongArgRetRID(
+        methodBind: MemorySegment,
+        instance: MemorySegment,
+        value: Long,
+        longArg: Long,
+    ): RID {
+        Arena.ofConfined().use { arena ->
+            val intCell = arena.allocate(JAVA_INT)
+            val longCell = arena.allocate(JAVA_LONG)
+            intCell.set(JAVA_INT, 0, BuiltinTypes.requireUInt32(value))
+            longCell.set(JAVA_LONG, 0, longArg)
+            val args = arena.allocate(ADDRESS, 2)
+            args.setAtIndex(ADDRESS, 0, intCell)
+            args.setAtIndex(ADDRESS, 1, longCell)
+            val ret = arena.allocate(JAVA_LONG)
+            objectMethodBindPtrcall.invoke(methodBind, instance, args, ret)
+            return RID(ret.get(JAVA_LONG, 0))
+        }
+    }
+
     /** Destroys a Godot Object pointer allocated via classdb_construct_object2. */
     fun destroyObject(instance: MemorySegment) {
         if (instance.address() == 0L) return
