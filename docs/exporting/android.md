@@ -193,6 +193,11 @@ before exiting.
 - Some unsupported ASTC textures may be converted at runtime by the emulator.
 - Godot 4.7 `VirtualJoystick` wrappers are available in Kanama, but demo-level
   touch-control polish remains a project-specific validation claim.
+- R8/ProGuard minification is scaffolded but not yet validated. The plugin AAR
+  ships consumer keep rules (`android/godot-plugin/plugin/consumer-rules.pro`)
+  covering the JNI bootstrap entry, Panama upcall targets, KSP-generated
+  registrars, and PanamaPort internals. An R8-minified APK smoke pass is a
+  pending validation gate before claiming obfuscated-build support.
 
 ## Validation Shape
 

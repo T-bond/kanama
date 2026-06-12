@@ -474,7 +474,7 @@ val generatePackageGdextensionDescriptor by tasks.registering {
                 |[configuration]
                 |
                 |entry_symbol = "kanama_entry"
-                |compatibility_minimum = "4.3"
+                |compatibility_minimum = "4.7"
                 |
                 |[libraries]
                 |
@@ -1042,7 +1042,7 @@ val generateIosGdextensionDescriptor by tasks.registering {
                 |[configuration]
                 |
                 |entry_symbol = "kanama_entry"
-                |compatibility_minimum = "4.3"
+                |compatibility_minimum = "4.7"
                 |
                 |[libraries]
                 |
