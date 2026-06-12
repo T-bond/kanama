@@ -66,6 +66,8 @@ nav:
       - Demo Porting Rules: contributing/demo-porting-rules.md
       - Android Internals: contributing/android-internals.md
   - Internals:
+      - Architecture Review (2026-06): internals/architecture-review-2026-06.md
+      - Wrapper Coverage Roadmap: internals/wrapper-coverage-roadmap.md
       - iOS Backend Architecture: internals/ios-backend-architecture.md
       - iOS Backend Roadmap: internals/ios-backend-roadmap.md
       - iOS Backend Hand-written Registry: internals/ios-backend-handwritten.md
