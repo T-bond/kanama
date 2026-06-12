@@ -12,7 +12,7 @@ platforms and engine versions validated for the current preview.
 | Linux arm64 | Pending beta 5 revalidation | Last local runtime, editor, and demo smoke validation passed with the 4.7 beta 2 ARM64 binary. Packaged desktop exports remain a separate release-readiness track. |
 | Linux x86_64 | Pending beta 5 revalidation | Last local runtime, editor, and demo smoke validation passed with the 4.7 beta 2 x64 binary. Packaged desktop exports remain a separate release-readiness track. |
 | Windows x86_64 | Pending beta 5 revalidation | Last local runtime/editor smoke validation passed with the 4.7 beta 2 console binary. PowerShell Gradle commands and Git Bash smoke marker checks are the documented path. |
-| iOS | Unsupported | No current runtime path. |
+| iOS | Experimental (Kotlin/Native backend); not a supported export | The `spike/ios-kotlin-native-backend` path runs full Kanama project scripts via a C shim + Kotlin/Native static `.xcframework`, using the same wrapper generator as desktop/Android. Match3 and the Kenney 3D platformer are device-validated (real input, signals, scene reload); per-frame Kanama binding overhead measured ~0.63 ms on iPhone 12. Physical-device export/launch is the validation target. Still experimental — see the [iOS roadmap](../internals/ios-backend-roadmap.md) for the audited-type/bridge gaps before broader demos or a supported export. |
 | Web | Not planned | Kanama depends on a JVM/FFM-style runtime path. |
 
 Validated support is only claimed after the matching smoke path passes.
@@ -61,6 +61,21 @@ support wording experimental until the matching APK smoke path passes again.
 See [Android Experimental](../exporting/android.md) for the build/export
 workflow and [Android Internals](../contributing/android-internals.md) for
 implementation details.
+
+## iOS
+
+iOS runs full Kanama project scripts on the Kotlin/Native backend spike, but remains
+experimental (not a supported export). The spike uses a static `.xcframework`, a C
+GDExtension shim, and a Kotlin/Native runtime, with GENERATED Godot API wrappers (the
+same generator as desktop/Android) over a C-shim generic ptrcall. Match3 and the Kenney
+3D platformer are device-validated end to end (live input, signals, animation, scene
+reload); per-frame Kanama script+binding overhead is ~0.63 ms on iPhone 12. Physical-device
+export and launch are the validation target; simulator runs are optional compile/link
+checks and not a frame-rate signal.
+
+See the [iOS Spike export workflow](../exporting/ios.md) and the
+[iOS backend roadmap](../internals/ios-backend-roadmap.md) (guardrails, how to stay in sync
+with desktop/Android, backlog, per-demo coverage).
 
 ## Local Validation
 
