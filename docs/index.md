@@ -34,7 +34,7 @@ ownership, signals, and wrapper coverage. For existing GDScript projects, use
 | Linux | Pending rc 2 revalidation |
 | Windows | Pending rc 2 revalidation |
 | Android | Experimental; rc 2 APK revalidation pending |
-| iOS | Experimental (Kotlin/Native backend spike) |
+| iOS | Experimental (Kotlin/Native backend) |
 | Web | Not planned |
 
 See [Version Support](reference/version-support.md) for exact Godot, JDK,

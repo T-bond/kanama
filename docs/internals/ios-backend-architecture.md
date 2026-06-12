@@ -1,10 +1,16 @@
 # iOS Backend Architecture
 
-How Kanama runs Kotlin game scripts on iOS, and the target architecture for scaling
-the Godot API surface. For guardrails, how to stay in sync with desktop/Android, the
-backlog, and per-demo coverage see [ios-backend-roadmap.md](./ios-backend-roadmap.md);
-for the hand-written/stub registry see
+How Kanama runs Kotlin game scripts on iOS: generated Godot API wrappers over a
+C-shim generic `ptrcall`, the same wrapper generator as desktop/Android. For live
+status, guardrails, how to stay in sync with desktop/Android, the backlog, and
+per-demo coverage see [ios-backend-roadmap.md](./ios-backend-roadmap.md); for the
+hand-written/stub registry see
 [ios-backend-handwritten.md](./ios-backend-handwritten.md).
+
+> **Status:** experimental but proven viable — Match3 and the Kenney 3D platformer
+> are device-validated end to end. iOS is not yet a supported export. This page
+> describes the shipped architecture; the backlog of gated types/features lives in
+> [ios-backend-roadmap.md](./ios-backend-roadmap.md).
 
 ## Why iOS is different from desktop/Android
 
@@ -37,7 +43,8 @@ ios-runtime (Kotlin/Native)                                                  │
   • KanamaIosRuntime.kt — script registry, instance bridges, dispatch        │
   • IosCallableRegistry — lambda/bound signal callbacks                      │
   • binding/runtime/ObjectCalls.kt — the API call abstraction  <─────────────┘
-  • api/IosGodotApi.kt — Godot API wrappers (TODAY: hand-written stubs)
+  • api/*.kt — GENERATED Godot API wrappers (same generator as desktop/Android)
+  • a bounded set of hand-written/sugar sites (see ios-backend-handwritten.md)
         ▲
         │  build.gradle.kts + KSP processor
 Generated per-project script registry (methods/properties/signals of USER scripts)
@@ -46,17 +53,17 @@ Generated per-project script registry (methods/properties/signals of USER script
 Two distinct codegen concerns, do not confuse them:
 1. **Project-script registry** (already generated): the user's `@ScriptClass` scripts'
    methods/properties/signals, emitted by the KSP processor + `ios-runtime/build.gradle.kts`.
-2. **Godot API wrappers** (the pivot, see below): the `Node3D`/`CharacterBody3D`/…
+2. **Godot API wrappers** (also generated, see below): the `Node3D`/`CharacterBody3D`/…
    classes that user scripts call into.
 
-## The scalability problem (current state)
+## Why generated wrappers (the hand-written stubs we left behind)
 
-The Godot API surface on iOS is **hand-written** in one file,
+The first iOS slice hand-wrote the Godot API surface in one file,
 `ios-runtime/.../api/IosGodotApi.kt` (~1000 lines, ~30 classes), where most methods
-are **no-op stubs** that compile and silently return defaults. Adding one Godot
-method takes ~6 manual edits across 3 files (`extension_api.json` hash lookup → C
+were **no-op stubs** that compiled and silently returned defaults. Adding one Godot
+method took ~6 manual edits across 3 files (`extension_api.json` hash lookup → C
 `g_*_bind` + binding function → `kanama_ios.h` decl → `IosGodot` wrapper → Kotlin API
-method). This is slow, and it is the root of an entire bug class:
+method). That did not scale, and it was the root of an entire bug class:
 
 - **Silent no-op stubs**: `AudioStreamPlayer` and `CharacterBody3D` were fully stubbed
   (`moveAndSlide()` → `false`, `velocity` a dead field) — they compiled and "ran" but
@@ -65,12 +72,13 @@ method). This is slow, and it is the root of an entire bug class:
   `Variant` was required), a StringName over-dereference in script virtuals, and
   Variant type-tag mismatches all came from hand-written marshalling.
 
-This does not scale to the full API that real demos (3D platformer, FPS, racing,
-city-builder) need.
+That approach could not reach the full API that real demos (3D platformer, FPS,
+racing, city-builder) need, so iOS adopted the desktop/Android generated-wrapper
+model described next.
 
-## Target architecture: generated wrappers + ObjectCalls
+## Current architecture: generated wrappers + ObjectCalls
 
-The desktop/Android backend already solved this. Its full ~1086-class API in
+iOS reuses the desktop/Android solution. Its full ~1086-class API in
 `src/main/kotlin/.../api/` is **generated** ("Generated from Godot docs") by
 `scripts/generate_api_wrapper.py` from `extension_api.json`. Each generated wrapper
 caches a `MethodBind` and calls a typed helper on a runtime abstraction `ObjectCalls`:
@@ -82,11 +90,10 @@ fun setVelocity(velocity: Vector3) = ObjectCalls.ptrcallWithVector3Arg(setVeloci
 ```
 
 `ObjectCalls` is the platform seam: desktop implements it with Panama/FFM; **iOS
-implements it with the C shim** (`get_method_bind` + `ptrcall_*` primitives). iOS is
-already half-wired for this — `ios-runtime/.../binding/runtime/ObjectCalls.kt` exists
-(currently 1 helper), and `kanama_ios_godot_get_method_bind` exists in the shim. The
-generated wrappers depend only on `ObjectCalls` + types + `java.lang.foreign.MemorySegment`,
-all of which iOS already provides (it shims `MemorySegment`).
+implements it with the C shim** (`get_method_bind` + the generic `ptrcall` dispatch).
+The generated wrappers depend only on `ObjectCalls` + types +
+`java.lang.foreign.MemorySegment`, all of which iOS provides (it shims
+`MemorySegment`), so the same wrapper source runs on both backends.
 
 ```
 extension_api.json
@@ -99,24 +106,24 @@ ObjectCalls  ──┬── desktop actual → Panama/FFM
                └── iOS actual → C shim (get_method_bind + ptrcall/method_bind_call)
 ```
 
-**Keep the proven runtime; replace the hand-written API with generated wrappers.**
+The proven runtime stayed; the hand-written API was replaced with generated wrappers.
 
-### Migration shape
+### What is generated vs hand-written
 
-- Reuse the desktop generator's `extension_api.json` model, its `CallShape`
+- iOS reuses the desktop generator's `extension_api.json` model, its `CallShape`
   signature taxonomy (the finite `(argtypes→return)` → helper-name map), its
   conservative skip logic (`--skip-report`), and its fixture-based check harness
   (`scripts/check_wrapper_generator.py`). See `docs/contributing/wrapper-maintenance.md`.
-- Add an iOS emission target: the generated wrappers (initially copied into `iosMain`;
-  longer term shared via `commonMain` + `expect/actual ObjectCalls`) and the matching
-  `ObjectCalls` helper bodies (themselves generatable from the CallShape set).
-- The hand-written `IosGodotApi.kt` shrinks to genuinely bespoke runtime pieces:
+- The iOS emission target produces the generated wrappers (copied into `iosMain`
+  today; `commonMain` + `expect/actual ObjectCalls` sharing is on the backlog) and
+  the matching `ObjectCalls` helper bodies (generated from the CallShape set).
+- The hand-written layer is now only genuinely bespoke runtime pieces:
   `KanamaScript` base, `KanamaScope`, `Input`/InputMap glue, the signal/Callable
   registry, lifecycle. Everything else is generated.
 
 ## Contract: generic ptrcall dispatch (iOS ObjectCalls)
 
-Decided in T1.2, informed by a survey of the desktop `ObjectCalls.*` helper shapes
+Informed by a survey of the desktop `ObjectCalls.*` helper shapes
 (regenerable with `grep -rhoE "ObjectCalls\.[A-Za-z0-9_]+" src/main/.../api/ | sort -u`):
 the generated wrappers reference ~1467 distinct `ObjectCalls.*` helper shapes (121 for
 the platformer's classes alone), of which only ~7% map to an existing iOS C
@@ -141,11 +148,11 @@ primitive. Hand-writing a C function per shape is untenable, so:
   we avoid repeating the SIGSEGV / over-deref / boxing bug class.
 - **Varargs / shapes ptrcall can't express** fall back to the Variant
   `object_method_bind_call` path (already used by connect/emit/tween).
-- **Sharing strategy**: start (B) — generate iOS wrapper copies into `iosMain`
-  (no module restructure), designing toward (A) — shared wrappers in `commonMain`
-  with `expect/actual ObjectCalls` — once the contract is proven on the platformer.
+- **Sharing strategy**: today iOS wrapper copies are generated into `iosMain` (no
+  module restructure); moving them to shared `commonMain` with
+  `expect/actual ObjectCalls` is a backlog item.
 
-## T3.1 generator approach (decided)
+## Generator approach
 
 The desktop generator (`scripts/generate_api_wrapper.py`) renders each wrapper method
 as `ObjectCalls.<shape.function>(bind, receiver, args)` (see `render_method`) — this
@@ -159,8 +166,8 @@ wrapper output:
   names the wrappers use. As the generator picks each method's `CallShape` it knows
   the structured arg types + return type; collect a registry `shape.function ->
   (arg godot-types, return godot-type)` (deduped by name) and emit an iOS helper that
-  marshals via the generic `kanama_ios_godot_ptrcall` (T2.1). The hand-written iOS
-  helpers in `ObjectCalls.kt` (T2.2) are the reference template + the override set.
+  marshals via the generic `kanama_ios_godot_ptrcall`. The hand-written iOS
+  helpers in `ObjectCalls.kt` are the reference template + the override set.
 - **Type → PT-tag mapping (the risky core)** — apply exactly:
   scalar `float`/`double` → `PT_FLOAT64` (8 bytes); `int` per `meta` (int32/int64);
   Vector/Color components → float32 (single-precision); Object → `PT_OBJECT`;
@@ -171,9 +178,9 @@ wrapper output:
   `installIosAddon`, and round-trip its key methods on device (extend the ObjectCalls
   self-test) before generating the rest.
 
-Owner: T3.1 is [O] (this mapping is the single point where a marshalling mistake
-propagates across the whole API). T3.2+ (per-class generation, deploy, validate) is
-[S], guarded by the ptrcall matrix + the ObjectCalls Kotlin probe.
+The type → PT-tag mapping is the single point where a marshalling mistake would
+propagate across the whole API, so it is guarded by the on-device ptrcall matrix
+and the ObjectCalls Kotlin probe (see Rules below).
 
 ## Performance
 

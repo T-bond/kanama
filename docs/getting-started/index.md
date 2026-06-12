@@ -13,7 +13,8 @@ flows only after matching GitHub zip artifacts are published.
 
 Android export is experimental and uses a separate Gradle/Android toolchain.
 See [Android Experimental](../exporting/android.md) after the desktop workflow
-is running.
+is running. iOS is also experimental (a Kotlin/Native backend, device-validated
+but not yet a supported export) — see [iOS (Experimental)](../exporting/ios.md).
 
 ## Requirements
 

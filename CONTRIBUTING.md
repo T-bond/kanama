@@ -147,9 +147,9 @@ The demos repository exposes:
 
 ## Android Port Notes
 
-Android support is experimental. Kanama has been validated inside stock Godot
-Android exports through emulator smoke tests, but it is not yet a polished
-phone-ready target.
+Android support is experimental. Kanama runs inside stock Godot Android exports,
+but it is not yet a polished phone-ready target, and Godot 4.7 rc 2 APK/emulator
+revalidation is pending before any Android support claim changes.
 
 Known constraints:
 - Android uses ART, so the GDExtension library must attach to the existing VM

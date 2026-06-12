@@ -112,7 +112,7 @@ into the app's `.xcframework`, and the C shim exposes a single generic typed
 `ptrcall` dispatch that drives every wrapper shape — so the same generated
 wrapper API as desktop/Android runs on device with the platform seam isolated in
 `ObjectCalls`. iOS remains experimental, not a supported export; see the
-[iOS Spike](../exporting/ios.md) and
+[iOS (Experimental)](../exporting/ios.md) and
 [iOS backend architecture](../internals/ios-backend-architecture.md) for the
 audited-type and bridge gaps.
 

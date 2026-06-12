@@ -47,12 +47,12 @@ Android FFM layer, and keeps APK smoke validation as a separate gate. Godot 4.7
 rc 2 Android export revalidation is pending before updating Android support
 claims.
 
-iOS support is an experimental Kotlin/Native backend spike: a C GDExtension
-shim plus a Kotlin/Native static `.xcframework` run full Kanama project scripts
-through the same wrapper generator as desktop/Android, with no JVM on device.
-Match3 and the Kenney 3D platformer are device-validated end to end. iOS remains
-experimental, not a supported export — see the
-[iOS Spike](docs/exporting/ios.md) and
+iOS support is an experimental Kotlin/Native backend: a C GDExtension shim plus
+a Kotlin/Native static `.xcframework` run full Kanama project scripts through the
+same wrapper generator as desktop/Android, with no JVM on device. Match3 and the
+Kenney 3D platformer are device-validated end to end. iOS remains experimental,
+not a supported export — see the
+[iOS (Experimental)](docs/exporting/ios.md) and
 [iOS backend roadmap](docs/internals/ios-backend-roadmap.md).
 
 Web export is not planned.
@@ -181,7 +181,7 @@ The latest public documentation is published at
 - [Kotlin Style](docs/game-dev/style-guide.md)
 - [Desktop and Packaging](docs/exporting/desktop.md)
 - [Android Experimental](docs/exporting/android.md)
-- [iOS Spike (Experimental)](docs/exporting/ios.md)
+- [iOS (Experimental)](docs/exporting/ios.md)
 - [Version Support](docs/reference/version-support.md)
 - [API Coverage](docs/reference/api-coverage.md)
 - [C# Comparison](docs/reference/c-sharp-compat.md)

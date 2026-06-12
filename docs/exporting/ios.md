@@ -1,9 +1,10 @@
-# iOS Spike
+# iOS (Experimental)
 
-Kanama's iOS path is an experimental branch spike. It is not a support claim
-for the `0.2.2` preview line yet.
+Kanama's iOS backend is experimental but proven viable on device — it runs full
+Kanama project scripts through the same generated Godot API wrappers as
+desktop/Android. It is not yet a supported export.
 
-The current direction is:
+The design is:
 
 - Godot GDExtension entry point in a small C shim,
 - Kotlin/Native static library linked into the same iOS `.xcframework`,
@@ -13,7 +14,7 @@ The current direction is:
 
 ## Current Status
 
-The spike builds debug and release iOS `.xcframework` artifacts with device
+The iOS backend builds debug and release iOS `.xcframework` artifacts with device
 `arm64` and optional Apple Silicon simulator `arm64` slices, and runs **full Kanama
 project scripts** through GENERATED Godot API wrappers (the same wrapper generator as
 desktop/Android) over a C-shim generic `ptrcall`:
@@ -104,12 +105,14 @@ ios.release.arm64 = "res://addons/kanama/bin/ios/kanama_ios.release.xcframework"
 - Physical-device export and launch are the first validation target.
 - Simulator startup is optional for compile/link debugging and should not be
   used to judge iOS frame rate or gameplay feel.
-- Hot reload is out of scope for the first iOS backend.
-- Full KSP metadata parity, Kotlin Multiplatform source layout, generated
-  runtime wrappers, and real demo gameplay are still future work for the iOS
-  backend.
-- The production path must port the runtime through backend-neutral wrappers
-  and prefer cached typed calls over Variant-heavy or allocation-heavy paths.
+- Hot reload is out of scope for the iOS backend.
+- The audited type set is intentionally conservative: shapes like Vector2i/3i,
+  Transform3D, Color/RID, and String-return ptrcall are gated, and full KSP
+  annotation parity and `commonMain` source sharing are still on the backlog.
+  See [ios-backend-roadmap.md](../internals/ios-backend-roadmap.md) for the live
+  gap list and per-demo readiness.
+- The runtime calls Godot through backend-neutral generated wrappers and prefers
+  cached typed `ptrcall`s over Variant-heavy or allocation-heavy paths.
 
 ## Physical Device Smoke
 
