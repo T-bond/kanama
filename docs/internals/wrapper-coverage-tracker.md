@@ -22,7 +22,7 @@ Commits go straight to `main`, attributed `Co-Authored-By: Claude Fable 5`.
 |---|---|---|---|
 | 1.1 Scalar-combo CALL_SHAPES | sonnet | done | 2026-06-12: +19 shapes, +20 methods (15,265→15,285); fable-reviewed |
 | 1.2 Container returns (Array/Dictionary/Typed*/Packed*) | opus | done | 2026-06-12: +6 shapes, +14 methods (→15,299); (Dictionary)→Dictionary policy-blocked by design; fable-reviewed |
-| 1.3 Variant / RID returns | opus | todo | |
+| 1.3 Variant / RID returns | opus | done | 2026-06-12: +9 shapes, +14 methods (→15,313); typed-array args blocked (no init paths); fable-reviewed |
 | 1.4 Callable argument design | fable | todo | |
 
 ## Phase 2 — iOS audited type widening
@@ -84,3 +84,14 @@ Gated on Phase 4 exit. Not started by decision.
   remaining helper-shape skips all carry Variant/typedarray/Packed*/Signal
   args or Variant returns → Phase 1.3+. (Dictionary)→Dictionary stays
   policy-blocked (non-String-key policy in audit_generator_shape_policy.py).
+- **2026-06-12** — Phase 1.3 done (opus impl, fable review: COMMIT). 9 shapes,
+  +14 methods (→15,313, skips 1,509): Dictionary→Variant LSP returns,
+  Variant args (incl. both RichTextLabel 12-arg image methods — cell order
+  verified against extension_api.json), Packed*-array args. BLOCKED for a
+  future task: TypedObjectArray/TypedRIDArray/TypedTransform3DArray ARGS
+  have no BuiltinTypes init paths (affects ImporterMesh.merge_importer_meshes,
+  OpenXR do_entity_update ×2, RenderingDevice tlas_build et al.,
+  RenderingServer.texture_drawable_blit_rect, DrawableTexture2D.blit_rect[_multi]).
+  Remaining out-of-scope skips: Callable (1.4), Signal arg (Tween.tween_await),
+  (Dictionary)→Dictionary policy gate, EditorExportPlatform.export_project,
+  Font.find_variation.

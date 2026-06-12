@@ -40025,6 +40025,332 @@ object ObjectCalls {
         }
     }
 
+    // --- Phase 1.3 — Variant-return / Variant-arg / Packed*-arg helper shapes ---
+
+    /** (Dictionary) -> Variant. Dictionary arg destroyed in finally; Variant return via readVariantReturn. */
+    fun ptrcallWithDictionaryArgRetVariantScalar(
+        methodBind: MemorySegment,
+        instance: MemorySegment,
+        values: Map<String, Any?>,
+    ): Any? {
+        Arena.ofConfined().use { arena ->
+            val dict = arena.allocate(8L, 8L)
+            try {
+                BuiltinTypes.initDictionary(dict, values)
+                val arr = arena.allocate(ADDRESS, 1)
+                arr.setAtIndex(ADDRESS, 0, dict)
+                return readVariantReturn(methodBind, instance, arr, arena)
+            } finally {
+                BuiltinTypes.destroyTyped(VariantType.DICTIONARY, dict)
+            }
+        }
+    }
+
+    /** (String, Variant, int32) -> void. Note arg order: String, Variant, int32. */
+    fun ptrcallWithStringVariantAndIntArg(
+        methodBind: MemorySegment,
+        instance: MemorySegment,
+        text: String,
+        value: Any?,
+        index: Int,
+    ) {
+        Arena.ofConfined().use { arena ->
+            val stringCell = arena.allocate(8L, 8L)
+            val variant = initVariantCell(arena, value)
+            val intCell = arena.allocate(JAVA_INT)
+            try {
+                GodotStrings.initString(stringCell, text)
+                intCell.set(JAVA_INT, 0, index)
+                val arr = arena.allocate(ADDRESS, 3)
+                arr.setAtIndex(ADDRESS, 0, stringCell)
+                arr.setAtIndex(ADDRESS, 1, variant)
+                arr.setAtIndex(ADDRESS, 2, intCell)
+                objectMethodBindPtrcall.invoke(methodBind, instance, arr, MemorySegment.NULL)
+            } finally {
+                BuiltinTypes.destroyVariant(variant)
+                GodotStrings.destroyString(stringCell)
+            }
+        }
+    }
+
+    /**
+     * RichTextLabel.add_image:
+     * (Object, float, float, Color, enum, Rect2, Variant, bool, String, enum, enum, String) -> void.
+     */
+    fun ptrcallWithObjectTwoDoubleColorLongRect2VariantBoolStringTwoLongStringArgs(
+        methodBind: MemorySegment,
+        instance: MemorySegment,
+        image: MemorySegment,
+        width: Double,
+        height: Double,
+        color: Color,
+        inlineAlign: Long,
+        region: Rect2,
+        key: Any?,
+        pad: Boolean,
+        tooltip: String,
+        widthInPercent: Long,
+        heightInPercent: Long,
+        text: String,
+    ) {
+        Arena.ofConfined().use { arena ->
+            val imageCell = arena.allocate(ADDRESS)
+            val widthCell = arena.allocate(JAVA_DOUBLE)
+            val heightCell = arena.allocate(JAVA_DOUBLE)
+            val colorCell = arena.allocate(16L, 4L)
+            val inlineAlignCell = arena.allocate(JAVA_LONG)
+            val regionCell = arena.allocate(GodotReal.SIZE_BYTES * 4, GodotReal.ALIGN_BYTES)
+            val keyVariant = initVariantCell(arena, key)
+            val padCell = arena.allocate(JAVA_BYTE)
+            val tooltipCell = arena.allocate(8L, 8L)
+            val widthInPercentCell = arena.allocate(JAVA_LONG)
+            val heightInPercentCell = arena.allocate(JAVA_LONG)
+            val textCell = arena.allocate(8L, 8L)
+            try {
+                imageCell.set(ADDRESS, 0, image)
+                widthCell.set(JAVA_DOUBLE, 0, width)
+                heightCell.set(JAVA_DOUBLE, 0, height)
+                colorCell.set(JAVA_FLOAT, 0, color.r)
+                colorCell.set(JAVA_FLOAT, 4, color.g)
+                colorCell.set(JAVA_FLOAT, 8, color.b)
+                colorCell.set(JAVA_FLOAT, 12, color.a)
+                inlineAlignCell.set(JAVA_LONG, 0, inlineAlign)
+                writeRect2(regionCell, region)
+                padCell.set(JAVA_BYTE, 0, if (pad) 1.toByte() else 0.toByte())
+                GodotStrings.initString(tooltipCell, tooltip)
+                widthInPercentCell.set(JAVA_LONG, 0, widthInPercent)
+                heightInPercentCell.set(JAVA_LONG, 0, heightInPercent)
+                GodotStrings.initString(textCell, text)
+                val args = arena.allocate(ADDRESS, 12)
+                args.setAtIndex(ADDRESS, 0, imageCell)
+                args.setAtIndex(ADDRESS, 1, widthCell)
+                args.setAtIndex(ADDRESS, 2, heightCell)
+                args.setAtIndex(ADDRESS, 3, colorCell)
+                args.setAtIndex(ADDRESS, 4, inlineAlignCell)
+                args.setAtIndex(ADDRESS, 5, regionCell)
+                args.setAtIndex(ADDRESS, 6, keyVariant)
+                args.setAtIndex(ADDRESS, 7, padCell)
+                args.setAtIndex(ADDRESS, 8, tooltipCell)
+                args.setAtIndex(ADDRESS, 9, widthInPercentCell)
+                args.setAtIndex(ADDRESS, 10, heightInPercentCell)
+                args.setAtIndex(ADDRESS, 11, textCell)
+                objectMethodBindPtrcall.invoke(methodBind, instance, args, MemorySegment.NULL)
+            } finally {
+                GodotStrings.destroyString(textCell)
+                GodotStrings.destroyString(tooltipCell)
+                BuiltinTypes.destroyVariant(keyVariant)
+            }
+        }
+    }
+
+    /**
+     * RichTextLabel.update_image:
+     * (Variant, bitfield, Object, float, float, Color, enum, Rect2, bool, String, enum, enum) -> void.
+     */
+    fun ptrcallWithVariantLongObjectTwoDoubleColorLongRect2BoolStringTwoLongArgs(
+        methodBind: MemorySegment,
+        instance: MemorySegment,
+        key: Any?,
+        mask: Long,
+        image: MemorySegment,
+        width: Double,
+        height: Double,
+        color: Color,
+        inlineAlign: Long,
+        region: Rect2,
+        pad: Boolean,
+        tooltip: String,
+        widthInPercent: Long,
+        heightInPercent: Long,
+    ) {
+        Arena.ofConfined().use { arena ->
+            val keyVariant = initVariantCell(arena, key)
+            val maskCell = arena.allocate(JAVA_LONG)
+            val imageCell = arena.allocate(ADDRESS)
+            val widthCell = arena.allocate(JAVA_DOUBLE)
+            val heightCell = arena.allocate(JAVA_DOUBLE)
+            val colorCell = arena.allocate(16L, 4L)
+            val inlineAlignCell = arena.allocate(JAVA_LONG)
+            val regionCell = arena.allocate(GodotReal.SIZE_BYTES * 4, GodotReal.ALIGN_BYTES)
+            val padCell = arena.allocate(JAVA_BYTE)
+            val tooltipCell = arena.allocate(8L, 8L)
+            val widthInPercentCell = arena.allocate(JAVA_LONG)
+            val heightInPercentCell = arena.allocate(JAVA_LONG)
+            try {
+                maskCell.set(JAVA_LONG, 0, mask)
+                imageCell.set(ADDRESS, 0, image)
+                widthCell.set(JAVA_DOUBLE, 0, width)
+                heightCell.set(JAVA_DOUBLE, 0, height)
+                colorCell.set(JAVA_FLOAT, 0, color.r)
+                colorCell.set(JAVA_FLOAT, 4, color.g)
+                colorCell.set(JAVA_FLOAT, 8, color.b)
+                colorCell.set(JAVA_FLOAT, 12, color.a)
+                inlineAlignCell.set(JAVA_LONG, 0, inlineAlign)
+                writeRect2(regionCell, region)
+                padCell.set(JAVA_BYTE, 0, if (pad) 1.toByte() else 0.toByte())
+                GodotStrings.initString(tooltipCell, tooltip)
+                widthInPercentCell.set(JAVA_LONG, 0, widthInPercent)
+                heightInPercentCell.set(JAVA_LONG, 0, heightInPercent)
+                val args = arena.allocate(ADDRESS, 12)
+                args.setAtIndex(ADDRESS, 0, keyVariant)
+                args.setAtIndex(ADDRESS, 1, maskCell)
+                args.setAtIndex(ADDRESS, 2, imageCell)
+                args.setAtIndex(ADDRESS, 3, widthCell)
+                args.setAtIndex(ADDRESS, 4, heightCell)
+                args.setAtIndex(ADDRESS, 5, colorCell)
+                args.setAtIndex(ADDRESS, 6, inlineAlignCell)
+                args.setAtIndex(ADDRESS, 7, regionCell)
+                args.setAtIndex(ADDRESS, 8, padCell)
+                args.setAtIndex(ADDRESS, 9, tooltipCell)
+                args.setAtIndex(ADDRESS, 10, widthInPercentCell)
+                args.setAtIndex(ADDRESS, 11, heightInPercentCell)
+                objectMethodBindPtrcall.invoke(methodBind, instance, args, MemorySegment.NULL)
+            } finally {
+                GodotStrings.destroyString(tooltipCell)
+                BuiltinTypes.destroyVariant(keyVariant)
+            }
+        }
+    }
+
+    /** PCKPacker.add_file_from_buffer: (String, PackedByteArray, bool) -> enum. */
+    fun ptrcallWithStringByteArrayAndBoolArgRetLong(
+        methodBind: MemorySegment,
+        instance: MemorySegment,
+        text: String,
+        bytes: ByteArray,
+        flag: Boolean,
+    ): Long {
+        Arena.ofConfined().use { arena ->
+            val stringCell = arena.allocate(8L, 8L)
+            val byteArray = BuiltinTypes.allocatePackedArray(arena)
+            val boolCell = arena.allocate(JAVA_BYTE)
+            try {
+                GodotStrings.initString(stringCell, text)
+                BuiltinTypes.initPackedByteArray(byteArray, bytes)
+                boolCell.set(JAVA_BYTE, 0, if (flag) 1.toByte() else 0.toByte())
+                val arr = arena.allocate(ADDRESS, 3)
+                arr.setAtIndex(ADDRESS, 0, stringCell)
+                arr.setAtIndex(ADDRESS, 1, byteArray)
+                arr.setAtIndex(ADDRESS, 2, boolCell)
+                val ret = arena.allocate(JAVA_LONG)
+                objectMethodBindPtrcall.invoke(methodBind, instance, arr, ret)
+                return ret.get(JAVA_LONG, 0)
+            } finally {
+                BuiltinTypes.destroyTyped(VariantType.PACKED_BYTE_ARRAY, byteArray)
+                GodotStrings.destroyString(stringCell)
+            }
+        }
+    }
+
+    /** JavaClassWrapper.create_proxy: (Object, PackedStringArray) -> Object. */
+    fun ptrcallWithObjectAndPackedStringListArgsRetObject(
+        methodBind: MemorySegment,
+        instance: MemorySegment,
+        objectArg: MemorySegment,
+        values: List<String>,
+    ): MemorySegment {
+        Arena.ofConfined().use { arena ->
+            val objCell = arena.allocate(ADDRESS)
+            val packed = BuiltinTypes.allocatePackedArray(arena)
+            try {
+                objCell.set(ADDRESS, 0, objectArg)
+                BuiltinTypes.initPackedStringArray(packed, values)
+                val arr = arena.allocate(ADDRESS, 2)
+                arr.setAtIndex(ADDRESS, 0, objCell)
+                arr.setAtIndex(ADDRESS, 1, packed)
+                val ret = arena.allocate(ADDRESS)
+                objectMethodBindPtrcall.invoke(methodBind, instance, arr, ret)
+                return ret.get(ADDRESS, 0)
+            } finally {
+                BuiltinTypes.destroyTyped(VariantType.PACKED_STRING_ARRAY, packed)
+            }
+        }
+    }
+
+    /** GDScriptWorkspace.apply_new_signal: (Object, String, PackedStringArray) -> void. */
+    fun ptrcallWithObjectStringAndPackedStringListArgs(
+        methodBind: MemorySegment,
+        instance: MemorySegment,
+        objectArg: MemorySegment,
+        text: String,
+        values: List<String>,
+    ) {
+        Arena.ofConfined().use { arena ->
+            val objCell = arena.allocate(ADDRESS)
+            val stringCell = arena.allocate(8L, 8L)
+            val packed = BuiltinTypes.allocatePackedArray(arena)
+            try {
+                objCell.set(ADDRESS, 0, objectArg)
+                GodotStrings.initString(stringCell, text)
+                BuiltinTypes.initPackedStringArray(packed, values)
+                val arr = arena.allocate(ADDRESS, 3)
+                arr.setAtIndex(ADDRESS, 0, objCell)
+                arr.setAtIndex(ADDRESS, 1, stringCell)
+                arr.setAtIndex(ADDRESS, 2, packed)
+                objectMethodBindPtrcall.invoke(methodBind, instance, arr, MemorySegment.NULL)
+            } finally {
+                BuiltinTypes.destroyTyped(VariantType.PACKED_STRING_ARRAY, packed)
+                GodotStrings.destroyString(stringCell)
+            }
+        }
+    }
+
+    /** TextServer.font_set_palette_custom_colors: (RID, PackedColorArray) -> void. */
+    fun ptrcallWithRIDAndPackedColorListArgs(
+        methodBind: MemorySegment,
+        instance: MemorySegment,
+        rid: RID,
+        values: List<Color>,
+    ) {
+        Arena.ofConfined().use { arena ->
+            val ridCell = arena.allocate(JAVA_LONG)
+            val packed = BuiltinTypes.allocatePackedArray(arena)
+            try {
+                ridCell.set(JAVA_LONG, 0, rid.value)
+                BuiltinTypes.initPackedColorArray(packed, values)
+                val arr = arena.allocate(ADDRESS, 2)
+                arr.setAtIndex(ADDRESS, 0, ridCell)
+                arr.setAtIndex(ADDRESS, 1, packed)
+                objectMethodBindPtrcall.invoke(methodBind, instance, arr, MemorySegment.NULL)
+            } finally {
+                BuiltinTypes.destroyTyped(VariantType.PACKED_COLOR_ARRAY, packed)
+            }
+        }
+    }
+
+    /** RenderingDevice.hit_sbt_range_update: (RID, int64, uint32, PackedInt32Array) -> enum. */
+    fun ptrcallWithRIDLongUInt32AndPackedInt32ListArgRetLong(
+        methodBind: MemorySegment,
+        instance: MemorySegment,
+        rid: RID,
+        longArg: Long,
+        uintArg: Long,
+        values: List<Int>,
+    ): Long {
+        Arena.ofConfined().use { arena ->
+            val ridCell = arena.allocate(JAVA_LONG)
+            val longCell = arena.allocate(JAVA_LONG)
+            val uintCell = arena.allocate(JAVA_INT)
+            val packed = BuiltinTypes.allocatePackedArray(arena)
+            try {
+                ridCell.set(JAVA_LONG, 0, rid.value)
+                longCell.set(JAVA_LONG, 0, longArg)
+                uintCell.set(JAVA_INT, 0, BuiltinTypes.requireUInt32(uintArg))
+                BuiltinTypes.initPackedInt32Array(packed, values)
+                val arr = arena.allocate(ADDRESS, 4)
+                arr.setAtIndex(ADDRESS, 0, ridCell)
+                arr.setAtIndex(ADDRESS, 1, longCell)
+                arr.setAtIndex(ADDRESS, 2, uintCell)
+                arr.setAtIndex(ADDRESS, 3, packed)
+                val ret = arena.allocate(JAVA_LONG)
+                objectMethodBindPtrcall.invoke(methodBind, instance, arr, ret)
+                return ret.get(JAVA_LONG, 0)
+            } finally {
+                BuiltinTypes.destroyTyped(VariantType.PACKED_INT32_ARRAY, packed)
+            }
+        }
+    }
+
     /** Destroys a Godot Object pointer allocated via classdb_construct_object2. */
     fun destroyObject(instance: MemorySegment) {
         if (instance.address() == 0L) return

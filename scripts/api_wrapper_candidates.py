@@ -114,6 +114,53 @@ CALL_SHAPES: dict[tuple[tuple[str, ...], str], CallShape] = {
         "List<Vector2>",
         "emptyList()",
     ),
+    # Phase 1.3 — Variant-return, Variant-arg, and Packed*-arg helper shapes.
+    (("Dictionary",), "Variant"): CallShape(
+        "ptrcallWithDictionaryArgRetVariantScalar",
+        "Any?",
+        "null",
+    ),
+    (("String", "Variant", "int32"), "void"): CallShape(
+        "ptrcallWithStringVariantAndIntArg",
+        "Unit",
+    ),
+    (
+        ("Object", "float", "float", "Color", "enum", "Rect2", "Variant", "bool", "String", "enum", "enum", "String"),
+        "void",
+    ): CallShape(
+        "ptrcallWithObjectTwoDoubleColorLongRect2VariantBoolStringTwoLongStringArgs",
+        "Unit",
+    ),
+    (
+        ("Variant", "bitfield", "Object", "float", "float", "Color", "enum", "Rect2", "bool", "String", "enum", "enum"),
+        "void",
+    ): CallShape(
+        "ptrcallWithVariantLongObjectTwoDoubleColorLongRect2BoolStringTwoLongArgs",
+        "Unit",
+    ),
+    (("String", "PackedByteArray", "bool"), "enum"): CallShape(
+        "ptrcallWithStringByteArrayAndBoolArgRetLong",
+        "Long",
+        "0L",
+    ),
+    (("Object", "PackedStringArray"), "Object"): CallShape(
+        "ptrcallWithObjectAndPackedStringListArgsRetObject",
+        "MemorySegment",
+        "MemorySegment.NULL",
+    ),
+    (("Object", "String", "PackedStringArray"), "void"): CallShape(
+        "ptrcallWithObjectStringAndPackedStringListArgs",
+        "Unit",
+    ),
+    (("RID", "PackedColorArray"), "void"): CallShape(
+        "ptrcallWithRIDAndPackedColorListArgs",
+        "Unit",
+    ),
+    (("RID", "int64", "uint32", "PackedInt32Array"), "enum"): CallShape(
+        "ptrcallWithRIDLongUInt32AndPackedInt32ListArgRetLong",
+        "Long",
+        "0L",
+    ),
     (("Vector3i",), "TypedVector3iArray"): CallShape(
         "ptrcallWithVector3iArgRetVector3iList",
         "List<Vector3i>",
