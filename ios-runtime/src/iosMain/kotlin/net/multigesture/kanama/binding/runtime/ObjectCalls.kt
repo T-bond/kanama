@@ -15,6 +15,7 @@ import kotlinx.cinterop.IntVar
 import kotlinx.cinterop.LongVar
 import kotlinx.cinterop.alloc
 import kotlinx.cinterop.allocArray
+import kotlinx.cinterop.cstr
 import kotlinx.cinterop.get
 import kotlinx.cinterop.memScoped
 import kotlinx.cinterop.plus
@@ -26,6 +27,8 @@ import net.multigesture.kanama.ios.cinterop.kanama_ios_godot_construct_object
 import net.multigesture.kanama.ios.cinterop.kanama_ios_godot_get_method_bind
 import net.multigesture.kanama.ios.cinterop.kanama_ios_godot_get_singleton
 import net.multigesture.kanama.ios.cinterop.kanama_ios_godot_ptrcall
+import net.multigesture.kanama.types.Color
+import net.multigesture.kanama.types.Rect2
 import net.multigesture.kanama.types.Vector2
 import net.multigesture.kanama.types.Vector2i
 import net.multigesture.kanama.types.Vector3
@@ -54,7 +57,10 @@ object ObjectCalls {
     private const val PT_VECTOR2I = 7
     private const val PT_VECTOR3 = 8
     private const val PT_VECTOR3I = 9
+    private const val PT_COLOR = 11
+    private const val PT_RECT2 = 12
     private const val PT_OBJECT = 13
+    private const val PT_STRING_NAME = 15
 
     fun constructObject(className: String): MemorySegment =
         MemorySegment.ofAddress(kanama_ios_godot_construct_object(className))
@@ -141,6 +147,24 @@ object ObjectCalls {
             Vector3i(ret[0], ret[1], ret[2])
         }
 
+    // Color (4x float32, 16 bytes): components are always float32 (not real_t, not double).
+    // No widening: PtrToArgDirect<Color> lays 4×float32 raw.
+    fun ptrcallNoArgsRetColor(methodBind: MemorySegment, instance: MemorySegment): Color =
+        memScoped {
+            val ret = allocArray<FloatVar>(4)
+            kanama_ios_godot_ptrcall(methodBind.address(), instance.address(), null, null, 0, PT_COLOR, ret)
+            Color(ret[0], ret[1], ret[2], ret[3])
+        }
+
+    // Rect2 (4x float32, 16 bytes): position.x, position.y, size.x, size.y.
+    // Components are real_t = float32 on single-precision iOS (same convention as Vector2).
+    fun ptrcallNoArgsRetRect2(methodBind: MemorySegment, instance: MemorySegment): Rect2 =
+        memScoped {
+            val ret = allocArray<FloatVar>(4)
+            kanama_ios_godot_ptrcall(methodBind.address(), instance.address(), null, null, 0, PT_RECT2, ret)
+            Rect2(Vector2(ret[0].toDouble(), ret[1].toDouble()), Vector2(ret[2].toDouble(), ret[3].toDouble()))
+        }
+
     // ---- single arg, void return ----
     fun ptrcallWithBoolArg(methodBind: MemorySegment, instance: MemorySegment, value: Boolean) =
         memScoped {
@@ -218,6 +242,39 @@ object ObjectCalls {
             val ptrs = allocArray<COpaquePointerVar>(1); ptrs[0] = cell.reinterpret<CPointed>()
             kanama_ios_godot_ptrcall(methodBind.address(), instance.address(), types, ptrs, 1, PT_VOID, null)
             Unit
+        }
+
+    fun ptrcallWithColorArg(methodBind: MemorySegment, instance: MemorySegment, value: Color) =
+        memScoped {
+            val cell = allocArray<FloatVar>(4)
+            cell[0] = value.r; cell[1] = value.g; cell[2] = value.b; cell[3] = value.a
+            val types = allocArray<IntVar>(1); types[0] = PT_COLOR
+            val ptrs = allocArray<COpaquePointerVar>(1); ptrs[0] = cell.reinterpret<CPointed>()
+            kanama_ios_godot_ptrcall(methodBind.address(), instance.address(), types, ptrs, 1, PT_VOID, null)
+            Unit
+        }
+
+    fun ptrcallWithRect2Arg(methodBind: MemorySegment, instance: MemorySegment, value: Rect2) =
+        memScoped {
+            val cell = allocArray<FloatVar>(4)
+            cell[0] = value.position.x.toFloat(); cell[1] = value.position.y.toFloat()
+            cell[2] = value.size.x.toFloat(); cell[3] = value.size.y.toFloat()
+            val types = allocArray<IntVar>(1); types[0] = PT_RECT2
+            val ptrs = allocArray<COpaquePointerVar>(1); ptrs[0] = cell.reinterpret<CPointed>()
+            kanama_ios_godot_ptrcall(methodBind.address(), instance.address(), types, ptrs, 1, PT_VOID, null)
+            Unit
+        }
+
+    // Hand-written: used by the bespoke Input glue (IosGodotApi.kt) for is_action_just_pressed
+    // and by the ObjectCalls self-test. Not in IOS_EMIT_CLASSES, so excluded from generation.
+    fun ptrcallWithStringNameAndBoolArgRetBool(methodBind: MemorySegment, instance: MemorySegment, a0: String, a1: Boolean): Boolean =
+        memScoped {
+            val ret = alloc<ByteVar>()
+            val c1 = alloc<ByteVar>(); c1.value = if (a1) 1 else 0
+            val types = allocArray<IntVar>(2); types[0] = PT_STRING_NAME; types[1] = PT_BOOL
+            val ptrs = allocArray<COpaquePointerVar>(2); ptrs[0] = a0.cstr.ptr.reinterpret<CPointed>(); ptrs[1] = c1.ptr.reinterpret<CPointed>()
+            kanama_ios_godot_ptrcall(methodBind.address(), instance.address(), types, ptrs, 2, PT_BOOL, ret.ptr)
+            ret.value.toInt() != 0
         }
 
     fun ptrcallWithObjectArgs(methodBind: MemorySegment, instance: MemorySegment, objectArgs: List<MemorySegment>) =
@@ -329,6 +386,31 @@ fun kanamaIosRuntimeObjectCallsSelfTest() {
     val v3i = ObjectCalls.ptrcallNoArgsRetVector3i(
         ObjectCalls.getMethodBind("PlaceholderTexture3D", "get_size", 2785653706L), tex3d)
     check("vector3i", v3i.x == 5 && v3i.y == 11 && v3i.z == 17)
+
+    // Color (4x float32, 16B): CanvasItem.set_modulate(Color(0.125,0.25,0.5,0.75)) -> get_modulate()
+    // Validation-free: modulate is a stored Color with no engine clamping or index checks.
+    // Component values 0.125/0.25/0.5/0.75 are exact in float32 (powers of 2), so
+    // equality checks are stable without epsilon. Node2D is a CanvasItem.
+    // PENDING DEVICE VALIDATION (Phase 2.2 addition — no device run yet)
+    val n2c = ObjectCalls.constructObject("Node2D")
+    ObjectCalls.ptrcallWithColorArg(
+        ObjectCalls.getMethodBind("CanvasItem", "set_modulate", 2920490490L), n2c,
+        Color(0.125f, 0.25f, 0.5f, 0.75f))
+    val col = ObjectCalls.ptrcallNoArgsRetColor(
+        ObjectCalls.getMethodBind("CanvasItem", "get_modulate", 3444240500L), n2c)
+    check("color", col.r == 0.125f && col.g == 0.25f && col.b == 0.5f && col.a == 0.75f)
+
+    // Rect2 (4x float32, 16B): GPUParticles2D.set_visibility_rect -> get_visibility_rect()
+    // Validation-free: visibility_rect is a stored Rect2 with no engine clamping.
+    // Component values 1.5/2.5/3.5/4.5 are exact in float32, so equality is stable.
+    // PENDING DEVICE VALIDATION (Phase 2.2 addition — no device run yet)
+    val gp2d = ObjectCalls.constructObject("GPUParticles2D")
+    ObjectCalls.ptrcallWithRect2Arg(
+        ObjectCalls.getMethodBind("GPUParticles2D", "set_visibility_rect", 2046264180L), gp2d,
+        Rect2(Vector2(1.5, 2.5), Vector2(3.5, 4.5)))
+    val r2 = ObjectCalls.ptrcallNoArgsRetRect2(
+        ObjectCalls.getMethodBind("GPUParticles2D", "get_visibility_rect", 1639390495L), gp2d)
+    check("rect2", r2.position.x == 1.5 && r2.position.y == 2.5 && r2.size.x == 3.5 && r2.size.y == 4.5)
 
     println("[kanama][ios][kn] OBJECTCALLS SELFTEST: $pass passed, $fail failed")
 }

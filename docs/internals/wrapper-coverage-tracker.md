@@ -30,7 +30,7 @@ Commits go straight to `main`, attributed `Co-Authored-By: Claude Fable 5`.
 | Task | Model | Status | Notes |
 |---|---|---|---|
 | 2.1 Vector2i / Vector3i | sonnet | done | 2026-06-12: kinds+matrix+probe rows; Sprite2D +3 methods; device self-test PENDING |
-| 2.2 Color / Rect2 returns | sonnet | todo | |
+| 2.2 Color / Rect2 returns | sonnet | done | 2026-06-12: kinds+tags+matrix+probe rows; CanvasItem +16 methods (incl. real get_modulate + 12 draw*), Control +4, GPUParticles2D +3, Sprite2D +3, Label/Viewport/CollisionShape3D/CollisionObject2D minor; STUB 12→11, SUGAR 5→3; fable-reviewed; device self-test PENDING |
 | 2.3 String-return ptrcall | opus | todo | |
 | 2.4 PT_STRING / PT_NODE_PATH args | opus | todo | |
 | 2.5 Transform3D / Basis | opus | todo | |
@@ -70,28 +70,28 @@ Gated on Phase 4 exit. Not started by decision.
 | R8-minified APK smoke gate (review F2) | opus | todo |
 | AVAudioSession workaround | sonnet | todo |
 
-## RESUME HERE (handoff 2026-06-12, session switch)
+## RESUME HERE (handoff 2026-06-12, session switch — resume in Opus)
 
-State at handoff:
-- Committed through `6259b3d` (Phase 2.1). Phases 1.1–1.4 + 2.1 done.
-- **Phase 2.2 (Color/Rect2 returns, sonnet) was IN FLIGHT** in the old
-  session and edits the working tree directly. On resume run `git status`:
-  - If iOS files are modified uncommitted → treat as the 2.2 candidate diff:
-    run the 2.2 gates (check_wrapper_generator, check_ios_no_silent_stubs,
-    ios_handwritten_report, :ios-runtime:compileKotlinIosArm64, shim
-    clang -fsyntax-only), then fable-review per workflow, fix, commit.
-  - If the diff looks partial/broken (gates fail incoherently) → `git
-    checkout -- .` and re-run 2.2 from the roadmap brief (see Phase 2.2 row
-    + the 2.1 session-log entry for the pattern + the ERR_FAIL_INDEX lesson).
-- **iPhone 12 is connected** → run device validation for the 2.1 (and 2.2 if
-  landed) self-test matrix + ObjectCalls probe rows: docs/exporting/ios.md
-  workflow + scripts/ios_visual_smoke.sh (device-first; simulator is not a
-  signal). Record PASS in this tracker; 2.6 is gated on these rows passing.
-- Workflow reminder: impl subagent per roadmap model tag → fable agent
-  reviews diff → commit straight to main, attribute
+State at handoff: working tree CLEAN, Phases 1.1–1.4 + 2.1 + 2.2 all
+committed to main (2.2 landed after the original handoff note; both
+fable-reviewed).
+
+1. **FIRST: device validation (iPhone 12 connected).** Run the iOS
+   self-test matrix + ObjectCalls probe on device: docs/exporting/ios.md
+   workflow + scripts/ios_visual_smoke.sh (device-first; simulator is not a
+   signal). Pending rows: Vector2i (Sprite2D.frame_coords 3,7 after
+   hframes/vframes widening), Vector3i (PlaceholderTexture3D.size 5,11,17),
+   Color (Node2D modulate 0.125,0.25,0.5,0.75), Rect2 (GPUParticles2D
+   visibility_rect 1.5,2.5,3.5,4.5) — C rows + Kotlin probe rows each.
+   Record PASS/FAIL per row in this tracker; 2.6 is gated on these.
+   If a row fails: triage width-vs-engine-validation-vs-harness BEFORE
+   touching marshalling code (see 2.1's ERR_FAIL_INDEX lesson).
+2. Then 2.3 (String-return ptrcall, opus impl agent) — unblocks Label.text
+   get + AnimationPlayer.getCurrentAnimation (2 STUBs + 2 SUGARs); then 2.4
+   (PT_STRING/PT_NODE_PATH args), 2.5 (Transform3D/Basis).
+- Workflow: impl subagent per roadmap model tag → fable agent reviews diff →
+  commit straight to main, attribute
   `Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>`.
-- Next after 2.2 + device run: 2.3 (String-return ptrcall, opus) — also
-  unblocks 2 STUBs + 2 SUGARs; then 2.4, 2.5.
 
 ## Session log
 
@@ -160,3 +160,29 @@ State at handoff:
   false ABI failure on device); both the C matrix row and the Kotlin probe
   now call set_hframes(4)/set_vframes(8) first. Widths/tags/hashes/struct/
   generator gating all verified correct by review.
+- **2026-06-12** — Phase 2.2 done (sonnet impl). iOS Color/Rect2 arg + return
+  kinds (PT_COLOR=11 4×float32=16B, PT_RECT2=12 4×float32=16B — Color
+  components always float32, Rect2 real_t=float32 on single-precision iOS;
+  both flow through POD passthrough, no new C switch cases; tags were already
+  reserved in the shim enum). 4 hand-written iOS helpers in ObjectCalls.kt
+  (ptrcallNoArgsRetColor/Rect2 + ptrcallWithColorArg/Rect2Arg) + PT_COLOR/
+  PT_RECT2 constants; ptrcallWithStringNameAndBoolArgRetBool moved from
+  generated to hand-written (was dropped by regeneration since Input is
+  bespoke, not an IOS_EMIT_CLASS). 2 C-shim self-test matrix rows (color:
+  CanvasItem.modulate(0.125,0.25,0.5,0.75) — validation-free, exact float32;
+  rect2: GPUParticles2D.visibility_rect(1.5,2.5,3.5,4.5) — validation-free,
+  exact float32) + 2 Kotlin ObjectCalls probe rows — all marked **PENDING
+  DEVICE VALIDATION**. CanvasItem.get_modulate STUB removed: CanvasItem
+  regenerated with 16 new methods (setModulate/getModulate/setSelfModulate/
+  getSelfModulate now real; getViewportRect generated; drawLine/drawRect/
+  drawCircle/drawArc/drawEllipseArc/drawEllipse + drawTexture*/drawMsdf*/
+  drawLcd* variants). CanvasItem+Viewport SUGAR dropped (getViewportRect
+  and getVisibleRect now generated). Node SUGAR preserved (getTree/
+  getNodeOrNull/getAsOrNull/requireAs/getNodeAsOrNull/createTween remain
+  bespoke) but getViewport() dropped from SUGAR (now generated).
+  Additional classes regenerated: Control +4, GPUParticles2D +3,
+  Sprite2D +3, CollisionObject2D +2, CollisionShape3D +3, Label +1
+  (getCharacterBounds). STUB delta: 12→11 (-1 CanvasItem.get_modulate).
+  SUGAR delta: 5→3 (-CanvasItem.getViewportRect, -Viewport.getVisibleRect).
+  Gates: check_wrapper_generator, check_ios_no_silent_stubs, local CI iOS
+  checks, compileKotlinIosArm64, clang -fsyntax-only — all pass.

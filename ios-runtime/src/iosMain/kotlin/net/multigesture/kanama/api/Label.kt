@@ -4,6 +4,7 @@ import java.lang.foreign.MemorySegment
 import kotlin.jvm.JvmName
 import net.multigesture.kanama.binding.runtime.ObjectCalls
 import net.multigesture.kanama.binding.runtime.*
+import net.multigesture.kanama.types.Rect2
 
 /**
  * Generated from Godot docs: Label
@@ -235,6 +236,10 @@ class Label(handle: MemorySegment) : Control(handle) {
         return ObjectCalls.ptrcallNoArgsRetLong(getStructuredTextBidiOverrideBind, handle)
     }
 
+    fun getCharacterBounds(pos: Int): Rect2 {
+        return ObjectCalls.ptrcallWithIntArgRetRect2(getCharacterBoundsBind, handle, pos)
+    }
+
     companion object {
         fun fromHandle(handle: MemorySegment): Label? =
             wrap(handle)
@@ -410,6 +415,11 @@ class Label(handle: MemorySegment) : Control(handle) {
         private const val GET_STRUCTURED_TEXT_BIDI_OVERRIDE_HASH = 3385126229L
         private val getStructuredTextBidiOverrideBind by lazy {
             ObjectCalls.getMethodBind("Label", "get_structured_text_bidi_override", GET_STRUCTURED_TEXT_BIDI_OVERRIDE_HASH)
+        }
+
+        private const val GET_CHARACTER_BOUNDS_HASH = 3327874267L
+        private val getCharacterBoundsBind by lazy {
+            ObjectCalls.getMethodBind("Label", "get_character_bounds", GET_CHARACTER_BOUNDS_HASH)
         }
     }
 

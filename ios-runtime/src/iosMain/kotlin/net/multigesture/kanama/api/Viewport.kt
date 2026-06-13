@@ -4,6 +4,7 @@ import java.lang.foreign.MemorySegment
 import kotlin.jvm.JvmName
 import net.multigesture.kanama.binding.runtime.ObjectCalls
 import net.multigesture.kanama.binding.runtime.*
+import net.multigesture.kanama.types.Rect2
 import net.multigesture.kanama.types.Vector2
 
 /**
@@ -261,6 +262,10 @@ open class Viewport(handle: MemorySegment) : Node(handle) {
         get() = getOversamplingOverride()
         @JvmName("setOversamplingOverrideProperty")
         set(value) = setOversamplingOverride(value)
+
+    fun getVisibleRect(): Rect2 {
+        return ObjectCalls.ptrcallNoArgsRetRect2(getVisibleRectBind, handle)
+    }
 
     fun setTransparentBackground(enable: Boolean) {
         ObjectCalls.ptrcallWithBoolArg(setTransparentBackgroundBind, handle, enable)
@@ -786,6 +791,11 @@ open class Viewport(handle: MemorySegment) : Node(handle) {
         internal fun wrap(handle: MemorySegment): Viewport? =
             if (handle.address() == 0L) null else Viewport(handle)
 
+        private const val GET_VISIBLE_RECT_HASH = 1639390495L
+        private val getVisibleRectBind by lazy {
+            ObjectCalls.getMethodBind("Viewport", "get_visible_rect", GET_VISIBLE_RECT_HASH)
+        }
+
         private const val SET_TRANSPARENT_BACKGROUND_HASH = 2586408642L
         private val setTransparentBackgroundBind by lazy {
             ObjectCalls.getMethodBind("Viewport", "set_transparent_background", SET_TRANSPARENT_BACKGROUND_HASH)
@@ -1306,10 +1316,4 @@ open class Viewport(handle: MemorySegment) : Node(handle) {
             ObjectCalls.getMethodBind("Viewport", "get_vrs_texture", GET_VRS_TEXTURE_HASH)
         }
     }
-
-    // KANAMA-IOS-SUGAR: hand-added to a generated file; re-add after regeneration.
-    // ── Kanama sugar (hand) - preserve on regenerate ──────────────────────────
-
-    fun getVisibleRect(): net.multigesture.kanama.types.Rect2 =
-        IosGodot.viewportGetVisibleRect(handle.address())
 }

@@ -4218,8 +4218,11 @@ static void kanama_ios_ptrcall_selftest(void) {
             node2d, NULL, NULL, 0, KANAMA_IOS_PT_FLOAT64, &rout);
         KANAMA_IOS_ST_CHECK("scalar-float(rotation) as double", rout == 0.5);
 
-        // Color (4x f32): CanvasItem.set_modulate -> get_modulate (Node2D is a CanvasItem)
-        float cin[4] = { 0.25f, 0.5f, 0.75f, 1.0f };
+        // Color (4x f32, 16B): CanvasItem.set_modulate -> get_modulate (Node2D is a CanvasItem)
+        // Validation-free: modulate is a stored Color with no engine clamping.
+        // Values 0.125/0.25/0.5/0.75 are exact in float32 (powers of 2).
+        // PENDING DEVICE VALIDATION (Phase 2.2 addition — no device run yet)
+        float cin[4] = { 0.125f, 0.25f, 0.5f, 0.75f };
         const void *ca[1] = { cin };
         int32_t ct[1] = { KANAMA_IOS_PT_COLOR };
         kanama_ios_godot_ptrcall(kanama_ios_godot_get_method_bind("CanvasItem","set_modulate",2920490490),
@@ -4227,7 +4230,7 @@ static void kanama_ios_ptrcall_selftest(void) {
         float cout[4] = { 0, 0, 0, 0 };
         kanama_ios_godot_ptrcall(kanama_ios_godot_get_method_bind("CanvasItem","get_modulate",3444240500),
             node2d, NULL, NULL, 0, KANAMA_IOS_PT_COLOR, cout);
-        KANAMA_IOS_ST_CHECK("color", cout[0]==0.25f && cout[1]==0.5f && cout[2]==0.75f && cout[3]==1.0f);
+        KANAMA_IOS_ST_CHECK("color(0.125,0.25,0.5,0.75)", cout[0]==0.125f && cout[1]==0.25f && cout[2]==0.5f && cout[3]==0.75f);
     }
 
     // Object arg + multi-arg + Object return:
@@ -4304,6 +4307,28 @@ static void kanama_ios_ptrcall_selftest(void) {
         kanama_ios_godot_ptrcall(kanama_ios_godot_get_method_bind("PlaceholderTexture3D","get_size",2785653706),
             tex3d, NULL, NULL, 0, KANAMA_IOS_PT_VECTOR3I, out);
         KANAMA_IOS_ST_CHECK("vector3i(5,11,17)", out[0]==5 && out[1]==11 && out[2]==17);
+    }
+
+    // Rect2 (4x f32, 16B): GPUParticles2D.set_visibility_rect -> get_visibility_rect()
+    // Validation-free: visibility_rect is a stored Rect2 with no engine clamping.
+    // Values 1.5/2.5/3.5/4.5 are exact in float32 (n/2 pattern).
+    // Width-sensitive: a wrong tag would misread the 16-byte struct.
+    // PENDING DEVICE VALIDATION (Phase 2.2 addition — no device run yet)
+    {
+        int64_t gp2d = kanama_ios_godot_construct_object("GPUParticles2D");
+        if (gp2d == 0) {
+            fprintf(stderr, "[kanama][ios][c] SELFTEST note: GPUParticles2D construct returned 0\n");
+            fflush(stderr);
+        }
+        float in[4] = { 1.5f, 2.5f, 3.5f, 4.5f };
+        const void *a[1] = { in };
+        int32_t t[1] = { KANAMA_IOS_PT_RECT2 };
+        kanama_ios_godot_ptrcall(kanama_ios_godot_get_method_bind("GPUParticles2D","set_visibility_rect",2046264180),
+            gp2d, t, a, 1, KANAMA_IOS_PT_VOID, NULL);
+        float out[4] = { 0, 0, 0, 0 };
+        kanama_ios_godot_ptrcall(kanama_ios_godot_get_method_bind("GPUParticles2D","get_visibility_rect",1639390495),
+            gp2d, NULL, NULL, 0, KANAMA_IOS_PT_RECT2, out);
+        KANAMA_IOS_ST_CHECK("rect2(1.5,2.5,3.5,4.5)", out[0]==1.5f && out[1]==2.5f && out[2]==3.5f && out[3]==4.5f);
     }
 
     fprintf(stderr, "[kanama][ios][c] PTRCALL SELFTEST MATRIX: %d passed, %d failed\n", pass, fail);

@@ -4,6 +4,7 @@ import java.lang.foreign.MemorySegment
 import kotlin.jvm.JvmName
 import net.multigesture.kanama.binding.runtime.ObjectCalls
 import net.multigesture.kanama.binding.runtime.*
+import net.multigesture.kanama.types.Rect2
 import net.multigesture.kanama.types.Vector2
 import net.multigesture.kanama.types.Vector2i
 
@@ -71,6 +72,12 @@ class Sprite2D(handle: MemorySegment) : Node2D(handle) {
         @JvmName("setRegionEnabledProperty")
         set(value) = setRegionEnabled(value)
 
+    var regionRect: Rect2
+        @JvmName("regionRectProperty")
+        get() = getRegionRect()
+        @JvmName("setRegionRectProperty")
+        set(value) = setRegionRect(value)
+
     var regionFilterClipEnabled: Boolean
         @JvmName("regionFilterClipEnabledProperty")
         get() = isRegionFilterClipEnabled()
@@ -129,6 +136,14 @@ class Sprite2D(handle: MemorySegment) : Node2D(handle) {
         return ObjectCalls.ptrcallWithVector2ArgRetBool(isPixelOpaqueBind, handle, pos)
     }
 
+    fun setRegionRect(rect: Rect2) {
+        ObjectCalls.ptrcallWithRect2Arg(setRegionRectBind, handle, rect)
+    }
+
+    fun getRegionRect(): Rect2 {
+        return ObjectCalls.ptrcallNoArgsRetRect2(getRegionRectBind, handle)
+    }
+
     fun setRegionFilterClipEnabled(enabled: Boolean) {
         ObjectCalls.ptrcallWithBoolArg(setRegionFilterClipEnabledBind, handle, enabled)
     }
@@ -167,6 +182,10 @@ class Sprite2D(handle: MemorySegment) : Node2D(handle) {
 
     fun getHframes(): Int {
         return ObjectCalls.ptrcallNoArgsRetInt(getHframesBind, handle)
+    }
+
+    fun getRect(): Rect2 {
+        return ObjectCalls.ptrcallNoArgsRetRect2(getRectBind, handle)
     }
 
     object Signals {
@@ -246,6 +265,16 @@ class Sprite2D(handle: MemorySegment) : Node2D(handle) {
             ObjectCalls.getMethodBind("Sprite2D", "is_pixel_opaque", IS_PIXEL_OPAQUE_HASH)
         }
 
+        private const val SET_REGION_RECT_HASH = 2046264180L
+        private val setRegionRectBind by lazy {
+            ObjectCalls.getMethodBind("Sprite2D", "set_region_rect", SET_REGION_RECT_HASH)
+        }
+
+        private const val GET_REGION_RECT_HASH = 1639390495L
+        private val getRegionRectBind by lazy {
+            ObjectCalls.getMethodBind("Sprite2D", "get_region_rect", GET_REGION_RECT_HASH)
+        }
+
         private const val SET_REGION_FILTER_CLIP_ENABLED_HASH = 2586408642L
         private val setRegionFilterClipEnabledBind by lazy {
             ObjectCalls.getMethodBind("Sprite2D", "set_region_filter_clip_enabled", SET_REGION_FILTER_CLIP_ENABLED_HASH)
@@ -294,6 +323,11 @@ class Sprite2D(handle: MemorySegment) : Node2D(handle) {
         private const val GET_HFRAMES_HASH = 3905245786L
         private val getHframesBind by lazy {
             ObjectCalls.getMethodBind("Sprite2D", "get_hframes", GET_HFRAMES_HASH)
+        }
+
+        private const val GET_RECT_HASH = 1639390495L
+        private val getRectBind by lazy {
+            ObjectCalls.getMethodBind("Sprite2D", "get_rect", GET_RECT_HASH)
         }
     }
 }

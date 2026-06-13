@@ -8,7 +8,7 @@ without being listed here, so we don't repeat the deep-dive bugs from unwired
 annotations/signals. `scripts/check_ios_no_silent_stubs.py` fails CI on an
 un-annotated bare-default return.
 
-Totals: **12 STUB** · **10 HANDWRITTEN** · **5 SUGAR** (27 marked sites).
+Totals: **11 STUB** · **10 HANDWRITTEN** · **3 SUGAR** (24 marked sites).
 
 ## STUB
 
@@ -17,8 +17,7 @@ _Silent stubs — should call real Godot but don't yet (follow up to avoid silen
 | Location | Note |
 |---|---|
 | `ios/bootstrap/kanama_ios_shim.c:390` | PT_STRING / PT_NODE_PATH arg construction not implemented in the |
-| `ios-runtime/src/iosMain/kotlin/net/multigesture/kanama/api/AnimationPlayer.kt:197` | getCurrentAnimation returns the last play() name, not Godot's live |
-| `ios-runtime/src/iosMain/kotlin/net/multigesture/kanama/api/CanvasItem.kt:538` | get_modulate not read (Color return not audited); set is real. Backlog. |
+| `ios-runtime/src/iosMain/kotlin/net/multigesture/kanama/api/AnimationPlayer.kt:507` | getCurrentAnimation returns the last play() name, not Godot's live |
 | `ios-runtime/src/iosMain/kotlin/net/multigesture/kanama/api/IosGodotApi.kt:143` | should dispatch via the Variant Object.call path; not wired yet. Backlog. |
 | `ios-runtime/src/iosMain/kotlin/net/multigesture/kanama/api/IosGodotApi.kt:147` | should call Object.set_deferred via Variant dispatch; not wired yet. Backlog. |
 | `ios-runtime/src/iosMain/kotlin/net/multigesture/kanama/api/IosGodotApi.kt:154` | should call Object.disconnect; not wired yet. Backlog. |
@@ -27,7 +26,7 @@ _Silent stubs — should call real Godot but don't yet (follow up to avoid silen
 | `ios-runtime/src/iosMain/kotlin/net/multigesture/kanama/api/IosGodotApi.kt:249` | should carry the real connect() return Error; hardcoded OK. Backlog. |
 | `ios-runtime/src/iosMain/kotlin/net/multigesture/kanama/api/IosGodotApi.kt:252` | close() should disconnect the connection; not wired yet. Backlog. |
 | `ios-runtime/src/iosMain/kotlin/net/multigesture/kanama/api/IosGodotApi.kt:390` | cosmetic; needs Texture2D arg marshalling to call set_custom_mouse_cursor. Backlog. |
-| `ios-runtime/src/iosMain/kotlin/net/multigesture/kanama/api/Label.kt:420` | get_text not read (String-return ptrcall not wired); set is real. Backlog. |
+| `ios-runtime/src/iosMain/kotlin/net/multigesture/kanama/api/Label.kt:430` | get_text not read (String-return ptrcall not wired); set is real. Backlog. |
 
 ## HANDWRITTEN
 
@@ -52,9 +51,7 @@ _Hand-added inside a GENERATED wrapper file — regeneration overwrites it; re-a
 
 | Location | Note |
 |---|---|
-| `ios-runtime/src/iosMain/kotlin/net/multigesture/kanama/api/AnimationPlayer.kt:194` | hand-added to a generated file; re-add after regeneration. |
-| `ios-runtime/src/iosMain/kotlin/net/multigesture/kanama/api/CanvasItem.kt:531` | hand-added to a generated file; re-add after regeneration. |
-| `ios-runtime/src/iosMain/kotlin/net/multigesture/kanama/api/Label.kt:416` | hand-added to a generated file; re-add after regeneration. |
-| `ios-runtime/src/iosMain/kotlin/net/multigesture/kanama/api/Node.kt:306` | hand-added to a generated file; re-add after regeneration. |
-| `ios-runtime/src/iosMain/kotlin/net/multigesture/kanama/api/Viewport.kt:1310` | hand-added to a generated file; re-add after regeneration. |
+| `ios-runtime/src/iosMain/kotlin/net/multigesture/kanama/api/AnimationPlayer.kt:504` | hand-added to a generated file; re-add after regeneration. |
+| `ios-runtime/src/iosMain/kotlin/net/multigesture/kanama/api/Label.kt:426` | hand-added to a generated file; re-add after regeneration. |
+| `ios-runtime/src/iosMain/kotlin/net/multigesture/kanama/api/Node.kt:925` | hand-added to a generated file; re-add after regeneration. |
 

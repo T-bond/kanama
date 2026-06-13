@@ -4,6 +4,7 @@ import java.lang.foreign.MemorySegment
 import kotlin.jvm.JvmName
 import net.multigesture.kanama.binding.runtime.ObjectCalls
 import net.multigesture.kanama.binding.runtime.*
+import net.multigesture.kanama.types.Color
 
 /**
  * Generated from Godot docs: CollisionShape3D
@@ -15,11 +16,21 @@ class CollisionShape3D(handle: MemorySegment) : Node3D(handle) {
         @JvmName("setDisabledProperty")
         set(value) = setDisabled(value)
 
+    var debugColor: Color
+        @JvmName("debugColorProperty")
+        get() = getDebugColor()
+        @JvmName("setDebugColorProperty")
+        set(value) = setDebugColor(value)
+
     var debugFill: Boolean
         @JvmName("debugFillProperty")
         get() = getEnableDebugFill()
         @JvmName("setDebugFillProperty")
         set(value) = setEnableDebugFill(value)
+
+    fun resourceChanged(resource: Resource?) {
+        ObjectCalls.ptrcallWithObjectArgs(resourceChangedBind, handle, listOf(resource?.requireOpenHandle() ?: MemorySegment.NULL))
+    }
 
     fun setDisabled(enable: Boolean) {
         ObjectCalls.ptrcallWithBoolArg(setDisabledBind, handle, enable)
@@ -31,6 +42,14 @@ class CollisionShape3D(handle: MemorySegment) : Node3D(handle) {
 
     fun makeConvexFromSiblings() {
         ObjectCalls.ptrcallNoArgs(makeConvexFromSiblingsBind, handle)
+    }
+
+    fun setDebugColor(color: Color) {
+        ObjectCalls.ptrcallWithColorArg(setDebugColorBind, handle, color)
+    }
+
+    fun getDebugColor(): Color {
+        return ObjectCalls.ptrcallNoArgsRetColor(getDebugColorBind, handle)
     }
 
     fun setEnableDebugFill(enable: Boolean) {
@@ -48,6 +67,11 @@ class CollisionShape3D(handle: MemorySegment) : Node3D(handle) {
         internal fun wrap(handle: MemorySegment): CollisionShape3D? =
             if (handle.address() == 0L) null else CollisionShape3D(handle)
 
+        private const val RESOURCE_CHANGED_HASH = 968641751L
+        private val resourceChangedBind by lazy {
+            ObjectCalls.getMethodBind("CollisionShape3D", "resource_changed", RESOURCE_CHANGED_HASH)
+        }
+
         private const val SET_DISABLED_HASH = 2586408642L
         private val setDisabledBind by lazy {
             ObjectCalls.getMethodBind("CollisionShape3D", "set_disabled", SET_DISABLED_HASH)
@@ -61,6 +85,16 @@ class CollisionShape3D(handle: MemorySegment) : Node3D(handle) {
         private const val MAKE_CONVEX_FROM_SIBLINGS_HASH = 3218959716L
         private val makeConvexFromSiblingsBind by lazy {
             ObjectCalls.getMethodBind("CollisionShape3D", "make_convex_from_siblings", MAKE_CONVEX_FROM_SIBLINGS_HASH)
+        }
+
+        private const val SET_DEBUG_COLOR_HASH = 2920490490L
+        private val setDebugColorBind by lazy {
+            ObjectCalls.getMethodBind("CollisionShape3D", "set_debug_color", SET_DEBUG_COLOR_HASH)
+        }
+
+        private const val GET_DEBUG_COLOR_HASH = 3444240500L
+        private val getDebugColorBind by lazy {
+            ObjectCalls.getMethodBind("CollisionShape3D", "get_debug_color", GET_DEBUG_COLOR_HASH)
         }
 
         private const val SET_ENABLE_DEBUG_FILL_HASH = 2586408642L

@@ -4,6 +4,7 @@ import java.lang.foreign.MemorySegment
 import kotlin.jvm.JvmName
 import net.multigesture.kanama.binding.runtime.ObjectCalls
 import net.multigesture.kanama.binding.runtime.*
+import net.multigesture.kanama.types.Vector2
 
 /**
  * Generated from Godot docs: CollisionObject2D
@@ -129,6 +130,14 @@ open class CollisionObject2D(handle: MemorySegment) : Node2D(handle) {
 
     fun getShapeOwnerOneWayCollisionMargin(ownerId: Long): Double {
         return ObjectCalls.ptrcallWithUInt32ArgRetDouble(getShapeOwnerOneWayCollisionMarginBind, handle, ownerId)
+    }
+
+    fun getShapeOwnerOneWayCollisionDirection(ownerId: Long): Vector2 {
+        return ObjectCalls.ptrcallWithUInt32ArgRetVector2(getShapeOwnerOneWayCollisionDirectionBind, handle, ownerId)
+    }
+
+    fun shapeOwnerSetOneWayCollisionDirection(ownerId: Long, direction: Vector2) {
+        ObjectCalls.ptrcallWithUInt32AndVector2Args(shapeOwnerSetOneWayCollisionDirectionBind, handle, ownerId, direction)
     }
 
     fun shapeOwnerGetShapeCount(ownerId: Long): Int {
@@ -283,6 +292,16 @@ open class CollisionObject2D(handle: MemorySegment) : Node2D(handle) {
         private const val GET_SHAPE_OWNER_ONE_WAY_COLLISION_MARGIN_HASH = 2339986948L
         private val getShapeOwnerOneWayCollisionMarginBind by lazy {
             ObjectCalls.getMethodBind("CollisionObject2D", "get_shape_owner_one_way_collision_margin", GET_SHAPE_OWNER_ONE_WAY_COLLISION_MARGIN_HASH)
+        }
+
+        private const val GET_SHAPE_OWNER_ONE_WAY_COLLISION_DIRECTION_HASH = 2299179447L
+        private val getShapeOwnerOneWayCollisionDirectionBind by lazy {
+            ObjectCalls.getMethodBind("CollisionObject2D", "get_shape_owner_one_way_collision_direction", GET_SHAPE_OWNER_ONE_WAY_COLLISION_DIRECTION_HASH)
+        }
+
+        private const val SHAPE_OWNER_SET_ONE_WAY_COLLISION_DIRECTION_HASH = 163021252L
+        private val shapeOwnerSetOneWayCollisionDirectionBind by lazy {
+            ObjectCalls.getMethodBind("CollisionObject2D", "shape_owner_set_one_way_collision_direction", SHAPE_OWNER_SET_ONE_WAY_COLLISION_DIRECTION_HASH)
         }
 
         private const val SHAPE_OWNER_GET_SHAPE_COUNT_HASH = 923996154L

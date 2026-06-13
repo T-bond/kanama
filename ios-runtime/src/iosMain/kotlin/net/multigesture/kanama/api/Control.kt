@@ -4,6 +4,8 @@ import java.lang.foreign.MemorySegment
 import kotlin.jvm.JvmName
 import net.multigesture.kanama.binding.runtime.ObjectCalls
 import net.multigesture.kanama.binding.runtime.*
+import net.multigesture.kanama.types.Color
+import net.multigesture.kanama.types.Rect2
 import net.multigesture.kanama.types.Vector2
 
 /**
@@ -406,6 +408,14 @@ open class Control(handle: MemorySegment) : CanvasItem(handle) {
         return ObjectCalls.ptrcallNoArgsRetVector2(getScreenPositionBind, handle)
     }
 
+    fun getRect(): Rect2 {
+        return ObjectCalls.ptrcallNoArgsRetRect2(getRectBind, handle)
+    }
+
+    fun getGlobalRect(): Rect2 {
+        return ObjectCalls.ptrcallNoArgsRetRect2(getGlobalRectBind, handle)
+    }
+
     fun setFocusMode(mode: Long) {
         ObjectCalls.ptrcallWithLongArg(setFocusModeBind, handle, mode)
     }
@@ -558,6 +568,10 @@ open class Control(handle: MemorySegment) : CanvasItem(handle) {
         ObjectCalls.ptrcallWithStringNameAndIntArg(addThemeFontSizeOverrideBind, handle, name, fontSize)
     }
 
+    fun addThemeColorOverride(name: String, color: Color) {
+        ObjectCalls.ptrcallWithStringNameAndColorArg(addThemeColorOverrideBind, handle, name, color)
+    }
+
     fun addThemeConstantOverride(name: String, constant: Int) {
         ObjectCalls.ptrcallWithStringNameAndIntArg(addThemeConstantOverrideBind, handle, name, constant)
     }
@@ -592,6 +606,10 @@ open class Control(handle: MemorySegment) : CanvasItem(handle) {
 
     fun getThemeFontSize(name: String, themeType: String): Int {
         return ObjectCalls.ptrcallWithTwoStringNameArgsRetInt(getThemeFontSizeBind, handle, name, themeType)
+    }
+
+    fun getThemeColor(name: String, themeType: String): Color {
+        return ObjectCalls.ptrcallWithTwoStringNameArgsRetColor(getThemeColorBind, handle, name, themeType)
     }
 
     fun getThemeConstant(name: String, themeType: String): Int {
@@ -1134,6 +1152,16 @@ open class Control(handle: MemorySegment) : CanvasItem(handle) {
             ObjectCalls.getMethodBind("Control", "get_screen_position", GET_SCREEN_POSITION_HASH)
         }
 
+        private const val GET_RECT_HASH = 1639390495L
+        private val getRectBind by lazy {
+            ObjectCalls.getMethodBind("Control", "get_rect", GET_RECT_HASH)
+        }
+
+        private const val GET_GLOBAL_RECT_HASH = 1639390495L
+        private val getGlobalRectBind by lazy {
+            ObjectCalls.getMethodBind("Control", "get_global_rect", GET_GLOBAL_RECT_HASH)
+        }
+
         private const val SET_FOCUS_MODE_HASH = 3232914922L
         private val setFocusModeBind by lazy {
             ObjectCalls.getMethodBind("Control", "set_focus_mode", SET_FOCUS_MODE_HASH)
@@ -1324,6 +1352,11 @@ open class Control(handle: MemorySegment) : CanvasItem(handle) {
             ObjectCalls.getMethodBind("Control", "add_theme_font_size_override", ADD_THEME_FONT_SIZE_OVERRIDE_HASH)
         }
 
+        private const val ADD_THEME_COLOR_OVERRIDE_HASH = 4260178595L
+        private val addThemeColorOverrideBind by lazy {
+            ObjectCalls.getMethodBind("Control", "add_theme_color_override", ADD_THEME_COLOR_OVERRIDE_HASH)
+        }
+
         private const val ADD_THEME_CONSTANT_OVERRIDE_HASH = 2415702435L
         private val addThemeConstantOverrideBind by lazy {
             ObjectCalls.getMethodBind("Control", "add_theme_constant_override", ADD_THEME_CONSTANT_OVERRIDE_HASH)
@@ -1367,6 +1400,11 @@ open class Control(handle: MemorySegment) : CanvasItem(handle) {
         private const val GET_THEME_FONT_SIZE_HASH = 1327056374L
         private val getThemeFontSizeBind by lazy {
             ObjectCalls.getMethodBind("Control", "get_theme_font_size", GET_THEME_FONT_SIZE_HASH)
+        }
+
+        private const val GET_THEME_COLOR_HASH = 2798751242L
+        private val getThemeColorBind by lazy {
+            ObjectCalls.getMethodBind("Control", "get_theme_color", GET_THEME_COLOR_HASH)
         }
 
         private const val GET_THEME_CONSTANT_HASH = 1327056374L

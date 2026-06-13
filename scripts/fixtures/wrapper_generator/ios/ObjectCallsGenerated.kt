@@ -21,6 +21,8 @@ import kotlinx.cinterop.reinterpret
 import kotlinx.cinterop.set
 import kotlinx.cinterop.value
 import net.multigesture.kanama.ios.cinterop.kanama_ios_godot_ptrcall
+import net.multigesture.kanama.types.Color
+import net.multigesture.kanama.types.Rect2
 import net.multigesture.kanama.types.Vector2
 import net.multigesture.kanama.types.Vector2i
 import net.multigesture.kanama.types.Vector3

@@ -4,6 +4,8 @@ import java.lang.foreign.MemorySegment
 import kotlin.jvm.JvmName
 import net.multigesture.kanama.binding.runtime.ObjectCalls
 import net.multigesture.kanama.binding.runtime.*
+import net.multigesture.kanama.types.Color
+import net.multigesture.kanama.types.Rect2
 import net.multigesture.kanama.types.Vector2
 
 /**
@@ -15,6 +17,18 @@ open class CanvasItem(handle: MemorySegment) : Node(handle) {
         get() = isVisible()
         @JvmName("setVisibleProperty")
         set(value) = setVisible(value)
+
+    var modulate: Color
+        @JvmName("modulateProperty")
+        get() = getModulate()
+        @JvmName("setModulateProperty")
+        set(value) = setModulate(value)
+
+    var selfModulate: Color
+        @JvmName("selfModulateProperty")
+        get() = getSelfModulate()
+        @JvmName("setSelfModulateProperty")
+        set(value) = setSelfModulate(value)
 
     var showBehindParent: Boolean
         @JvmName("showBehindParentProperty")
@@ -132,6 +146,22 @@ open class CanvasItem(handle: MemorySegment) : Node(handle) {
         return ObjectCalls.ptrcallNoArgsRetInt(getLightMaskBind, handle)
     }
 
+    fun setModulate(modulate: Color) {
+        ObjectCalls.ptrcallWithColorArg(setModulateBind, handle, modulate)
+    }
+
+    fun getModulate(): Color {
+        return ObjectCalls.ptrcallNoArgsRetColor(getModulateBind, handle)
+    }
+
+    fun setSelfModulate(selfModulate: Color) {
+        ObjectCalls.ptrcallWithColorArg(setSelfModulateBind, handle, selfModulate)
+    }
+
+    fun getSelfModulate(): Color {
+        return ObjectCalls.ptrcallNoArgsRetColor(getSelfModulateBind, handle)
+    }
+
     fun setZIndex(zIndex: Int) {
         ObjectCalls.ptrcallWithIntArg(setZIndexBind, handle, zIndex)
     }
@@ -164,6 +194,54 @@ open class CanvasItem(handle: MemorySegment) : Node(handle) {
         return ObjectCalls.ptrcallNoArgsRetBool(isDrawBehindParentEnabledBind, handle)
     }
 
+    fun drawLine(from: Vector2, to: Vector2, color: Color, width: Double = -1.0, antialiased: Boolean = false) {
+        ObjectCalls.ptrcallWithTwoVector2ColorDoubleBoolArgs(drawLineBind, handle, from, to, color, width, antialiased)
+    }
+
+    fun drawDashedLine(from: Vector2, to: Vector2, color: Color, width: Double = -1.0, dash: Double = 2.0, aligned: Boolean = true, antialiased: Boolean = false) {
+        ObjectCalls.ptrcallWithTwoVector2ColorTwoDoubleTwoBoolArgs(drawDashedLineBind, handle, from, to, color, width, dash, aligned, antialiased)
+    }
+
+    fun drawEllipseArc(center: Vector2, major: Double, minor: Double, startAngle: Double, endAngle: Double, pointCount: Int, color: Color, width: Double = -1.0, antialiased: Boolean = false) {
+        ObjectCalls.ptrcallWithVector2FourDoubleIntColorDoubleBoolArgs(drawEllipseArcBind, handle, center, major, minor, startAngle, endAngle, pointCount, color, width, antialiased)
+    }
+
+    fun drawArc(center: Vector2, radius: Double, startAngle: Double, endAngle: Double, pointCount: Int, color: Color, width: Double = -1.0, antialiased: Boolean = false) {
+        ObjectCalls.ptrcallWithVector2ThreeDoubleIntColorDoubleBoolArgs(drawArcBind, handle, center, radius, startAngle, endAngle, pointCount, color, width, antialiased)
+    }
+
+    fun drawRect(rect: Rect2, color: Color, filled: Boolean = true, width: Double = -1.0, antialiased: Boolean = false) {
+        ObjectCalls.ptrcallWithRect2ColorBoolDoubleBoolArgs(drawRectBind, handle, rect, color, filled, width, antialiased)
+    }
+
+    fun drawCircle(position: Vector2, radius: Double, color: Color, filled: Boolean = true, width: Double = -1.0, antialiased: Boolean = false) {
+        ObjectCalls.ptrcallWithVector2DoubleColorBoolDoubleBoolArgs(drawCircleBind, handle, position, radius, color, filled, width, antialiased)
+    }
+
+    fun drawEllipse(position: Vector2, major: Double, minor: Double, color: Color, filled: Boolean = true, width: Double = -1.0, antialiased: Boolean = false) {
+        ObjectCalls.ptrcallWithVector2TwoDoubleColorBoolDoubleBoolArgs(drawEllipseBind, handle, position, major, minor, color, filled, width, antialiased)
+    }
+
+    fun drawTexture(texture: Texture2D?, position: Vector2, modulate: Color) {
+        ObjectCalls.ptrcallWithObjectVector2AndColorArgs(drawTextureBind, handle, texture?.requireOpenHandle() ?: MemorySegment.NULL, position, modulate)
+    }
+
+    fun drawTextureRect(texture: Texture2D?, rect: Rect2, tile: Boolean, modulate: Color, transpose: Boolean = false) {
+        ObjectCalls.ptrcallWithObjectRect2BoolColorBoolArgs(drawTextureRectBind, handle, texture?.requireOpenHandle() ?: MemorySegment.NULL, rect, tile, modulate, transpose)
+    }
+
+    fun drawTextureRectRegion(texture: Texture2D?, rect: Rect2, srcRect: Rect2, modulate: Color, transpose: Boolean = false, clipUv: Boolean = true) {
+        ObjectCalls.ptrcallWithObjectTwoRect2ColorTwoBoolArgs(drawTextureRectRegionBind, handle, texture?.requireOpenHandle() ?: MemorySegment.NULL, rect, srcRect, modulate, transpose, clipUv)
+    }
+
+    fun drawMsdfTextureRectRegion(texture: Texture2D?, rect: Rect2, srcRect: Rect2, modulate: Color, outline: Double = 0.0, pixelRange: Double = 4.0, scale: Double = 1.0) {
+        ObjectCalls.ptrcallWithObjectTwoRect2ColorThreeDoubleArgs(drawMsdfTextureRectRegionBind, handle, texture?.requireOpenHandle() ?: MemorySegment.NULL, rect, srcRect, modulate, outline, pixelRange, scale)
+    }
+
+    fun drawLcdTextureRectRegion(texture: Texture2D?, rect: Rect2, srcRect: Rect2, modulate: Color) {
+        ObjectCalls.ptrcallWithObjectTwoRect2AndColorArgs(drawLcdTextureRectRegionBind, handle, texture?.requireOpenHandle() ?: MemorySegment.NULL, rect, srcRect, modulate)
+    }
+
     fun drawSetTransform(position: Vector2, rotation: Double = 0.0, scale: Vector2) {
         ObjectCalls.ptrcallWithVector2DoubleVector2Args(drawSetTransformBind, handle, position, rotation, scale)
     }
@@ -174,6 +252,10 @@ open class CanvasItem(handle: MemorySegment) : Node(handle) {
 
     fun drawEndAnimation() {
         ObjectCalls.ptrcallNoArgs(drawEndAnimationBind, handle)
+    }
+
+    fun getViewportRect(): Rect2 {
+        return ObjectCalls.ptrcallNoArgsRetRect2(getViewportRectBind, handle)
     }
 
     fun getLocalMousePosition(): Vector2 {
@@ -362,6 +444,26 @@ open class CanvasItem(handle: MemorySegment) : Node(handle) {
             ObjectCalls.getMethodBind("CanvasItem", "get_light_mask", GET_LIGHT_MASK_HASH)
         }
 
+        private const val SET_MODULATE_HASH = 2920490490L
+        private val setModulateBind by lazy {
+            ObjectCalls.getMethodBind("CanvasItem", "set_modulate", SET_MODULATE_HASH)
+        }
+
+        private const val GET_MODULATE_HASH = 3444240500L
+        private val getModulateBind by lazy {
+            ObjectCalls.getMethodBind("CanvasItem", "get_modulate", GET_MODULATE_HASH)
+        }
+
+        private const val SET_SELF_MODULATE_HASH = 2920490490L
+        private val setSelfModulateBind by lazy {
+            ObjectCalls.getMethodBind("CanvasItem", "set_self_modulate", SET_SELF_MODULATE_HASH)
+        }
+
+        private const val GET_SELF_MODULATE_HASH = 3444240500L
+        private val getSelfModulateBind by lazy {
+            ObjectCalls.getMethodBind("CanvasItem", "get_self_modulate", GET_SELF_MODULATE_HASH)
+        }
+
         private const val SET_Z_INDEX_HASH = 1286410249L
         private val setZIndexBind by lazy {
             ObjectCalls.getMethodBind("CanvasItem", "set_z_index", SET_Z_INDEX_HASH)
@@ -402,6 +504,66 @@ open class CanvasItem(handle: MemorySegment) : Node(handle) {
             ObjectCalls.getMethodBind("CanvasItem", "is_draw_behind_parent_enabled", IS_DRAW_BEHIND_PARENT_ENABLED_HASH)
         }
 
+        private const val DRAW_LINE_HASH = 1562330099L
+        private val drawLineBind by lazy {
+            ObjectCalls.getMethodBind("CanvasItem", "draw_line", DRAW_LINE_HASH)
+        }
+
+        private const val DRAW_DASHED_LINE_HASH = 3653831622L
+        private val drawDashedLineBind by lazy {
+            ObjectCalls.getMethodBind("CanvasItem", "draw_dashed_line", DRAW_DASHED_LINE_HASH)
+        }
+
+        private const val DRAW_ELLIPSE_ARC_HASH = 936174114L
+        private val drawEllipseArcBind by lazy {
+            ObjectCalls.getMethodBind("CanvasItem", "draw_ellipse_arc", DRAW_ELLIPSE_ARC_HASH)
+        }
+
+        private const val DRAW_ARC_HASH = 4140652635L
+        private val drawArcBind by lazy {
+            ObjectCalls.getMethodBind("CanvasItem", "draw_arc", DRAW_ARC_HASH)
+        }
+
+        private const val DRAW_RECT_HASH = 2773573813L
+        private val drawRectBind by lazy {
+            ObjectCalls.getMethodBind("CanvasItem", "draw_rect", DRAW_RECT_HASH)
+        }
+
+        private const val DRAW_CIRCLE_HASH = 3153026596L
+        private val drawCircleBind by lazy {
+            ObjectCalls.getMethodBind("CanvasItem", "draw_circle", DRAW_CIRCLE_HASH)
+        }
+
+        private const val DRAW_ELLIPSE_HASH = 3790774806L
+        private val drawEllipseBind by lazy {
+            ObjectCalls.getMethodBind("CanvasItem", "draw_ellipse", DRAW_ELLIPSE_HASH)
+        }
+
+        private const val DRAW_TEXTURE_HASH = 520200117L
+        private val drawTextureBind by lazy {
+            ObjectCalls.getMethodBind("CanvasItem", "draw_texture", DRAW_TEXTURE_HASH)
+        }
+
+        private const val DRAW_TEXTURE_RECT_HASH = 3832805018L
+        private val drawTextureRectBind by lazy {
+            ObjectCalls.getMethodBind("CanvasItem", "draw_texture_rect", DRAW_TEXTURE_RECT_HASH)
+        }
+
+        private const val DRAW_TEXTURE_RECT_REGION_HASH = 3883821411L
+        private val drawTextureRectRegionBind by lazy {
+            ObjectCalls.getMethodBind("CanvasItem", "draw_texture_rect_region", DRAW_TEXTURE_RECT_REGION_HASH)
+        }
+
+        private const val DRAW_MSDF_TEXTURE_RECT_REGION_HASH = 4219163252L
+        private val drawMsdfTextureRectRegionBind by lazy {
+            ObjectCalls.getMethodBind("CanvasItem", "draw_msdf_texture_rect_region", DRAW_MSDF_TEXTURE_RECT_REGION_HASH)
+        }
+
+        private const val DRAW_LCD_TEXTURE_RECT_REGION_HASH = 3212350954L
+        private val drawLcdTextureRectRegionBind by lazy {
+            ObjectCalls.getMethodBind("CanvasItem", "draw_lcd_texture_rect_region", DRAW_LCD_TEXTURE_RECT_REGION_HASH)
+        }
+
         private const val DRAW_SET_TRANSFORM_HASH = 288975085L
         private val drawSetTransformBind by lazy {
             ObjectCalls.getMethodBind("CanvasItem", "draw_set_transform", DRAW_SET_TRANSFORM_HASH)
@@ -415,6 +577,11 @@ open class CanvasItem(handle: MemorySegment) : Node(handle) {
         private const val DRAW_END_ANIMATION_HASH = 3218959716L
         private val drawEndAnimationBind by lazy {
             ObjectCalls.getMethodBind("CanvasItem", "draw_end_animation", DRAW_END_ANIMATION_HASH)
+        }
+
+        private const val GET_VIEWPORT_RECT_HASH = 1639390495L
+        private val getViewportRectBind by lazy {
+            ObjectCalls.getMethodBind("CanvasItem", "get_viewport_rect", GET_VIEWPORT_RECT_HASH)
         }
 
         private const val GET_LOCAL_MOUSE_POSITION_HASH = 3341600327L
@@ -527,15 +694,4 @@ open class CanvasItem(handle: MemorySegment) : Node(handle) {
             ObjectCalls.getMethodBind("CanvasItem", "get_oversampling_with_scale", GET_OVERSAMPLING_WITH_SCALE_HASH)
         }
     }
-
-    // KANAMA-IOS-SUGAR: hand-added to a generated file; re-add after regeneration.
-    // ── Kanama sugar (hand) - preserve on regenerate ──────────────────────────
-
-    fun getViewportRect(): net.multigesture.kanama.types.Rect2 =
-        IosGodot.canvasItemGetViewportRect(handle.address())
-
-    var modulate: net.multigesture.kanama.types.Color
-        // KANAMA-IOS-STUB: get_modulate not read (Color return not audited); set is real. Backlog.
-        get() = net.multigesture.kanama.types.Color(1f, 1f, 1f)
-        set(value) { IosGodot.canvasItemSetModulate(handle.address(), value) }
 }

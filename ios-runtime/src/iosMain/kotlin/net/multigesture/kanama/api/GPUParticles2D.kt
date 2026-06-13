@@ -4,6 +4,7 @@ import java.lang.foreign.MemorySegment
 import kotlin.jvm.JvmName
 import net.multigesture.kanama.binding.runtime.ObjectCalls
 import net.multigesture.kanama.binding.runtime.*
+import net.multigesture.kanama.types.Rect2
 
 /**
  * Generated from Godot docs: GPUParticles2D
@@ -111,6 +112,12 @@ class GPUParticles2D(handle: MemorySegment) : Node2D(handle) {
         @JvmName("setCollisionBaseSizeProperty")
         set(value) = setCollisionBaseSize(value)
 
+    var visibilityRect: Rect2
+        @JvmName("visibilityRectProperty")
+        get() = getVisibilityRect()
+        @JvmName("setVisibilityRectProperty")
+        set(value) = setVisibilityRect(value)
+
     var localCoords: Boolean
         @JvmName("localCoordsProperty")
         get() = getUseLocalCoordinates()
@@ -175,6 +182,10 @@ class GPUParticles2D(handle: MemorySegment) : Node2D(handle) {
         ObjectCalls.ptrcallWithDoubleArg(setRandomnessRatioBind, handle, ratio)
     }
 
+    fun setVisibilityRect(visibilityRect: Rect2) {
+        ObjectCalls.ptrcallWithRect2Arg(setVisibilityRectBind, handle, visibilityRect)
+    }
+
     fun setUseLocalCoordinates(enable: Boolean) {
         ObjectCalls.ptrcallWithBoolArg(setUseLocalCoordinatesBind, handle, enable)
     }
@@ -235,6 +246,10 @@ class GPUParticles2D(handle: MemorySegment) : Node2D(handle) {
         return ObjectCalls.ptrcallNoArgsRetDouble(getRandomnessRatioBind, handle)
     }
 
+    fun getVisibilityRect(): Rect2 {
+        return ObjectCalls.ptrcallNoArgsRetRect2(getVisibilityRectBind, handle)
+    }
+
     fun getUseLocalCoordinates(): Boolean {
         return ObjectCalls.ptrcallNoArgsRetBool(getUseLocalCoordinatesBind, handle)
     }
@@ -277,6 +292,10 @@ class GPUParticles2D(handle: MemorySegment) : Node2D(handle) {
 
     fun getTexture(): Texture2D? {
         return Texture2D.wrap(ObjectCalls.ptrcallNoArgsRetObject(getTextureBind, handle))
+    }
+
+    fun captureRect(): Rect2 {
+        return ObjectCalls.ptrcallNoArgsRetRect2(captureRectBind, handle)
     }
 
     fun restart(keepSeed: Boolean = false) {
@@ -398,6 +417,11 @@ class GPUParticles2D(handle: MemorySegment) : Node2D(handle) {
             ObjectCalls.getMethodBind("GPUParticles2D", "set_randomness_ratio", SET_RANDOMNESS_RATIO_HASH)
         }
 
+        private const val SET_VISIBILITY_RECT_HASH = 2046264180L
+        private val setVisibilityRectBind by lazy {
+            ObjectCalls.getMethodBind("GPUParticles2D", "set_visibility_rect", SET_VISIBILITY_RECT_HASH)
+        }
+
         private const val SET_USE_LOCAL_COORDINATES_HASH = 2586408642L
         private val setUseLocalCoordinatesBind by lazy {
             ObjectCalls.getMethodBind("GPUParticles2D", "set_use_local_coordinates", SET_USE_LOCAL_COORDINATES_HASH)
@@ -473,6 +497,11 @@ class GPUParticles2D(handle: MemorySegment) : Node2D(handle) {
             ObjectCalls.getMethodBind("GPUParticles2D", "get_randomness_ratio", GET_RANDOMNESS_RATIO_HASH)
         }
 
+        private const val GET_VISIBILITY_RECT_HASH = 1639390495L
+        private val getVisibilityRectBind by lazy {
+            ObjectCalls.getMethodBind("GPUParticles2D", "get_visibility_rect", GET_VISIBILITY_RECT_HASH)
+        }
+
         private const val GET_USE_LOCAL_COORDINATES_HASH = 36873697L
         private val getUseLocalCoordinatesBind by lazy {
             ObjectCalls.getMethodBind("GPUParticles2D", "get_use_local_coordinates", GET_USE_LOCAL_COORDINATES_HASH)
@@ -526,6 +555,11 @@ class GPUParticles2D(handle: MemorySegment) : Node2D(handle) {
         private const val GET_TEXTURE_HASH = 3635182373L
         private val getTextureBind by lazy {
             ObjectCalls.getMethodBind("GPUParticles2D", "get_texture", GET_TEXTURE_HASH)
+        }
+
+        private const val CAPTURE_RECT_HASH = 1639390495L
+        private val captureRectBind by lazy {
+            ObjectCalls.getMethodBind("GPUParticles2D", "capture_rect", CAPTURE_RECT_HASH)
         }
 
         private const val RESTART_HASH = 107499316L

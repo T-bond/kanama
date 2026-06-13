@@ -21,6 +21,8 @@ import kotlinx.cinterop.reinterpret
 import kotlinx.cinterop.set
 import kotlinx.cinterop.value
 import net.multigesture.kanama.ios.cinterop.kanama_ios_godot_ptrcall
+import net.multigesture.kanama.types.Color
+import net.multigesture.kanama.types.Rect2
 import net.multigesture.kanama.types.Vector2
 import net.multigesture.kanama.types.Vector2i
 import net.multigesture.kanama.types.Vector3
@@ -45,6 +47,8 @@ private const val PT_INT64 = 3
 private const val PT_FLOAT64 = 5
 private const val PT_VECTOR2 = 6
 private const val PT_VECTOR3 = 8
+private const val PT_COLOR = 11
+private const val PT_RECT2 = 12
 private const val PT_OBJECT = 13
 private const val PT_STRING_NAME = 15
 
@@ -130,16 +134,6 @@ fun ObjectCalls.ptrcallWithFourDoubleArgs(methodBind: MemorySegment, instance: M
         Unit
     }
 
-fun ObjectCalls.ptrcallWithFourStringNameAndFloatArgRetVector2(methodBind: MemorySegment, instance: MemorySegment, a0: String, a1: String, a2: String, a3: String, a4: Double): Vector2 =
-    memScoped {
-        val ret = allocArray<FloatVar>(2)
-        val c4 = alloc<DoubleVar>(); c4.value = a4
-        val types = allocArray<IntVar>(5); types[0] = PT_STRING_NAME; types[1] = PT_STRING_NAME; types[2] = PT_STRING_NAME; types[3] = PT_STRING_NAME; types[4] = PT_FLOAT64
-        val ptrs = allocArray<COpaquePointerVar>(5); ptrs[0] = a0.cstr.ptr.reinterpret<CPointed>(); ptrs[1] = a1.cstr.ptr.reinterpret<CPointed>(); ptrs[2] = a2.cstr.ptr.reinterpret<CPointed>(); ptrs[3] = a3.cstr.ptr.reinterpret<CPointed>(); ptrs[4] = c4.ptr.reinterpret<CPointed>()
-        kanama_ios_godot_ptrcall(methodBind.address(), instance.address(), types, ptrs, 5, PT_VECTOR2, ret)
-        Vector2(ret[0].toDouble(), ret[1].toDouble())
-    }
-
 fun ObjectCalls.ptrcallWithIntAndBoolArgs(methodBind: MemorySegment, instance: MemorySegment, a0: Int, a1: Boolean) =
     memScoped {
         val c0 = alloc<LongVar>(); c0.value = a0.toLong()
@@ -161,16 +155,6 @@ fun ObjectCalls.ptrcallWithIntAndBoolArgsRetObject(methodBind: MemorySegment, in
         MemorySegment.ofAddress(ret.value)
     }
 
-fun ObjectCalls.ptrcallWithIntAndDoubleArg(methodBind: MemorySegment, instance: MemorySegment, a0: Int, a1: Double) =
-    memScoped {
-        val c0 = alloc<LongVar>(); c0.value = a0.toLong()
-        val c1 = alloc<DoubleVar>(); c1.value = a1
-        val types = allocArray<IntVar>(2); types[0] = PT_INT64; types[1] = PT_FLOAT64
-        val ptrs = allocArray<COpaquePointerVar>(2); ptrs[0] = c0.ptr.reinterpret<CPointed>(); ptrs[1] = c1.ptr.reinterpret<CPointed>()
-        kanama_ios_godot_ptrcall(methodBind.address(), instance.address(), types, ptrs, 2, PT_VOID, null)
-        Unit
-    }
-
 fun ObjectCalls.ptrcallWithIntAndLongArgs(methodBind: MemorySegment, instance: MemorySegment, a0: Int, a1: Long) =
     memScoped {
         val c0 = alloc<LongVar>(); c0.value = a0.toLong()
@@ -178,40 +162,6 @@ fun ObjectCalls.ptrcallWithIntAndLongArgs(methodBind: MemorySegment, instance: M
         val types = allocArray<IntVar>(2); types[0] = PT_INT64; types[1] = PT_INT64
         val ptrs = allocArray<COpaquePointerVar>(2); ptrs[0] = c0.ptr.reinterpret<CPointed>(); ptrs[1] = c1.ptr.reinterpret<CPointed>()
         kanama_ios_godot_ptrcall(methodBind.address(), instance.address(), types, ptrs, 2, PT_VOID, null)
-        Unit
-    }
-
-fun ObjectCalls.ptrcallWithIntAndLongArgsRetBool(methodBind: MemorySegment, instance: MemorySegment, a0: Int, a1: Long): Boolean =
-    memScoped {
-        val ret = alloc<ByteVar>()
-        val c0 = alloc<LongVar>(); c0.value = a0.toLong()
-        val c1 = alloc<LongVar>(); c1.value = a1
-        val types = allocArray<IntVar>(2); types[0] = PT_INT64; types[1] = PT_INT64
-        val ptrs = allocArray<COpaquePointerVar>(2); ptrs[0] = c0.ptr.reinterpret<CPointed>(); ptrs[1] = c1.ptr.reinterpret<CPointed>()
-        kanama_ios_godot_ptrcall(methodBind.address(), instance.address(), types, ptrs, 2, PT_BOOL, ret.ptr)
-        ret.value.toInt() != 0
-    }
-
-fun ObjectCalls.ptrcallWithIntAndLongArgsRetDouble(methodBind: MemorySegment, instance: MemorySegment, a0: Int, a1: Long): Double =
-    memScoped {
-        val ret = alloc<DoubleVar>()
-        val c0 = alloc<LongVar>(); c0.value = a0.toLong()
-        val c1 = alloc<LongVar>(); c1.value = a1
-        val types = allocArray<IntVar>(2); types[0] = PT_INT64; types[1] = PT_INT64
-        val ptrs = allocArray<COpaquePointerVar>(2); ptrs[0] = c0.ptr.reinterpret<CPointed>(); ptrs[1] = c1.ptr.reinterpret<CPointed>()
-        kanama_ios_godot_ptrcall(methodBind.address(), instance.address(), types, ptrs, 2, PT_FLOAT64, ret.ptr)
-        ret.value
-    }
-
-fun ObjectCalls.ptrcallWithIntAndThreeDoubleArgs(methodBind: MemorySegment, instance: MemorySegment, a0: Int, a1: Double, a2: Double, a3: Double) =
-    memScoped {
-        val c0 = alloc<LongVar>(); c0.value = a0.toLong()
-        val c1 = alloc<DoubleVar>(); c1.value = a1
-        val c2 = alloc<DoubleVar>(); c2.value = a2
-        val c3 = alloc<DoubleVar>(); c3.value = a3
-        val types = allocArray<IntVar>(4); types[0] = PT_INT64; types[1] = PT_FLOAT64; types[2] = PT_FLOAT64; types[3] = PT_FLOAT64
-        val ptrs = allocArray<COpaquePointerVar>(4); ptrs[0] = c0.ptr.reinterpret<CPointed>(); ptrs[1] = c1.ptr.reinterpret<CPointed>(); ptrs[2] = c2.ptr.reinterpret<CPointed>(); ptrs[3] = c3.ptr.reinterpret<CPointed>()
-        kanama_ios_godot_ptrcall(methodBind.address(), instance.address(), types, ptrs, 4, PT_VOID, null)
         Unit
     }
 
@@ -223,16 +173,6 @@ fun ObjectCalls.ptrcallWithIntArgRetBool(methodBind: MemorySegment, instance: Me
         val ptrs = allocArray<COpaquePointerVar>(1); ptrs[0] = c0.ptr.reinterpret<CPointed>()
         kanama_ios_godot_ptrcall(methodBind.address(), instance.address(), types, ptrs, 1, PT_BOOL, ret.ptr)
         ret.value.toInt() != 0
-    }
-
-fun ObjectCalls.ptrcallWithIntArgRetDouble(methodBind: MemorySegment, instance: MemorySegment, a0: Int): Double =
-    memScoped {
-        val ret = alloc<DoubleVar>()
-        val c0 = alloc<LongVar>(); c0.value = a0.toLong()
-        val types = allocArray<IntVar>(1); types[0] = PT_INT64
-        val ptrs = allocArray<COpaquePointerVar>(1); ptrs[0] = c0.ptr.reinterpret<CPointed>()
-        kanama_ios_godot_ptrcall(methodBind.address(), instance.address(), types, ptrs, 1, PT_FLOAT64, ret.ptr)
-        ret.value
     }
 
 fun ObjectCalls.ptrcallWithIntArgRetInt(methodBind: MemorySegment, instance: MemorySegment, a0: Int): Int =
@@ -265,6 +205,16 @@ fun ObjectCalls.ptrcallWithIntArgRetObject(methodBind: MemorySegment, instance: 
         MemorySegment.ofAddress(ret.value)
     }
 
+fun ObjectCalls.ptrcallWithIntArgRetRect2(methodBind: MemorySegment, instance: MemorySegment, a0: Int): Rect2 =
+    memScoped {
+        val ret = allocArray<FloatVar>(4)
+        val c0 = alloc<LongVar>(); c0.value = a0.toLong()
+        val types = allocArray<IntVar>(1); types[0] = PT_INT64
+        val ptrs = allocArray<COpaquePointerVar>(1); ptrs[0] = c0.ptr.reinterpret<CPointed>()
+        kanama_ios_godot_ptrcall(methodBind.address(), instance.address(), types, ptrs, 1, PT_RECT2, ret)
+        Rect2(Vector2(ret[0].toDouble(), ret[1].toDouble()), Vector2(ret[2].toDouble(), ret[3].toDouble()))
+    }
+
 fun ObjectCalls.ptrcallWithIntArgRetUInt32(methodBind: MemorySegment, instance: MemorySegment, a0: Int): Long =
     memScoped {
         val ret = alloc<LongVar>()
@@ -273,26 +223,6 @@ fun ObjectCalls.ptrcallWithIntArgRetUInt32(methodBind: MemorySegment, instance: 
         val ptrs = allocArray<COpaquePointerVar>(1); ptrs[0] = c0.ptr.reinterpret<CPointed>()
         kanama_ios_godot_ptrcall(methodBind.address(), instance.address(), types, ptrs, 1, PT_INT64, ret.ptr)
         ret.value
-    }
-
-fun ObjectCalls.ptrcallWithIntArgRetVector2(methodBind: MemorySegment, instance: MemorySegment, a0: Int): Vector2 =
-    memScoped {
-        val ret = allocArray<FloatVar>(2)
-        val c0 = alloc<LongVar>(); c0.value = a0.toLong()
-        val types = allocArray<IntVar>(1); types[0] = PT_INT64
-        val ptrs = allocArray<COpaquePointerVar>(1); ptrs[0] = c0.ptr.reinterpret<CPointed>()
-        kanama_ios_godot_ptrcall(methodBind.address(), instance.address(), types, ptrs, 1, PT_VECTOR2, ret)
-        Vector2(ret[0].toDouble(), ret[1].toDouble())
-    }
-
-fun ObjectCalls.ptrcallWithIntArgRetVector3(methodBind: MemorySegment, instance: MemorySegment, a0: Int): Vector3 =
-    memScoped {
-        val ret = allocArray<FloatVar>(3)
-        val c0 = alloc<LongVar>(); c0.value = a0.toLong()
-        val types = allocArray<IntVar>(1); types[0] = PT_INT64
-        val ptrs = allocArray<COpaquePointerVar>(1); ptrs[0] = c0.ptr.reinterpret<CPointed>()
-        kanama_ios_godot_ptrcall(methodBind.address(), instance.address(), types, ptrs, 1, PT_VECTOR3, ret)
-        Vector3(ret[0].toDouble(), ret[1].toDouble(), ret[2].toDouble())
     }
 
 fun ObjectCalls.ptrcallWithLongAndBoolArgs(methodBind: MemorySegment, instance: MemorySegment, a0: Long, a1: Boolean) =
@@ -430,14 +360,81 @@ fun ObjectCalls.ptrcallWithObjectBoolLongArgs(methodBind: MemorySegment, instanc
         Unit
     }
 
-fun ObjectCalls.ptrcallWithObjectLongAndVector2Arg(methodBind: MemorySegment, instance: MemorySegment, a0: MemorySegment, a1: Long, a2: Vector2) =
+fun ObjectCalls.ptrcallWithObjectRect2BoolColorBoolArgs(methodBind: MemorySegment, instance: MemorySegment, a0: MemorySegment, a1: Rect2, a2: Boolean, a3: Color, a4: Boolean) =
     memScoped {
         val c0 = alloc<LongVar>(); c0.value = a0.address()
-        val c1 = alloc<LongVar>(); c1.value = a1
-        val c2 = allocArray<FloatVar>(2); c2[0] = a2.x.toFloat(); c2[1] = a2.y.toFloat()
-        val types = allocArray<IntVar>(3); types[0] = PT_OBJECT; types[1] = PT_INT64; types[2] = PT_VECTOR2
-        val ptrs = allocArray<COpaquePointerVar>(3); ptrs[0] = c0.ptr.reinterpret<CPointed>(); ptrs[1] = c1.ptr.reinterpret<CPointed>(); ptrs[2] = c2.reinterpret<CPointed>()
+        val c1 = allocArray<FloatVar>(4); c1[0] = a1.position.x.toFloat(); c1[1] = a1.position.y.toFloat(); c1[2] = a1.size.x.toFloat(); c1[3] = a1.size.y.toFloat()
+        val c2 = alloc<ByteVar>(); c2.value = if (a2) 1 else 0
+        val c3 = allocArray<FloatVar>(4); c3[0] = a3.r; c3[1] = a3.g; c3[2] = a3.b; c3[3] = a3.a
+        val c4 = alloc<ByteVar>(); c4.value = if (a4) 1 else 0
+        val types = allocArray<IntVar>(5); types[0] = PT_OBJECT; types[1] = PT_RECT2; types[2] = PT_BOOL; types[3] = PT_COLOR; types[4] = PT_BOOL
+        val ptrs = allocArray<COpaquePointerVar>(5); ptrs[0] = c0.ptr.reinterpret<CPointed>(); ptrs[1] = c1.reinterpret<CPointed>(); ptrs[2] = c2.ptr.reinterpret<CPointed>(); ptrs[3] = c3.reinterpret<CPointed>(); ptrs[4] = c4.ptr.reinterpret<CPointed>()
+        kanama_ios_godot_ptrcall(methodBind.address(), instance.address(), types, ptrs, 5, PT_VOID, null)
+        Unit
+    }
+
+fun ObjectCalls.ptrcallWithObjectTwoRect2AndColorArgs(methodBind: MemorySegment, instance: MemorySegment, a0: MemorySegment, a1: Rect2, a2: Rect2, a3: Color) =
+    memScoped {
+        val c0 = alloc<LongVar>(); c0.value = a0.address()
+        val c1 = allocArray<FloatVar>(4); c1[0] = a1.position.x.toFloat(); c1[1] = a1.position.y.toFloat(); c1[2] = a1.size.x.toFloat(); c1[3] = a1.size.y.toFloat()
+        val c2 = allocArray<FloatVar>(4); c2[0] = a2.position.x.toFloat(); c2[1] = a2.position.y.toFloat(); c2[2] = a2.size.x.toFloat(); c2[3] = a2.size.y.toFloat()
+        val c3 = allocArray<FloatVar>(4); c3[0] = a3.r; c3[1] = a3.g; c3[2] = a3.b; c3[3] = a3.a
+        val types = allocArray<IntVar>(4); types[0] = PT_OBJECT; types[1] = PT_RECT2; types[2] = PT_RECT2; types[3] = PT_COLOR
+        val ptrs = allocArray<COpaquePointerVar>(4); ptrs[0] = c0.ptr.reinterpret<CPointed>(); ptrs[1] = c1.reinterpret<CPointed>(); ptrs[2] = c2.reinterpret<CPointed>(); ptrs[3] = c3.reinterpret<CPointed>()
+        kanama_ios_godot_ptrcall(methodBind.address(), instance.address(), types, ptrs, 4, PT_VOID, null)
+        Unit
+    }
+
+fun ObjectCalls.ptrcallWithObjectTwoRect2ColorThreeDoubleArgs(methodBind: MemorySegment, instance: MemorySegment, a0: MemorySegment, a1: Rect2, a2: Rect2, a3: Color, a4: Double, a5: Double, a6: Double) =
+    memScoped {
+        val c0 = alloc<LongVar>(); c0.value = a0.address()
+        val c1 = allocArray<FloatVar>(4); c1[0] = a1.position.x.toFloat(); c1[1] = a1.position.y.toFloat(); c1[2] = a1.size.x.toFloat(); c1[3] = a1.size.y.toFloat()
+        val c2 = allocArray<FloatVar>(4); c2[0] = a2.position.x.toFloat(); c2[1] = a2.position.y.toFloat(); c2[2] = a2.size.x.toFloat(); c2[3] = a2.size.y.toFloat()
+        val c3 = allocArray<FloatVar>(4); c3[0] = a3.r; c3[1] = a3.g; c3[2] = a3.b; c3[3] = a3.a
+        val c4 = alloc<DoubleVar>(); c4.value = a4
+        val c5 = alloc<DoubleVar>(); c5.value = a5
+        val c6 = alloc<DoubleVar>(); c6.value = a6
+        val types = allocArray<IntVar>(7); types[0] = PT_OBJECT; types[1] = PT_RECT2; types[2] = PT_RECT2; types[3] = PT_COLOR; types[4] = PT_FLOAT64; types[5] = PT_FLOAT64; types[6] = PT_FLOAT64
+        val ptrs = allocArray<COpaquePointerVar>(7); ptrs[0] = c0.ptr.reinterpret<CPointed>(); ptrs[1] = c1.reinterpret<CPointed>(); ptrs[2] = c2.reinterpret<CPointed>(); ptrs[3] = c3.reinterpret<CPointed>(); ptrs[4] = c4.ptr.reinterpret<CPointed>(); ptrs[5] = c5.ptr.reinterpret<CPointed>(); ptrs[6] = c6.ptr.reinterpret<CPointed>()
+        kanama_ios_godot_ptrcall(methodBind.address(), instance.address(), types, ptrs, 7, PT_VOID, null)
+        Unit
+    }
+
+fun ObjectCalls.ptrcallWithObjectTwoRect2ColorTwoBoolArgs(methodBind: MemorySegment, instance: MemorySegment, a0: MemorySegment, a1: Rect2, a2: Rect2, a3: Color, a4: Boolean, a5: Boolean) =
+    memScoped {
+        val c0 = alloc<LongVar>(); c0.value = a0.address()
+        val c1 = allocArray<FloatVar>(4); c1[0] = a1.position.x.toFloat(); c1[1] = a1.position.y.toFloat(); c1[2] = a1.size.x.toFloat(); c1[3] = a1.size.y.toFloat()
+        val c2 = allocArray<FloatVar>(4); c2[0] = a2.position.x.toFloat(); c2[1] = a2.position.y.toFloat(); c2[2] = a2.size.x.toFloat(); c2[3] = a2.size.y.toFloat()
+        val c3 = allocArray<FloatVar>(4); c3[0] = a3.r; c3[1] = a3.g; c3[2] = a3.b; c3[3] = a3.a
+        val c4 = alloc<ByteVar>(); c4.value = if (a4) 1 else 0
+        val c5 = alloc<ByteVar>(); c5.value = if (a5) 1 else 0
+        val types = allocArray<IntVar>(6); types[0] = PT_OBJECT; types[1] = PT_RECT2; types[2] = PT_RECT2; types[3] = PT_COLOR; types[4] = PT_BOOL; types[5] = PT_BOOL
+        val ptrs = allocArray<COpaquePointerVar>(6); ptrs[0] = c0.ptr.reinterpret<CPointed>(); ptrs[1] = c1.reinterpret<CPointed>(); ptrs[2] = c2.reinterpret<CPointed>(); ptrs[3] = c3.reinterpret<CPointed>(); ptrs[4] = c4.ptr.reinterpret<CPointed>(); ptrs[5] = c5.ptr.reinterpret<CPointed>()
+        kanama_ios_godot_ptrcall(methodBind.address(), instance.address(), types, ptrs, 6, PT_VOID, null)
+        Unit
+    }
+
+fun ObjectCalls.ptrcallWithObjectVector2AndColorArgs(methodBind: MemorySegment, instance: MemorySegment, a0: MemorySegment, a1: Vector2, a2: Color) =
+    memScoped {
+        val c0 = alloc<LongVar>(); c0.value = a0.address()
+        val c1 = allocArray<FloatVar>(2); c1[0] = a1.x.toFloat(); c1[1] = a1.y.toFloat()
+        val c2 = allocArray<FloatVar>(4); c2[0] = a2.r; c2[1] = a2.g; c2[2] = a2.b; c2[3] = a2.a
+        val types = allocArray<IntVar>(3); types[0] = PT_OBJECT; types[1] = PT_VECTOR2; types[2] = PT_COLOR
+        val ptrs = allocArray<COpaquePointerVar>(3); ptrs[0] = c0.ptr.reinterpret<CPointed>(); ptrs[1] = c1.reinterpret<CPointed>(); ptrs[2] = c2.reinterpret<CPointed>()
         kanama_ios_godot_ptrcall(methodBind.address(), instance.address(), types, ptrs, 3, PT_VOID, null)
+        Unit
+    }
+
+fun ObjectCalls.ptrcallWithRect2ColorBoolDoubleBoolArgs(methodBind: MemorySegment, instance: MemorySegment, a0: Rect2, a1: Color, a2: Boolean, a3: Double, a4: Boolean) =
+    memScoped {
+        val c0 = allocArray<FloatVar>(4); c0[0] = a0.position.x.toFloat(); c0[1] = a0.position.y.toFloat(); c0[2] = a0.size.x.toFloat(); c0[3] = a0.size.y.toFloat()
+        val c1 = allocArray<FloatVar>(4); c1[0] = a1.r; c1[1] = a1.g; c1[2] = a1.b; c1[3] = a1.a
+        val c2 = alloc<ByteVar>(); c2.value = if (a2) 1 else 0
+        val c3 = alloc<DoubleVar>(); c3.value = a3
+        val c4 = alloc<ByteVar>(); c4.value = if (a4) 1 else 0
+        val types = allocArray<IntVar>(5); types[0] = PT_RECT2; types[1] = PT_COLOR; types[2] = PT_BOOL; types[3] = PT_FLOAT64; types[4] = PT_BOOL
+        val ptrs = allocArray<COpaquePointerVar>(5); ptrs[0] = c0.reinterpret<CPointed>(); ptrs[1] = c1.reinterpret<CPointed>(); ptrs[2] = c2.ptr.reinterpret<CPointed>(); ptrs[3] = c3.ptr.reinterpret<CPointed>(); ptrs[4] = c4.ptr.reinterpret<CPointed>()
+        kanama_ios_godot_ptrcall(methodBind.address(), instance.address(), types, ptrs, 5, PT_VOID, null)
         Unit
     }
 
@@ -450,24 +447,13 @@ fun ObjectCalls.ptrcallWithStringNameAndBoolArg(methodBind: MemorySegment, insta
         Unit
     }
 
-fun ObjectCalls.ptrcallWithStringNameAndBoolArgRetBool(methodBind: MemorySegment, instance: MemorySegment, a0: String, a1: Boolean): Boolean =
+fun ObjectCalls.ptrcallWithStringNameAndColorArg(methodBind: MemorySegment, instance: MemorySegment, a0: String, a1: Color) =
     memScoped {
-        val ret = alloc<ByteVar>()
-        val c1 = alloc<ByteVar>(); c1.value = if (a1) 1 else 0
-        val types = allocArray<IntVar>(2); types[0] = PT_STRING_NAME; types[1] = PT_BOOL
-        val ptrs = allocArray<COpaquePointerVar>(2); ptrs[0] = a0.cstr.ptr.reinterpret<CPointed>(); ptrs[1] = c1.ptr.reinterpret<CPointed>()
-        kanama_ios_godot_ptrcall(methodBind.address(), instance.address(), types, ptrs, 2, PT_BOOL, ret.ptr)
-        ret.value.toInt() != 0
-    }
-
-fun ObjectCalls.ptrcallWithStringNameAndBoolArgRetDouble(methodBind: MemorySegment, instance: MemorySegment, a0: String, a1: Boolean): Double =
-    memScoped {
-        val ret = alloc<DoubleVar>()
-        val c1 = alloc<ByteVar>(); c1.value = if (a1) 1 else 0
-        val types = allocArray<IntVar>(2); types[0] = PT_STRING_NAME; types[1] = PT_BOOL
-        val ptrs = allocArray<COpaquePointerVar>(2); ptrs[0] = a0.cstr.ptr.reinterpret<CPointed>(); ptrs[1] = c1.ptr.reinterpret<CPointed>()
-        kanama_ios_godot_ptrcall(methodBind.address(), instance.address(), types, ptrs, 2, PT_FLOAT64, ret.ptr)
-        ret.value
+        val c1 = allocArray<FloatVar>(4); c1[0] = a1.r; c1[1] = a1.g; c1[2] = a1.b; c1[3] = a1.a
+        val types = allocArray<IntVar>(2); types[0] = PT_STRING_NAME; types[1] = PT_COLOR
+        val ptrs = allocArray<COpaquePointerVar>(2); ptrs[0] = a0.cstr.ptr.reinterpret<CPointed>(); ptrs[1] = c1.reinterpret<CPointed>()
+        kanama_ios_godot_ptrcall(methodBind.address(), instance.address(), types, ptrs, 2, PT_VOID, null)
+        Unit
     }
 
 fun ObjectCalls.ptrcallWithStringNameAndDoubleArg(methodBind: MemorySegment, instance: MemorySegment, a0: String, a1: Double) =
@@ -627,17 +613,6 @@ fun ObjectCalls.ptrcallWithTwoDoubleArgs(methodBind: MemorySegment, instance: Me
         Unit
     }
 
-fun ObjectCalls.ptrcallWithTwoIntArgsRetBool(methodBind: MemorySegment, instance: MemorySegment, a0: Int, a1: Int): Boolean =
-    memScoped {
-        val ret = alloc<ByteVar>()
-        val c0 = alloc<LongVar>(); c0.value = a0.toLong()
-        val c1 = alloc<LongVar>(); c1.value = a1.toLong()
-        val types = allocArray<IntVar>(2); types[0] = PT_INT64; types[1] = PT_INT64
-        val ptrs = allocArray<COpaquePointerVar>(2); ptrs[0] = c0.ptr.reinterpret<CPointed>(); ptrs[1] = c1.ptr.reinterpret<CPointed>()
-        kanama_ios_godot_ptrcall(methodBind.address(), instance.address(), types, ptrs, 2, PT_BOOL, ret.ptr)
-        ret.value.toInt() != 0
-    }
-
 fun ObjectCalls.ptrcallWithTwoLongAndIntArgs(methodBind: MemorySegment, instance: MemorySegment, a0: Long, a1: Long, a2: Int) =
     memScoped {
         val c0 = alloc<LongVar>(); c0.value = a0
@@ -686,6 +661,15 @@ fun ObjectCalls.ptrcallWithTwoStringNameArgsRetBool(methodBind: MemorySegment, i
         ret.value.toInt() != 0
     }
 
+fun ObjectCalls.ptrcallWithTwoStringNameArgsRetColor(methodBind: MemorySegment, instance: MemorySegment, a0: String, a1: String): Color =
+    memScoped {
+        val ret = allocArray<FloatVar>(4)
+        val types = allocArray<IntVar>(2); types[0] = PT_STRING_NAME; types[1] = PT_STRING_NAME
+        val ptrs = allocArray<COpaquePointerVar>(2); ptrs[0] = a0.cstr.ptr.reinterpret<CPointed>(); ptrs[1] = a1.cstr.ptr.reinterpret<CPointed>()
+        kanama_ios_godot_ptrcall(methodBind.address(), instance.address(), types, ptrs, 2, PT_COLOR, ret)
+        Color(ret[0], ret[1], ret[2], ret[3])
+    }
+
 fun ObjectCalls.ptrcallWithTwoStringNameArgsRetDouble(methodBind: MemorySegment, instance: MemorySegment, a0: String, a1: String): Double =
     memScoped {
         val ret = alloc<DoubleVar>()
@@ -711,6 +695,34 @@ fun ObjectCalls.ptrcallWithTwoStringNameArgsRetObject(methodBind: MemorySegment,
         val ptrs = allocArray<COpaquePointerVar>(2); ptrs[0] = a0.cstr.ptr.reinterpret<CPointed>(); ptrs[1] = a1.cstr.ptr.reinterpret<CPointed>()
         kanama_ios_godot_ptrcall(methodBind.address(), instance.address(), types, ptrs, 2, PT_OBJECT, ret.ptr)
         MemorySegment.ofAddress(ret.value)
+    }
+
+fun ObjectCalls.ptrcallWithTwoVector2ColorDoubleBoolArgs(methodBind: MemorySegment, instance: MemorySegment, a0: Vector2, a1: Vector2, a2: Color, a3: Double, a4: Boolean) =
+    memScoped {
+        val c0 = allocArray<FloatVar>(2); c0[0] = a0.x.toFloat(); c0[1] = a0.y.toFloat()
+        val c1 = allocArray<FloatVar>(2); c1[0] = a1.x.toFloat(); c1[1] = a1.y.toFloat()
+        val c2 = allocArray<FloatVar>(4); c2[0] = a2.r; c2[1] = a2.g; c2[2] = a2.b; c2[3] = a2.a
+        val c3 = alloc<DoubleVar>(); c3.value = a3
+        val c4 = alloc<ByteVar>(); c4.value = if (a4) 1 else 0
+        val types = allocArray<IntVar>(5); types[0] = PT_VECTOR2; types[1] = PT_VECTOR2; types[2] = PT_COLOR; types[3] = PT_FLOAT64; types[4] = PT_BOOL
+        val ptrs = allocArray<COpaquePointerVar>(5); ptrs[0] = c0.reinterpret<CPointed>(); ptrs[1] = c1.reinterpret<CPointed>(); ptrs[2] = c2.reinterpret<CPointed>(); ptrs[3] = c3.ptr.reinterpret<CPointed>(); ptrs[4] = c4.ptr.reinterpret<CPointed>()
+        kanama_ios_godot_ptrcall(methodBind.address(), instance.address(), types, ptrs, 5, PT_VOID, null)
+        Unit
+    }
+
+fun ObjectCalls.ptrcallWithTwoVector2ColorTwoDoubleTwoBoolArgs(methodBind: MemorySegment, instance: MemorySegment, a0: Vector2, a1: Vector2, a2: Color, a3: Double, a4: Double, a5: Boolean, a6: Boolean) =
+    memScoped {
+        val c0 = allocArray<FloatVar>(2); c0[0] = a0.x.toFloat(); c0[1] = a0.y.toFloat()
+        val c1 = allocArray<FloatVar>(2); c1[0] = a1.x.toFloat(); c1[1] = a1.y.toFloat()
+        val c2 = allocArray<FloatVar>(4); c2[0] = a2.r; c2[1] = a2.g; c2[2] = a2.b; c2[3] = a2.a
+        val c3 = alloc<DoubleVar>(); c3.value = a3
+        val c4 = alloc<DoubleVar>(); c4.value = a4
+        val c5 = alloc<ByteVar>(); c5.value = if (a5) 1 else 0
+        val c6 = alloc<ByteVar>(); c6.value = if (a6) 1 else 0
+        val types = allocArray<IntVar>(7); types[0] = PT_VECTOR2; types[1] = PT_VECTOR2; types[2] = PT_COLOR; types[3] = PT_FLOAT64; types[4] = PT_FLOAT64; types[5] = PT_BOOL; types[6] = PT_BOOL
+        val ptrs = allocArray<COpaquePointerVar>(7); ptrs[0] = c0.reinterpret<CPointed>(); ptrs[1] = c1.reinterpret<CPointed>(); ptrs[2] = c2.reinterpret<CPointed>(); ptrs[3] = c3.ptr.reinterpret<CPointed>(); ptrs[4] = c4.ptr.reinterpret<CPointed>(); ptrs[5] = c5.ptr.reinterpret<CPointed>(); ptrs[6] = c6.ptr.reinterpret<CPointed>()
+        kanama_ios_godot_ptrcall(methodBind.address(), instance.address(), types, ptrs, 7, PT_VOID, null)
+        Unit
     }
 
 fun ObjectCalls.ptrcallWithTwoVector3AndBoolArgs(methodBind: MemorySegment, instance: MemorySegment, a0: Vector3, a1: Vector3, a2: Boolean) =
@@ -765,6 +777,16 @@ fun ObjectCalls.ptrcallWithUInt32AndIntArgRetInt(methodBind: MemorySegment, inst
         ret.value.toInt()
     }
 
+fun ObjectCalls.ptrcallWithUInt32AndVector2Args(methodBind: MemorySegment, instance: MemorySegment, a0: Long, a1: Vector2) =
+    memScoped {
+        val c0 = alloc<LongVar>(); c0.value = a0
+        val c1 = allocArray<FloatVar>(2); c1[0] = a1.x.toFloat(); c1[1] = a1.y.toFloat()
+        val types = allocArray<IntVar>(2); types[0] = PT_INT64; types[1] = PT_VECTOR2
+        val ptrs = allocArray<COpaquePointerVar>(2); ptrs[0] = c0.ptr.reinterpret<CPointed>(); ptrs[1] = c1.reinterpret<CPointed>()
+        kanama_ios_godot_ptrcall(methodBind.address(), instance.address(), types, ptrs, 2, PT_VOID, null)
+        Unit
+    }
+
 fun ObjectCalls.ptrcallWithUInt32Arg(methodBind: MemorySegment, instance: MemorySegment, a0: Long) =
     memScoped {
         val c0 = alloc<LongVar>(); c0.value = a0
@@ -812,6 +834,16 @@ fun ObjectCalls.ptrcallWithUInt32ArgRetObject(methodBind: MemorySegment, instanc
         val ptrs = allocArray<COpaquePointerVar>(1); ptrs[0] = c0.ptr.reinterpret<CPointed>()
         kanama_ios_godot_ptrcall(methodBind.address(), instance.address(), types, ptrs, 1, PT_OBJECT, ret.ptr)
         MemorySegment.ofAddress(ret.value)
+    }
+
+fun ObjectCalls.ptrcallWithUInt32ArgRetVector2(methodBind: MemorySegment, instance: MemorySegment, a0: Long): Vector2 =
+    memScoped {
+        val ret = allocArray<FloatVar>(2)
+        val c0 = alloc<LongVar>(); c0.value = a0
+        val types = allocArray<IntVar>(1); types[0] = PT_INT64
+        val ptrs = allocArray<COpaquePointerVar>(1); ptrs[0] = c0.ptr.reinterpret<CPointed>()
+        kanama_ios_godot_ptrcall(methodBind.address(), instance.address(), types, ptrs, 1, PT_VECTOR2, ret)
+        Vector2(ret[0].toDouble(), ret[1].toDouble())
     }
 
 fun ObjectCalls.ptrcallWithVector2AndBoolArg(methodBind: MemorySegment, instance: MemorySegment, a0: Vector2, a1: Boolean) =
@@ -885,6 +917,20 @@ fun ObjectCalls.ptrcallWithVector2ArgRetVector3(methodBind: MemorySegment, insta
         Vector3(ret[0].toDouble(), ret[1].toDouble(), ret[2].toDouble())
     }
 
+fun ObjectCalls.ptrcallWithVector2DoubleColorBoolDoubleBoolArgs(methodBind: MemorySegment, instance: MemorySegment, a0: Vector2, a1: Double, a2: Color, a3: Boolean, a4: Double, a5: Boolean) =
+    memScoped {
+        val c0 = allocArray<FloatVar>(2); c0[0] = a0.x.toFloat(); c0[1] = a0.y.toFloat()
+        val c1 = alloc<DoubleVar>(); c1.value = a1
+        val c2 = allocArray<FloatVar>(4); c2[0] = a2.r; c2[1] = a2.g; c2[2] = a2.b; c2[3] = a2.a
+        val c3 = alloc<ByteVar>(); c3.value = if (a3) 1 else 0
+        val c4 = alloc<DoubleVar>(); c4.value = a4
+        val c5 = alloc<ByteVar>(); c5.value = if (a5) 1 else 0
+        val types = allocArray<IntVar>(6); types[0] = PT_VECTOR2; types[1] = PT_FLOAT64; types[2] = PT_COLOR; types[3] = PT_BOOL; types[4] = PT_FLOAT64; types[5] = PT_BOOL
+        val ptrs = allocArray<COpaquePointerVar>(6); ptrs[0] = c0.reinterpret<CPointed>(); ptrs[1] = c1.ptr.reinterpret<CPointed>(); ptrs[2] = c2.reinterpret<CPointed>(); ptrs[3] = c3.ptr.reinterpret<CPointed>(); ptrs[4] = c4.ptr.reinterpret<CPointed>(); ptrs[5] = c5.ptr.reinterpret<CPointed>()
+        kanama_ios_godot_ptrcall(methodBind.address(), instance.address(), types, ptrs, 6, PT_VOID, null)
+        Unit
+    }
+
 fun ObjectCalls.ptrcallWithVector2DoubleVector2Args(methodBind: MemorySegment, instance: MemorySegment, a0: Vector2, a1: Double, a2: Vector2) =
     memScoped {
         val c0 = allocArray<FloatVar>(2); c0[0] = a0.x.toFloat(); c0[1] = a0.y.toFloat()
@@ -893,6 +939,54 @@ fun ObjectCalls.ptrcallWithVector2DoubleVector2Args(methodBind: MemorySegment, i
         val types = allocArray<IntVar>(3); types[0] = PT_VECTOR2; types[1] = PT_FLOAT64; types[2] = PT_VECTOR2
         val ptrs = allocArray<COpaquePointerVar>(3); ptrs[0] = c0.reinterpret<CPointed>(); ptrs[1] = c1.ptr.reinterpret<CPointed>(); ptrs[2] = c2.reinterpret<CPointed>()
         kanama_ios_godot_ptrcall(methodBind.address(), instance.address(), types, ptrs, 3, PT_VOID, null)
+        Unit
+    }
+
+fun ObjectCalls.ptrcallWithVector2FourDoubleIntColorDoubleBoolArgs(methodBind: MemorySegment, instance: MemorySegment, a0: Vector2, a1: Double, a2: Double, a3: Double, a4: Double, a5: Int, a6: Color, a7: Double, a8: Boolean) =
+    memScoped {
+        val c0 = allocArray<FloatVar>(2); c0[0] = a0.x.toFloat(); c0[1] = a0.y.toFloat()
+        val c1 = alloc<DoubleVar>(); c1.value = a1
+        val c2 = alloc<DoubleVar>(); c2.value = a2
+        val c3 = alloc<DoubleVar>(); c3.value = a3
+        val c4 = alloc<DoubleVar>(); c4.value = a4
+        val c5 = alloc<LongVar>(); c5.value = a5.toLong()
+        val c6 = allocArray<FloatVar>(4); c6[0] = a6.r; c6[1] = a6.g; c6[2] = a6.b; c6[3] = a6.a
+        val c7 = alloc<DoubleVar>(); c7.value = a7
+        val c8 = alloc<ByteVar>(); c8.value = if (a8) 1 else 0
+        val types = allocArray<IntVar>(9); types[0] = PT_VECTOR2; types[1] = PT_FLOAT64; types[2] = PT_FLOAT64; types[3] = PT_FLOAT64; types[4] = PT_FLOAT64; types[5] = PT_INT64; types[6] = PT_COLOR; types[7] = PT_FLOAT64; types[8] = PT_BOOL
+        val ptrs = allocArray<COpaquePointerVar>(9); ptrs[0] = c0.reinterpret<CPointed>(); ptrs[1] = c1.ptr.reinterpret<CPointed>(); ptrs[2] = c2.ptr.reinterpret<CPointed>(); ptrs[3] = c3.ptr.reinterpret<CPointed>(); ptrs[4] = c4.ptr.reinterpret<CPointed>(); ptrs[5] = c5.ptr.reinterpret<CPointed>(); ptrs[6] = c6.reinterpret<CPointed>(); ptrs[7] = c7.ptr.reinterpret<CPointed>(); ptrs[8] = c8.ptr.reinterpret<CPointed>()
+        kanama_ios_godot_ptrcall(methodBind.address(), instance.address(), types, ptrs, 9, PT_VOID, null)
+        Unit
+    }
+
+fun ObjectCalls.ptrcallWithVector2ThreeDoubleIntColorDoubleBoolArgs(methodBind: MemorySegment, instance: MemorySegment, a0: Vector2, a1: Double, a2: Double, a3: Double, a4: Int, a5: Color, a6: Double, a7: Boolean) =
+    memScoped {
+        val c0 = allocArray<FloatVar>(2); c0[0] = a0.x.toFloat(); c0[1] = a0.y.toFloat()
+        val c1 = alloc<DoubleVar>(); c1.value = a1
+        val c2 = alloc<DoubleVar>(); c2.value = a2
+        val c3 = alloc<DoubleVar>(); c3.value = a3
+        val c4 = alloc<LongVar>(); c4.value = a4.toLong()
+        val c5 = allocArray<FloatVar>(4); c5[0] = a5.r; c5[1] = a5.g; c5[2] = a5.b; c5[3] = a5.a
+        val c6 = alloc<DoubleVar>(); c6.value = a6
+        val c7 = alloc<ByteVar>(); c7.value = if (a7) 1 else 0
+        val types = allocArray<IntVar>(8); types[0] = PT_VECTOR2; types[1] = PT_FLOAT64; types[2] = PT_FLOAT64; types[3] = PT_FLOAT64; types[4] = PT_INT64; types[5] = PT_COLOR; types[6] = PT_FLOAT64; types[7] = PT_BOOL
+        val ptrs = allocArray<COpaquePointerVar>(8); ptrs[0] = c0.reinterpret<CPointed>(); ptrs[1] = c1.ptr.reinterpret<CPointed>(); ptrs[2] = c2.ptr.reinterpret<CPointed>(); ptrs[3] = c3.ptr.reinterpret<CPointed>(); ptrs[4] = c4.ptr.reinterpret<CPointed>(); ptrs[5] = c5.reinterpret<CPointed>(); ptrs[6] = c6.ptr.reinterpret<CPointed>(); ptrs[7] = c7.ptr.reinterpret<CPointed>()
+        kanama_ios_godot_ptrcall(methodBind.address(), instance.address(), types, ptrs, 8, PT_VOID, null)
+        Unit
+    }
+
+fun ObjectCalls.ptrcallWithVector2TwoDoubleColorBoolDoubleBoolArgs(methodBind: MemorySegment, instance: MemorySegment, a0: Vector2, a1: Double, a2: Double, a3: Color, a4: Boolean, a5: Double, a6: Boolean) =
+    memScoped {
+        val c0 = allocArray<FloatVar>(2); c0[0] = a0.x.toFloat(); c0[1] = a0.y.toFloat()
+        val c1 = alloc<DoubleVar>(); c1.value = a1
+        val c2 = alloc<DoubleVar>(); c2.value = a2
+        val c3 = allocArray<FloatVar>(4); c3[0] = a3.r; c3[1] = a3.g; c3[2] = a3.b; c3[3] = a3.a
+        val c4 = alloc<ByteVar>(); c4.value = if (a4) 1 else 0
+        val c5 = alloc<DoubleVar>(); c5.value = a5
+        val c6 = alloc<ByteVar>(); c6.value = if (a6) 1 else 0
+        val types = allocArray<IntVar>(7); types[0] = PT_VECTOR2; types[1] = PT_FLOAT64; types[2] = PT_FLOAT64; types[3] = PT_COLOR; types[4] = PT_BOOL; types[5] = PT_FLOAT64; types[6] = PT_BOOL
+        val ptrs = allocArray<COpaquePointerVar>(7); ptrs[0] = c0.reinterpret<CPointed>(); ptrs[1] = c1.ptr.reinterpret<CPointed>(); ptrs[2] = c2.ptr.reinterpret<CPointed>(); ptrs[3] = c3.reinterpret<CPointed>(); ptrs[4] = c4.ptr.reinterpret<CPointed>(); ptrs[5] = c5.ptr.reinterpret<CPointed>(); ptrs[6] = c6.ptr.reinterpret<CPointed>()
+        kanama_ios_godot_ptrcall(methodBind.address(), instance.address(), types, ptrs, 7, PT_VOID, null)
         Unit
     }
 

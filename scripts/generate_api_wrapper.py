@@ -193,12 +193,14 @@ IOS_ARG_KINDS = {
     "Vector2i",
     "Vector3",
     "Vector3i",
+    "Color",
+    "Rect2",
     "StringName",
 }
 # Return shapes the iOS helpers can read back (keyed by CallShape.kotlin_return, the
-# stable per-helper return-type token). StringName/String/RID/Color/List/Map returns
+# stable per-helper return-type token). StringName/String/RID/List/Map returns
 # are intentionally absent until their read-back is wired + validated.
-IOS_RET_KOTLIN = {"Unit", "Boolean", "Int", "Long", "Double", "Vector2", "Vector2i", "Vector3", "Vector3i", "MemorySegment"}
+IOS_RET_KOTLIN = {"Unit", "Boolean", "Int", "Long", "Double", "Vector2", "Vector2i", "Vector3", "Vector3i", "Color", "Rect2", "MemorySegment"}
 
 # Helpers already hand-written in ios-runtime ObjectCalls.kt (the reference template +
 # override set). The generator must NOT re-emit these (they'd clash with the members).
@@ -213,6 +215,8 @@ IOS_HANDWRITTEN_HELPERS = {
     "ptrcallNoArgsRetVector2i",
     "ptrcallNoArgsRetVector3",
     "ptrcallNoArgsRetVector3i",
+    "ptrcallNoArgsRetColor",
+    "ptrcallNoArgsRetRect2",
     "ptrcallWithBoolArg",
     "ptrcallWithIntArg",
     "ptrcallWithLongArg",
@@ -221,7 +225,10 @@ IOS_HANDWRITTEN_HELPERS = {
     "ptrcallWithVector2iArg",
     "ptrcallWithVector3Arg",
     "ptrcallWithVector3iArg",
+    "ptrcallWithColorArg",
+    "ptrcallWithRect2Arg",
     "ptrcallWithObjectArgs",
+    "ptrcallWithStringNameAndBoolArgRetBool",
 }
 PARAMETER_NAME_OVERRIDES = {
     ("Time", "get_datetime_dict_from_unix_time", "unix_time_val"): "unixTime",
@@ -1562,6 +1569,8 @@ import kotlinx.cinterop.reinterpret
 import kotlinx.cinterop.set
 import kotlinx.cinterop.value
 import net.multigesture.kanama.ios.cinterop.kanama_ios_godot_ptrcall
+import net.multigesture.kanama.types.Color
+import net.multigesture.kanama.types.Rect2
 import net.multigesture.kanama.types.Vector2
 import net.multigesture.kanama.types.Vector2i
 import net.multigesture.kanama.types.Vector3
@@ -1594,6 +1603,8 @@ IOS_PT_TAG_VALUES = {
     "PT_VECTOR2I": 7,
     "PT_VECTOR3": 8,
     "PT_VECTOR3I": 9,
+    "PT_COLOR": 11,
+    "PT_RECT2": 12,
     "PT_OBJECT": 13,
     "PT_STRING_NAME": 15,
 }
@@ -1646,6 +1657,23 @@ def ios_arg_layout(kind: str, index: int) -> tuple[str, str, list[str], str]:
             [f"val {c} = allocArray<IntVar>(3); {c}[0] = {a}.x; {c}[1] = {a}.y; {c}[2] = {a}.z"],
             f"{c}.reinterpret<CPointed>()",
         )
+    if kind == "Color":
+        # 4x float32 = 16 bytes. Color components are always float32 (never real_t).
+        return (
+            "Color",
+            "PT_COLOR",
+            [f"val {c} = allocArray<FloatVar>(4); {c}[0] = {a}.r; {c}[1] = {a}.g; {c}[2] = {a}.b; {c}[3] = {a}.a"],
+            f"{c}.reinterpret<CPointed>()",
+        )
+    if kind == "Rect2":
+        # 4x float32 = 16 bytes (position.x, position.y, size.x, size.y).
+        # Components are real_t = float32 on single-precision iOS.
+        return (
+            "Rect2",
+            "PT_RECT2",
+            [f"val {c} = allocArray<FloatVar>(4); {c}[0] = {a}.position.x.toFloat(); {c}[1] = {a}.position.y.toFloat(); {c}[2] = {a}.size.x.toFloat(); {c}[3] = {a}.size.y.toFloat()"],
+            f"{c}.reinterpret<CPointed>()",
+        )
     if kind == "StringName":
         # CONSTRUCT tag: the dispatch builds a StringName from this C string.
         return ("String", "PT_STRING_NAME", [], f"{a}.cstr.ptr.reinterpret<CPointed>()")
@@ -1678,6 +1706,18 @@ def ios_ret_layout(kotlin_return: str) -> tuple[str | None, str, list[str], str,
         )
     if kotlin_return == "Vector3i":
         return ("Vector3i", "PT_VECTOR3I", ["val ret = allocArray<IntVar>(3)"], "ret", "Vector3i(ret[0], ret[1], ret[2])")
+    if kotlin_return == "Color":
+        # 4x float32 = 16 bytes. Color components are always float32 (never real_t).
+        return ("Color", "PT_COLOR", ["val ret = allocArray<FloatVar>(4)"], "ret", "Color(ret[0], ret[1], ret[2], ret[3])")
+    if kotlin_return == "Rect2":
+        # 4x float32 = 16 bytes (position.x, position.y, size.x, size.y).
+        return (
+            "Rect2",
+            "PT_RECT2",
+            ["val ret = allocArray<FloatVar>(4)"],
+            "ret",
+            "Rect2(Vector2(ret[0].toDouble(), ret[1].toDouble()), Vector2(ret[2].toDouble(), ret[3].toDouble()))",
+        )
     if kotlin_return == "MemorySegment":
         return ("MemorySegment", "PT_OBJECT", ["val ret = alloc<LongVar>(); ret.value = 0"], "ret.ptr", "MemorySegment.ofAddress(ret.value)")
     raise ValueError(f"iOS return kind not audited: {kotlin_return}")
