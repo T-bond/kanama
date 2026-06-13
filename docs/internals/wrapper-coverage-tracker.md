@@ -29,7 +29,7 @@ Commits go straight to `main`, attributed `Co-Authored-By: Claude Fable 5`.
 
 | Task | Model | Status | Notes |
 |---|---|---|---|
-| 2.1 Vector2i / Vector3i | sonnet | todo | |
+| 2.1 Vector2i / Vector3i | sonnet | done | 2026-06-12: kinds+matrix+probe rows; Sprite2D +3 methods; device self-test PENDING |
 | 2.2 Color / Rect2 returns | sonnet | todo | |
 | 2.3 String-return ptrcall | opus | todo | |
 | 2.4 PT_STRING / PT_NODE_PATH args | opus | todo | |
@@ -120,3 +120,20 @@ Gated on Phase 4 exit. Not started by decision.
   `merge_importer_meshes`) could be unblocked today via the same path;
   TypedRIDArray/Transform3DArray args, (Dictionary)→Dictionary policy gate,
   and Signal arg (Tween.tween_await) remain blocked.
+- **2026-06-12** — Phase 2.1 done (sonnet impl). iOS Vector2i/Vector3i arg +
+  return kinds (PT_VECTOR2I=7 2×int32, PT_VECTOR3I=9 3×int32 — POD
+  passthrough, no new C switch cases; tags were already reserved in the shim
+  enum). New ios-runtime `types/Vector3i.kt`; 4 hand-written iOS helpers
+  (no-args-ret + single-arg for both types); 2 C-shim self-test matrix rows
+  (Sprite2D.frame_coords, PlaceholderTexture3D.size) + 2 Kotlin ObjectCalls
+  probe rows — all marked **PENDING DEVICE VALIDATION** (debug-only,
+  fail-loud, cannot pass silently). Sprite2D.kt regenerated: +3 methods
+  (set/get frame_coords + property). Gates: check_wrapper_generator,
+  check_ios_no_silent_stubs, local CI iOS checks, compileKotlinIosArm64,
+  clang -fsyntax-only — all pass. Next device run must confirm the 2 new
+  matrix rows before 2.6 builds on these kinds.
+  Fable review: FIX-FIRST → fixed: Sprite2D.set_frame_coords(3,7) is rejected
+  by ERR_FAIL_INDEX with default hframes/vframes=1 (would have reported a
+  false ABI failure on device); both the C matrix row and the Kotlin probe
+  now call set_hframes(4)/set_vframes(8) first. Widths/tags/hashes/struct/
+  generator gating all verified correct by review.

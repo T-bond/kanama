@@ -5,6 +5,7 @@ import kotlin.jvm.JvmName
 import net.multigesture.kanama.binding.runtime.ObjectCalls
 import net.multigesture.kanama.binding.runtime.*
 import net.multigesture.kanama.types.Vector2
+import net.multigesture.kanama.types.Vector2i
 
 /**
  * Generated from Godot docs: Sprite2D
@@ -57,6 +58,12 @@ class Sprite2D(handle: MemorySegment) : Node2D(handle) {
         get() = getFrame()
         @JvmName("setFrameProperty")
         set(value) = setFrame(value)
+
+    var frameCoords: Vector2i
+        @JvmName("frameCoordsProperty")
+        get() = getFrameCoords()
+        @JvmName("setFrameCoordsProperty")
+        set(value) = setFrameCoords(value)
 
     var regionEnabled: Boolean
         @JvmName("regionEnabledProperty")
@@ -136,6 +143,14 @@ class Sprite2D(handle: MemorySegment) : Node2D(handle) {
 
     fun getFrame(): Int {
         return ObjectCalls.ptrcallNoArgsRetInt(getFrameBind, handle)
+    }
+
+    fun setFrameCoords(coords: Vector2i) {
+        ObjectCalls.ptrcallWithVector2iArg(setFrameCoordsBind, handle, coords)
+    }
+
+    fun getFrameCoords(): Vector2i {
+        return ObjectCalls.ptrcallNoArgsRetVector2i(getFrameCoordsBind, handle)
     }
 
     fun setVframes(vframes: Int) {
@@ -249,6 +264,16 @@ class Sprite2D(handle: MemorySegment) : Node2D(handle) {
         private const val GET_FRAME_HASH = 3905245786L
         private val getFrameBind by lazy {
             ObjectCalls.getMethodBind("Sprite2D", "get_frame", GET_FRAME_HASH)
+        }
+
+        private const val SET_FRAME_COORDS_HASH = 1130785943L
+        private val setFrameCoordsBind by lazy {
+            ObjectCalls.getMethodBind("Sprite2D", "set_frame_coords", SET_FRAME_COORDS_HASH)
+        }
+
+        private const val GET_FRAME_COORDS_HASH = 3690982128L
+        private val getFrameCoordsBind by lazy {
+            ObjectCalls.getMethodBind("Sprite2D", "get_frame_coords", GET_FRAME_COORDS_HASH)
         }
 
         private const val SET_VFRAMES_HASH = 1286410249L

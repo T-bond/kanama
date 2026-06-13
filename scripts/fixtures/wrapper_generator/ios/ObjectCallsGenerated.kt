@@ -22,7 +22,9 @@ import kotlinx.cinterop.set
 import kotlinx.cinterop.value
 import net.multigesture.kanama.ios.cinterop.kanama_ios_godot_ptrcall
 import net.multigesture.kanama.types.Vector2
+import net.multigesture.kanama.types.Vector2i
 import net.multigesture.kanama.types.Vector3
+import net.multigesture.kanama.types.Vector3i
 
 /**
  * GENERATED iOS ObjectCalls helper bodies (scripts/generate_api_wrapper.py --ios-*).

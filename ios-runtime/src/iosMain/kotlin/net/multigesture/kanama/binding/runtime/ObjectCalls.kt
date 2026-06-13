@@ -27,7 +27,9 @@ import net.multigesture.kanama.ios.cinterop.kanama_ios_godot_get_method_bind
 import net.multigesture.kanama.ios.cinterop.kanama_ios_godot_get_singleton
 import net.multigesture.kanama.ios.cinterop.kanama_ios_godot_ptrcall
 import net.multigesture.kanama.types.Vector2
+import net.multigesture.kanama.types.Vector2i
 import net.multigesture.kanama.types.Vector3
+import net.multigesture.kanama.types.Vector3i
 
 /**
  * iOS implementation of the runtime abstraction the generated Godot API wrappers
@@ -49,7 +51,9 @@ object ObjectCalls {
     private const val PT_INT64 = 3
     private const val PT_FLOAT64 = 5
     private const val PT_VECTOR2 = 6
+    private const val PT_VECTOR2I = 7
     private const val PT_VECTOR3 = 8
+    private const val PT_VECTOR3I = 9
     private const val PT_OBJECT = 13
 
     fun constructObject(className: String): MemorySegment =
@@ -120,6 +124,23 @@ object ObjectCalls {
             Vector3(ret[0].toDouble(), ret[1].toDouble(), ret[2].toDouble())
         }
 
+    // Vector2i (2x int32, 8 bytes total): components are int32 NOT widened — struct
+    // uses PtrToArgDirect/PtrToArgByReference, not PtrToArgConvert.
+    fun ptrcallNoArgsRetVector2i(methodBind: MemorySegment, instance: MemorySegment): Vector2i =
+        memScoped {
+            val ret = allocArray<IntVar>(2)
+            kanama_ios_godot_ptrcall(methodBind.address(), instance.address(), null, null, 0, PT_VECTOR2I, ret)
+            Vector2i(ret[0], ret[1])
+        }
+
+    // Vector3i (3x int32, 12 bytes total): components are int32 NOT widened.
+    fun ptrcallNoArgsRetVector3i(methodBind: MemorySegment, instance: MemorySegment): Vector3i =
+        memScoped {
+            val ret = allocArray<IntVar>(3)
+            kanama_ios_godot_ptrcall(methodBind.address(), instance.address(), null, null, 0, PT_VECTOR3I, ret)
+            Vector3i(ret[0], ret[1], ret[2])
+        }
+
     // ---- single arg, void return ----
     fun ptrcallWithBoolArg(methodBind: MemorySegment, instance: MemorySegment, value: Boolean) =
         memScoped {
@@ -174,6 +195,26 @@ object ObjectCalls {
             val cell = allocArray<FloatVar>(3)
             cell[0] = value.x.toFloat(); cell[1] = value.y.toFloat(); cell[2] = value.z.toFloat()
             val types = allocArray<IntVar>(1); types[0] = PT_VECTOR3
+            val ptrs = allocArray<COpaquePointerVar>(1); ptrs[0] = cell.reinterpret<CPointed>()
+            kanama_ios_godot_ptrcall(methodBind.address(), instance.address(), types, ptrs, 1, PT_VOID, null)
+            Unit
+        }
+
+    fun ptrcallWithVector2iArg(methodBind: MemorySegment, instance: MemorySegment, value: Vector2i) =
+        memScoped {
+            val cell = allocArray<IntVar>(2)
+            cell[0] = value.x; cell[1] = value.y
+            val types = allocArray<IntVar>(1); types[0] = PT_VECTOR2I
+            val ptrs = allocArray<COpaquePointerVar>(1); ptrs[0] = cell.reinterpret<CPointed>()
+            kanama_ios_godot_ptrcall(methodBind.address(), instance.address(), types, ptrs, 1, PT_VOID, null)
+            Unit
+        }
+
+    fun ptrcallWithVector3iArg(methodBind: MemorySegment, instance: MemorySegment, value: Vector3i) =
+        memScoped {
+            val cell = allocArray<IntVar>(3)
+            cell[0] = value.x; cell[1] = value.y; cell[2] = value.z
+            val types = allocArray<IntVar>(1); types[0] = PT_VECTOR3I
             val ptrs = allocArray<COpaquePointerVar>(1); ptrs[0] = cell.reinterpret<CPointed>()
             kanama_ios_godot_ptrcall(methodBind.address(), instance.address(), types, ptrs, 1, PT_VOID, null)
             Unit
@@ -264,6 +305,30 @@ fun kanamaIosRuntimeObjectCallsSelfTest() {
     val jumped = ObjectCalls.ptrcallWithStringNameAndBoolArgRetBool(
         ObjectCalls.getMethodBind("Input", "is_action_just_pressed", 1558498928L), inputSingleton, "ui_accept", false)
     check("input-is_action_just_pressed(no-input==false)", !jumped)
+
+    // Vector2i (2x int32, 8B): Sprite2D.set_frame_coords(Vector2i(3,7)) -> get_frame_coords()
+    // Godot rejects frame_coords outside [0,hframes)x[0,vframes) (defaults 1x1) via
+    // ERR_FAIL_INDEX, so widen the frame grid first or (3,7) is a silent no-op.
+    // PENDING DEVICE VALIDATION (Phase 2.1 addition — no device run yet)
+    val sprite2d = ObjectCalls.constructObject("Sprite2D")
+    ObjectCalls.ptrcallWithLongArg(
+        ObjectCalls.getMethodBind("Sprite2D", "set_hframes", 1286410249L), sprite2d, 4L)
+    ObjectCalls.ptrcallWithLongArg(
+        ObjectCalls.getMethodBind("Sprite2D", "set_vframes", 1286410249L), sprite2d, 8L)
+    ObjectCalls.ptrcallWithVector2iArg(
+        ObjectCalls.getMethodBind("Sprite2D", "set_frame_coords", 1130785943L), sprite2d, Vector2i(3, 7))
+    val v2i = ObjectCalls.ptrcallNoArgsRetVector2i(
+        ObjectCalls.getMethodBind("Sprite2D", "get_frame_coords", 3690982128L), sprite2d)
+    check("vector2i", v2i.x == 3 && v2i.y == 7)
+
+    // Vector3i (3x int32, 12B): PlaceholderTexture3D.set_size(Vector3i(5,11,17)) -> get_size()
+    // PENDING DEVICE VALIDATION (Phase 2.1 addition — no device run yet)
+    val tex3d = ObjectCalls.constructObject("PlaceholderTexture3D")
+    ObjectCalls.ptrcallWithVector3iArg(
+        ObjectCalls.getMethodBind("PlaceholderTexture3D", "set_size", 560364750L), tex3d, Vector3i(5, 11, 17))
+    val v3i = ObjectCalls.ptrcallNoArgsRetVector3i(
+        ObjectCalls.getMethodBind("PlaceholderTexture3D", "get_size", 2785653706L), tex3d)
+    check("vector3i", v3i.x == 5 && v3i.y == 11 && v3i.z == 17)
 
     println("[kanama][ios][kn] OBJECTCALLS SELFTEST: $pass passed, $fail failed")
 }

@@ -4252,6 +4252,60 @@ static void kanama_ios_ptrcall_selftest(void) {
         KANAMA_IOS_ST_CHECK("object-arg+multiarg+object-ret", got_child == child);
     }
 
+    // Vector2i (2x int32, 8B): Sprite2D.set_frame_coords(Vector2i(3,7)) -> get_frame_coords()
+    // Width-sensitive: a wrong tag (e.g. treating as 2xfloat32) would misread the
+    // returned values. Values chosen so x+y != 0 and are distinguishable.
+    // PENDING DEVICE VALIDATION (Phase 2.1 addition — no device run yet)
+    {
+        int64_t sprite2d = kanama_ios_godot_construct_object("Sprite2D");
+        if (sprite2d == 0) {
+            fprintf(stderr, "[kanama][ios][c] SELFTEST note: Sprite2D construct returned 0\n");
+            fflush(stderr);
+        }
+        // Godot rejects frame_coords outside [0,hframes)x[0,vframes) (defaults 1x1)
+        // via ERR_FAIL_INDEX, so widen the frame grid first or (3,7) is a no-op
+        // and the row would report a false ABI failure.
+        int64_t hframes = 4;
+        int64_t vframes = 8;
+        const void *fa[1] = { &hframes };
+        int32_t ft[1] = { KANAMA_IOS_PT_INT64 };
+        kanama_ios_godot_ptrcall(kanama_ios_godot_get_method_bind("Sprite2D","set_hframes",1286410249),
+            sprite2d, ft, fa, 1, KANAMA_IOS_PT_VOID, NULL);
+        fa[0] = &vframes;
+        kanama_ios_godot_ptrcall(kanama_ios_godot_get_method_bind("Sprite2D","set_vframes",1286410249),
+            sprite2d, ft, fa, 1, KANAMA_IOS_PT_VOID, NULL);
+        int32_t in[2] = { 3, 7 };
+        const void *a[1] = { in };
+        int32_t t[1] = { KANAMA_IOS_PT_VECTOR2I };
+        kanama_ios_godot_ptrcall(kanama_ios_godot_get_method_bind("Sprite2D","set_frame_coords",1130785943),
+            sprite2d, t, a, 1, KANAMA_IOS_PT_VOID, NULL);
+        int32_t out[2] = { 0, 0 };
+        kanama_ios_godot_ptrcall(kanama_ios_godot_get_method_bind("Sprite2D","get_frame_coords",3690982128),
+            sprite2d, NULL, NULL, 0, KANAMA_IOS_PT_VECTOR2I, out);
+        KANAMA_IOS_ST_CHECK("vector2i(3,7)", out[0]==3 && out[1]==7);
+    }
+
+    // Vector3i (3x int32, 12B): PlaceholderTexture3D.set_size(Vector3i(5,11,17)) -> get_size()
+    // Width-sensitive: a wrong tag would misread the 12-byte struct. Values chosen
+    // to be individually distinguishable and non-trivially zero.
+    // PENDING DEVICE VALIDATION (Phase 2.1 addition — no device run yet)
+    {
+        int64_t tex3d = kanama_ios_godot_construct_object("PlaceholderTexture3D");
+        if (tex3d == 0) {
+            fprintf(stderr, "[kanama][ios][c] SELFTEST note: PlaceholderTexture3D construct returned 0\n");
+            fflush(stderr);
+        }
+        int32_t in[3] = { 5, 11, 17 };
+        const void *a[1] = { in };
+        int32_t t[1] = { KANAMA_IOS_PT_VECTOR3I };
+        kanama_ios_godot_ptrcall(kanama_ios_godot_get_method_bind("PlaceholderTexture3D","set_size",560364750),
+            tex3d, t, a, 1, KANAMA_IOS_PT_VOID, NULL);
+        int32_t out[3] = { 0, 0, 0 };
+        kanama_ios_godot_ptrcall(kanama_ios_godot_get_method_bind("PlaceholderTexture3D","get_size",2785653706),
+            tex3d, NULL, NULL, 0, KANAMA_IOS_PT_VECTOR3I, out);
+        KANAMA_IOS_ST_CHECK("vector3i(5,11,17)", out[0]==5 && out[1]==11 && out[2]==17);
+    }
+
     fprintf(stderr, "[kanama][ios][c] PTRCALL SELFTEST MATRIX: %d passed, %d failed\n", pass, fail);
     fflush(stderr);
 #undef KANAMA_IOS_ST_CHECK
