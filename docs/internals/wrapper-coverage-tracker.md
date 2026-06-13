@@ -76,17 +76,16 @@ State at handoff: working tree CLEAN, Phases 1.1–1.4 + 2.1 + 2.2 all
 committed to main (2.2 landed after the original handoff note; both
 fable-reviewed).
 
-1. **FIRST: device validation (iPhone 12 connected).** Run the iOS
-   self-test matrix + ObjectCalls probe on device: docs/exporting/ios.md
-   workflow + scripts/ios_visual_smoke.sh (device-first; simulator is not a
-   signal). Pending rows: Vector2i (Sprite2D.frame_coords 3,7 after
-   hframes/vframes widening), Vector3i (PlaceholderTexture3D.size 5,11,17),
-   Color (Node2D modulate 0.125,0.25,0.5,0.75), Rect2 (GPUParticles2D
-   visibility_rect 1.5,2.5,3.5,4.5) — C rows + Kotlin probe rows each.
-   Record PASS/FAIL per row in this tracker; 2.6 is gated on these.
-   If a row fails: triage width-vs-engine-validation-vs-harness BEFORE
-   touching marshalling code (see 2.1's ERR_FAIL_INDEX lesson).
-2. Then 2.3 (String-return ptrcall, opus impl agent) — unblocks Label.text
+1. **DONE: device validation (iPhone 12, iOS 26.5, 2026-06-12).** All 2.1/2.2
+   rows **PASS** on device — `PTRCALL SELFTEST MATRIX: 14 passed, 0 failed`
+   (C) + `OBJECTCALLS SELFTEST: 13 passed, 0 failed` (Kotlin), no construct-0
+   notes. Per-row PASS (C + Kotlin each): Vector2i (Sprite2D.frame_coords 3,7
+   after hframes/vframes widening), Vector3i (PlaceholderTexture3D.size
+   5,11,17), Color (CanvasItem.modulate 0.125,0.25,0.5,0.75), Rect2
+   (GPUParticles2D visibility_rect 1.5,2.5,3.5,4.5). Captured via
+   `devicectl process launch --console` (script's devicectl launch does not
+   stream app console; idevicesyslog is a noisy secondary). **2.6 unblocked.**
+2. **NEXT:** 2.3 (String-return ptrcall, opus impl agent) — unblocks Label.text
    get + AnimationPlayer.getCurrentAnimation (2 STUBs + 2 SUGARs); then 2.4
    (PT_STRING/PT_NODE_PATH args), 2.5 (Transform3D/Basis).
 - Workflow: impl subagent per roadmap model tag → fable agent reviews diff →
@@ -186,3 +185,16 @@ fable-reviewed).
   SUGAR delta: 5→3 (-CanvasItem.getViewportRect, -Viewport.getVisibleRect).
   Gates: check_wrapper_generator, check_ios_no_silent_stubs, local CI iOS
   checks, compileKotlinIosArm64, clang -fsyntax-only — all pass.
+- **2026-06-12** — Phase 2.1+2.2 device validation DONE (iPhone 12, iOS 26.5).
+  Built+deployed debug xcframework via scripts/ios_visual_smoke.sh
+  (`--allow-provisioning-updates`, team DVZT29Q4QT); re-launched with
+  `devicectl process launch --console` to capture the SCENE-init self-test
+  (the script's own devicectl launch does not stream the app console — its
+  `>`/`2>` redirects catch devicectl, not the remote app; `--console` is
+  required, idevicesyslog is a noisy fallback). Result: C
+  `PTRCALL SELFTEST MATRIX: 14 passed, 0 failed` + Kotlin
+  `OBJECTCALLS SELFTEST: 13 passed, 0 failed`, no construct-0 notes. All 8
+  new rows (Vector2i/Vector3i/Color/Rect2 × C+Kotlin) PASS — check counts
+  14/13 match source ST_CHECK/check() totals, so no row silently skipped.
+  PENDING DEVICE VALIDATION markers cleared in kanama_ios_shim.c +
+  ObjectCalls.kt. **2.6 unblocked; next is 2.3 (String-return ptrcall).**

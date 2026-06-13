@@ -4221,7 +4221,7 @@ static void kanama_ios_ptrcall_selftest(void) {
         // Color (4x f32, 16B): CanvasItem.set_modulate -> get_modulate (Node2D is a CanvasItem)
         // Validation-free: modulate is a stored Color with no engine clamping.
         // Values 0.125/0.25/0.5/0.75 are exact in float32 (powers of 2).
-        // PENDING DEVICE VALIDATION (Phase 2.2 addition — no device run yet)
+        // DEVICE-VALIDATED 2026-06-12 (iPhone 12, iOS 26.5) — Phase 2.2
         float cin[4] = { 0.125f, 0.25f, 0.5f, 0.75f };
         const void *ca[1] = { cin };
         int32_t ct[1] = { KANAMA_IOS_PT_COLOR };
@@ -4258,7 +4258,7 @@ static void kanama_ios_ptrcall_selftest(void) {
     // Vector2i (2x int32, 8B): Sprite2D.set_frame_coords(Vector2i(3,7)) -> get_frame_coords()
     // Width-sensitive: a wrong tag (e.g. treating as 2xfloat32) would misread the
     // returned values. Values chosen so x+y != 0 and are distinguishable.
-    // PENDING DEVICE VALIDATION (Phase 2.1 addition — no device run yet)
+    // DEVICE-VALIDATED 2026-06-12 (iPhone 12, iOS 26.5) — Phase 2.1
     {
         int64_t sprite2d = kanama_ios_godot_construct_object("Sprite2D");
         if (sprite2d == 0) {
@@ -4291,7 +4291,7 @@ static void kanama_ios_ptrcall_selftest(void) {
     // Vector3i (3x int32, 12B): PlaceholderTexture3D.set_size(Vector3i(5,11,17)) -> get_size()
     // Width-sensitive: a wrong tag would misread the 12-byte struct. Values chosen
     // to be individually distinguishable and non-trivially zero.
-    // PENDING DEVICE VALIDATION (Phase 2.1 addition — no device run yet)
+    // DEVICE-VALIDATED 2026-06-12 (iPhone 12, iOS 26.5) — Phase 2.1
     {
         int64_t tex3d = kanama_ios_godot_construct_object("PlaceholderTexture3D");
         if (tex3d == 0) {
@@ -4313,7 +4313,7 @@ static void kanama_ios_ptrcall_selftest(void) {
     // Validation-free: visibility_rect is a stored Rect2 with no engine clamping.
     // Values 1.5/2.5/3.5/4.5 are exact in float32 (n/2 pattern).
     // Width-sensitive: a wrong tag would misread the 16-byte struct.
-    // PENDING DEVICE VALIDATION (Phase 2.2 addition — no device run yet)
+    // DEVICE-VALIDATED 2026-06-12 (iPhone 12, iOS 26.5) — Phase 2.2
     {
         int64_t gp2d = kanama_ios_godot_construct_object("GPUParticles2D");
         if (gp2d == 0) {

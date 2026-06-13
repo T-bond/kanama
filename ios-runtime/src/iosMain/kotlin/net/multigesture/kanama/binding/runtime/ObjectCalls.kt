@@ -366,7 +366,7 @@ fun kanamaIosRuntimeObjectCallsSelfTest() {
     // Vector2i (2x int32, 8B): Sprite2D.set_frame_coords(Vector2i(3,7)) -> get_frame_coords()
     // Godot rejects frame_coords outside [0,hframes)x[0,vframes) (defaults 1x1) via
     // ERR_FAIL_INDEX, so widen the frame grid first or (3,7) is a silent no-op.
-    // PENDING DEVICE VALIDATION (Phase 2.1 addition — no device run yet)
+    // DEVICE-VALIDATED 2026-06-12 (iPhone 12, iOS 26.5) — Phase 2.1
     val sprite2d = ObjectCalls.constructObject("Sprite2D")
     ObjectCalls.ptrcallWithLongArg(
         ObjectCalls.getMethodBind("Sprite2D", "set_hframes", 1286410249L), sprite2d, 4L)
@@ -379,7 +379,7 @@ fun kanamaIosRuntimeObjectCallsSelfTest() {
     check("vector2i", v2i.x == 3 && v2i.y == 7)
 
     // Vector3i (3x int32, 12B): PlaceholderTexture3D.set_size(Vector3i(5,11,17)) -> get_size()
-    // PENDING DEVICE VALIDATION (Phase 2.1 addition — no device run yet)
+    // DEVICE-VALIDATED 2026-06-12 (iPhone 12, iOS 26.5) — Phase 2.1
     val tex3d = ObjectCalls.constructObject("PlaceholderTexture3D")
     ObjectCalls.ptrcallWithVector3iArg(
         ObjectCalls.getMethodBind("PlaceholderTexture3D", "set_size", 560364750L), tex3d, Vector3i(5, 11, 17))
@@ -391,7 +391,7 @@ fun kanamaIosRuntimeObjectCallsSelfTest() {
     // Validation-free: modulate is a stored Color with no engine clamping or index checks.
     // Component values 0.125/0.25/0.5/0.75 are exact in float32 (powers of 2), so
     // equality checks are stable without epsilon. Node2D is a CanvasItem.
-    // PENDING DEVICE VALIDATION (Phase 2.2 addition — no device run yet)
+    // DEVICE-VALIDATED 2026-06-12 (iPhone 12, iOS 26.5) — Phase 2.2
     val n2c = ObjectCalls.constructObject("Node2D")
     ObjectCalls.ptrcallWithColorArg(
         ObjectCalls.getMethodBind("CanvasItem", "set_modulate", 2920490490L), n2c,
@@ -403,7 +403,7 @@ fun kanamaIosRuntimeObjectCallsSelfTest() {
     // Rect2 (4x float32, 16B): GPUParticles2D.set_visibility_rect -> get_visibility_rect()
     // Validation-free: visibility_rect is a stored Rect2 with no engine clamping.
     // Component values 1.5/2.5/3.5/4.5 are exact in float32, so equality is stable.
-    // PENDING DEVICE VALIDATION (Phase 2.2 addition — no device run yet)
+    // DEVICE-VALIDATED 2026-06-12 (iPhone 12, iOS 26.5) — Phase 2.2
     val gp2d = ObjectCalls.constructObject("GPUParticles2D")
     ObjectCalls.ptrcallWithRect2Arg(
         ObjectCalls.getMethodBind("GPUParticles2D", "set_visibility_rect", 2046264180L), gp2d,
