@@ -70,6 +70,29 @@ Gated on Phase 4 exit. Not started by decision.
 | R8-minified APK smoke gate (review F2) | opus | todo |
 | AVAudioSession workaround | sonnet | todo |
 
+## RESUME HERE (handoff 2026-06-12, session switch)
+
+State at handoff:
+- Committed through `6259b3d` (Phase 2.1). Phases 1.1–1.4 + 2.1 done.
+- **Phase 2.2 (Color/Rect2 returns, sonnet) was IN FLIGHT** in the old
+  session and edits the working tree directly. On resume run `git status`:
+  - If iOS files are modified uncommitted → treat as the 2.2 candidate diff:
+    run the 2.2 gates (check_wrapper_generator, check_ios_no_silent_stubs,
+    ios_handwritten_report, :ios-runtime:compileKotlinIosArm64, shim
+    clang -fsyntax-only), then fable-review per workflow, fix, commit.
+  - If the diff looks partial/broken (gates fail incoherently) → `git
+    checkout -- .` and re-run 2.2 from the roadmap brief (see Phase 2.2 row
+    + the 2.1 session-log entry for the pattern + the ERR_FAIL_INDEX lesson).
+- **iPhone 12 is connected** → run device validation for the 2.1 (and 2.2 if
+  landed) self-test matrix + ObjectCalls probe rows: docs/exporting/ios.md
+  workflow + scripts/ios_visual_smoke.sh (device-first; simulator is not a
+  signal). Record PASS in this tracker; 2.6 is gated on these rows passing.
+- Workflow reminder: impl subagent per roadmap model tag → fable agent
+  reviews diff → commit straight to main, attribute
+  `Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>`.
+- Next after 2.2 + device run: 2.3 (String-return ptrcall, opus) — also
+  unblocks 2 STUBs + 2 SUGARs; then 2.4, 2.5.
+
 ## Session log
 
 - **2026-06-12** — Roadmap + tracker created. Architecture review landed
