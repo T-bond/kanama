@@ -85,12 +85,27 @@ fable-reviewed).
    (GPUParticles2D visibility_rect 1.5,2.5,3.5,4.5). Captured via
    `devicectl process launch --console` (script's devicectl launch does not
    stream app console; idevicesyslog is a noisy secondary). **2.6 unblocked.**
-2. **NEXT:** 2.3 (String-return ptrcall, opus impl agent) — unblocks Label.text
-   get + AnimationPlayer.getCurrentAnimation (2 STUBs + 2 SUGARs); then 2.4
-   (PT_STRING/PT_NODE_PATH args), 2.5 (Transform3D/Basis).
-- Workflow: impl subagent per roadmap model tag → fable agent reviews diff →
-  commit straight to main, attribute
-  `Co-Authored-By: Claude Fable 5 <noreply@anthropic.com>`.
+2. **DONE: 2.3a String-return ptrcall (device-validated 2026-06-12).** No-arg
+   String getter wired: dedicated C helper `kanama_ios_godot_ptrcall_no_args_ret_string`
+   (ptrcall→`string_to_utf8_chars`→destruct, two-call length protocol) +
+   hand-written `ObjectCalls.ptrcallNoArgsRetString`. Generator: `"String"` in
+   `IOS_RET_KOTLIN`, gated to the no-arg helper (`shape.function ==
+   "ptrcallNoArgsRetString"`) so StringName + arg+String shapes stay out;
+   `IOS_PROPERTY_SUPPRESS{("Label","text")}` lets the bespoke writable `var text`
+   own the property (set_text String-arg still unbuilt). Label.text getter now
+   real (`getText()`); 6 wrappers regenerated (Control/Resource/Node/Viewport/
+   AnimationPlayer/Label) — additive String getters (getText/getTooltipText/
+   getName/getPath/getSceneFilePath/getTreeString/…), SUGAR re-applied. Self-test
+   `get_class==Node2D` PASS on device (C 14→15, Kotlin 13→14, 0 failed, no notes).
+   STUB count 11→ (Label.text get cleared). Gates: check_wrapper_generator,
+   check_ios_no_silent_stubs, compileKotlinIosArm64, clang -fsyntax-only — all pass.
+3. **NEXT:** 2.3b — StringName-return (get_current_animation): needs the
+   String-from-StringName ctor hop (`variant_get_ptr_constructor`) since GDExtension
+   has no StringName→utf8; relax the generator gate to add `ptrcallNoArgsRetStringName`.
+   Then 2.4 (PT_STRING/PT_NODE_PATH args), 2.5 (Transform3D/Basis). 2.6 gated on 2.1/2.2 (now unblocked).
+- Workflow: impl per roadmap model tag → review diff → commit straight to main.
+  (Fable 5 is no longer available as of 2026-06-12 — the review step and
+  attribution are Opus 4.8: `Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>`.)
 
 ## Session log
 
@@ -198,3 +213,28 @@ fable-reviewed).
   14/13 match source ST_CHECK/check() totals, so no row silently skipped.
   PENDING DEVICE VALIDATION markers cleared in kanama_ios_shim.c +
   ObjectCalls.kt. **2.6 unblocked; next is 2.3 (String-return ptrcall).**
+- **2026-06-12** — Phase 2.3a String-return ptrcall DONE (opus impl, device-
+  validated iPhone 12, iOS 26.5). String returns can't ride the generic ptrcall's
+  fixed ret_out, so a dedicated C helper `kanama_ios_godot_ptrcall_no_args_ret_string`
+  runs the call, UTF-8-encodes via `string_to_utf8_chars` (already resolved C-side),
+  and destroys the String; Kotlin `ptrcallNoArgsRetString` uses a two-call length
+  protocol (NULL probe → alloc → fill), safe because the wired methods are pure
+  getters. Generator: `"String"` added to `IOS_RET_KOTLIN`, gated to the no-arg
+  helper via `shape.function == "ptrcallNoArgsRetString"` (StringName no-arg returns
+  share the "String" kotlin_return token but route through `ptrcallNoArgsRetStringName`
+  — kept out for 2.3b; arg+String shapes likewise out). `IOS_PROPERTY_SUPPRESS`
+  added: suppresses Label's `text` property so the bespoke writable `var text`
+  (real `getText()` read + `IosGodot.setObjectText` write — set_text takes an
+  unbuilt String arg) isn't shadowed by a generated read-only `val text`, which
+  would break `label.text = …` in the demos (CoinsContainer.kt, ScoreLabel.kt).
+  6 wrappers regenerated: Control/Resource/Node/Viewport/AnimationPlayer/Label —
+  purely additive no-arg String getters (getText, getTooltipText, getName, getPath,
+  getSceneFilePath, getTreeString[Pretty], getEditorDescription, getLanguage,
+  getEllipsisChar, getParagraphSeparator, guiGetDragDescription, getAccessibility*).
+  SUGAR re-applied to Label/Node/AnimationPlayer (+re-added `types.NodePath` import
+  to Node). New self-test row Object.get_class(Node2D)=="Node2D" in both matrices:
+  C 14→15 passed/0 failed, Kotlin 13→14 passed/0 failed, no construct-0 notes.
+  no-silent-stubs now 1 annotated site (AnimationPlayer.getCurrentAnimation cache,
+  → 2.3b). Gates: check_wrapper_generator, check_ios_no_silent_stubs,
+  compileKotlinIosArm64, clang -fsyntax-only — all pass. StringName-return
+  (get_current_animation) deferred to 2.3b (needs String-from-StringName ctor hop).

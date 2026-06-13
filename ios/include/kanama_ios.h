@@ -38,6 +38,25 @@ void kanama_ios_godot_ptrcall_string_arg(
     const char *value
 );
 
+/*
+ * No-arg ptrcall returning a Godot String, marshalled to UTF-8.
+ *
+ * The String return value cannot flow through the fixed-size ret_out of the
+ * generic ptrcall, so it gets its own helper: the call runs once, the returned
+ * String is UTF-8 encoded into out_buf (no null terminator written), and the
+ * String is destroyed. Returns the full encoded length in bytes (NOT including a
+ * terminator), even when it exceeds buf_size. Pass out_buf=NULL / buf_size=0 to
+ * measure the length only; the caller then allocates and calls again (safe — the
+ * wired methods are pure getters). Returns -1 on a null method/instance or if the
+ * Godot API is unavailable.
+ */
+int64_t kanama_ios_godot_ptrcall_no_args_ret_string(
+    int64_t method_bind,
+    int64_t instance,
+    char *out_buf,
+    int64_t buf_size
+);
+
 int64_t kanama_ios_godot_construct_object(const char *class_name);
 
 int64_t kanama_ios_godot_get_singleton(const char *name);

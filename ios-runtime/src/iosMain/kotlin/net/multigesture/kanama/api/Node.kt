@@ -16,6 +16,10 @@ open class Node(handle: MemorySegment) : GodotObject(handle) {
         @JvmName("setUniqueNameInOwnerProperty")
         set(value) = setUniqueNameInOwner(value)
 
+    val sceneFilePath: String
+        @JvmName("sceneFilePathProperty")
+        get() = getSceneFilePath()
+
     val owner: Node?
         @JvmName("ownerProperty")
         get() = getOwner()
@@ -67,6 +71,10 @@ open class Node(handle: MemorySegment) : GodotObject(handle) {
         get() = getAutoTranslateMode()
         @JvmName("setAutoTranslateModeProperty")
         set(value) = setAutoTranslateMode(value)
+
+    val editorDescription: String
+        @JvmName("editorDescriptionProperty")
+        get() = getEditorDescription()
 
     fun addSibling(sibling: Node, forceReadableName: Boolean = false) {
         ObjectCalls.ptrcallWithObjectAndBoolArg(addSiblingBind, handle, sibling.handle, forceReadableName)
@@ -150,6 +158,18 @@ open class Node(handle: MemorySegment) : GodotObject(handle) {
 
     fun printTreePretty() {
         ObjectCalls.ptrcallNoArgs(printTreePrettyBind, handle)
+    }
+
+    fun getTreeString(): String {
+        return ObjectCalls.ptrcallNoArgsRetString(getTreeStringBind, handle)
+    }
+
+    fun getTreeStringPretty(): String {
+        return ObjectCalls.ptrcallNoArgsRetString(getTreeStringPrettyBind, handle)
+    }
+
+    fun getSceneFilePath(): String {
+        return ObjectCalls.ptrcallNoArgsRetString(getSceneFilePathBind, handle)
     }
 
     fun propagateNotification(what: Int) {
@@ -378,6 +398,10 @@ open class Node(handle: MemorySegment) : GodotObject(handle) {
 
     fun isMultiplayerAuthority(): Boolean {
         return ObjectCalls.ptrcallNoArgsRetBool(isMultiplayerAuthorityBind, handle)
+    }
+
+    fun getEditorDescription(): String {
+        return ObjectCalls.ptrcallNoArgsRetString(getEditorDescriptionBind, handle)
     }
 
     fun setUniqueNameInOwner(enable: Boolean) {
@@ -609,6 +633,21 @@ open class Node(handle: MemorySegment) : GodotObject(handle) {
         private const val PRINT_TREE_PRETTY_HASH = 3218959716L
         private val printTreePrettyBind by lazy {
             ObjectCalls.getMethodBind("Node", "print_tree_pretty", PRINT_TREE_PRETTY_HASH)
+        }
+
+        private const val GET_TREE_STRING_HASH = 2841200299L
+        private val getTreeStringBind by lazy {
+            ObjectCalls.getMethodBind("Node", "get_tree_string", GET_TREE_STRING_HASH)
+        }
+
+        private const val GET_TREE_STRING_PRETTY_HASH = 2841200299L
+        private val getTreeStringPrettyBind by lazy {
+            ObjectCalls.getMethodBind("Node", "get_tree_string_pretty", GET_TREE_STRING_PRETTY_HASH)
+        }
+
+        private const val GET_SCENE_FILE_PATH_HASH = 201670096L
+        private val getSceneFilePathBind by lazy {
+            ObjectCalls.getMethodBind("Node", "get_scene_file_path", GET_SCENE_FILE_PATH_HASH)
         }
 
         private const val PROPAGATE_NOTIFICATION_HASH = 1286410249L
@@ -894,6 +933,11 @@ open class Node(handle: MemorySegment) : GodotObject(handle) {
         private const val IS_MULTIPLAYER_AUTHORITY_HASH = 36873697L
         private val isMultiplayerAuthorityBind by lazy {
             ObjectCalls.getMethodBind("Node", "is_multiplayer_authority", IS_MULTIPLAYER_AUTHORITY_HASH)
+        }
+
+        private const val GET_EDITOR_DESCRIPTION_HASH = 201670096L
+        private val getEditorDescriptionBind by lazy {
+            ObjectCalls.getMethodBind("Node", "get_editor_description", GET_EDITOR_DESCRIPTION_HASH)
         }
 
         private const val SET_UNIQUE_NAME_IN_OWNER_HASH = 2586408642L

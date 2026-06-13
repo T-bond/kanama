@@ -200,7 +200,7 @@ IOS_ARG_KINDS = {
 # Return shapes the iOS helpers can read back (keyed by CallShape.kotlin_return, the
 # stable per-helper return-type token). StringName/String/RID/List/Map returns
 # are intentionally absent until their read-back is wired + validated.
-IOS_RET_KOTLIN = {"Unit", "Boolean", "Int", "Long", "Double", "Vector2", "Vector2i", "Vector3", "Vector3i", "Color", "Rect2", "MemorySegment"}
+IOS_RET_KOTLIN = {"Unit", "Boolean", "Int", "Long", "Double", "Vector2", "Vector2i", "Vector3", "Vector3i", "Color", "Rect2", "MemorySegment", "String"}
 
 # Helpers already hand-written in ios-runtime ObjectCalls.kt (the reference template +
 # override set). The generator must NOT re-emit these (they'd clash with the members).
@@ -229,6 +229,7 @@ IOS_HANDWRITTEN_HELPERS = {
     "ptrcallWithRect2Arg",
     "ptrcallWithObjectArgs",
     "ptrcallWithStringNameAndBoolArgRetBool",
+    "ptrcallNoArgsRetString",
 }
 PARAMETER_NAME_OVERRIDES = {
     ("Time", "get_datetime_dict_from_unix_time", "unix_time_val"): "unixTime",
@@ -246,6 +247,15 @@ PARAMETER_NAME_OVERRIDES = {
 PROPERTY_NAME_OVERRIDES = {
     ("Curve3D", "closed"): "curveClosed",
     ("OccluderPolygon2D", "closed"): "polygonClosed",
+}
+# (class, godot_property) pairs whose iOS property emission is suppressed because a
+# bespoke writable SUGAR override owns it. Label.text reads through the generated
+# getText() (String-return), but its setter takes an unbuilt String arg, so the
+# writable `var text` stays hand-written (IosGodot.setObjectText); without this the
+# generator would emit a competing read-only `val text` that shadows the override
+# and breaks `label.text = ...` assignments the demos rely on. iOS-only.
+IOS_PROPERTY_SUPPRESS = {
+    ("Label", "text"),
 }
 METHOD_NAME_OVERRIDES = {
     ("Curve3D", "set_closed"): "setCurveClosed",
@@ -841,6 +851,13 @@ def ios_method_supported(method: ApiMethod, object_types: set[str]) -> bool:
     shape = candidate_for(method, object_types)
     if shape is None or shape.kotlin_return not in IOS_RET_KOTLIN:
         return False
+    # iOS String read-back is wired only for the no-arg String getter
+    # (ptrcallNoArgsRetString). StringName no-arg returns and arg+String shapes share
+    # the "String" kotlin_return token but route through helpers not audited on iOS
+    # yet (StringName needs a String-from-StringName ctor hop — Phase 2.3b). Gate on
+    # the concrete helper so only get_text-style getters emit a real String call.
+    if shape.kotlin_return == "String" and shape.function != "ptrcallNoArgsRetString":
+        return False
     logical_args = method.logical_arg_kinds(object_types)
     if not all(kind in IOS_ARG_KINDS for kind in logical_args):
         return False
@@ -1180,6 +1197,8 @@ def render_property(
     if getter_method.argument_types:
         return None
     raw_property_name = str(prop.get("name") or "")
+    if IOS_AUDIT_ONLY and (cls.name, raw_property_name) in IOS_PROPERTY_SUPPRESS:
+        return None
     property_name = PROPERTY_NAME_OVERRIDES.get((cls.name, raw_property_name), camel_name(raw_property_name))
     if not property_name:
         return None

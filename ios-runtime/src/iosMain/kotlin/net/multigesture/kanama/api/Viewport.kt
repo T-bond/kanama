@@ -411,6 +411,10 @@ open class Viewport(handle: MemorySegment) : Node(handle) {
         ObjectCalls.ptrcallNoArgs(guiCancelDragBind, handle)
     }
 
+    fun guiGetDragDescription(): String {
+        return ObjectCalls.ptrcallNoArgsRetString(guiGetDragDescriptionBind, handle)
+    }
+
     fun guiIsDragging(): Boolean {
         return ObjectCalls.ptrcallNoArgsRetBool(guiIsDraggingBind, handle)
     }
@@ -974,6 +978,11 @@ open class Viewport(handle: MemorySegment) : Node(handle) {
         private const val GUI_CANCEL_DRAG_HASH = 3218959716L
         private val guiCancelDragBind by lazy {
             ObjectCalls.getMethodBind("Viewport", "gui_cancel_drag", GUI_CANCEL_DRAG_HASH)
+        }
+
+        private const val GUI_GET_DRAG_DESCRIPTION_HASH = 201670096L
+        private val guiGetDragDescriptionBind by lazy {
+            ObjectCalls.getMethodBind("Viewport", "gui_get_drag_description", GUI_GET_DRAG_DESCRIPTION_HASH)
         }
 
         private const val GUI_IS_DRAGGING_HASH = 36873697L

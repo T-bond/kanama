@@ -180,6 +180,10 @@ open class Control(handle: MemorySegment) : CanvasItem(handle) {
         @JvmName("setAutoTranslateProperty")
         set(value) = setAutoTranslate(value)
 
+    val tooltipText: String
+        @JvmName("tooltipTextProperty")
+        get() = getTooltipText()
+
     var tooltipAutoTranslateMode: Long
         @JvmName("tooltipAutoTranslateModeProperty")
         get() = getTooltipAutoTranslateMode()
@@ -225,6 +229,14 @@ open class Control(handle: MemorySegment) : CanvasItem(handle) {
     val shortcutContext: Node?
         @JvmName("shortcutContextProperty")
         get() = getShortcutContext()
+
+    val accessibilityName: String
+        @JvmName("accessibilityNameProperty")
+        get() = getAccessibilityName()
+
+    val accessibilityDescription: String
+        @JvmName("accessibilityDescriptionProperty")
+        get() = getAccessibilityDescription()
 
     var accessibilityLive: Long
         @JvmName("accessibilityLiveProperty")
@@ -700,6 +712,10 @@ open class Control(handle: MemorySegment) : CanvasItem(handle) {
         return ObjectCalls.ptrcallNoArgsRetLong(getTooltipAutoTranslateModeBind, handle)
     }
 
+    fun getTooltipText(): String {
+        return ObjectCalls.ptrcallNoArgsRetString(getTooltipTextBind, handle)
+    }
+
     fun setTranslationContext(context: String) {
         ObjectCalls.ptrcallWithStringNameArg(setTranslationContextBind, handle, context)
     }
@@ -722,6 +738,14 @@ open class Control(handle: MemorySegment) : CanvasItem(handle) {
 
     fun accessibilityDrop() {
         ObjectCalls.ptrcallNoArgs(accessibilityDropBind, handle)
+    }
+
+    fun getAccessibilityName(): String {
+        return ObjectCalls.ptrcallNoArgsRetString(getAccessibilityNameBind, handle)
+    }
+
+    fun getAccessibilityDescription(): String {
+        return ObjectCalls.ptrcallNoArgsRetString(getAccessibilityDescriptionBind, handle)
     }
 
     fun setAccessibilityLive(mode: Long) {
@@ -1517,6 +1541,11 @@ open class Control(handle: MemorySegment) : CanvasItem(handle) {
             ObjectCalls.getMethodBind("Control", "get_tooltip_auto_translate_mode", GET_TOOLTIP_AUTO_TRANSLATE_MODE_HASH)
         }
 
+        private const val GET_TOOLTIP_TEXT_HASH = 201670096L
+        private val getTooltipTextBind by lazy {
+            ObjectCalls.getMethodBind("Control", "get_tooltip_text", GET_TOOLTIP_TEXT_HASH)
+        }
+
         private const val SET_TRANSLATION_CONTEXT_HASH = 3304788590L
         private val setTranslationContextBind by lazy {
             ObjectCalls.getMethodBind("Control", "set_translation_context", SET_TRANSLATION_CONTEXT_HASH)
@@ -1545,6 +1574,16 @@ open class Control(handle: MemorySegment) : CanvasItem(handle) {
         private const val ACCESSIBILITY_DROP_HASH = 3218959716L
         private val accessibilityDropBind by lazy {
             ObjectCalls.getMethodBind("Control", "accessibility_drop", ACCESSIBILITY_DROP_HASH)
+        }
+
+        private const val GET_ACCESSIBILITY_NAME_HASH = 201670096L
+        private val getAccessibilityNameBind by lazy {
+            ObjectCalls.getMethodBind("Control", "get_accessibility_name", GET_ACCESSIBILITY_NAME_HASH)
+        }
+
+        private const val GET_ACCESSIBILITY_DESCRIPTION_HASH = 201670096L
+        private val getAccessibilityDescriptionBind by lazy {
+            ObjectCalls.getMethodBind("Control", "get_accessibility_description", GET_ACCESSIBILITY_DESCRIPTION_HASH)
         }
 
         private const val SET_ACCESSIBILITY_LIVE_HASH = 353443434L

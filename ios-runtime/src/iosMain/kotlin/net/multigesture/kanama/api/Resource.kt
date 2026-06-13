@@ -15,6 +15,26 @@ open class Resource(handle: MemorySegment) : RefCounted(handle) {
         @JvmName("setResourceLocalToSceneProperty")
         set(value) = setLocalToScene(value)
 
+    val resourcePath: String
+        @JvmName("resourcePathProperty")
+        get() = getPath()
+
+    val resourceName: String
+        @JvmName("resourceNameProperty")
+        get() = getName()
+
+    val resourceSceneUniqueId: String
+        @JvmName("resourceSceneUniqueIdProperty")
+        get() = getSceneUniqueId()
+
+    fun getPath(): String {
+        return ObjectCalls.ptrcallNoArgsRetString(getPathBind, handle)
+    }
+
+    fun getName(): String {
+        return ObjectCalls.ptrcallNoArgsRetString(getNameBind, handle)
+    }
+
     fun setLocalToScene(enable: Boolean) {
         ObjectCalls.ptrcallWithBoolArg(setLocalToSceneBind, handle, enable)
     }
@@ -39,6 +59,10 @@ open class Resource(handle: MemorySegment) : RefCounted(handle) {
         return ObjectCalls.ptrcallNoArgsRetBool(isBuiltInBind, handle)
     }
 
+    fun getSceneUniqueId(): String {
+        return ObjectCalls.ptrcallNoArgsRetString(getSceneUniqueIdBind, handle)
+    }
+
     fun emitChanged() {
         ObjectCalls.ptrcallNoArgs(emitChangedBind, handle)
     }
@@ -61,6 +85,10 @@ open class Resource(handle: MemorySegment) : RefCounted(handle) {
     }
 
     companion object {
+        fun generateSceneUniqueId(): String {
+            return ObjectCalls.ptrcallNoArgsRetString(generateSceneUniqueIdBind, MemorySegment.NULL)
+        }
+
         const val DEEP_DUPLICATE_NONE: Long = 0L
         const val DEEP_DUPLICATE_INTERNAL: Long = 1L
         const val DEEP_DUPLICATE_ALL: Long = 2L
@@ -70,6 +98,16 @@ open class Resource(handle: MemorySegment) : RefCounted(handle) {
 
         internal fun wrap(handle: MemorySegment): Resource? =
             if (handle.address() == 0L) null else Resource(handle)
+
+        private const val GET_PATH_HASH = 201670096L
+        private val getPathBind by lazy {
+            ObjectCalls.getMethodBind("Resource", "get_path", GET_PATH_HASH)
+        }
+
+        private const val GET_NAME_HASH = 201670096L
+        private val getNameBind by lazy {
+            ObjectCalls.getMethodBind("Resource", "get_name", GET_NAME_HASH)
+        }
 
         private const val SET_LOCAL_TO_SCENE_HASH = 2586408642L
         private val setLocalToSceneBind by lazy {
@@ -99,6 +137,16 @@ open class Resource(handle: MemorySegment) : RefCounted(handle) {
         private const val IS_BUILT_IN_HASH = 36873697L
         private val isBuiltInBind by lazy {
             ObjectCalls.getMethodBind("Resource", "is_built_in", IS_BUILT_IN_HASH)
+        }
+
+        private const val GENERATE_SCENE_UNIQUE_ID_HASH = 2841200299L
+        private val generateSceneUniqueIdBind by lazy {
+            ObjectCalls.getMethodBind("Resource", "generate_scene_unique_id", GENERATE_SCENE_UNIQUE_ID_HASH)
+        }
+
+        private const val GET_SCENE_UNIQUE_ID_HASH = 201670096L
+        private val getSceneUniqueIdBind by lazy {
+            ObjectCalls.getMethodBind("Resource", "get_scene_unique_id", GET_SCENE_UNIQUE_ID_HASH)
         }
 
         private const val EMIT_CHANGED_HASH = 3218959716L

@@ -40,6 +40,10 @@ class Label(handle: MemorySegment) : Control(handle) {
         @JvmName("setJustificationFlagsProperty")
         set(value) = setJustificationFlags(value)
 
+    val paragraphSeparator: String
+        @JvmName("paragraphSeparatorProperty")
+        get() = getParagraphSeparator()
+
     var clipText: Boolean
         @JvmName("clipTextProperty")
         get() = isClippingText()
@@ -51,6 +55,10 @@ class Label(handle: MemorySegment) : Control(handle) {
         get() = getTextOverrunBehavior()
         @JvmName("setTextOverrunBehaviorProperty")
         set(value) = setTextOverrunBehavior(value)
+
+    val ellipsisChar: String
+        @JvmName("ellipsisCharProperty")
+        get() = getEllipsisChar()
 
     var uppercase: Boolean
         @JvmName("uppercaseProperty")
@@ -94,6 +102,10 @@ class Label(handle: MemorySegment) : Control(handle) {
         @JvmName("setTextDirectionProperty")
         set(value) = setTextDirection(value)
 
+    val language: String
+        @JvmName("languageProperty")
+        get() = getLanguage()
+
     var structuredTextBidiOverride: Long
         @JvmName("structuredTextBidiOverrideProperty")
         get() = getStructuredTextBidiOverride()
@@ -116,12 +128,24 @@ class Label(handle: MemorySegment) : Control(handle) {
         return ObjectCalls.ptrcallNoArgsRetLong(getVerticalAlignmentBind, handle)
     }
 
+    fun getText(): String {
+        return ObjectCalls.ptrcallNoArgsRetString(getTextBind, handle)
+    }
+
     fun setTextDirection(direction: Long) {
         ObjectCalls.ptrcallWithLongArg(setTextDirectionBind, handle, direction)
     }
 
     fun getTextDirection(): Long {
         return ObjectCalls.ptrcallNoArgsRetLong(getTextDirectionBind, handle)
+    }
+
+    fun getLanguage(): String {
+        return ObjectCalls.ptrcallNoArgsRetString(getLanguageBind, handle)
+    }
+
+    fun getParagraphSeparator(): String {
+        return ObjectCalls.ptrcallNoArgsRetString(getParagraphSeparatorBind, handle)
     }
 
     fun setAutowrapMode(autowrapMode: Long) {
@@ -162,6 +186,10 @@ class Label(handle: MemorySegment) : Control(handle) {
 
     fun getTextOverrunBehavior(): Long {
         return ObjectCalls.ptrcallNoArgsRetLong(getTextOverrunBehaviorBind, handle)
+    }
+
+    fun getEllipsisChar(): String {
+        return ObjectCalls.ptrcallNoArgsRetString(getEllipsisCharBind, handle)
     }
 
     fun setUppercase(enable: Boolean) {
@@ -267,6 +295,11 @@ class Label(handle: MemorySegment) : Control(handle) {
             ObjectCalls.getMethodBind("Label", "get_vertical_alignment", GET_VERTICAL_ALIGNMENT_HASH)
         }
 
+        private const val GET_TEXT_HASH = 201670096L
+        private val getTextBind by lazy {
+            ObjectCalls.getMethodBind("Label", "get_text", GET_TEXT_HASH)
+        }
+
         private const val SET_TEXT_DIRECTION_HASH = 119160795L
         private val setTextDirectionBind by lazy {
             ObjectCalls.getMethodBind("Label", "set_text_direction", SET_TEXT_DIRECTION_HASH)
@@ -275,6 +308,16 @@ class Label(handle: MemorySegment) : Control(handle) {
         private const val GET_TEXT_DIRECTION_HASH = 797257663L
         private val getTextDirectionBind by lazy {
             ObjectCalls.getMethodBind("Label", "get_text_direction", GET_TEXT_DIRECTION_HASH)
+        }
+
+        private const val GET_LANGUAGE_HASH = 201670096L
+        private val getLanguageBind by lazy {
+            ObjectCalls.getMethodBind("Label", "get_language", GET_LANGUAGE_HASH)
+        }
+
+        private const val GET_PARAGRAPH_SEPARATOR_HASH = 201670096L
+        private val getParagraphSeparatorBind by lazy {
+            ObjectCalls.getMethodBind("Label", "get_paragraph_separator", GET_PARAGRAPH_SEPARATOR_HASH)
         }
 
         private const val SET_AUTOWRAP_MODE_HASH = 3289138044L
@@ -325,6 +368,11 @@ class Label(handle: MemorySegment) : Control(handle) {
         private const val GET_TEXT_OVERRUN_BEHAVIOR_HASH = 3779142101L
         private val getTextOverrunBehaviorBind by lazy {
             ObjectCalls.getMethodBind("Label", "get_text_overrun_behavior", GET_TEXT_OVERRUN_BEHAVIOR_HASH)
+        }
+
+        private const val GET_ELLIPSIS_CHAR_HASH = 201670096L
+        private val getEllipsisCharBind by lazy {
+            ObjectCalls.getMethodBind("Label", "get_ellipsis_char", GET_ELLIPSIS_CHAR_HASH)
         }
 
         private const val SET_UPPERCASE_HASH = 2586408642L
@@ -426,9 +474,12 @@ class Label(handle: MemorySegment) : Control(handle) {
     // KANAMA-IOS-SUGAR: hand-added to a generated file; re-add after regeneration.
     // ── Kanama sugar (hand) - preserve on regenerate ──────────────────────────
 
+    // text reads through the generated getText() (real String-return ptrcall, Phase
+    // 2.3a). The setter stays bespoke: set_text takes a String arg the iOS dispatch
+    // can't build yet, so writes route through IosGodot.setObjectText. This bespoke
+    // `var text` is why the generator suppresses its `text` property (IOS_PROPERTY_SUPPRESS).
     var text: String
-        // KANAMA-IOS-STUB: get_text not read (String-return ptrcall not wired); set is real. Backlog.
-        get() = ""
+        get() = getText()
         set(value) { IosGodot.setObjectText(handle.address(), value) }
 
     fun setText(value: String) { text = value }

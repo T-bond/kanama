@@ -1187,6 +1187,42 @@ void kanama_ios_godot_ptrcall_string_arg(
     kanama_ios_destroy_string(&string_storage);
 }
 
+int64_t kanama_ios_godot_ptrcall_no_args_ret_string(
+    int64_t method_bind,
+    int64_t instance,
+    char *out_buf,
+    int64_t buf_size
+) {
+    if (!kanama_ios_resolve_godot_api() || method_bind == 0 || instance == 0) {
+        return -1;
+    }
+    if (g_string_to_utf8_chars == NULL || g_object_method_bind_ptrcall == NULL) {
+        return -1;
+    }
+
+    // ptrcall writes the returned Godot String (a single 8-byte CowData pointer on
+    // 64-bit; 0 for the empty string) into this cell — same storage convention as
+    // kanama_ios_init_string.
+    uint64_t string_storage = 0;
+    g_object_method_bind_ptrcall(
+        (GDExtensionMethodBindPtr)(intptr_t)method_bind,
+        (GDExtensionObjectPtr)(intptr_t)instance,
+        NULL,
+        &string_storage
+    );
+
+    // string_to_utf8_chars: NULL buffer => measure only; otherwise writes up to
+    // buf_size bytes (no null terminator) and returns the FULL byte length.
+    int64_t length = (int64_t)g_string_to_utf8_chars(
+        (GDExtensionConstStringPtr)&string_storage,
+        (out_buf != NULL && buf_size > 0) ? out_buf : NULL,
+        (out_buf != NULL && buf_size > 0) ? buf_size : 0
+    );
+
+    kanama_ios_destroy_string(&string_storage);
+    return length;
+}
+
 static GDExtensionMethodBindPtr kanama_ios_get_method_bind_cached(
     GDExtensionMethodBindPtr *cache,
     const char *class_name,
@@ -4329,6 +4365,25 @@ static void kanama_ios_ptrcall_selftest(void) {
         kanama_ios_godot_ptrcall(kanama_ios_godot_get_method_bind("GPUParticles2D","get_visibility_rect",1639390495),
             gp2d, NULL, NULL, 0, KANAMA_IOS_PT_RECT2, out);
         KANAMA_IOS_ST_CHECK("rect2(1.5,2.5,3.5,4.5)", out[0]==1.5f && out[1]==2.5f && out[2]==3.5f && out[3]==4.5f);
+    }
+
+    // String-return: Object.get_class(Node2D) -> "Node2D". Validation-free and
+    // deterministic; exercises the dedicated String-return marshalling path
+    // (ptrcall -> string_to_utf8_chars -> destruct). get_class is an Object
+    // method resolved on the Node2D instance via inheritance.
+    // DEVICE-VALIDATED 2026-06-12 (iPhone 12, iOS 26.5) — Phase 2.3a
+    {
+        int64_t node2d_str = kanama_ios_godot_construct_object("Node2D");
+        if (node2d_str == 0) {
+            fprintf(stderr, "[kanama][ios][c] SELFTEST note: Node2D construct returned 0\n");
+            fflush(stderr);
+        }
+        char class_buf[64];
+        int64_t class_len = kanama_ios_godot_ptrcall_no_args_ret_string(
+            kanama_ios_godot_get_method_bind("Object", "get_class", 201670096),
+            node2d_str, class_buf, (int64_t)sizeof(class_buf));
+        KANAMA_IOS_ST_CHECK("string-ret get_class==Node2D",
+            class_len == 6 && strncmp(class_buf, "Node2D", 6) == 0);
     }
 
     fprintf(stderr, "[kanama][ios][c] PTRCALL SELFTEST MATRIX: %d passed, %d failed\n", pass, fail);

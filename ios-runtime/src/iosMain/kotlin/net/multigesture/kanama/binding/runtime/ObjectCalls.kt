@@ -20,6 +20,7 @@ import kotlinx.cinterop.get
 import kotlinx.cinterop.memScoped
 import kotlinx.cinterop.plus
 import kotlinx.cinterop.ptr
+import kotlinx.cinterop.readBytes
 import kotlinx.cinterop.reinterpret
 import kotlinx.cinterop.set
 import kotlinx.cinterop.value
@@ -27,6 +28,7 @@ import net.multigesture.kanama.ios.cinterop.kanama_ios_godot_construct_object
 import net.multigesture.kanama.ios.cinterop.kanama_ios_godot_get_method_bind
 import net.multigesture.kanama.ios.cinterop.kanama_ios_godot_get_singleton
 import net.multigesture.kanama.ios.cinterop.kanama_ios_godot_ptrcall
+import net.multigesture.kanama.ios.cinterop.kanama_ios_godot_ptrcall_no_args_ret_string
 import net.multigesture.kanama.types.Color
 import net.multigesture.kanama.types.Rect2
 import net.multigesture.kanama.types.Vector2
@@ -163,6 +165,25 @@ object ObjectCalls {
             val ret = allocArray<FloatVar>(4)
             kanama_ios_godot_ptrcall(methodBind.address(), instance.address(), null, null, 0, PT_RECT2, ret)
             Rect2(Vector2(ret[0].toDouble(), ret[1].toDouble()), Vector2(ret[2].toDouble(), ret[3].toDouble()))
+        }
+
+    // String return: a Godot String can't ride the fixed ret_out of the generic
+    // dispatch, so it routes through the dedicated C helper. Two-call protocol —
+    // measure the UTF-8 byte length (NULL buffer), then allocate and fill. Safe to
+    // call twice because the wired methods are pure getters. string_to_utf8_chars
+    // writes no null terminator, so decode exactly `len` bytes.
+    fun ptrcallNoArgsRetString(methodBind: MemorySegment, instance: MemorySegment): String =
+        memScoped {
+            val len = kanama_ios_godot_ptrcall_no_args_ret_string(
+                methodBind.address(), instance.address(), null, 0L)
+            if (len <= 0L) {
+                ""
+            } else {
+                val buf = allocArray<ByteVar>(len)
+                kanama_ios_godot_ptrcall_no_args_ret_string(
+                    methodBind.address(), instance.address(), buf, len)
+                buf.readBytes(len.toInt()).decodeToString()
+            }
         }
 
     // ---- single arg, void return ----
@@ -411,6 +432,15 @@ fun kanamaIosRuntimeObjectCallsSelfTest() {
     val r2 = ObjectCalls.ptrcallNoArgsRetRect2(
         ObjectCalls.getMethodBind("GPUParticles2D", "get_visibility_rect", 1639390495L), gp2d)
     check("rect2", r2.position.x == 1.5 && r2.position.y == 2.5 && r2.size.x == 3.5 && r2.size.y == 4.5)
+
+    // String-return (Object.get_class -> "Node2D"): exercises ptrcallNoArgsRetString
+    // through the full Kotlin -> dedicated C helper -> Godot path (string_to_utf8_chars
+    // round-trip). Deterministic, validation-free class name.
+    // DEVICE-VALIDATED 2026-06-12 (iPhone 12, iOS 26.5) — Phase 2.3a
+    val n2cls = ObjectCalls.constructObject("Node2D")
+    val cls = ObjectCalls.ptrcallNoArgsRetString(
+        ObjectCalls.getMethodBind("Object", "get_class", 201670096L), n2cls)
+    check("string-ret(get_class==Node2D)", cls == "Node2D")
 
     println("[kanama][ios][kn] OBJECTCALLS SELFTEST: $pass passed, $fail failed")
 }
