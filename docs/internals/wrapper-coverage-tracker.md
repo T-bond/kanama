@@ -70,11 +70,32 @@ Gated on Phase 4 exit. Not started by decision.
 | R8-minified APK smoke gate (review F2) | opus | todo |
 | AVAudioSession workaround | sonnet | todo |
 
-## RESUME HERE (handoff 2026-06-12, session switch — resume in Opus)
+## RESUME HERE (updated 2026-06-13 — resume in Opus)
 
-State at handoff: working tree CLEAN, Phases 1.1–1.4 + 2.1 + 2.2 all
-committed to main (2.2 landed after the original handoff note; both
-fable-reviewed).
+State: working tree CLEAN. Phase 1 (desktop/Android wrapper gaps) + Phase 2
+iOS audited-kind widening BOTH complete and committed to main — 2.1 Vector2i/3i,
+2.2 Color/Rect2, 2.3a/b String+StringName return, 2.4 String/NodePath args, 2.5
+Transform3D/Basis, plus RID/Quaternion/AABB. All device-validated on iPhone 12
+(iOS 26.5); self-test matrix is 23 C + 22 Kotlin rows, all green. `Plane` deferred
+(no emitted-class test method to anchor a row).
+
+**The clean POD-widening seam is exhausted.** The remaining work is bigger /
+needs a decision (see the numbered items below + the roadmap backlog):
+- **2.6** (`@ScriptProperty` value delivery — platformer `view: NodePath`) is the
+  literal next, but extends the 711-line regex parser the roadmap retires in
+  Phase 3. Sequencing fork: do 2.6 through the parser now (~½–1 day, demo-validated,
+  re-done at Phase 3) **vs** Phase 3 KSP unification first (multi-day, then 2.6 is
+  clean). USER DECISION pending.
+- Cleanly self-test-validatable ~1-day items (no demo-run needed): Variant
+  `Object.call` dispatch (8 IosGodotApi STUBs), value-type BuiltinTypes on iOS
+  (`Transform3D.inverse()` etc.).
+- Each new audited kind = 1 iOS `types/` file + `ios_arg_layout`/`ios_ret_layout`
+  case + 2 self-test rows (C+Kotlin) + regenerate + Node3D fixture refresh + a
+  device run. ~30–60 min each. Two gotchas the hard way: do NOT `construct_object`
+  a bare Control in the self-test (treeless Control segfaults in its post-init
+  Theme lookup — use Node-family classes); and after a rebuild verify the new
+  symbol is in the built `.a` (`nm`) separately from the device self-test count,
+  since a stale install can pass with old counts.
 
 1. **DONE: device validation (iPhone 12, iOS 26.5, 2026-06-12).** All 2.1/2.2
    rows **PASS** on device — `PTRCALL SELFTEST MATRIX: 14 passed, 0 failed`
