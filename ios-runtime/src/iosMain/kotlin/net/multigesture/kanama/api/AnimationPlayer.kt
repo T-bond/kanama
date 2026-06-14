@@ -4,6 +4,7 @@ import java.lang.foreign.MemorySegment
 import kotlin.jvm.JvmName
 import net.multigesture.kanama.binding.runtime.ObjectCalls
 import net.multigesture.kanama.binding.runtime.*
+import net.multigesture.kanama.types.NodePath
 
 /**
  * Generated from Godot docs: AnimationPlayer
@@ -277,6 +278,10 @@ class AnimationPlayer(handle: MemorySegment) : AnimationMixer(handle) {
         return ObjectCalls.ptrcallNoArgsRetLong(getMethodCallModeBind, handle)
     }
 
+    fun setRoot(path: NodePath) {
+        ObjectCalls.ptrcallWithNodePathArg(setRootBind, handle, path)
+    }
+
     object Signals {
         const val currentAnimationChanged: String = "current_animation_changed"
         const val animationChanged: String = "animation_changed"
@@ -543,6 +548,11 @@ class AnimationPlayer(handle: MemorySegment) : AnimationMixer(handle) {
         private const val GET_METHOD_CALL_MODE_HASH = 3583380054L
         private val getMethodCallModeBind by lazy {
             ObjectCalls.getMethodBind("AnimationPlayer", "get_method_call_mode", GET_METHOD_CALL_MODE_HASH)
+        }
+
+        private const val SET_ROOT_HASH = 1348162250L
+        private val setRootBind by lazy {
+            ObjectCalls.getMethodBind("AnimationPlayer", "set_root", SET_ROOT_HASH)
         }
     }
 }

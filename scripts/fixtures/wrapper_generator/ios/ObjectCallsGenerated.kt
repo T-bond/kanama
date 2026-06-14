@@ -22,6 +22,7 @@ import kotlinx.cinterop.set
 import kotlinx.cinterop.value
 import net.multigesture.kanama.ios.cinterop.kanama_ios_godot_ptrcall
 import net.multigesture.kanama.types.Color
+import net.multigesture.kanama.types.NodePath
 import net.multigesture.kanama.types.Rect2
 import net.multigesture.kanama.types.Vector2
 import net.multigesture.kanama.types.Vector2i
@@ -45,6 +46,15 @@ private const val PT_VOID = 0
 private const val PT_BOOL = 1
 private const val PT_FLOAT64 = 5
 private const val PT_VECTOR3 = 8
+private const val PT_NODE_PATH = 17
+
+fun ObjectCalls.ptrcallWithNodePathArg(methodBind: MemorySegment, instance: MemorySegment, a0: NodePath) =
+    memScoped {
+        val types = allocArray<IntVar>(1); types[0] = PT_NODE_PATH
+        val ptrs = allocArray<COpaquePointerVar>(1); ptrs[0] = a0.path.cstr.ptr.reinterpret<CPointed>()
+        kanama_ios_godot_ptrcall(methodBind.address(), instance.address(), types, ptrs, 1, PT_VOID, null)
+        Unit
+    }
 
 fun ObjectCalls.ptrcallWithThreeVector3AndBoolArgs(methodBind: MemorySegment, instance: MemorySegment, a0: Vector3, a1: Vector3, a2: Vector3, a3: Boolean) =
     memScoped {

@@ -4,6 +4,7 @@ import java.lang.foreign.MemorySegment
 import kotlin.jvm.JvmName
 import net.multigesture.kanama.binding.runtime.ObjectCalls
 import net.multigesture.kanama.binding.runtime.*
+import net.multigesture.kanama.types.NodePath
 import net.multigesture.kanama.types.Vector3
 
 /**
@@ -240,6 +241,10 @@ class Area3D(handle: MemorySegment) : CollisionObject3D(handle) {
         return ObjectCalls.ptrcallNoArgsRetDouble(getWindAttenuationFactorBind, handle)
     }
 
+    fun setWindSourcePath(windSourcePath: NodePath) {
+        ObjectCalls.ptrcallWithNodePathArg(setWindSourcePathBind, handle, windSourcePath)
+    }
+
     fun setMonitorable(enable: Boolean) {
         ObjectCalls.ptrcallWithBoolArg(setMonitorableBind, handle, enable)
     }
@@ -472,6 +477,11 @@ class Area3D(handle: MemorySegment) : CollisionObject3D(handle) {
         private const val GET_WIND_ATTENUATION_FACTOR_HASH = 1740695150L
         private val getWindAttenuationFactorBind by lazy {
             ObjectCalls.getMethodBind("Area3D", "get_wind_attenuation_factor", GET_WIND_ATTENUATION_FACTOR_HASH)
+        }
+
+        private const val SET_WIND_SOURCE_PATH_HASH = 1348162250L
+        private val setWindSourcePathBind by lazy {
+            ObjectCalls.getMethodBind("Area3D", "set_wind_source_path", SET_WIND_SOURCE_PATH_HASH)
         }
 
         private const val SET_MONITORABLE_HASH = 2586408642L

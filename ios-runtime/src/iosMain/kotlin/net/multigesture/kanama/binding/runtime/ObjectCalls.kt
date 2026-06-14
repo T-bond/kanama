@@ -31,6 +31,7 @@ import net.multigesture.kanama.ios.cinterop.kanama_ios_godot_ptrcall
 import net.multigesture.kanama.ios.cinterop.kanama_ios_godot_ptrcall_no_args_ret_string
 import net.multigesture.kanama.ios.cinterop.kanama_ios_godot_ptrcall_no_args_ret_string_name
 import net.multigesture.kanama.types.Color
+import net.multigesture.kanama.types.NodePath
 import net.multigesture.kanama.types.Rect2
 import net.multigesture.kanama.types.Vector2
 import net.multigesture.kanama.types.Vector2i
@@ -470,6 +471,32 @@ fun kanamaIosRuntimeObjectCallsSelfTest() {
     val nm = ObjectCalls.ptrcallNoArgsRetStringName(
         ObjectCalls.getMethodBind("Node", "get_name", 2002593661L), nName)
     check("string-name-ret(get_name==KanamaSN)", nm == "KanamaSN")
+
+    // String arg (Node.set_scene_file_path -> get_scene_file_path): exercises the
+    // generated ptrcallWithStringArg → PT_STRING construction (init_string C-side)
+    // round-trip. Node (not a Control) avoids the treeless-Control post-init Theme
+    // segfault — unrelated to String marshalling.
+    // DEVICE-VALIDATED 2026-06-13 (iPhone 12, iOS 26.5) — Phase 2.4
+    val sNode = ObjectCalls.constructObject("Node")
+    ObjectCalls.ptrcallWithStringArg(
+        ObjectCalls.getMethodBind("Node", "set_scene_file_path", 83702148L), sNode, "HelloKanama")
+    val textBack = ObjectCalls.ptrcallNoArgsRetString(
+        ObjectCalls.getMethodBind("Node", "get_scene_file_path", 201670096L), sNode)
+    check("string-arg(set/get_scene_file_path==HelloKanama)", textBack == "HelloKanama")
+
+    // NodePath arg (Node.get_node_or_null): add a named child, then look it up by
+    // NodePath — the path must round-trip through PT_NODE_PATH construction
+    // (init_node_path C-side) for the lookup to resolve to the same child handle.
+    // DEVICE-VALIDATED 2026-06-13 (iPhone 12, iOS 26.5) — Phase 2.4
+    val npParent = ObjectCalls.constructObject("Node")
+    val npChild = ObjectCalls.constructObject("Node")
+    ObjectCalls.ptrcallWithStringNameArg(
+        ObjectCalls.getMethodBind("Node", "set_name", 3304788590L), npChild, "KPChild")
+    ObjectCalls.ptrcallWithObjectBoolLongArgs(
+        ObjectCalls.getMethodBind("Node", "add_child", 3863233950L), npParent, npChild, false, 0L)
+    val gotNode = ObjectCalls.ptrcallWithNodePathArgRetObject(
+        ObjectCalls.getMethodBind("Node", "get_node_or_null", 2734337346L), npParent, NodePath("KPChild"))
+    check("nodepath-arg(get_node_or_null==child)", gotNode.address() == npChild.address())
 
     println("[kanama][ios][kn] OBJECTCALLS SELFTEST: $pass passed, $fail failed")
 }

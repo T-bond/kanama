@@ -116,9 +116,26 @@ fable-reviewed).
    ios_visual_smoke.sh rerun was needed — an earlier run left the prior xcframework
    installed on device (self-test showed stale counts); the new symbol presence in
    the built `.a` is the build-correctness check, device count is the deploy check.
-4. **NEXT:** 2.4 (PT_STRING/PT_NODE_PATH args — String/NodePath arg construction,
-   unblocks set_text-style writers + the platformer `view: NodePath` property),
-   2.5 (Transform3D/Basis). 2.6 gated on 2.1/2.2 (unblocked).
+4. **DONE: 2.4 PT_STRING/PT_NODE_PATH args (device-validated 2026-06-13).**
+   Generic dispatch now constructs String + NodePath args from the C string (reusing
+   the existing `init_string`/`init_node_path`); the arg cell array was generalized
+   (`builtin_cells`, `constructed[i]` holds the tag → matching destructor). Generator:
+   `String`/`NodePath` in `IOS_ARG_KINDS`, tags `PT_STRING=16`/`PT_NODE_PATH=17`, arg
+   layouts (`{a}.cstr.ptr` / `{a}.path.cstr.ptr`), NodePath import. `IOS_PROPERTY_SUPPRESS`
+   emptied — `Label.text` now fully generated (`var text`/`setText`/`getText`), SUGAR
+   retired. 11 wrappers regenerated (new String/NodePath setters incl. AnimationMixer
+   .setRootNode, Area3D.setWindSourcePath, GPUParticles2D/3D.setSubEmitter, Node3D
+   .setVisibilityParent, Node.getNode/hasNode/findChild; many read-only `val`→`var`
+   upgrades now setters work); Node SUGAR re-applied (`getNodeOrNull(String)` coexists
+   with generated `getNodeOrNull(NodePath)`); Node3D fixture refreshed. Self-test rows
+   Node.set/get_scene_file_path (String) + Node.get_node_or_null NodePath round-trip:
+   device C 16→18, Kotlin 15→17, 0 failed, no notes. **Triage lesson:** first attempt
+   crashed SIGSEGV in `construct_object("Label")` — a treeless Control segfaults in its
+   post-init Theme lookup (`ThemeContext::get_themes()`), NOT a marshalling bug; fixed
+   by exercising String args on `Node` instead. Don't construct bare Controls in the
+   self-test. Gates: check_wrapper_generator (Node3D fixture updated),
+   check_ios_no_silent_stubs, compileKotlinIosArm64, clang -fsyntax-only — all pass.
+5. **NEXT:** 2.5 (Transform3D/Basis arg+return). 2.6 gated on 2.1/2.2 (unblocked).
 - Workflow: impl per roadmap model tag → review diff → commit straight to main.
   (Fable 5 is no longer available as of 2026-06-12 — the review step and
   attribution are Opus 4.8: `Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>`.)
@@ -277,3 +294,29 @@ fable-reviewed).
   briefly ran a stale xcframework after an interrupted run; verified build
   correctness via `nm` of the rebuilt `.a` (symbol present) and re-ran a clean
   ios_visual_smoke.sh to redeploy before trusting the device counts.
+- **2026-06-13** — Phase 2.4 PT_STRING/PT_NODE_PATH args DONE (opus impl + review,
+  device-validated iPhone 12, iOS 26.5). The generic dispatch builds String and
+  NodePath args from the C string the same way it already built StringName (reusing
+  `init_string`/`init_node_path` + the matching destructors); the per-arg cell array
+  was generalized to `builtin_cells` with `constructed[i]` carrying the tag so the
+  right destructor runs. Generator widened: `String`/`NodePath` added to
+  `IOS_ARG_KINDS`, tags `PT_STRING=16`/`PT_NODE_PATH=17` in `IOS_PT_TAG_VALUES`,
+  `ios_arg_layout` cases (`{a}.cstr.ptr` for String, `{a}.path.cstr.ptr` for
+  NodePath), plus the `types.NodePath` import in the generated ObjectCalls header.
+  `IOS_PROPERTY_SUPPRESS` emptied: with PT_STRING args real, `set_text` generates, so
+  `Label.text` graduated to a fully generated `var text` (+ `setText`/`getText`) and
+  its bespoke SUGAR was retired. 11 wrappers regenerated (broad: String/NodePath
+  setters across AnimationMixer/AnimationPlayer/Area3D/Control/GPUParticles2D+3D/
+  Node/Node3D/Resource/Viewport + read-only→writable property upgrades); Node SUGAR
+  re-applied (generated `getNodeOrNull(NodePath)` overloads the bespoke
+  `getNodeOrNull(String)`); the Node3D generator fixture was refreshed. Two new
+  self-test rows in each matrix — Node.set_scene_file_path→get_scene_file_path
+  (String round-trip) and parent.add_child(child)+get_node_or_null(NodePath) (Object
+  round-trip). Device: C 16→18 passed/0 failed, Kotlin 15→17 passed/0 failed, no
+  construct-0 notes. **Triage:** the first device build crashed SIGSEGV — the crash
+  `.ips` (pulled via idevicecrashreport) showed `construct_object("Label")` →
+  `Label::_notification` → `ThemeContext::get_themes()` null-deref: a treeless
+  Control segfaults in its post-init Theme lookup. Harness bug, not marshalling;
+  switched the String row from `Label.set_text` to `Node.set_scene_file_path` (same
+  shape/hash). Gates: check_wrapper_generator (Node3D fixture updated),
+  check_ios_no_silent_stubs, compileKotlinIosArm64, clang -fsyntax-only — all pass.

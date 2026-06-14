@@ -22,9 +22,11 @@ open class Node(handle: MemorySegment) : GodotObject(handle) {
         @JvmName("setUniqueNameInOwnerProperty")
         set(value) = setUniqueNameInOwner(value)
 
-    val sceneFilePath: String
+    var sceneFilePath: String
         @JvmName("sceneFilePathProperty")
         get() = getSceneFilePath()
+        @JvmName("setSceneFilePathProperty")
+        set(value) = setSceneFilePath(value)
 
     val owner: Node?
         @JvmName("ownerProperty")
@@ -78,9 +80,11 @@ open class Node(handle: MemorySegment) : GodotObject(handle) {
         @JvmName("setAutoTranslateModeProperty")
         set(value) = setAutoTranslateMode(value)
 
-    val editorDescription: String
+    var editorDescription: String
         @JvmName("editorDescriptionProperty")
         get() = getEditorDescription()
+        @JvmName("setEditorDescriptionProperty")
+        set(value) = setEditorDescription(value)
 
     fun addSibling(sibling: Node, forceReadableName: Boolean = false) {
         ObjectCalls.ptrcallWithObjectAndBoolArg(addSiblingBind, handle, sibling.handle, forceReadableName)
@@ -114,8 +118,32 @@ open class Node(handle: MemorySegment) : GodotObject(handle) {
         return Node.wrap(ObjectCalls.ptrcallWithIntAndBoolArgsRetObject(getChildBind, handle, idx, includeInternal))
     }
 
+    fun hasNode(path: NodePath): Boolean {
+        return ObjectCalls.ptrcallWithNodePathArgRetBool(hasNodeBind, handle, path)
+    }
+
+    fun getNode(path: NodePath): Node? {
+        return Node.wrap(ObjectCalls.ptrcallWithNodePathArgRetObject(getNodeBind, handle, path))
+    }
+
+    fun getNodeOrNull(path: NodePath): Node? {
+        return Node.wrap(ObjectCalls.ptrcallWithNodePathArgRetObject(getNodeOrNullBind, handle, path))
+    }
+
     fun getParent(): Node? {
         return Node.wrap(ObjectCalls.ptrcallNoArgsRetObject(getParentBind, handle))
+    }
+
+    fun findChild(pattern: String, recursive: Boolean = true, owned: Boolean = true): Node? {
+        return Node.wrap(ObjectCalls.ptrcallWithStringAndTwoBoolArgsRetObject(findChildBind, handle, pattern, recursive, owned))
+    }
+
+    fun findParent(pattern: String): Node? {
+        return Node.wrap(ObjectCalls.ptrcallWithStringArgRetObject(findParentBind, handle, pattern))
+    }
+
+    fun hasNodeAndResource(path: NodePath): Boolean {
+        return ObjectCalls.ptrcallWithNodePathArgRetBool(hasNodeAndResourceBind, handle, path)
     }
 
     fun isInsideTree(): Boolean {
@@ -176,6 +204,10 @@ open class Node(handle: MemorySegment) : GodotObject(handle) {
 
     fun getTreeStringPretty(): String {
         return ObjectCalls.ptrcallNoArgsRetString(getTreeStringPrettyBind, handle)
+    }
+
+    fun setSceneFilePath(sceneFilePath: String) {
+        ObjectCalls.ptrcallWithStringArg(setSceneFilePathBind, handle, sceneFilePath)
     }
 
     fun getSceneFilePath(): String {
@@ -410,6 +442,10 @@ open class Node(handle: MemorySegment) : GodotObject(handle) {
         return ObjectCalls.ptrcallNoArgsRetBool(isMultiplayerAuthorityBind, handle)
     }
 
+    fun setEditorDescription(editorDescription: String) {
+        ObjectCalls.ptrcallWithStringArg(setEditorDescriptionBind, handle, editorDescription)
+    }
+
     fun getEditorDescription(): String {
         return ObjectCalls.ptrcallNoArgsRetString(getEditorDescriptionBind, handle)
     }
@@ -580,9 +616,39 @@ open class Node(handle: MemorySegment) : GodotObject(handle) {
             ObjectCalls.getMethodBind("Node", "get_child", GET_CHILD_HASH)
         }
 
+        private const val HAS_NODE_HASH = 861721659L
+        private val hasNodeBind by lazy {
+            ObjectCalls.getMethodBind("Node", "has_node", HAS_NODE_HASH)
+        }
+
+        private const val GET_NODE_HASH = 2734337346L
+        private val getNodeBind by lazy {
+            ObjectCalls.getMethodBind("Node", "get_node", GET_NODE_HASH)
+        }
+
+        private const val GET_NODE_OR_NULL_HASH = 2734337346L
+        private val getNodeOrNullBind by lazy {
+            ObjectCalls.getMethodBind("Node", "get_node_or_null", GET_NODE_OR_NULL_HASH)
+        }
+
         private const val GET_PARENT_HASH = 3160264692L
         private val getParentBind by lazy {
             ObjectCalls.getMethodBind("Node", "get_parent", GET_PARENT_HASH)
+        }
+
+        private const val FIND_CHILD_HASH = 2008217037L
+        private val findChildBind by lazy {
+            ObjectCalls.getMethodBind("Node", "find_child", FIND_CHILD_HASH)
+        }
+
+        private const val FIND_PARENT_HASH = 1140089439L
+        private val findParentBind by lazy {
+            ObjectCalls.getMethodBind("Node", "find_parent", FIND_PARENT_HASH)
+        }
+
+        private const val HAS_NODE_AND_RESOURCE_HASH = 861721659L
+        private val hasNodeAndResourceBind by lazy {
+            ObjectCalls.getMethodBind("Node", "has_node_and_resource", HAS_NODE_AND_RESOURCE_HASH)
         }
 
         private const val IS_INSIDE_TREE_HASH = 36873697L
@@ -658,6 +724,11 @@ open class Node(handle: MemorySegment) : GodotObject(handle) {
         private const val GET_TREE_STRING_PRETTY_HASH = 2841200299L
         private val getTreeStringPrettyBind by lazy {
             ObjectCalls.getMethodBind("Node", "get_tree_string_pretty", GET_TREE_STRING_PRETTY_HASH)
+        }
+
+        private const val SET_SCENE_FILE_PATH_HASH = 83702148L
+        private val setSceneFilePathBind by lazy {
+            ObjectCalls.getMethodBind("Node", "set_scene_file_path", SET_SCENE_FILE_PATH_HASH)
         }
 
         private const val GET_SCENE_FILE_PATH_HASH = 201670096L
@@ -948,6 +1019,11 @@ open class Node(handle: MemorySegment) : GodotObject(handle) {
         private const val IS_MULTIPLAYER_AUTHORITY_HASH = 36873697L
         private val isMultiplayerAuthorityBind by lazy {
             ObjectCalls.getMethodBind("Node", "is_multiplayer_authority", IS_MULTIPLAYER_AUTHORITY_HASH)
+        }
+
+        private const val SET_EDITOR_DESCRIPTION_HASH = 83702148L
+        private val setEditorDescriptionBind by lazy {
+            ObjectCalls.getMethodBind("Node", "set_editor_description", SET_EDITOR_DESCRIPTION_HASH)
         }
 
         private const val GET_EDITOR_DESCRIPTION_HASH = 201670096L

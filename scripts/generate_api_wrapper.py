@@ -196,6 +196,8 @@ IOS_ARG_KINDS = {
     "Color",
     "Rect2",
     "StringName",
+    "String",
+    "NodePath",
 }
 # Return shapes the iOS helpers can read back (keyed by CallShape.kotlin_return, the
 # stable per-helper return-type token). StringName/String/RID/List/Map returns
@@ -250,14 +252,11 @@ PROPERTY_NAME_OVERRIDES = {
     ("OccluderPolygon2D", "closed"): "polygonClosed",
 }
 # (class, godot_property) pairs whose iOS property emission is suppressed because a
-# bespoke writable SUGAR override owns it. Label.text reads through the generated
-# getText() (String-return), but its setter takes an unbuilt String arg, so the
-# writable `var text` stays hand-written (IosGodot.setObjectText); without this the
-# generator would emit a competing read-only `val text` that shadows the override
-# and breaks `label.text = ...` assignments the demos rely on. iOS-only.
-IOS_PROPERTY_SUPPRESS = {
-    ("Label", "text"),
-}
+# bespoke writable SUGAR override owns it. iOS-only. Currently empty: Label.text
+# graduated to a fully generated `var text` in Phase 2.4 once PT_STRING args made
+# set_text real (it was suppressed in 2.3a when only the getter was wired). Kept as a
+# mechanism for the next property whose setter outpaces its iOS arg support.
+IOS_PROPERTY_SUPPRESS: set[tuple[str, str]] = set()
 METHOD_NAME_OVERRIDES = {
     ("Curve3D", "set_closed"): "setCurveClosed",
     ("EditorDock", "close"): "closeDock",
@@ -1593,6 +1592,7 @@ import kotlinx.cinterop.set
 import kotlinx.cinterop.value
 import net.multigesture.kanama.ios.cinterop.kanama_ios_godot_ptrcall
 import net.multigesture.kanama.types.Color
+import net.multigesture.kanama.types.NodePath
 import net.multigesture.kanama.types.Rect2
 import net.multigesture.kanama.types.Vector2
 import net.multigesture.kanama.types.Vector2i
@@ -1630,6 +1630,8 @@ IOS_PT_TAG_VALUES = {
     "PT_RECT2": 12,
     "PT_OBJECT": 13,
     "PT_STRING_NAME": 15,
+    "PT_STRING": 16,
+    "PT_NODE_PATH": 17,
 }
 
 
@@ -1700,6 +1702,12 @@ def ios_arg_layout(kind: str, index: int) -> tuple[str, str, list[str], str]:
     if kind == "StringName":
         # CONSTRUCT tag: the dispatch builds a StringName from this C string.
         return ("String", "PT_STRING_NAME", [], f"{a}.cstr.ptr.reinterpret<CPointed>()")
+    if kind == "String":
+        # CONSTRUCT tag: the dispatch builds a String from this C string.
+        return ("String", "PT_STRING", [], f"{a}.cstr.ptr.reinterpret<CPointed>()")
+    if kind == "NodePath":
+        # CONSTRUCT tag: the dispatch builds a NodePath from the path C string.
+        return ("NodePath", "PT_NODE_PATH", [], f"{a}.path.cstr.ptr.reinterpret<CPointed>()")
     raise ValueError(f"iOS arg kind not audited: {kind}")
 
 

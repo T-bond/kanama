@@ -387,6 +387,10 @@ open class Viewport(handle: MemorySegment) : Node(handle) {
         return ObjectCalls.ptrcallNoArgsRetBool(getPhysicsObjectPickingFirstOnlyBind, handle)
     }
 
+    fun pushTextInput(text: String) {
+        ObjectCalls.ptrcallWithStringArg(pushTextInputBind, handle, text)
+    }
+
     fun notifyMouseEntered() {
         ObjectCalls.ptrcallNoArgs(notifyMouseEnteredBind, handle)
     }
@@ -413,6 +417,10 @@ open class Viewport(handle: MemorySegment) : Node(handle) {
 
     fun guiGetDragDescription(): String {
         return ObjectCalls.ptrcallNoArgsRetString(guiGetDragDescriptionBind, handle)
+    }
+
+    fun guiSetDragDescription(description: String) {
+        ObjectCalls.ptrcallWithStringArg(guiSetDragDescriptionBind, handle, description)
     }
 
     fun guiIsDragging(): Boolean {
@@ -950,6 +958,11 @@ open class Viewport(handle: MemorySegment) : Node(handle) {
             ObjectCalls.getMethodBind("Viewport", "get_physics_object_picking_first_only", GET_PHYSICS_OBJECT_PICKING_FIRST_ONLY_HASH)
         }
 
+        private const val PUSH_TEXT_INPUT_HASH = 83702148L
+        private val pushTextInputBind by lazy {
+            ObjectCalls.getMethodBind("Viewport", "push_text_input", PUSH_TEXT_INPUT_HASH)
+        }
+
         private const val NOTIFY_MOUSE_ENTERED_HASH = 3218959716L
         private val notifyMouseEnteredBind by lazy {
             ObjectCalls.getMethodBind("Viewport", "notify_mouse_entered", NOTIFY_MOUSE_ENTERED_HASH)
@@ -983,6 +996,11 @@ open class Viewport(handle: MemorySegment) : Node(handle) {
         private const val GUI_GET_DRAG_DESCRIPTION_HASH = 201670096L
         private val guiGetDragDescriptionBind by lazy {
             ObjectCalls.getMethodBind("Viewport", "gui_get_drag_description", GUI_GET_DRAG_DESCRIPTION_HASH)
+        }
+
+        private const val GUI_SET_DRAG_DESCRIPTION_HASH = 83702148L
+        private val guiSetDragDescriptionBind by lazy {
+            ObjectCalls.getMethodBind("Viewport", "gui_set_drag_description", GUI_SET_DRAG_DESCRIPTION_HASH)
         }
 
         private const val GUI_IS_DRAGGING_HASH = 36873697L

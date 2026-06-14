@@ -4,6 +4,7 @@ import java.lang.foreign.MemorySegment
 import kotlin.jvm.JvmName
 import net.multigesture.kanama.binding.runtime.ObjectCalls
 import net.multigesture.kanama.binding.runtime.*
+import net.multigesture.kanama.types.NodePath
 import net.multigesture.kanama.types.Vector3
 
 /**
@@ -90,6 +91,10 @@ open class AnimationMixer(handle: MemorySegment) : Node(handle) {
         return ObjectCalls.ptrcallNoArgsRetBool(isDeterministicBind, handle)
     }
 
+    fun setRootNode(path: NodePath) {
+        ObjectCalls.ptrcallWithNodePathArg(setRootNodeBind, handle, path)
+    }
+
     fun setCallbackModeProcess(mode: Long) {
         ObjectCalls.ptrcallWithLongArg(setCallbackModeProcessBind, handle, mode)
     }
@@ -120,6 +125,10 @@ open class AnimationMixer(handle: MemorySegment) : Node(handle) {
 
     fun getAudioMaxPolyphony(): Int {
         return ObjectCalls.ptrcallNoArgsRetInt(getAudioMaxPolyphonyBind, handle)
+    }
+
+    fun setRootMotionTrack(path: NodePath) {
+        ObjectCalls.ptrcallWithNodePathArg(setRootMotionTrackBind, handle, path)
     }
 
     fun setRootMotionLocal(enabled: Boolean) {
@@ -232,6 +241,11 @@ open class AnimationMixer(handle: MemorySegment) : Node(handle) {
             ObjectCalls.getMethodBind("AnimationMixer", "is_deterministic", IS_DETERMINISTIC_HASH)
         }
 
+        private const val SET_ROOT_NODE_HASH = 1348162250L
+        private val setRootNodeBind by lazy {
+            ObjectCalls.getMethodBind("AnimationMixer", "set_root_node", SET_ROOT_NODE_HASH)
+        }
+
         private const val SET_CALLBACK_MODE_PROCESS_HASH = 2153733086L
         private val setCallbackModeProcessBind by lazy {
             ObjectCalls.getMethodBind("AnimationMixer", "set_callback_mode_process", SET_CALLBACK_MODE_PROCESS_HASH)
@@ -270,6 +284,11 @@ open class AnimationMixer(handle: MemorySegment) : Node(handle) {
         private const val GET_AUDIO_MAX_POLYPHONY_HASH = 3905245786L
         private val getAudioMaxPolyphonyBind by lazy {
             ObjectCalls.getMethodBind("AnimationMixer", "get_audio_max_polyphony", GET_AUDIO_MAX_POLYPHONY_HASH)
+        }
+
+        private const val SET_ROOT_MOTION_TRACK_HASH = 1348162250L
+        private val setRootMotionTrackBind by lazy {
+            ObjectCalls.getMethodBind("AnimationMixer", "set_root_motion_track", SET_ROOT_MOTION_TRACK_HASH)
         }
 
         private const val SET_ROOT_MOTION_LOCAL_HASH = 2586408642L

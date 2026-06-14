@@ -386,12 +386,11 @@ enum {
     KANAMA_IOS_PT_RECT2,       // 4x float32
     KANAMA_IOS_PT_OBJECT,      // pointer-sized handle (passthrough)
     KANAMA_IOS_PT_RID,         // pointer/uint64 (passthrough)
-    // CONSTRUCT-tagged: arg ptr is a C string; the dispatch builds the value.
+    // CONSTRUCT-tagged: arg ptr is a C string; the dispatch builds the value from it
+    // and destroys it after the call (StringName/String/NodePath).
     KANAMA_IOS_PT_STRING_NAME,
-    // KANAMA-IOS-STUB: PT_STRING / PT_NODE_PATH arg construction not implemented in the
-    // generic dispatch (only PT_STRING_NAME is built C-side). Reserved. Backlog.
-    KANAMA_IOS_PT_STRING,      // (arg construction TODO; reserved)
-    KANAMA_IOS_PT_NODE_PATH,   // (arg construction TODO; reserved)
+    KANAMA_IOS_PT_STRING,      // String built from the C string arg
+    KANAMA_IOS_PT_NODE_PATH,   // NodePath built from the C string arg
 };
 
 enum {
@@ -1130,21 +1129,35 @@ void kanama_ios_godot_ptrcall(
     }
 
     const void *args[KANAMA_IOS_PTRCALL_MAX_ARGS];
-    uint64_t string_name_cells[KANAMA_IOS_PTRCALL_MAX_ARGS];
+    // Storage for CONSTRUCT-tagged builtins (StringName/String/NodePath) built from a
+    // C string arg. constructed[i] holds the tag (0 = passthrough) so the matching
+    // destructor runs after the call.
+    uint64_t builtin_cells[KANAMA_IOS_PTRCALL_MAX_ARGS];
     int constructed[KANAMA_IOS_PTRCALL_MAX_ARGS];
 
     for (int32_t i = 0; i < arg_count; i++) {
         constructed[i] = 0;
         int32_t tag = (arg_types != NULL) ? arg_types[i] : KANAMA_IOS_PT_VOID;
+        const char *str = (arg_ptrs != NULL) ? (const char *)arg_ptrs[i] : "";
         switch (tag) {
-            case KANAMA_IOS_PT_STRING_NAME: {
-                string_name_cells[i] = 0;
-                kanama_ios_init_string_name(&string_name_cells[i],
-                    arg_ptrs != NULL ? (const char *)arg_ptrs[i] : "");
-                args[i] = (const void *)&string_name_cells[i];
-                constructed[i] = 1;
+            case KANAMA_IOS_PT_STRING_NAME:
+                builtin_cells[i] = 0;
+                kanama_ios_init_string_name(&builtin_cells[i], str);
+                args[i] = (const void *)&builtin_cells[i];
+                constructed[i] = tag;
                 break;
-            }
+            case KANAMA_IOS_PT_STRING:
+                builtin_cells[i] = 0;
+                kanama_ios_init_string(&builtin_cells[i], str);
+                args[i] = (const void *)&builtin_cells[i];
+                constructed[i] = tag;
+                break;
+            case KANAMA_IOS_PT_NODE_PATH:
+                builtin_cells[i] = 0;
+                kanama_ios_init_node_path(&builtin_cells[i], str);
+                args[i] = (const void *)&builtin_cells[i];
+                constructed[i] = tag;
+                break;
             default:
                 // POD / struct / object: the caller-laid bytes are the ptrcall value.
                 args[i] = (arg_ptrs != NULL ? arg_ptrs[i] : NULL);
@@ -1159,8 +1172,18 @@ void kanama_ios_godot_ptrcall(
         (ret_type == KANAMA_IOS_PT_VOID) ? NULL : ret_out);
 
     for (int32_t i = 0; i < arg_count; i++) {
-        if (constructed[i]) {
-            kanama_ios_destroy_string_name(&string_name_cells[i]);
+        switch (constructed[i]) {
+            case KANAMA_IOS_PT_STRING_NAME:
+                kanama_ios_destroy_string_name(&builtin_cells[i]);
+                break;
+            case KANAMA_IOS_PT_STRING:
+                kanama_ios_destroy_string(&builtin_cells[i]);
+                break;
+            case KANAMA_IOS_PT_NODE_PATH:
+                kanama_ios_destroy_node_path(&builtin_cells[i]);
+                break;
+            default:
+                break;
         }
     }
 }
@@ -4455,6 +4478,58 @@ static void kanama_ios_ptrcall_selftest(void) {
             node_sn, name_buf, (int64_t)sizeof(name_buf));
         KANAMA_IOS_ST_CHECK("string-name-ret get_name==KanamaSN",
             name_len == 8 && strncmp(name_buf, "KanamaSN", 8) == 0);
+    }
+
+    // String arg: Node.set_scene_file_path("HelloKanama") -> get_scene_file_path()
+    // round-trip. Exercises PT_STRING construction (init_string from the C string),
+    // distinct from the PT_STRING_NAME path; read-back reuses the wired String-return
+    // helper. Node (not a Control) is used deliberately: constructing a treeless
+    // Control here segfaults in its post-init Theme lookup (ThemeContext has no themes
+    // outside a Window) — unrelated to String marshalling.
+    // DEVICE-VALIDATED 2026-06-13 (iPhone 12, iOS 26.5) — Phase 2.4
+    {
+        int64_t snode = kanama_ios_godot_construct_object("Node");
+        const char *text_in = "HelloKanama";
+        const void *ta[1] = { text_in };
+        int32_t tt[1] = { KANAMA_IOS_PT_STRING };
+        kanama_ios_godot_ptrcall(kanama_ios_godot_get_method_bind("Node", "set_scene_file_path", 83702148),
+            snode, tt, ta, 1, KANAMA_IOS_PT_VOID, NULL);
+        char text_buf[64];
+        int64_t text_len = kanama_ios_godot_ptrcall_no_args_ret_string(
+            kanama_ios_godot_get_method_bind("Node", "get_scene_file_path", 201670096),
+            snode, text_buf, (int64_t)sizeof(text_buf));
+        KANAMA_IOS_ST_CHECK("string-arg set/get_scene_file_path==HelloKanama",
+            text_len == 11 && strncmp(text_buf, "HelloKanama", 11) == 0);
+    }
+
+    // NodePath arg: parent.add_child(child named "KPChild"); then
+    // parent.get_node_or_null(NodePath("KPChild")) must return the child. Exercises
+    // PT_NODE_PATH construction (init_node_path) — the path string must round-trip
+    // through NodePath for the lookup to resolve. get_node_or_null searches own
+    // children, so no SceneTree membership is required.
+    // DEVICE-VALIDATED 2026-06-13 (iPhone 12, iOS 26.5) — Phase 2.4
+    {
+        int64_t np_parent = kanama_ios_godot_construct_object("Node");
+        int64_t np_child = kanama_ios_godot_construct_object("Node");
+        const char *child_name = "KPChild";
+        const void *cna[1] = { child_name };
+        int32_t cnt[1] = { KANAMA_IOS_PT_STRING_NAME };
+        kanama_ios_godot_ptrcall(kanama_ios_godot_get_method_bind("Node", "set_name", 3304788590),
+            np_child, cnt, cna, 1, KANAMA_IOS_PT_VOID, NULL);
+        int64_t child_cell = np_child;
+        uint8_t force_readable = 0;
+        int64_t internal_mode = 0;
+        const void *aca[3] = { &child_cell, &force_readable, &internal_mode };
+        int32_t act[3] = { KANAMA_IOS_PT_OBJECT, KANAMA_IOS_PT_BOOL, KANAMA_IOS_PT_INT64 };
+        kanama_ios_godot_ptrcall(kanama_ios_godot_get_method_bind("Node", "add_child", 3863233950),
+            np_parent, act, aca, 3, KANAMA_IOS_PT_VOID, NULL);
+        const char *np = "KPChild";
+        const void *npa[1] = { np };
+        int32_t npt[1] = { KANAMA_IOS_PT_NODE_PATH };
+        int64_t got_node = 0;
+        kanama_ios_godot_ptrcall(kanama_ios_godot_get_method_bind("Node", "get_node_or_null", 2734337346),
+            np_parent, npt, npa, 1, KANAMA_IOS_PT_OBJECT, &got_node);
+        KANAMA_IOS_ST_CHECK("nodepath-arg get_node_or_null==child", got_node == np_child);
     }
 
     fprintf(stderr, "[kanama][ios][c] PTRCALL SELFTEST MATRIX: %d passed, %d failed\n", pass, fail);

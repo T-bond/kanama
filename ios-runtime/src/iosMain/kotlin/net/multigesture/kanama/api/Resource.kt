@@ -15,20 +15,42 @@ open class Resource(handle: MemorySegment) : RefCounted(handle) {
         @JvmName("setResourceLocalToSceneProperty")
         set(value) = setLocalToScene(value)
 
-    val resourcePath: String
+    var resourcePath: String
         @JvmName("resourcePathProperty")
         get() = getPath()
+        @JvmName("setResourcePathProperty")
+        set(value) = setPath(value)
 
-    val resourceName: String
+    var resourceName: String
         @JvmName("resourceNameProperty")
         get() = getName()
+        @JvmName("setResourceNameProperty")
+        set(value) = setName(value)
 
-    val resourceSceneUniqueId: String
+    var resourceSceneUniqueId: String
         @JvmName("resourceSceneUniqueIdProperty")
         get() = getSceneUniqueId()
+        @JvmName("setResourceSceneUniqueIdProperty")
+        set(value) = setSceneUniqueId(value)
+
+    fun setPath(path: String) {
+        ObjectCalls.ptrcallWithStringArg(setPathBind, handle, path)
+    }
+
+    fun takeOverPath(path: String) {
+        ObjectCalls.ptrcallWithStringArg(takeOverPathBind, handle, path)
+    }
 
     fun getPath(): String {
         return ObjectCalls.ptrcallNoArgsRetString(getPathBind, handle)
+    }
+
+    fun setPathCache(path: String) {
+        ObjectCalls.ptrcallWithStringArg(setPathCacheBind, handle, path)
+    }
+
+    fun setName(name: String) {
+        ObjectCalls.ptrcallWithStringArg(setNameBind, handle, name)
     }
 
     fun getName(): String {
@@ -55,8 +77,16 @@ open class Resource(handle: MemorySegment) : RefCounted(handle) {
         ObjectCalls.ptrcallNoArgs(resetStateBind, handle)
     }
 
+    fun setIdForPath(path: String, id: String) {
+        ObjectCalls.ptrcallWithTwoStringArgs(setIdForPathBind, handle, path, id)
+    }
+
     fun isBuiltIn(): Boolean {
         return ObjectCalls.ptrcallNoArgsRetBool(isBuiltInBind, handle)
+    }
+
+    fun setSceneUniqueId(id: String) {
+        ObjectCalls.ptrcallWithStringArg(setSceneUniqueIdBind, handle, id)
     }
 
     fun getSceneUniqueId(): String {
@@ -99,9 +129,29 @@ open class Resource(handle: MemorySegment) : RefCounted(handle) {
         internal fun wrap(handle: MemorySegment): Resource? =
             if (handle.address() == 0L) null else Resource(handle)
 
+        private const val SET_PATH_HASH = 83702148L
+        private val setPathBind by lazy {
+            ObjectCalls.getMethodBind("Resource", "set_path", SET_PATH_HASH)
+        }
+
+        private const val TAKE_OVER_PATH_HASH = 83702148L
+        private val takeOverPathBind by lazy {
+            ObjectCalls.getMethodBind("Resource", "take_over_path", TAKE_OVER_PATH_HASH)
+        }
+
         private const val GET_PATH_HASH = 201670096L
         private val getPathBind by lazy {
             ObjectCalls.getMethodBind("Resource", "get_path", GET_PATH_HASH)
+        }
+
+        private const val SET_PATH_CACHE_HASH = 83702148L
+        private val setPathCacheBind by lazy {
+            ObjectCalls.getMethodBind("Resource", "set_path_cache", SET_PATH_CACHE_HASH)
+        }
+
+        private const val SET_NAME_HASH = 83702148L
+        private val setNameBind by lazy {
+            ObjectCalls.getMethodBind("Resource", "set_name", SET_NAME_HASH)
         }
 
         private const val GET_NAME_HASH = 201670096L
@@ -134,6 +184,11 @@ open class Resource(handle: MemorySegment) : RefCounted(handle) {
             ObjectCalls.getMethodBind("Resource", "reset_state", RESET_STATE_HASH)
         }
 
+        private const val SET_ID_FOR_PATH_HASH = 3186203200L
+        private val setIdForPathBind by lazy {
+            ObjectCalls.getMethodBind("Resource", "set_id_for_path", SET_ID_FOR_PATH_HASH)
+        }
+
         private const val IS_BUILT_IN_HASH = 36873697L
         private val isBuiltInBind by lazy {
             ObjectCalls.getMethodBind("Resource", "is_built_in", IS_BUILT_IN_HASH)
@@ -142,6 +197,11 @@ open class Resource(handle: MemorySegment) : RefCounted(handle) {
         private const val GENERATE_SCENE_UNIQUE_ID_HASH = 2841200299L
         private val generateSceneUniqueIdBind by lazy {
             ObjectCalls.getMethodBind("Resource", "generate_scene_unique_id", GENERATE_SCENE_UNIQUE_ID_HASH)
+        }
+
+        private const val SET_SCENE_UNIQUE_ID_HASH = 83702148L
+        private val setSceneUniqueIdBind by lazy {
+            ObjectCalls.getMethodBind("Resource", "set_scene_unique_id", SET_SCENE_UNIQUE_ID_HASH)
         }
 
         private const val GET_SCENE_UNIQUE_ID_HASH = 201670096L

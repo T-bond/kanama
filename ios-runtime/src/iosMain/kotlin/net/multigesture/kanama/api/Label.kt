@@ -10,6 +10,12 @@ import net.multigesture.kanama.types.Rect2
  * Generated from Godot docs: Label
  */
 class Label(handle: MemorySegment) : Control(handle) {
+    var text: String
+        @JvmName("textProperty")
+        get() = getText()
+        @JvmName("setTextProperty")
+        set(value) = setText(value)
+
     var horizontalAlignment: Long
         @JvmName("horizontalAlignmentProperty")
         get() = getHorizontalAlignment()
@@ -40,9 +46,11 @@ class Label(handle: MemorySegment) : Control(handle) {
         @JvmName("setJustificationFlagsProperty")
         set(value) = setJustificationFlags(value)
 
-    val paragraphSeparator: String
+    var paragraphSeparator: String
         @JvmName("paragraphSeparatorProperty")
         get() = getParagraphSeparator()
+        @JvmName("setParagraphSeparatorProperty")
+        set(value) = setParagraphSeparator(value)
 
     var clipText: Boolean
         @JvmName("clipTextProperty")
@@ -56,9 +64,11 @@ class Label(handle: MemorySegment) : Control(handle) {
         @JvmName("setTextOverrunBehaviorProperty")
         set(value) = setTextOverrunBehavior(value)
 
-    val ellipsisChar: String
+    var ellipsisChar: String
         @JvmName("ellipsisCharProperty")
         get() = getEllipsisChar()
+        @JvmName("setEllipsisCharProperty")
+        set(value) = setEllipsisChar(value)
 
     var uppercase: Boolean
         @JvmName("uppercaseProperty")
@@ -102,9 +112,11 @@ class Label(handle: MemorySegment) : Control(handle) {
         @JvmName("setTextDirectionProperty")
         set(value) = setTextDirection(value)
 
-    val language: String
+    var language: String
         @JvmName("languageProperty")
         get() = getLanguage()
+        @JvmName("setLanguageProperty")
+        set(value) = setLanguage(value)
 
     var structuredTextBidiOverride: Long
         @JvmName("structuredTextBidiOverrideProperty")
@@ -128,6 +140,10 @@ class Label(handle: MemorySegment) : Control(handle) {
         return ObjectCalls.ptrcallNoArgsRetLong(getVerticalAlignmentBind, handle)
     }
 
+    fun setText(text: String) {
+        ObjectCalls.ptrcallWithStringArg(setTextBind, handle, text)
+    }
+
     fun getText(): String {
         return ObjectCalls.ptrcallNoArgsRetString(getTextBind, handle)
     }
@@ -140,8 +156,16 @@ class Label(handle: MemorySegment) : Control(handle) {
         return ObjectCalls.ptrcallNoArgsRetLong(getTextDirectionBind, handle)
     }
 
+    fun setLanguage(language: String) {
+        ObjectCalls.ptrcallWithStringArg(setLanguageBind, handle, language)
+    }
+
     fun getLanguage(): String {
         return ObjectCalls.ptrcallNoArgsRetString(getLanguageBind, handle)
+    }
+
+    fun setParagraphSeparator(paragraphSeparator: String) {
+        ObjectCalls.ptrcallWithStringArg(setParagraphSeparatorBind, handle, paragraphSeparator)
     }
 
     fun getParagraphSeparator(): String {
@@ -186,6 +210,10 @@ class Label(handle: MemorySegment) : Control(handle) {
 
     fun getTextOverrunBehavior(): Long {
         return ObjectCalls.ptrcallNoArgsRetLong(getTextOverrunBehaviorBind, handle)
+    }
+
+    fun setEllipsisChar(char: String) {
+        ObjectCalls.ptrcallWithStringArg(setEllipsisCharBind, handle, char)
     }
 
     fun getEllipsisChar(): String {
@@ -295,6 +323,11 @@ class Label(handle: MemorySegment) : Control(handle) {
             ObjectCalls.getMethodBind("Label", "get_vertical_alignment", GET_VERTICAL_ALIGNMENT_HASH)
         }
 
+        private const val SET_TEXT_HASH = 83702148L
+        private val setTextBind by lazy {
+            ObjectCalls.getMethodBind("Label", "set_text", SET_TEXT_HASH)
+        }
+
         private const val GET_TEXT_HASH = 201670096L
         private val getTextBind by lazy {
             ObjectCalls.getMethodBind("Label", "get_text", GET_TEXT_HASH)
@@ -310,9 +343,19 @@ class Label(handle: MemorySegment) : Control(handle) {
             ObjectCalls.getMethodBind("Label", "get_text_direction", GET_TEXT_DIRECTION_HASH)
         }
 
+        private const val SET_LANGUAGE_HASH = 83702148L
+        private val setLanguageBind by lazy {
+            ObjectCalls.getMethodBind("Label", "set_language", SET_LANGUAGE_HASH)
+        }
+
         private const val GET_LANGUAGE_HASH = 201670096L
         private val getLanguageBind by lazy {
             ObjectCalls.getMethodBind("Label", "get_language", GET_LANGUAGE_HASH)
+        }
+
+        private const val SET_PARAGRAPH_SEPARATOR_HASH = 83702148L
+        private val setParagraphSeparatorBind by lazy {
+            ObjectCalls.getMethodBind("Label", "set_paragraph_separator", SET_PARAGRAPH_SEPARATOR_HASH)
         }
 
         private const val GET_PARAGRAPH_SEPARATOR_HASH = 201670096L
@@ -368,6 +411,11 @@ class Label(handle: MemorySegment) : Control(handle) {
         private const val GET_TEXT_OVERRUN_BEHAVIOR_HASH = 3779142101L
         private val getTextOverrunBehaviorBind by lazy {
             ObjectCalls.getMethodBind("Label", "get_text_overrun_behavior", GET_TEXT_OVERRUN_BEHAVIOR_HASH)
+        }
+
+        private const val SET_ELLIPSIS_CHAR_HASH = 83702148L
+        private val setEllipsisCharBind by lazy {
+            ObjectCalls.getMethodBind("Label", "set_ellipsis_char", SET_ELLIPSIS_CHAR_HASH)
         }
 
         private const val GET_ELLIPSIS_CHAR_HASH = 201670096L
@@ -470,17 +518,4 @@ class Label(handle: MemorySegment) : Control(handle) {
             ObjectCalls.getMethodBind("Label", "get_character_bounds", GET_CHARACTER_BOUNDS_HASH)
         }
     }
-
-    // KANAMA-IOS-SUGAR: hand-added to a generated file; re-add after regeneration.
-    // ── Kanama sugar (hand) - preserve on regenerate ──────────────────────────
-
-    // text reads through the generated getText() (real String-return ptrcall, Phase
-    // 2.3a). The setter stays bespoke: set_text takes a String arg the iOS dispatch
-    // can't build yet, so writes route through IosGodot.setObjectText. This bespoke
-    // `var text` is why the generator suppresses its `text` property (IOS_PROPERTY_SUPPRESS).
-    var text: String
-        get() = getText()
-        set(value) { IosGodot.setObjectText(handle.address(), value) }
-
-    fun setText(value: String) { text = value }
 }

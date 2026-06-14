@@ -5,6 +5,7 @@ import kotlin.jvm.JvmName
 import net.multigesture.kanama.binding.runtime.ObjectCalls
 import net.multigesture.kanama.binding.runtime.*
 import net.multigesture.kanama.types.Color
+import net.multigesture.kanama.types.NodePath
 import net.multigesture.kanama.types.Rect2
 import net.multigesture.kanama.types.Vector2
 
@@ -186,9 +187,11 @@ open class Control(handle: MemorySegment) : CanvasItem(handle) {
         @JvmName("setAutoTranslateProperty")
         set(value) = setAutoTranslate(value)
 
-    val tooltipText: String
+    var tooltipText: String
         @JvmName("tooltipTextProperty")
         get() = getTooltipText()
+        @JvmName("setTooltipTextProperty")
+        set(value) = setTooltipText(value)
 
     var tooltipAutoTranslateMode: Long
         @JvmName("tooltipAutoTranslateModeProperty")
@@ -236,13 +239,17 @@ open class Control(handle: MemorySegment) : CanvasItem(handle) {
         @JvmName("shortcutContextProperty")
         get() = getShortcutContext()
 
-    val accessibilityName: String
+    var accessibilityName: String
         @JvmName("accessibilityNameProperty")
         get() = getAccessibilityName()
+        @JvmName("setAccessibilityNameProperty")
+        set(value) = setAccessibilityName(value)
 
-    val accessibilityDescription: String
+    var accessibilityDescription: String
         @JvmName("accessibilityDescriptionProperty")
         get() = getAccessibilityDescription()
+        @JvmName("setAccessibilityDescriptionProperty")
+        set(value) = setAccessibilityDescription(value)
 
     var accessibilityLive: Long
         @JvmName("accessibilityLiveProperty")
@@ -728,6 +735,10 @@ open class Control(handle: MemorySegment) : CanvasItem(handle) {
         return ObjectCalls.ptrcallNoArgsRetLong(getTooltipAutoTranslateModeBind, handle)
     }
 
+    fun setTooltipText(hint: String) {
+        ObjectCalls.ptrcallWithStringArg(setTooltipTextBind, handle, hint)
+    }
+
     fun getTooltipText(): String {
         return ObjectCalls.ptrcallNoArgsRetString(getTooltipTextBind, handle)
     }
@@ -752,6 +763,18 @@ open class Control(handle: MemorySegment) : CanvasItem(handle) {
         return ObjectCalls.ptrcallWithVector2ArgRetLong(getCursorShapeBind, handle, atPosition)
     }
 
+    fun setFocusNeighbor(side: Long, neighbor: NodePath) {
+        ObjectCalls.ptrcallWithLongAndNodePathArg(setFocusNeighborBind, handle, side, neighbor)
+    }
+
+    fun setFocusNext(next: NodePath) {
+        ObjectCalls.ptrcallWithNodePathArg(setFocusNextBind, handle, next)
+    }
+
+    fun setFocusPrevious(previous: NodePath) {
+        ObjectCalls.ptrcallWithNodePathArg(setFocusPreviousBind, handle, previous)
+    }
+
     fun accessibilityDrag() {
         ObjectCalls.ptrcallNoArgs(accessibilityDragBind, handle)
     }
@@ -760,8 +783,16 @@ open class Control(handle: MemorySegment) : CanvasItem(handle) {
         ObjectCalls.ptrcallNoArgs(accessibilityDropBind, handle)
     }
 
+    fun setAccessibilityName(name: String) {
+        ObjectCalls.ptrcallWithStringArg(setAccessibilityNameBind, handle, name)
+    }
+
     fun getAccessibilityName(): String {
         return ObjectCalls.ptrcallNoArgsRetString(getAccessibilityNameBind, handle)
+    }
+
+    fun setAccessibilityDescription(description: String) {
+        ObjectCalls.ptrcallWithStringArg(setAccessibilityDescriptionBind, handle, description)
     }
 
     fun getAccessibilityDescription(): String {
@@ -1566,6 +1597,11 @@ open class Control(handle: MemorySegment) : CanvasItem(handle) {
             ObjectCalls.getMethodBind("Control", "get_tooltip_auto_translate_mode", GET_TOOLTIP_AUTO_TRANSLATE_MODE_HASH)
         }
 
+        private const val SET_TOOLTIP_TEXT_HASH = 83702148L
+        private val setTooltipTextBind by lazy {
+            ObjectCalls.getMethodBind("Control", "set_tooltip_text", SET_TOOLTIP_TEXT_HASH)
+        }
+
         private const val GET_TOOLTIP_TEXT_HASH = 201670096L
         private val getTooltipTextBind by lazy {
             ObjectCalls.getMethodBind("Control", "get_tooltip_text", GET_TOOLTIP_TEXT_HASH)
@@ -1596,6 +1632,21 @@ open class Control(handle: MemorySegment) : CanvasItem(handle) {
             ObjectCalls.getMethodBind("Control", "get_cursor_shape", GET_CURSOR_SHAPE_HASH)
         }
 
+        private const val SET_FOCUS_NEIGHBOR_HASH = 2024461774L
+        private val setFocusNeighborBind by lazy {
+            ObjectCalls.getMethodBind("Control", "set_focus_neighbor", SET_FOCUS_NEIGHBOR_HASH)
+        }
+
+        private const val SET_FOCUS_NEXT_HASH = 1348162250L
+        private val setFocusNextBind by lazy {
+            ObjectCalls.getMethodBind("Control", "set_focus_next", SET_FOCUS_NEXT_HASH)
+        }
+
+        private const val SET_FOCUS_PREVIOUS_HASH = 1348162250L
+        private val setFocusPreviousBind by lazy {
+            ObjectCalls.getMethodBind("Control", "set_focus_previous", SET_FOCUS_PREVIOUS_HASH)
+        }
+
         private const val ACCESSIBILITY_DRAG_HASH = 3218959716L
         private val accessibilityDragBind by lazy {
             ObjectCalls.getMethodBind("Control", "accessibility_drag", ACCESSIBILITY_DRAG_HASH)
@@ -1606,9 +1657,19 @@ open class Control(handle: MemorySegment) : CanvasItem(handle) {
             ObjectCalls.getMethodBind("Control", "accessibility_drop", ACCESSIBILITY_DROP_HASH)
         }
 
+        private const val SET_ACCESSIBILITY_NAME_HASH = 83702148L
+        private val setAccessibilityNameBind by lazy {
+            ObjectCalls.getMethodBind("Control", "set_accessibility_name", SET_ACCESSIBILITY_NAME_HASH)
+        }
+
         private const val GET_ACCESSIBILITY_NAME_HASH = 201670096L
         private val getAccessibilityNameBind by lazy {
             ObjectCalls.getMethodBind("Control", "get_accessibility_name", GET_ACCESSIBILITY_NAME_HASH)
+        }
+
+        private const val SET_ACCESSIBILITY_DESCRIPTION_HASH = 83702148L
+        private val setAccessibilityDescriptionBind by lazy {
+            ObjectCalls.getMethodBind("Control", "set_accessibility_description", SET_ACCESSIBILITY_DESCRIPTION_HASH)
         }
 
         private const val GET_ACCESSIBILITY_DESCRIPTION_HASH = 201670096L

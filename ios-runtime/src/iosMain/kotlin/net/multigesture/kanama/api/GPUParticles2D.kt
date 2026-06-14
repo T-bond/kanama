@@ -4,6 +4,7 @@ import java.lang.foreign.MemorySegment
 import kotlin.jvm.JvmName
 import net.multigesture.kanama.binding.runtime.ObjectCalls
 import net.multigesture.kanama.binding.runtime.*
+import net.multigesture.kanama.types.NodePath
 import net.multigesture.kanama.types.Rect2
 
 /**
@@ -302,6 +303,10 @@ class GPUParticles2D(handle: MemorySegment) : Node2D(handle) {
         ObjectCalls.ptrcallWithBoolArg(restartBind, handle, keepSeed)
     }
 
+    fun setSubEmitter(path: NodePath) {
+        ObjectCalls.ptrcallWithNodePathArg(setSubEmitterBind, handle, path)
+    }
+
     fun setTrailEnabled(enabled: Boolean) {
         ObjectCalls.ptrcallWithBoolArg(setTrailEnabledBind, handle, enabled)
     }
@@ -565,6 +570,11 @@ class GPUParticles2D(handle: MemorySegment) : Node2D(handle) {
         private const val RESTART_HASH = 107499316L
         private val restartBind by lazy {
             ObjectCalls.getMethodBind("GPUParticles2D", "restart", RESTART_HASH)
+        }
+
+        private const val SET_SUB_EMITTER_HASH = 1348162250L
+        private val setSubEmitterBind by lazy {
+            ObjectCalls.getMethodBind("GPUParticles2D", "set_sub_emitter", SET_SUB_EMITTER_HASH)
         }
 
         private const val SET_TRAIL_ENABLED_HASH = 2586408642L

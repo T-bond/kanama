@@ -4,6 +4,7 @@ import java.lang.foreign.MemorySegment
 import kotlin.jvm.JvmName
 import net.multigesture.kanama.binding.runtime.ObjectCalls
 import net.multigesture.kanama.binding.runtime.*
+import net.multigesture.kanama.types.NodePath
 import net.multigesture.kanama.types.Vector3
 
 /**
@@ -174,6 +175,10 @@ open class Node3D(handle: MemorySegment) : Node(handle) {
 
     fun forceUpdateTransform() {
         ObjectCalls.ptrcallNoArgs(forceUpdateTransformBind, handle)
+    }
+
+    fun setVisibilityParent(path: NodePath) {
+        ObjectCalls.ptrcallWithNodePathArg(setVisibilityParentBind, handle, path)
     }
 
     fun updateGizmos() {
@@ -435,6 +440,11 @@ open class Node3D(handle: MemorySegment) : Node(handle) {
         private const val FORCE_UPDATE_TRANSFORM_HASH = 3218959716L
         private val forceUpdateTransformBind by lazy {
             ObjectCalls.getMethodBind("Node3D", "force_update_transform", FORCE_UPDATE_TRANSFORM_HASH)
+        }
+
+        private const val SET_VISIBILITY_PARENT_HASH = 1348162250L
+        private val setVisibilityParentBind by lazy {
+            ObjectCalls.getMethodBind("Node3D", "set_visibility_parent", SET_VISIBILITY_PARENT_HASH)
         }
 
         private const val UPDATE_GIZMOS_HASH = 3218959716L
