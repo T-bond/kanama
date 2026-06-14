@@ -135,7 +135,26 @@ fable-reviewed).
    by exercising String args on `Node` instead. Don't construct bare Controls in the
    self-test. Gates: check_wrapper_generator (Node3D fixture updated),
    check_ios_no_silent_stubs, compileKotlinIosArm64, clang -fsyntax-only — all pass.
-5. **NEXT:** 2.5 (Transform3D/Basis arg+return). 2.6 gated on 2.1/2.2 (unblocked).
+5. **DONE: 2.5 Transform3D/Basis kinds (device-validated 2026-06-13).** Both are
+   POD passthrough (float32 components, no new C dispatch case, like Color/Rect2);
+   enum tags `PT_BASIS=18`/`PT_TRANSFORM3D=19`. New minimal iOS `types/Basis.kt`
+   (3 column axes) + `types/Transform3D.kt` (basis + origin), IDENTITY only — no
+   BuiltinTypes value methods (variant calls still unwired on iOS). Generator: both
+   in `IOS_ARG_KINDS`+`IOS_RET_KOTLIN`, `ios_arg_layout`/`ios_ret_layout` lay out
+   Basis as 9 float32 column-major (`[x.x,y.x,z.x,x.y,…,z.z]`) and Transform3D as
+   those 9 + 3 origin — matching the desktop Basis/Transform3D writeTo/readFrom
+   exactly; Basis/Transform3D imports in the generated header. 5 wrappers regenerated
+   (Node3D get/setTransform/Basis/global* + `var transform/basis/global*`, Camera3D
+   .getCameraTransform, CollisionObject3D.shapeOwnerGet/SetTransform,
+   GPUParticles3D.emitParticle; Node net-unchanged). Self-test: Node3D
+   set_transform→get_transform (12 floats) + set_basis→get_basis (9 floats), exact
+   float32 diagonal values. Device C 18→20, Kotlin 17→19, 0 failed, no notes. Node3D
+   fixture refreshed. Gates: check_wrapper_generator, check_ios_no_silent_stubs,
+   compileKotlinIosArm64, clang -fsyntax-only — all pass.
+6. **NEXT:** 2.6 (now unblocked) + remaining roadmap gaps. See
+   [ios-backend-roadmap.md](./ios-backend-roadmap.md) backlog — RID/Quaternion/
+   Plane/AABB kinds, Variant Object.call dispatch, String-arg signal payloads,
+   custom-Callable lambdas, TypedArray ARGS, value-type BuiltinTypes on iOS.
 - Workflow: impl per roadmap model tag → review diff → commit straight to main.
   (Fable 5 is no longer available as of 2026-06-12 — the review step and
   attribution are Opus 4.8: `Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>`.)
@@ -320,3 +339,27 @@ fable-reviewed).
   switched the String row from `Label.set_text` to `Node.set_scene_file_path` (same
   shape/hash). Gates: check_wrapper_generator (Node3D fixture updated),
   check_ios_no_silent_stubs, compileKotlinIosArm64, clang -fsyntax-only — all pass.
+- **2026-06-13** — Phase 2.5 Transform3D/Basis DONE (opus impl + review,
+  device-validated iPhone 12, iOS 26.5). Both flow through the dispatch's POD
+  passthrough (raw real_t bytes, no new C switch case — same as Color/Rect2); enum
+  tags `PT_BASIS=18`/`PT_TRANSFORM3D=19` are Kotlin-side sizing only. Added minimal
+  iOS `types/Basis.kt` (x/y/z column axes + IDENTITY) and `types/Transform3D.kt`
+  (basis + origin + IDENTITY); deliberately no BuiltinTypes value methods (inverse/
+  scaled/etc. need the variant-call path, still unwired on iOS — those are a separate
+  backlog item). Generator: `Basis`/`Transform3D` added to `IOS_ARG_KINDS` +
+  `IOS_RET_KOTLIN`, tag values, `ios_arg_layout` (Basis 9 float32 column-major
+  `[x.x,y.x,z.x,x.y,y.y,z.y,x.z,y.z,z.z]`; Transform3D those 9 + origin 3) and the
+  mirror `ios_ret_layout`, plus Basis/Transform3D imports in the generated ObjectCalls
+  header. Layout verified against the desktop Basis/Transform3D writeTo/readFrom (same
+  column-major indexing) — and a set→get round-trip is self-checking regardless. 5
+  wrappers regenerated: Node3D (get/setTransform, get/setBasis, global* + `var
+  transform/basis/globalTransform/globalBasis`), Camera3D.getCameraTransform,
+  CollisionObject3D.shapeOwnerGet/SetTransform, GPUParticles3D.emitParticle; Node
+  net-unchanged (SUGAR-only regen churn). New self-test rows: Node3D
+  set_transform→get_transform (12 float32) and set_basis→get_basis (9 float32) with
+  exact-in-float32 diagonal (pure-scale) values. Device C 18→20 passed/0 failed,
+  Kotlin 17→19 passed/0 failed, no construct-0 notes; passed first device run. Node3D
+  generator fixture refreshed. Gates: check_wrapper_generator, check_ios_no_silent_stubs,
+  compileKotlinIosArm64, clang -fsyntax-only — all pass. (One compile catch fixed
+  pre-device: the Basis self-test local `n3b` collided with the existing T3.1
+  generated-vector3 `n3b` → renamed `basisNode`.)

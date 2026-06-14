@@ -4,6 +4,7 @@ import java.lang.foreign.MemorySegment
 import kotlin.jvm.JvmName
 import net.multigesture.kanama.binding.runtime.ObjectCalls
 import net.multigesture.kanama.binding.runtime.*
+import net.multigesture.kanama.types.Transform3D
 import net.multigesture.kanama.types.Vector2
 import net.multigesture.kanama.types.Vector3
 
@@ -133,6 +134,10 @@ open class Camera3D(handle: MemorySegment) : Node3D(handle) {
 
     fun isCurrent(): Boolean {
         return ObjectCalls.ptrcallNoArgsRetBool(isCurrentBind, handle)
+    }
+
+    fun getCameraTransform(): Transform3D {
+        return ObjectCalls.ptrcallNoArgsRetTransform3D(getCameraTransformBind, handle)
     }
 
     fun getFov(): Double {
@@ -314,6 +319,11 @@ open class Camera3D(handle: MemorySegment) : Node3D(handle) {
         private const val IS_CURRENT_HASH = 36873697L
         private val isCurrentBind by lazy {
             ObjectCalls.getMethodBind("Camera3D", "is_current", IS_CURRENT_HASH)
+        }
+
+        private const val GET_CAMERA_TRANSFORM_HASH = 3229777777L
+        private val getCameraTransformBind by lazy {
+            ObjectCalls.getMethodBind("Camera3D", "get_camera_transform", GET_CAMERA_TRANSFORM_HASH)
         }
 
         private const val GET_FOV_HASH = 1740695150L

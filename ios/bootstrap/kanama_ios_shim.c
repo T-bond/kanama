@@ -391,6 +391,10 @@ enum {
     KANAMA_IOS_PT_STRING_NAME,
     KANAMA_IOS_PT_STRING,      // String built from the C string arg
     KANAMA_IOS_PT_NODE_PATH,   // NodePath built from the C string arg
+    // POD passthrough (raw real_t bytes, like Vector3/Color): the caller lays out the
+    // float32 components and the dispatch passes them straight through.
+    KANAMA_IOS_PT_BASIS,       // 9x float32 (column-major)
+    KANAMA_IOS_PT_TRANSFORM3D, // 12x float32 (9 basis column-major + 3 origin)
 };
 
 enum {
@@ -4530,6 +4534,47 @@ static void kanama_ios_ptrcall_selftest(void) {
         kanama_ios_godot_ptrcall(kanama_ios_godot_get_method_bind("Node", "get_node_or_null", 2734337346),
             np_parent, npt, npa, 1, KANAMA_IOS_PT_OBJECT, &got_node);
         KANAMA_IOS_ST_CHECK("nodepath-arg get_node_or_null==child", got_node == np_child);
+    }
+
+    // Transform3D arg+return: Node3D.set_transform(T) -> get_transform(). 12x float32
+    // (9 column-major basis + 3 origin), POD passthrough. Diagonal basis (2,4,0.5) is a
+    // pure scale and all components are exact in float32, so equality is stable.
+    // DEVICE-VALIDATED 2026-06-13 (iPhone 12, iOS 26.5) — Phase 2.5
+    {
+        int64_t n3t = kanama_ios_godot_construct_object("Node3D");
+        float tin[12] = { 2.0f, 0, 0, 0, 4.0f, 0, 0, 0, 0.5f, 1.25f, 2.5f, 4.75f };
+        const void *ta[1] = { tin };
+        int32_t tt[1] = { KANAMA_IOS_PT_TRANSFORM3D };
+        kanama_ios_godot_ptrcall(kanama_ios_godot_get_method_bind("Node3D", "set_transform", 2952846383),
+            n3t, tt, ta, 1, KANAMA_IOS_PT_VOID, NULL);
+        float tout[12] = { 0 };
+        kanama_ios_godot_ptrcall(kanama_ios_godot_get_method_bind("Node3D", "get_transform", 3229777777),
+            n3t, NULL, NULL, 0, KANAMA_IOS_PT_TRANSFORM3D, tout);
+        int t_ok = 1;
+        for (int k = 0; k < 12; k++) {
+            if (tout[k] != tin[k]) { t_ok = 0; }
+        }
+        KANAMA_IOS_ST_CHECK("transform3d set/get_transform round-trip", t_ok);
+    }
+
+    // Basis arg+return: Node3D.set_basis(B) -> get_basis(). 9x float32 column-major,
+    // POD passthrough. Diagonal (0.5,8,0.25) — pure scale, exact in float32.
+    // DEVICE-VALIDATED 2026-06-13 (iPhone 12, iOS 26.5) — Phase 2.5
+    {
+        int64_t n3b = kanama_ios_godot_construct_object("Node3D");
+        float bin[9] = { 0.5f, 0, 0, 0, 8.0f, 0, 0, 0, 0.25f };
+        const void *ba[1] = { bin };
+        int32_t bt[1] = { KANAMA_IOS_PT_BASIS };
+        kanama_ios_godot_ptrcall(kanama_ios_godot_get_method_bind("Node3D", "set_basis", 1055510324),
+            n3b, bt, ba, 1, KANAMA_IOS_PT_VOID, NULL);
+        float bout[9] = { 0 };
+        kanama_ios_godot_ptrcall(kanama_ios_godot_get_method_bind("Node3D", "get_basis", 2716978435),
+            n3b, NULL, NULL, 0, KANAMA_IOS_PT_BASIS, bout);
+        int b_ok = 1;
+        for (int k = 0; k < 9; k++) {
+            if (bout[k] != bin[k]) { b_ok = 0; }
+        }
+        KANAMA_IOS_ST_CHECK("basis set/get_basis round-trip", b_ok);
     }
 
     fprintf(stderr, "[kanama][ios][c] PTRCALL SELFTEST MATRIX: %d passed, %d failed\n", pass, fail);

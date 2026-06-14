@@ -4,7 +4,10 @@ import java.lang.foreign.MemorySegment
 import kotlin.jvm.JvmName
 import net.multigesture.kanama.binding.runtime.ObjectCalls
 import net.multigesture.kanama.binding.runtime.*
+import net.multigesture.kanama.types.Color
 import net.multigesture.kanama.types.NodePath
+import net.multigesture.kanama.types.Transform3D
+import net.multigesture.kanama.types.Vector3
 
 /**
  * Generated from Godot docs: GPUParticles3D
@@ -306,6 +309,10 @@ class GPUParticles3D(handle: MemorySegment) : GeometryInstance3D(handle) {
         ObjectCalls.ptrcallWithNodePathArg(setSubEmitterBind, handle, path)
     }
 
+    fun emitParticle(xform: Transform3D, velocity: Vector3, color: Color, custom: Color, flags: Long) {
+        ObjectCalls.ptrcallWithTransform3DVector3TwoColorUInt32Args(emitParticleBind, handle, xform, velocity, color, custom, flags)
+    }
+
     fun setTrailEnabled(enabled: Boolean) {
         ObjectCalls.ptrcallWithBoolArg(setTrailEnabledBind, handle, enabled)
     }
@@ -577,6 +584,11 @@ class GPUParticles3D(handle: MemorySegment) : GeometryInstance3D(handle) {
         private const val SET_SUB_EMITTER_HASH = 1348162250L
         private val setSubEmitterBind by lazy {
             ObjectCalls.getMethodBind("GPUParticles3D", "set_sub_emitter", SET_SUB_EMITTER_HASH)
+        }
+
+        private const val EMIT_PARTICLE_HASH = 992173727L
+        private val emitParticleBind by lazy {
+            ObjectCalls.getMethodBind("GPUParticles3D", "emit_particle", EMIT_PARTICLE_HASH)
         }
 
         private const val SET_TRAIL_ENABLED_HASH = 2586408642L

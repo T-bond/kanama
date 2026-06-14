@@ -4,13 +4,27 @@ import java.lang.foreign.MemorySegment
 import kotlin.jvm.JvmName
 import net.multigesture.kanama.binding.runtime.ObjectCalls
 import net.multigesture.kanama.binding.runtime.*
+import net.multigesture.kanama.types.Basis
 import net.multigesture.kanama.types.NodePath
+import net.multigesture.kanama.types.Transform3D
 import net.multigesture.kanama.types.Vector3
 
 /**
  * Generated from Godot docs: Node3D
  */
 open class Node3D(handle: MemorySegment) : Node(handle) {
+    var transform: Transform3D
+        @JvmName("transformProperty")
+        get() = getTransform()
+        @JvmName("setTransformProperty")
+        set(value) = setTransform(value)
+
+    var globalTransform: Transform3D
+        @JvmName("globalTransformProperty")
+        get() = getGlobalTransform()
+        @JvmName("setGlobalTransformProperty")
+        set(value) = setGlobalTransform(value)
+
     var position: Vector3
         @JvmName("positionProperty")
         get() = getPosition()
@@ -28,6 +42,12 @@ open class Node3D(handle: MemorySegment) : Node(handle) {
         get() = getRotationDegrees()
         @JvmName("setRotationDegreesProperty")
         set(value) = setRotationDegrees(value)
+
+    var basis: Basis
+        @JvmName("basisProperty")
+        get() = getBasis()
+        @JvmName("setBasisProperty")
+        set(value) = setBasis(value)
 
     var scale: Vector3
         @JvmName("scaleProperty")
@@ -59,6 +79,12 @@ open class Node3D(handle: MemorySegment) : Node(handle) {
         @JvmName("setGlobalPositionProperty")
         set(value) = setGlobalPosition(value)
 
+    var globalBasis: Basis
+        @JvmName("globalBasisProperty")
+        get() = getGlobalBasis()
+        @JvmName("setGlobalBasisProperty")
+        set(value) = setGlobalBasis(value)
+
     var globalRotation: Vector3
         @JvmName("globalRotationProperty")
         get() = getGlobalRotation()
@@ -76,6 +102,14 @@ open class Node3D(handle: MemorySegment) : Node(handle) {
         get() = isVisible()
         @JvmName("setVisibleProperty")
         set(value) = setVisible(value)
+
+    fun setTransform(local: Transform3D) {
+        ObjectCalls.ptrcallWithTransform3DArg(setTransformBind, handle, local)
+    }
+
+    fun getTransform(): Transform3D {
+        return ObjectCalls.ptrcallNoArgsRetTransform3D(getTransformBind, handle)
+    }
 
     fun setPosition(position: Vector3) {
         ObjectCalls.ptrcallWithVector3Arg(setPositionBind, handle, position)
@@ -125,12 +159,40 @@ open class Node3D(handle: MemorySegment) : Node(handle) {
         return ObjectCalls.ptrcallNoArgsRetVector3(getScaleBind, handle)
     }
 
+    fun setBasis(basis: Basis) {
+        ObjectCalls.ptrcallWithBasisArg(setBasisBind, handle, basis)
+    }
+
+    fun getBasis(): Basis {
+        return ObjectCalls.ptrcallNoArgsRetBasis(getBasisBind, handle)
+    }
+
+    fun setGlobalTransform(global: Transform3D) {
+        ObjectCalls.ptrcallWithTransform3DArg(setGlobalTransformBind, handle, global)
+    }
+
+    fun getGlobalTransform(): Transform3D {
+        return ObjectCalls.ptrcallNoArgsRetTransform3D(getGlobalTransformBind, handle)
+    }
+
+    fun getGlobalTransformInterpolated(): Transform3D {
+        return ObjectCalls.ptrcallNoArgsRetTransform3D(getGlobalTransformInterpolatedBind, handle)
+    }
+
     fun setGlobalPosition(position: Vector3) {
         ObjectCalls.ptrcallWithVector3Arg(setGlobalPositionBind, handle, position)
     }
 
     fun getGlobalPosition(): Vector3 {
         return ObjectCalls.ptrcallNoArgsRetVector3(getGlobalPositionBind, handle)
+    }
+
+    fun setGlobalBasis(basis: Basis) {
+        ObjectCalls.ptrcallWithBasisArg(setGlobalBasisBind, handle, basis)
+    }
+
+    fun getGlobalBasis(): Basis {
+        return ObjectCalls.ptrcallNoArgsRetBasis(getGlobalBasisBind, handle)
     }
 
     fun setGlobalRotation(eulerRadians: Vector3) {
@@ -317,6 +379,16 @@ open class Node3D(handle: MemorySegment) : Node(handle) {
         internal fun wrap(handle: MemorySegment): Node3D? =
             if (handle.address() == 0L) null else Node3D(handle)
 
+        private const val SET_TRANSFORM_HASH = 2952846383L
+        private val setTransformBind by lazy {
+            ObjectCalls.getMethodBind("Node3D", "set_transform", SET_TRANSFORM_HASH)
+        }
+
+        private const val GET_TRANSFORM_HASH = 3229777777L
+        private val getTransformBind by lazy {
+            ObjectCalls.getMethodBind("Node3D", "get_transform", GET_TRANSFORM_HASH)
+        }
+
         private const val SET_POSITION_HASH = 3460891852L
         private val setPositionBind by lazy {
             ObjectCalls.getMethodBind("Node3D", "set_position", SET_POSITION_HASH)
@@ -377,6 +449,31 @@ open class Node3D(handle: MemorySegment) : Node(handle) {
             ObjectCalls.getMethodBind("Node3D", "get_scale", GET_SCALE_HASH)
         }
 
+        private const val SET_BASIS_HASH = 1055510324L
+        private val setBasisBind by lazy {
+            ObjectCalls.getMethodBind("Node3D", "set_basis", SET_BASIS_HASH)
+        }
+
+        private const val GET_BASIS_HASH = 2716978435L
+        private val getBasisBind by lazy {
+            ObjectCalls.getMethodBind("Node3D", "get_basis", GET_BASIS_HASH)
+        }
+
+        private const val SET_GLOBAL_TRANSFORM_HASH = 2952846383L
+        private val setGlobalTransformBind by lazy {
+            ObjectCalls.getMethodBind("Node3D", "set_global_transform", SET_GLOBAL_TRANSFORM_HASH)
+        }
+
+        private const val GET_GLOBAL_TRANSFORM_HASH = 3229777777L
+        private val getGlobalTransformBind by lazy {
+            ObjectCalls.getMethodBind("Node3D", "get_global_transform", GET_GLOBAL_TRANSFORM_HASH)
+        }
+
+        private const val GET_GLOBAL_TRANSFORM_INTERPOLATED_HASH = 4183770049L
+        private val getGlobalTransformInterpolatedBind by lazy {
+            ObjectCalls.getMethodBind("Node3D", "get_global_transform_interpolated", GET_GLOBAL_TRANSFORM_INTERPOLATED_HASH)
+        }
+
         private const val SET_GLOBAL_POSITION_HASH = 3460891852L
         private val setGlobalPositionBind by lazy {
             ObjectCalls.getMethodBind("Node3D", "set_global_position", SET_GLOBAL_POSITION_HASH)
@@ -385,6 +482,16 @@ open class Node3D(handle: MemorySegment) : Node(handle) {
         private const val GET_GLOBAL_POSITION_HASH = 3360562783L
         private val getGlobalPositionBind by lazy {
             ObjectCalls.getMethodBind("Node3D", "get_global_position", GET_GLOBAL_POSITION_HASH)
+        }
+
+        private const val SET_GLOBAL_BASIS_HASH = 1055510324L
+        private val setGlobalBasisBind by lazy {
+            ObjectCalls.getMethodBind("Node3D", "set_global_basis", SET_GLOBAL_BASIS_HASH)
+        }
+
+        private const val GET_GLOBAL_BASIS_HASH = 2716978435L
+        private val getGlobalBasisBind by lazy {
+            ObjectCalls.getMethodBind("Node3D", "get_global_basis", GET_GLOBAL_BASIS_HASH)
         }
 
         private const val SET_GLOBAL_ROTATION_HASH = 3460891852L

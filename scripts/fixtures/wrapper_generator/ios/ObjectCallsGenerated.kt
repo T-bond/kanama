@@ -21,9 +21,11 @@ import kotlinx.cinterop.reinterpret
 import kotlinx.cinterop.set
 import kotlinx.cinterop.value
 import net.multigesture.kanama.ios.cinterop.kanama_ios_godot_ptrcall
+import net.multigesture.kanama.types.Basis
 import net.multigesture.kanama.types.Color
 import net.multigesture.kanama.types.NodePath
 import net.multigesture.kanama.types.Rect2
+import net.multigesture.kanama.types.Transform3D
 import net.multigesture.kanama.types.Vector2
 import net.multigesture.kanama.types.Vector2i
 import net.multigesture.kanama.types.Vector3
@@ -47,6 +49,31 @@ private const val PT_BOOL = 1
 private const val PT_FLOAT64 = 5
 private const val PT_VECTOR3 = 8
 private const val PT_NODE_PATH = 17
+private const val PT_BASIS = 18
+private const val PT_TRANSFORM3D = 19
+
+fun ObjectCalls.ptrcallNoArgsRetBasis(methodBind: MemorySegment, instance: MemorySegment): Basis =
+    memScoped {
+        val ret = allocArray<FloatVar>(9)
+        kanama_ios_godot_ptrcall(methodBind.address(), instance.address(), null, null, 0, PT_BASIS, ret)
+        Basis(Vector3(ret[0].toDouble(), ret[3].toDouble(), ret[6].toDouble()), Vector3(ret[1].toDouble(), ret[4].toDouble(), ret[7].toDouble()), Vector3(ret[2].toDouble(), ret[5].toDouble(), ret[8].toDouble()))
+    }
+
+fun ObjectCalls.ptrcallNoArgsRetTransform3D(methodBind: MemorySegment, instance: MemorySegment): Transform3D =
+    memScoped {
+        val ret = allocArray<FloatVar>(12)
+        kanama_ios_godot_ptrcall(methodBind.address(), instance.address(), null, null, 0, PT_TRANSFORM3D, ret)
+        Transform3D(Basis(Vector3(ret[0].toDouble(), ret[3].toDouble(), ret[6].toDouble()), Vector3(ret[1].toDouble(), ret[4].toDouble(), ret[7].toDouble()), Vector3(ret[2].toDouble(), ret[5].toDouble(), ret[8].toDouble())), Vector3(ret[9].toDouble(), ret[10].toDouble(), ret[11].toDouble()))
+    }
+
+fun ObjectCalls.ptrcallWithBasisArg(methodBind: MemorySegment, instance: MemorySegment, a0: Basis) =
+    memScoped {
+        val c0 = allocArray<FloatVar>(9); c0[0] = a0.x.x.toFloat(); c0[1] = a0.y.x.toFloat(); c0[2] = a0.z.x.toFloat(); c0[3] = a0.x.y.toFloat(); c0[4] = a0.y.y.toFloat(); c0[5] = a0.z.y.toFloat(); c0[6] = a0.x.z.toFloat(); c0[7] = a0.y.z.toFloat(); c0[8] = a0.z.z.toFloat()
+        val types = allocArray<IntVar>(1); types[0] = PT_BASIS
+        val ptrs = allocArray<COpaquePointerVar>(1); ptrs[0] = c0.reinterpret<CPointed>()
+        kanama_ios_godot_ptrcall(methodBind.address(), instance.address(), types, ptrs, 1, PT_VOID, null)
+        Unit
+    }
 
 fun ObjectCalls.ptrcallWithNodePathArg(methodBind: MemorySegment, instance: MemorySegment, a0: NodePath) =
     memScoped {
@@ -65,6 +92,15 @@ fun ObjectCalls.ptrcallWithThreeVector3AndBoolArgs(methodBind: MemorySegment, in
         val types = allocArray<IntVar>(4); types[0] = PT_VECTOR3; types[1] = PT_VECTOR3; types[2] = PT_VECTOR3; types[3] = PT_BOOL
         val ptrs = allocArray<COpaquePointerVar>(4); ptrs[0] = c0.reinterpret<CPointed>(); ptrs[1] = c1.reinterpret<CPointed>(); ptrs[2] = c2.reinterpret<CPointed>(); ptrs[3] = c3.ptr.reinterpret<CPointed>()
         kanama_ios_godot_ptrcall(methodBind.address(), instance.address(), types, ptrs, 4, PT_VOID, null)
+        Unit
+    }
+
+fun ObjectCalls.ptrcallWithTransform3DArg(methodBind: MemorySegment, instance: MemorySegment, a0: Transform3D) =
+    memScoped {
+        val c0 = allocArray<FloatVar>(12); c0[0] = a0.basis.x.x.toFloat(); c0[1] = a0.basis.y.x.toFloat(); c0[2] = a0.basis.z.x.toFloat(); c0[3] = a0.basis.x.y.toFloat(); c0[4] = a0.basis.y.y.toFloat(); c0[5] = a0.basis.z.y.toFloat(); c0[6] = a0.basis.x.z.toFloat(); c0[7] = a0.basis.y.z.toFloat(); c0[8] = a0.basis.z.z.toFloat(); c0[9] = a0.origin.x.toFloat(); c0[10] = a0.origin.y.toFloat(); c0[11] = a0.origin.z.toFloat()
+        val types = allocArray<IntVar>(1); types[0] = PT_TRANSFORM3D
+        val ptrs = allocArray<COpaquePointerVar>(1); ptrs[0] = c0.reinterpret<CPointed>()
+        kanama_ios_godot_ptrcall(methodBind.address(), instance.address(), types, ptrs, 1, PT_VOID, null)
         Unit
     }
 

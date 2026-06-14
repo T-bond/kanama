@@ -4,6 +4,7 @@ import java.lang.foreign.MemorySegment
 import kotlin.jvm.JvmName
 import net.multigesture.kanama.binding.runtime.ObjectCalls
 import net.multigesture.kanama.binding.runtime.*
+import net.multigesture.kanama.types.Transform3D
 
 /**
  * Generated from Godot docs: CollisionObject3D
@@ -115,6 +116,14 @@ open class CollisionObject3D(handle: MemorySegment) : Node3D(handle) {
 
     fun removeShapeOwner(ownerId: Long) {
         ObjectCalls.ptrcallWithUInt32Arg(removeShapeOwnerBind, handle, ownerId)
+    }
+
+    fun shapeOwnerSetTransform(ownerId: Long, transform: Transform3D) {
+        ObjectCalls.ptrcallWithUInt32AndTransform3DArg(shapeOwnerSetTransformBind, handle, ownerId, transform)
+    }
+
+    fun shapeOwnerGetTransform(ownerId: Long): Transform3D {
+        return ObjectCalls.ptrcallWithUInt32ArgRetTransform3D(shapeOwnerGetTransformBind, handle, ownerId)
     }
 
     fun shapeOwnerGetOwner(ownerId: Long): GodotObject? {
@@ -254,6 +263,16 @@ open class CollisionObject3D(handle: MemorySegment) : Node3D(handle) {
         private const val REMOVE_SHAPE_OWNER_HASH = 1286410249L
         private val removeShapeOwnerBind by lazy {
             ObjectCalls.getMethodBind("CollisionObject3D", "remove_shape_owner", REMOVE_SHAPE_OWNER_HASH)
+        }
+
+        private const val SHAPE_OWNER_SET_TRANSFORM_HASH = 3616898986L
+        private val shapeOwnerSetTransformBind by lazy {
+            ObjectCalls.getMethodBind("CollisionObject3D", "shape_owner_set_transform", SHAPE_OWNER_SET_TRANSFORM_HASH)
+        }
+
+        private const val SHAPE_OWNER_GET_TRANSFORM_HASH = 1965739696L
+        private val shapeOwnerGetTransformBind by lazy {
+            ObjectCalls.getMethodBind("CollisionObject3D", "shape_owner_get_transform", SHAPE_OWNER_GET_TRANSFORM_HASH)
         }
 
         private const val SHAPE_OWNER_GET_OWNER_HASH = 3332903315L

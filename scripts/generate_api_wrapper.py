@@ -198,11 +198,13 @@ IOS_ARG_KINDS = {
     "StringName",
     "String",
     "NodePath",
+    "Basis",
+    "Transform3D",
 }
 # Return shapes the iOS helpers can read back (keyed by CallShape.kotlin_return, the
 # stable per-helper return-type token). StringName/String/RID/List/Map returns
 # are intentionally absent until their read-back is wired + validated.
-IOS_RET_KOTLIN = {"Unit", "Boolean", "Int", "Long", "Double", "Vector2", "Vector2i", "Vector3", "Vector3i", "Color", "Rect2", "MemorySegment", "String"}
+IOS_RET_KOTLIN = {"Unit", "Boolean", "Int", "Long", "Double", "Vector2", "Vector2i", "Vector3", "Vector3i", "Color", "Rect2", "MemorySegment", "String", "Basis", "Transform3D"}
 
 # Helpers already hand-written in ios-runtime ObjectCalls.kt (the reference template +
 # override set). The generator must NOT re-emit these (they'd clash with the members).
@@ -1591,9 +1593,11 @@ import kotlinx.cinterop.reinterpret
 import kotlinx.cinterop.set
 import kotlinx.cinterop.value
 import net.multigesture.kanama.ios.cinterop.kanama_ios_godot_ptrcall
+import net.multigesture.kanama.types.Basis
 import net.multigesture.kanama.types.Color
 import net.multigesture.kanama.types.NodePath
 import net.multigesture.kanama.types.Rect2
+import net.multigesture.kanama.types.Transform3D
 import net.multigesture.kanama.types.Vector2
 import net.multigesture.kanama.types.Vector2i
 import net.multigesture.kanama.types.Vector3
@@ -1632,6 +1636,8 @@ IOS_PT_TAG_VALUES = {
     "PT_STRING_NAME": 15,
     "PT_STRING": 16,
     "PT_NODE_PATH": 17,
+    "PT_BASIS": 18,
+    "PT_TRANSFORM3D": 19,
 }
 
 
@@ -1708,6 +1714,34 @@ def ios_arg_layout(kind: str, index: int) -> tuple[str, str, list[str], str]:
     if kind == "NodePath":
         # CONSTRUCT tag: the dispatch builds a NodePath from the path C string.
         return ("NodePath", "PT_NODE_PATH", [], f"{a}.path.cstr.ptr.reinterpret<CPointed>()")
+    if kind == "Basis":
+        # 9x float32, column-major: [x.x, y.x, z.x, x.y, y.y, z.y, x.z, y.z, z.z]
+        # (the three axes are the columns). POD passthrough — components are real_t=float32.
+        return (
+            "Basis",
+            "PT_BASIS",
+            [
+                f"val {c} = allocArray<FloatVar>(9); "
+                f"{c}[0] = {a}.x.x.toFloat(); {c}[1] = {a}.y.x.toFloat(); {c}[2] = {a}.z.x.toFloat(); "
+                f"{c}[3] = {a}.x.y.toFloat(); {c}[4] = {a}.y.y.toFloat(); {c}[5] = {a}.z.y.toFloat(); "
+                f"{c}[6] = {a}.x.z.toFloat(); {c}[7] = {a}.y.z.toFloat(); {c}[8] = {a}.z.z.toFloat()"
+            ],
+            f"{c}.reinterpret<CPointed>()",
+        )
+    if kind == "Transform3D":
+        # 12x float32: 9 column-major basis components then the 3 origin components.
+        return (
+            "Transform3D",
+            "PT_TRANSFORM3D",
+            [
+                f"val {c} = allocArray<FloatVar>(12); "
+                f"{c}[0] = {a}.basis.x.x.toFloat(); {c}[1] = {a}.basis.y.x.toFloat(); {c}[2] = {a}.basis.z.x.toFloat(); "
+                f"{c}[3] = {a}.basis.x.y.toFloat(); {c}[4] = {a}.basis.y.y.toFloat(); {c}[5] = {a}.basis.z.y.toFloat(); "
+                f"{c}[6] = {a}.basis.x.z.toFloat(); {c}[7] = {a}.basis.y.z.toFloat(); {c}[8] = {a}.basis.z.z.toFloat(); "
+                f"{c}[9] = {a}.origin.x.toFloat(); {c}[10] = {a}.origin.y.toFloat(); {c}[11] = {a}.origin.z.toFloat()"
+            ],
+            f"{c}.reinterpret<CPointed>()",
+        )
     raise ValueError(f"iOS arg kind not audited: {kind}")
 
 
@@ -1748,6 +1782,29 @@ def ios_ret_layout(kotlin_return: str) -> tuple[str | None, str, list[str], str,
             ["val ret = allocArray<FloatVar>(4)"],
             "ret",
             "Rect2(Vector2(ret[0].toDouble(), ret[1].toDouble()), Vector2(ret[2].toDouble(), ret[3].toDouble()))",
+        )
+    if kotlin_return == "Basis":
+        # 9x float32, column-major (see ios_arg_layout). Reassemble the column axes.
+        return (
+            "Basis",
+            "PT_BASIS",
+            ["val ret = allocArray<FloatVar>(9)"],
+            "ret",
+            "Basis(Vector3(ret[0].toDouble(), ret[3].toDouble(), ret[6].toDouble()), "
+            "Vector3(ret[1].toDouble(), ret[4].toDouble(), ret[7].toDouble()), "
+            "Vector3(ret[2].toDouble(), ret[5].toDouble(), ret[8].toDouble()))",
+        )
+    if kotlin_return == "Transform3D":
+        # 12x float32: 9 column-major basis + 3 origin.
+        return (
+            "Transform3D",
+            "PT_TRANSFORM3D",
+            ["val ret = allocArray<FloatVar>(12)"],
+            "ret",
+            "Transform3D(Basis(Vector3(ret[0].toDouble(), ret[3].toDouble(), ret[6].toDouble()), "
+            "Vector3(ret[1].toDouble(), ret[4].toDouble(), ret[7].toDouble()), "
+            "Vector3(ret[2].toDouble(), ret[5].toDouble(), ret[8].toDouble())), "
+            "Vector3(ret[9].toDouble(), ret[10].toDouble(), ret[11].toDouble()))",
         )
     if kotlin_return == "MemorySegment":
         return ("MemorySegment", "PT_OBJECT", ["val ret = alloc<LongVar>(); ret.value = 0"], "ret.ptr", "MemorySegment.ofAddress(ret.value)")

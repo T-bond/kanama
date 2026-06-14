@@ -30,9 +30,11 @@ import net.multigesture.kanama.ios.cinterop.kanama_ios_godot_get_singleton
 import net.multigesture.kanama.ios.cinterop.kanama_ios_godot_ptrcall
 import net.multigesture.kanama.ios.cinterop.kanama_ios_godot_ptrcall_no_args_ret_string
 import net.multigesture.kanama.ios.cinterop.kanama_ios_godot_ptrcall_no_args_ret_string_name
+import net.multigesture.kanama.types.Basis
 import net.multigesture.kanama.types.Color
 import net.multigesture.kanama.types.NodePath
 import net.multigesture.kanama.types.Rect2
+import net.multigesture.kanama.types.Transform3D
 import net.multigesture.kanama.types.Vector2
 import net.multigesture.kanama.types.Vector2i
 import net.multigesture.kanama.types.Vector3
@@ -497,6 +499,30 @@ fun kanamaIosRuntimeObjectCallsSelfTest() {
     val gotNode = ObjectCalls.ptrcallWithNodePathArgRetObject(
         ObjectCalls.getMethodBind("Node", "get_node_or_null", 2734337346L), npParent, NodePath("KPChild"))
     check("nodepath-arg(get_node_or_null==child)", gotNode.address() == npChild.address())
+
+    // Transform3D arg+return (Node3D.set_transform -> get_transform): 12x float32
+    // (9 column-major basis + 3 origin) round-trip through the generated helpers. Pure-
+    // scale diagonal basis; all components exact in float32 so data-class == is stable.
+    // DEVICE-VALIDATED 2026-06-13 (iPhone 12, iOS 26.5) — Phase 2.5
+    val n3t = ObjectCalls.constructObject("Node3D")
+    val tIn = Transform3D(
+        Basis(Vector3(2.0, 0.0, 0.0), Vector3(0.0, 4.0, 0.0), Vector3(0.0, 0.0, 0.5)),
+        Vector3(1.25, 2.5, 4.75))
+    ObjectCalls.ptrcallWithTransform3DArg(
+        ObjectCalls.getMethodBind("Node3D", "set_transform", 2952846383L), n3t, tIn)
+    val tOut = ObjectCalls.ptrcallNoArgsRetTransform3D(
+        ObjectCalls.getMethodBind("Node3D", "get_transform", 3229777777L), n3t)
+    check("transform3d(set/get_transform)", tOut == tIn)
+
+    // Basis arg+return (Node3D.set_basis -> get_basis): 9x float32 column-major.
+    // DEVICE-VALIDATED 2026-06-13 (iPhone 12, iOS 26.5) — Phase 2.5
+    val basisNode = ObjectCalls.constructObject("Node3D")
+    val bIn = Basis(Vector3(0.5, 0.0, 0.0), Vector3(0.0, 8.0, 0.0), Vector3(0.0, 0.0, 0.25))
+    ObjectCalls.ptrcallWithBasisArg(
+        ObjectCalls.getMethodBind("Node3D", "set_basis", 1055510324L), basisNode, bIn)
+    val bOut = ObjectCalls.ptrcallNoArgsRetBasis(
+        ObjectCalls.getMethodBind("Node3D", "get_basis", 2716978435L), basisNode)
+    check("basis(set/get_basis)", bOut == bIn)
 
     println("[kanama][ios][kn] OBJECTCALLS SELFTEST: $pass passed, $fail failed")
 }
