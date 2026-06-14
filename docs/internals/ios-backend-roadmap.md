@@ -84,8 +84,10 @@ authoritative ptrcall width table and the contract.
   `ios-runtime/build.gradle.kts` (a parallel, incomplete reimplementation today).
 - **@ScriptProperty value types** — NodePath/Vector/Color property delivery (platformer
   `view: NodePath` keeps its default today). List<custom-class> (only List<Object> works).
-- **Real String-return ptrcall** — replace the `Label.text` "" stub + the
-  `getCurrentAnimation` last-play() cache; unblocks string getters generally.
+- ~~**Real String-return ptrcall**~~ — DONE (Phase 2.3, 2026-06-13). `Label.text`
+  reads real, `getCurrentAnimation` is the live `current_animation` (StringName-return
+  via the String-from-StringName ctor hop). String + NodePath args and Transform3D/
+  Basis/RID/Quaternion/AABB kinds also landed (Phases 2.4–2.5 + RID/Quat/AABB).
 - **`GodotObject.call` / setDeferred / disconnect** — wire the Variant Object dispatch path
   (currently STUBs).
 - **real_t precision** — iOS hardcodes float32; centralize via an iOS `GodotReal` equivalent
@@ -109,15 +111,18 @@ authoritative ptrcall width table and the contract.
 
 ## Demo iOS coverage (per-demo readiness)
 
-Audited surface today: 2D + 3D scalar/Object/Vector2/Vector3 methods; the 6 bridge kinds
-above; @ScriptProperty scalars/object/List<Object>. NOT Vector2i/3i, Transform3D, Color/RID,
-String-return, NodePath/value-type properties, @Rpc, multi-arg signals, or the unwired
-annotations.
+Audited surface today (2026-06-13): 2D + 3D scalar/Object/Vector2/Vector3 methods; the 6
+bridge kinds above; Vector2i/3i, Color, Rect2, Transform3D, Basis, RID, Quaternion, AABB
+args+returns; String + StringName returns; String + NodePath args; @ScriptProperty
+scalars/object/List<Object>. `Plane` deferred (no emitted-class test method). Still NOT:
+value-type @ScriptProperty delivery (NodePath/Vector/Color → script instances, the
+platformer `view`), @Rpc, multi-arg signals, Variant `Object.call`, typed-array args, or
+the unwired annotations.
 
 | Demo | 2D/3D | iOS status | Key gaps |
 |---|---|---|---|
 | Starter-Kit-Match3 | 2D | **Working** (device-validated) | — |
-| Starter-Kit-3D-Platformer | 3D | **Working** (device-validated) | NodePath property (`view`) keeps default; String-return cache |
+| Starter-Kit-3D-Platformer | 3D | **Working** (device-validated) | `view: NodePath` @ScriptProperty still keeps default (needs 2.6 value-property delivery); String-return now live |
 | Bunnymark | 2D | Ready (separate session) | none material; do Android+iOS for a perf comparison |
 | godot-demo-2d-dodge-the-creeps | 2D | Tier-1 ready | standard 2D; minor |
 | godot-demo-3d-squash-the-creeps | 3D | Tier-2 | `@OnUnhandledInput`, GodotObject arg, Long property |

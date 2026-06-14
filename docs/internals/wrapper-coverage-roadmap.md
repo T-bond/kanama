@@ -58,13 +58,21 @@ width is the whole correctness story. Ordered by demo unblocking value
 
 | # | Task | Model | Unblocks |
 |---|---|---|---|
-| 2.1 | `Vector2i` / `Vector3i` args+returns | **sonnet** | Match3 polish, City-Builder properties/signals |
-| 2.2 | `Color` / `Rect2` returns | **sonnet** | `CanvasItem.modulate` get (removes a STUB) |
-| 2.3 | String-return ptrcall (C-shim String→UTF-8 copy + destroy) | **opus** | `Label.text` get, `AnimationPlayer.getCurrentAnimation` live read — removes 2 STUBs + 2 SUGAR sites |
-| 2.4 | `PT_STRING` / `PT_NODE_PATH` arg construction in `kanama_ios_shim.c` | **opus** | String/NodePath args generally; removes shim STUB |
-| 2.5 | `Transform3D` / `Basis` args+returns | **opus** | FPS, third-person, squash-the-creeps demos; widest structs, `real_t`-sensitive |
-| 2.6 | `@ScriptProperty` value types (NodePath/Vector/Color delivery) | **sonnet** | Platformer `view: NodePath`; depends on 2.1–2.5 kinds |
+| 2.1 ✅ | `Vector2i` / `Vector3i` args+returns | **sonnet** | Match3 polish, City-Builder properties/signals |
+| 2.2 ✅ | `Color` / `Rect2` returns | **sonnet** | `CanvasItem.modulate` get (removes a STUB) |
+| 2.3 ✅ | String-return ptrcall (C-shim String→UTF-8 copy + destroy) | **opus** | `Label.text` get, `AnimationPlayer.getCurrentAnimation` live read — removes 2 STUBs + 2 SUGAR sites |
+| 2.4 ✅ | `PT_STRING` / `PT_NODE_PATH` arg construction in `kanama_ios_shim.c` | **opus** | String/NodePath args generally; removes shim STUB |
+| 2.5 ✅ | `Transform3D` / `Basis` args+returns | **opus** | FPS, third-person, squash-the-creeps demos; widest structs, `real_t`-sensitive |
+| 2.5b ✅ | `RID` / `Quaternion` / `AABB` args+returns | **opus** | Third-person rotation, 3D culling, resource handles |
+| 2.6 | `@ScriptProperty` value types (NodePath/Vector/Color delivery) | **sonnet** | Platformer `view: NodePath`; depends on 2.1–2.5 kinds. **Gated on Phase 3** — extends the regex parser Phase 3 retires |
 | 2.7 | Variant / typed-array / vararg ptrcall on iOS | **opus** | Long tail; mirror Phase 1.2–1.3 desktop semantics |
+
+**Status (2026-06-13):** 2.1–2.5 + RID/Quaternion/AABB all DONE and
+device-validated (iPhone 12, iOS 26.5) — the full POD-passthrough + String/
+StringName/NodePath audited set, with a fail-loud self-test matrix (23 C + 22
+Kotlin rows, all green). `Plane` deferred: no clean arg+return on an emitted
+class to anchor a self-test row. 2.6 is the next numbered item but is a
+sequencing fork (regex parser vs Phase 3 KSP first) — see the tracker.
 
 **Done when:** the audited-set skip report for the demo corpus is empty
 for non-virtual methods; self-test matrix green on device.
