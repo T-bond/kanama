@@ -4,6 +4,7 @@ import java.lang.foreign.MemorySegment
 import kotlin.jvm.JvmName
 import net.multigesture.kanama.binding.runtime.ObjectCalls
 import net.multigesture.kanama.binding.runtime.*
+import net.multigesture.kanama.types.AABB
 
 /**
  * Generated from Godot docs: GeometryInstance3D
@@ -26,6 +27,12 @@ open class GeometryInstance3D(handle: MemorySegment) : VisualInstance3D(handle) 
         get() = getExtraCullMargin()
         @JvmName("setExtraCullMarginProperty")
         set(value) = setExtraCullMargin(value)
+
+    var customAabb: AABB
+        @JvmName("customAabbProperty")
+        get() = getCustomAabb()
+        @JvmName("setCustomAabbProperty")
+        set(value) = setCustomAabb(value)
 
     var lodBias: Double
         @JvmName("lodBiasProperty")
@@ -191,6 +198,14 @@ open class GeometryInstance3D(handle: MemorySegment) : VisualInstance3D(handle) 
         return ObjectCalls.ptrcallNoArgsRetBool(isIgnoringOcclusionCullingBind, handle)
     }
 
+    fun setCustomAabb(aabb: AABB) {
+        ObjectCalls.ptrcallWithAABBArg(setCustomAabbBind, handle, aabb)
+    }
+
+    fun getCustomAabb(): AABB {
+        return ObjectCalls.ptrcallNoArgsRetAABB(getCustomAabbBind, handle)
+    }
+
     companion object {
         const val SHADOW_CASTING_SETTING_OFF: Long = 0L
         const val SHADOW_CASTING_SETTING_ON: Long = 1L
@@ -342,6 +357,16 @@ open class GeometryInstance3D(handle: MemorySegment) : VisualInstance3D(handle) 
         private const val IS_IGNORING_OCCLUSION_CULLING_HASH = 2240911060L
         private val isIgnoringOcclusionCullingBind by lazy {
             ObjectCalls.getMethodBind("GeometryInstance3D", "is_ignoring_occlusion_culling", IS_IGNORING_OCCLUSION_CULLING_HASH)
+        }
+
+        private const val SET_CUSTOM_AABB_HASH = 259215842L
+        private val setCustomAabbBind by lazy {
+            ObjectCalls.getMethodBind("GeometryInstance3D", "set_custom_aabb", SET_CUSTOM_AABB_HASH)
+        }
+
+        private const val GET_CUSTOM_AABB_HASH = 1068685055L
+        private val getCustomAabbBind by lazy {
+            ObjectCalls.getMethodBind("GeometryInstance3D", "get_custom_aabb", GET_CUSTOM_AABB_HASH)
         }
     }
 }

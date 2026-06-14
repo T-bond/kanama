@@ -5,6 +5,7 @@ import kotlin.jvm.JvmName
 import net.multigesture.kanama.binding.runtime.ObjectCalls
 import net.multigesture.kanama.binding.runtime.*
 import net.multigesture.kanama.types.NodePath
+import net.multigesture.kanama.types.Quaternion
 import net.multigesture.kanama.types.Vector3
 
 /**
@@ -143,12 +144,20 @@ open class AnimationMixer(handle: MemorySegment) : Node(handle) {
         return ObjectCalls.ptrcallNoArgsRetVector3(getRootMotionPositionBind, handle)
     }
 
+    fun getRootMotionRotation(): Quaternion {
+        return ObjectCalls.ptrcallNoArgsRetQuaternion(getRootMotionRotationBind, handle)
+    }
+
     fun getRootMotionScale(): Vector3 {
         return ObjectCalls.ptrcallNoArgsRetVector3(getRootMotionScaleBind, handle)
     }
 
     fun getRootMotionPositionAccumulator(): Vector3 {
         return ObjectCalls.ptrcallNoArgsRetVector3(getRootMotionPositionAccumulatorBind, handle)
+    }
+
+    fun getRootMotionRotationAccumulator(): Quaternion {
+        return ObjectCalls.ptrcallNoArgsRetQuaternion(getRootMotionRotationAccumulatorBind, handle)
     }
 
     fun getRootMotionScaleAccumulator(): Vector3 {
@@ -306,6 +315,11 @@ open class AnimationMixer(handle: MemorySegment) : Node(handle) {
             ObjectCalls.getMethodBind("AnimationMixer", "get_root_motion_position", GET_ROOT_MOTION_POSITION_HASH)
         }
 
+        private const val GET_ROOT_MOTION_ROTATION_HASH = 1222331677L
+        private val getRootMotionRotationBind by lazy {
+            ObjectCalls.getMethodBind("AnimationMixer", "get_root_motion_rotation", GET_ROOT_MOTION_ROTATION_HASH)
+        }
+
         private const val GET_ROOT_MOTION_SCALE_HASH = 3360562783L
         private val getRootMotionScaleBind by lazy {
             ObjectCalls.getMethodBind("AnimationMixer", "get_root_motion_scale", GET_ROOT_MOTION_SCALE_HASH)
@@ -314,6 +328,11 @@ open class AnimationMixer(handle: MemorySegment) : Node(handle) {
         private const val GET_ROOT_MOTION_POSITION_ACCUMULATOR_HASH = 3360562783L
         private val getRootMotionPositionAccumulatorBind by lazy {
             ObjectCalls.getMethodBind("AnimationMixer", "get_root_motion_position_accumulator", GET_ROOT_MOTION_POSITION_ACCUMULATOR_HASH)
+        }
+
+        private const val GET_ROOT_MOTION_ROTATION_ACCUMULATOR_HASH = 1222331677L
+        private val getRootMotionRotationAccumulatorBind by lazy {
+            ObjectCalls.getMethodBind("AnimationMixer", "get_root_motion_rotation_accumulator", GET_ROOT_MOTION_ROTATION_ACCUMULATOR_HASH)
         }
 
         private const val GET_ROOT_MOTION_SCALE_ACCUMULATOR_HASH = 3360562783L

@@ -151,10 +151,26 @@ fable-reviewed).
    float32 diagonal values. Device C 18→20, Kotlin 17→19, 0 failed, no notes. Node3D
    fixture refreshed. Gates: check_wrapper_generator, check_ios_no_silent_stubs,
    compileKotlinIosArm64, clang -fsyntax-only — all pass.
-6. **NEXT:** 2.6 (now unblocked) + remaining roadmap gaps. See
-   [ios-backend-roadmap.md](./ios-backend-roadmap.md) backlog — RID/Quaternion/
-   Plane/AABB kinds, Variant Object.call dispatch, String-arg signal payloads,
-   custom-Callable lambdas, TypedArray ARGS, value-type BuiltinTypes on iOS.
+6. **DONE: RID/Quaternion/AABB kinds (device-validated 2026-06-13).** POD
+   passthrough additions (no new C dispatch case): RID = uint64 (`PT_RID=14`,
+   pre-existing tag), Quaternion = 4 float32 `[x,y,z,w]` (`PT_QUATERNION=20`),
+   AABB = 6 float32 (position+size) (`PT_AABB=21`). New iOS `types/RID.kt`
+   (`@JvmInline value class`), `types/Quaternion.kt`, `types/AABB.kt`. Generator: all
+   three in `IOS_ARG_KINDS`+`IOS_RET_KOTLIN`, tag values, arg/ret layouts, generated-
+   header imports. 13 wrappers regenerated (Node3D quaternion, GeometryInstance3D
+   customAabb, VisualInstance3D base/instance RID getters/setters, Camera3D rids,
+   etc.; Node SUGAR re-applied). Self-test (Node3D set/get_quaternion ε=1e-4 since
+   Godot re-derives via basis; GPUParticles3D get/set_base RID round-trip;
+   GPUParticles3D set/get_custom_aabb exact): device C 20→23, Kotlin 19→22, 0 failed,
+   no notes. Node3D fixture refreshed. Gates all pass. **Plane deferred** — no clean
+   arg+return method on an emitted class to anchor a matrix row (the rule: never a
+   kind without a self-test row); revisit if a demo needs it.
+7. **NEXT:** 2.6 proper (`@ScriptProperty` value-type delivery — NodePath/Vector/
+   Color to Kotlin script instances; unblocks platformer `view: NodePath`) requires
+   extending the regex annotation parser the roadmap flags for Phase-3 KSP
+   replacement first — sequencing decision pending. Other gaps: Variant Object.call
+   dispatch, String-arg signal payloads, custom-Callable lambdas, TypedArray ARGS,
+   value-type BuiltinTypes on iOS.
 - Workflow: impl per roadmap model tag → review diff → commit straight to main.
   (Fable 5 is no longer available as of 2026-06-12 — the review step and
   attribution are Opus 4.8: `Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>`.)
@@ -363,3 +379,21 @@ fable-reviewed).
   compileKotlinIosArm64, clang -fsyntax-only — all pass. (One compile catch fixed
   pre-device: the Basis self-test local `n3b` collided with the existing T3.1
   generated-vector3 `n3b` → renamed `basisNode`.)
+- **2026-06-13** — RID/Quaternion/AABB kinds DONE (opus impl + review,
+  device-validated iPhone 12, iOS 26.5). Continued the audited-kind widening past the
+  numbered 2.x set (user chose this over starting 2.6, which needs the Phase-3 parser
+  rework first). All POD passthrough, no new C dispatch case: RID is the pre-existing
+  `PT_RID=14` uint64; Quaternion `PT_QUATERNION=20` (4 float32 `[x,y,z,w]`); AABB
+  `PT_AABB=21` (6 float32, position then size). New iOS value types RID (`@JvmInline
+  value class`, needs explicit `import kotlin.jvm.JvmInline` on Native), Quaternion,
+  AABB. Generator widened (arg/ret kinds, tag values, layouts, header imports). 13
+  wrappers regenerated; Node SUGAR re-applied; Node3D fixture refreshed. Self-test
+  rows: GPUParticles3D get_base→set_base→get_base RID round-trip (auto particles base
+  is nonzero); GPUParticles3D set_custom_aabb→get_custom_aabb (exact float32); Node3D
+  set_quaternion→get_quaternion with ε=1e-4 (Godot stores rotation as a basis and
+  re-derives the quaternion, so the round-trip is float, not bit-exact — the only
+  non-exact self-test row, deliberately). Device C 20→23 passed/0 failed, Kotlin
+  19→22 passed/0 failed, no construct-0 notes; passed first device run. Plane
+  deferred: no clean Plane arg+return on an emitted class to anchor a matrix row.
+  Gates: check_wrapper_generator, check_ios_no_silent_stubs, compileKotlinIosArm64,
+  clang -fsyntax-only — all pass.

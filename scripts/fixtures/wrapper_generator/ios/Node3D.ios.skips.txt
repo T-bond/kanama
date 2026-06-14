@@ -1,5 +1,3 @@
-Node3D: void set_quaternion(Quaternion) hash=1727505552: iOS: un-audited helper shape args=('Quaternion',) return=void (conservative iOS guardrail — only audited ptrcall widths are emitted)
-Node3D: Quaternion get_quaternion() hash=1222331677: iOS: un-audited helper shape args=() return=Quaternion (conservative iOS guardrail — only audited ptrcall widths are emitted)
 Node3D: World3D get_world_3d() hash=317588385: iOS: un-audited helper shape args=() return=Object (conservative iOS guardrail — only audited ptrcall widths are emitted)
 Node3D: NodePath get_visibility_parent() hash=4075236667: iOS: un-audited helper shape args=() return=NodePath (conservative iOS guardrail — only audited ptrcall widths are emitted)
 Node3D: void add_gizmo(Node3DGizmo) hash=1544533845: iOS: un-audited helper shape args=('Object',) return=void (conservative iOS guardrail — only audited ptrcall widths are emitted)

@@ -4,6 +4,7 @@ import java.lang.foreign.MemorySegment
 import kotlin.jvm.JvmName
 import net.multigesture.kanama.binding.runtime.ObjectCalls
 import net.multigesture.kanama.binding.runtime.*
+import net.multigesture.kanama.types.RID
 import net.multigesture.kanama.types.Transform3D
 import net.multigesture.kanama.types.Vector2
 import net.multigesture.kanama.types.Vector3
@@ -232,6 +233,14 @@ open class Camera3D(handle: MemorySegment) : Node3D(handle) {
         return ObjectCalls.ptrcallWithVector3ArgRetBool(isPositionInFrustumBind, handle, worldPoint)
     }
 
+    fun getCameraRid(): RID {
+        return ObjectCalls.ptrcallNoArgsRetRID(getCameraRidBind, handle)
+    }
+
+    fun getPyramidShapeRid(): RID {
+        return ObjectCalls.ptrcallNoArgsRetRID(getPyramidShapeRidBind, handle)
+    }
+
     fun setCullMaskValue(layerNumber: Int, value: Boolean) {
         ObjectCalls.ptrcallWithIntAndBoolArgs(setCullMaskValueBind, handle, layerNumber, value)
     }
@@ -439,6 +448,16 @@ open class Camera3D(handle: MemorySegment) : Node3D(handle) {
         private const val IS_POSITION_IN_FRUSTUM_HASH = 3108956480L
         private val isPositionInFrustumBind by lazy {
             ObjectCalls.getMethodBind("Camera3D", "is_position_in_frustum", IS_POSITION_IN_FRUSTUM_HASH)
+        }
+
+        private const val GET_CAMERA_RID_HASH = 2944877500L
+        private val getCameraRidBind by lazy {
+            ObjectCalls.getMethodBind("Camera3D", "get_camera_rid", GET_CAMERA_RID_HASH)
+        }
+
+        private const val GET_PYRAMID_SHAPE_RID_HASH = 529393457L
+        private val getPyramidShapeRidBind by lazy {
+            ObjectCalls.getMethodBind("Camera3D", "get_pyramid_shape_rid", GET_PYRAMID_SHAPE_RID_HASH)
         }
 
         private const val SET_CULL_MASK_VALUE_HASH = 300928843L

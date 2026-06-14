@@ -4,6 +4,8 @@ import java.lang.foreign.MemorySegment
 import kotlin.jvm.JvmName
 import net.multigesture.kanama.binding.runtime.ObjectCalls
 import net.multigesture.kanama.binding.runtime.*
+import net.multigesture.kanama.types.AABB
+import net.multigesture.kanama.types.RID
 
 /**
  * Generated from Godot docs: VisualInstance3D
@@ -26,6 +28,18 @@ open class VisualInstance3D(handle: MemorySegment) : Node3D(handle) {
         get() = isSortingUseAabbCenter()
         @JvmName("setSortingUseAabbCenterProperty")
         set(value) = setSortingUseAabbCenter(value)
+
+    fun setBase(base: RID) {
+        ObjectCalls.ptrcallWithRIDArg(setBaseBind, handle, base)
+    }
+
+    fun getBase(): RID {
+        return ObjectCalls.ptrcallNoArgsRetRID(getBaseBind, handle)
+    }
+
+    fun getInstance(): RID {
+        return ObjectCalls.ptrcallNoArgsRetRID(getInstanceBind, handle)
+    }
 
     fun setLayerMask(mask: Long) {
         ObjectCalls.ptrcallWithUInt32Arg(setLayerMaskBind, handle, mask)
@@ -59,12 +73,31 @@ open class VisualInstance3D(handle: MemorySegment) : Node3D(handle) {
         return ObjectCalls.ptrcallNoArgsRetBool(isSortingUseAabbCenterBind, handle)
     }
 
+    fun getAabb(): AABB {
+        return ObjectCalls.ptrcallNoArgsRetAABB(getAabbBind, handle)
+    }
+
     companion object {
         fun fromHandle(handle: MemorySegment): VisualInstance3D? =
             wrap(handle)
 
         internal fun wrap(handle: MemorySegment): VisualInstance3D? =
             if (handle.address() == 0L) null else VisualInstance3D(handle)
+
+        private const val SET_BASE_HASH = 2722037293L
+        private val setBaseBind by lazy {
+            ObjectCalls.getMethodBind("VisualInstance3D", "set_base", SET_BASE_HASH)
+        }
+
+        private const val GET_BASE_HASH = 2944877500L
+        private val getBaseBind by lazy {
+            ObjectCalls.getMethodBind("VisualInstance3D", "get_base", GET_BASE_HASH)
+        }
+
+        private const val GET_INSTANCE_HASH = 2944877500L
+        private val getInstanceBind by lazy {
+            ObjectCalls.getMethodBind("VisualInstance3D", "get_instance", GET_INSTANCE_HASH)
+        }
 
         private const val SET_LAYER_MASK_HASH = 1286410249L
         private val setLayerMaskBind by lazy {
@@ -104,6 +137,11 @@ open class VisualInstance3D(handle: MemorySegment) : Node3D(handle) {
         private const val IS_SORTING_USE_AABB_CENTER_HASH = 36873697L
         private val isSortingUseAabbCenterBind by lazy {
             ObjectCalls.getMethodBind("VisualInstance3D", "is_sorting_use_aabb_center", IS_SORTING_USE_AABB_CENTER_HASH)
+        }
+
+        private const val GET_AABB_HASH = 1068685055L
+        private val getAabbBind by lazy {
+            ObjectCalls.getMethodBind("VisualInstance3D", "get_aabb", GET_AABB_HASH)
         }
     }
 }

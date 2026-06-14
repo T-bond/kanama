@@ -21,9 +21,12 @@ import kotlinx.cinterop.reinterpret
 import kotlinx.cinterop.set
 import kotlinx.cinterop.value
 import net.multigesture.kanama.ios.cinterop.kanama_ios_godot_ptrcall
+import net.multigesture.kanama.types.AABB
 import net.multigesture.kanama.types.Basis
 import net.multigesture.kanama.types.Color
 import net.multigesture.kanama.types.NodePath
+import net.multigesture.kanama.types.Quaternion
+import net.multigesture.kanama.types.RID
 import net.multigesture.kanama.types.Rect2
 import net.multigesture.kanama.types.Transform3D
 import net.multigesture.kanama.types.Vector2
@@ -51,12 +54,20 @@ private const val PT_VECTOR3 = 8
 private const val PT_NODE_PATH = 17
 private const val PT_BASIS = 18
 private const val PT_TRANSFORM3D = 19
+private const val PT_QUATERNION = 20
 
 fun ObjectCalls.ptrcallNoArgsRetBasis(methodBind: MemorySegment, instance: MemorySegment): Basis =
     memScoped {
         val ret = allocArray<FloatVar>(9)
         kanama_ios_godot_ptrcall(methodBind.address(), instance.address(), null, null, 0, PT_BASIS, ret)
         Basis(Vector3(ret[0].toDouble(), ret[3].toDouble(), ret[6].toDouble()), Vector3(ret[1].toDouble(), ret[4].toDouble(), ret[7].toDouble()), Vector3(ret[2].toDouble(), ret[5].toDouble(), ret[8].toDouble()))
+    }
+
+fun ObjectCalls.ptrcallNoArgsRetQuaternion(methodBind: MemorySegment, instance: MemorySegment): Quaternion =
+    memScoped {
+        val ret = allocArray<FloatVar>(4)
+        kanama_ios_godot_ptrcall(methodBind.address(), instance.address(), null, null, 0, PT_QUATERNION, ret)
+        Quaternion(ret[0].toDouble(), ret[1].toDouble(), ret[2].toDouble(), ret[3].toDouble())
     }
 
 fun ObjectCalls.ptrcallNoArgsRetTransform3D(methodBind: MemorySegment, instance: MemorySegment): Transform3D =
@@ -79,6 +90,15 @@ fun ObjectCalls.ptrcallWithNodePathArg(methodBind: MemorySegment, instance: Memo
     memScoped {
         val types = allocArray<IntVar>(1); types[0] = PT_NODE_PATH
         val ptrs = allocArray<COpaquePointerVar>(1); ptrs[0] = a0.path.cstr.ptr.reinterpret<CPointed>()
+        kanama_ios_godot_ptrcall(methodBind.address(), instance.address(), types, ptrs, 1, PT_VOID, null)
+        Unit
+    }
+
+fun ObjectCalls.ptrcallWithQuaternionArg(methodBind: MemorySegment, instance: MemorySegment, a0: Quaternion) =
+    memScoped {
+        val c0 = allocArray<FloatVar>(4); c0[0] = a0.x.toFloat(); c0[1] = a0.y.toFloat(); c0[2] = a0.z.toFloat(); c0[3] = a0.w.toFloat()
+        val types = allocArray<IntVar>(1); types[0] = PT_QUATERNION
+        val ptrs = allocArray<COpaquePointerVar>(1); ptrs[0] = c0.reinterpret<CPointed>()
         kanama_ios_godot_ptrcall(methodBind.address(), instance.address(), types, ptrs, 1, PT_VOID, null)
         Unit
     }

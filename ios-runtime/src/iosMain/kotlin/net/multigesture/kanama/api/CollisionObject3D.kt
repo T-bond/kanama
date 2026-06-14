@@ -4,6 +4,7 @@ import java.lang.foreign.MemorySegment
 import kotlin.jvm.JvmName
 import net.multigesture.kanama.binding.runtime.ObjectCalls
 import net.multigesture.kanama.binding.runtime.*
+import net.multigesture.kanama.types.RID
 import net.multigesture.kanama.types.Transform3D
 
 /**
@@ -108,6 +109,10 @@ open class CollisionObject3D(handle: MemorySegment) : Node3D(handle) {
 
     fun getCaptureInputOnDrag(): Boolean {
         return ObjectCalls.ptrcallNoArgsRetBool(getCaptureInputOnDragBind, handle)
+    }
+
+    fun getRid(): RID {
+        return ObjectCalls.ptrcallNoArgsRetRID(getRidBind, handle)
     }
 
     fun createShapeOwner(owner: GodotObject): Long {
@@ -253,6 +258,11 @@ open class CollisionObject3D(handle: MemorySegment) : Node3D(handle) {
         private const val GET_CAPTURE_INPUT_ON_DRAG_HASH = 36873697L
         private val getCaptureInputOnDragBind by lazy {
             ObjectCalls.getMethodBind("CollisionObject3D", "get_capture_input_on_drag", GET_CAPTURE_INPUT_ON_DRAG_HASH)
+        }
+
+        private const val GET_RID_HASH = 2944877500L
+        private val getRidBind by lazy {
+            ObjectCalls.getMethodBind("CollisionObject3D", "get_rid", GET_RID_HASH)
         }
 
         private const val CREATE_SHAPE_OWNER_HASH = 3429307534L

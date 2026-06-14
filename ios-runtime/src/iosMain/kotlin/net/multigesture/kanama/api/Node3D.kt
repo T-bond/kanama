@@ -6,6 +6,7 @@ import net.multigesture.kanama.binding.runtime.ObjectCalls
 import net.multigesture.kanama.binding.runtime.*
 import net.multigesture.kanama.types.Basis
 import net.multigesture.kanama.types.NodePath
+import net.multigesture.kanama.types.Quaternion
 import net.multigesture.kanama.types.Transform3D
 import net.multigesture.kanama.types.Vector3
 
@@ -42,6 +43,12 @@ open class Node3D(handle: MemorySegment) : Node(handle) {
         get() = getRotationDegrees()
         @JvmName("setRotationDegreesProperty")
         set(value) = setRotationDegrees(value)
+
+    var quaternion: Quaternion
+        @JvmName("quaternionProperty")
+        get() = getQuaternion()
+        @JvmName("setQuaternionProperty")
+        set(value) = setQuaternion(value)
 
     var basis: Basis
         @JvmName("basisProperty")
@@ -157,6 +164,14 @@ open class Node3D(handle: MemorySegment) : Node(handle) {
 
     fun getScale(): Vector3 {
         return ObjectCalls.ptrcallNoArgsRetVector3(getScaleBind, handle)
+    }
+
+    fun setQuaternion(quaternion: Quaternion) {
+        ObjectCalls.ptrcallWithQuaternionArg(setQuaternionBind, handle, quaternion)
+    }
+
+    fun getQuaternion(): Quaternion {
+        return ObjectCalls.ptrcallNoArgsRetQuaternion(getQuaternionBind, handle)
     }
 
     fun setBasis(basis: Basis) {
@@ -447,6 +462,16 @@ open class Node3D(handle: MemorySegment) : Node(handle) {
         private const val GET_SCALE_HASH = 3360562783L
         private val getScaleBind by lazy {
             ObjectCalls.getMethodBind("Node3D", "get_scale", GET_SCALE_HASH)
+        }
+
+        private const val SET_QUATERNION_HASH = 1727505552L
+        private val setQuaternionBind by lazy {
+            ObjectCalls.getMethodBind("Node3D", "set_quaternion", SET_QUATERNION_HASH)
+        }
+
+        private const val GET_QUATERNION_HASH = 1222331677L
+        private val getQuaternionBind by lazy {
+            ObjectCalls.getMethodBind("Node3D", "get_quaternion", GET_QUATERNION_HASH)
         }
 
         private const val SET_BASIS_HASH = 1055510324L

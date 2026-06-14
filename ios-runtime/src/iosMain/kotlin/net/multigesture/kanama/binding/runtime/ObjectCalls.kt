@@ -30,9 +30,12 @@ import net.multigesture.kanama.ios.cinterop.kanama_ios_godot_get_singleton
 import net.multigesture.kanama.ios.cinterop.kanama_ios_godot_ptrcall
 import net.multigesture.kanama.ios.cinterop.kanama_ios_godot_ptrcall_no_args_ret_string
 import net.multigesture.kanama.ios.cinterop.kanama_ios_godot_ptrcall_no_args_ret_string_name
+import net.multigesture.kanama.types.AABB
 import net.multigesture.kanama.types.Basis
 import net.multigesture.kanama.types.Color
 import net.multigesture.kanama.types.NodePath
+import net.multigesture.kanama.types.Quaternion
+import net.multigesture.kanama.types.RID
 import net.multigesture.kanama.types.Rect2
 import net.multigesture.kanama.types.Transform3D
 import net.multigesture.kanama.types.Vector2
@@ -523,6 +526,41 @@ fun kanamaIosRuntimeObjectCallsSelfTest() {
     val bOut = ObjectCalls.ptrcallNoArgsRetBasis(
         ObjectCalls.getMethodBind("Node3D", "get_basis", 2716978435L), basisNode)
     check("basis(set/get_basis)", bOut == bIn)
+
+    // RID arg+return (GPUParticles3D get_base/set_base): the auto-assigned particles
+    // base RID is read, set back, and read again — round-trips the uint64.
+    // DEVICE-VALIDATED 2026-06-13 (iPhone 12, iOS 26.5) — RID/Quaternion/AABB kinds
+    val gpRid = ObjectCalls.constructObject("GPUParticles3D")
+    val rid1 = ObjectCalls.ptrcallNoArgsRetRID(
+        ObjectCalls.getMethodBind("VisualInstance3D", "get_base", 2944877500L), gpRid)
+    ObjectCalls.ptrcallWithRIDArg(
+        ObjectCalls.getMethodBind("VisualInstance3D", "set_base", 2722037293L), gpRid, rid1)
+    val rid2 = ObjectCalls.ptrcallNoArgsRetRID(
+        ObjectCalls.getMethodBind("VisualInstance3D", "get_base", 2944877500L), gpRid)
+    check("rid(get/set_base)", rid1.value != 0L && rid2 == rid1)
+
+    // AABB arg+return (GPUParticles3D set/get_custom_aabb): 6x float32, exact round-trip.
+    // DEVICE-VALIDATED 2026-06-13 (iPhone 12, iOS 26.5) — RID/Quaternion/AABB kinds
+    val gpAabb = ObjectCalls.constructObject("GPUParticles3D")
+    val aIn = AABB(Vector3(1.5, 2.5, 3.5), Vector3(4.5, 5.5, 6.5))
+    ObjectCalls.ptrcallWithAABBArg(
+        ObjectCalls.getMethodBind("GeometryInstance3D", "set_custom_aabb", 259215842L), gpAabb, aIn)
+    val aOut = ObjectCalls.ptrcallNoArgsRetAABB(
+        ObjectCalls.getMethodBind("GeometryInstance3D", "get_custom_aabb", 1068685055L), gpAabb)
+    check("aabb(set/get_custom_aabb)", aOut == aIn)
+
+    // Quaternion arg+return (Node3D set/get_quaternion): 4x float32 [x,y,z,w]. Godot
+    // re-derives the quaternion from a basis, so compare with epsilon. Unit (0.5×4).
+    // DEVICE-VALIDATED 2026-06-13 (iPhone 12, iOS 26.5) — RID/Quaternion/AABB kinds
+    val quatNode = ObjectCalls.constructObject("Node3D")
+    val qIn = Quaternion(0.5, 0.5, 0.5, 0.5)
+    ObjectCalls.ptrcallWithQuaternionArg(
+        ObjectCalls.getMethodBind("Node3D", "set_quaternion", 1727505552L), quatNode, qIn)
+    val qOut = ObjectCalls.ptrcallNoArgsRetQuaternion(
+        ObjectCalls.getMethodBind("Node3D", "get_quaternion", 1222331677L), quatNode)
+    fun nearly(a: Double, b: Double) = (if (a > b) a - b else b - a) < 1e-4
+    check("quaternion(set/get_quaternion)",
+        nearly(qOut.x, qIn.x) && nearly(qOut.y, qIn.y) && nearly(qOut.z, qIn.z) && nearly(qOut.w, qIn.w))
 
     println("[kanama][ios][kn] OBJECTCALLS SELFTEST: $pass passed, $fail failed")
 }

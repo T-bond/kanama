@@ -395,6 +395,9 @@ enum {
     // float32 components and the dispatch passes them straight through.
     KANAMA_IOS_PT_BASIS,       // 9x float32 (column-major)
     KANAMA_IOS_PT_TRANSFORM3D, // 12x float32 (9 basis column-major + 3 origin)
+    KANAMA_IOS_PT_QUATERNION,  // 4x float32 (x, y, z, w)
+    KANAMA_IOS_PT_AABB,        // 6x float32 (position xyz + size xyz)
+    // (KANAMA_IOS_PT_RID = 14 above is also POD passthrough: a single uint64.)
 };
 
 enum {
@@ -4575,6 +4578,69 @@ static void kanama_ios_ptrcall_selftest(void) {
             if (bout[k] != bin[k]) { b_ok = 0; }
         }
         KANAMA_IOS_ST_CHECK("basis set/get_basis round-trip", b_ok);
+    }
+
+    // RID arg+return: a GPUParticles3D auto-assigns a particles base RID. Read it
+    // (get_base), set it back (set_base), read again — round-trips the uint64 through
+    // PT_RID arg + return. RID is POD passthrough (8 bytes, like an Object handle).
+    // DEVICE-VALIDATED 2026-06-13 (iPhone 12, iOS 26.5) — RID/Quaternion/AABB kinds
+    {
+        int64_t gp_rid = kanama_ios_godot_construct_object("GPUParticles3D");
+        uint64_t rid1 = 0;
+        kanama_ios_godot_ptrcall(kanama_ios_godot_get_method_bind("VisualInstance3D", "get_base", 2944877500),
+            gp_rid, NULL, NULL, 0, KANAMA_IOS_PT_RID, &rid1);
+        const void *ra[1] = { &rid1 };
+        int32_t rt[1] = { KANAMA_IOS_PT_RID };
+        kanama_ios_godot_ptrcall(kanama_ios_godot_get_method_bind("VisualInstance3D", "set_base", 2722037293),
+            gp_rid, rt, ra, 1, KANAMA_IOS_PT_VOID, NULL);
+        uint64_t rid2 = 0;
+        kanama_ios_godot_ptrcall(kanama_ios_godot_get_method_bind("VisualInstance3D", "get_base", 2944877500),
+            gp_rid, NULL, NULL, 0, KANAMA_IOS_PT_RID, &rid2);
+        KANAMA_IOS_ST_CHECK("rid get/set_base round-trip", rid1 != 0 && rid2 == rid1);
+    }
+
+    // AABB arg+return: GPUParticles3D.set_custom_aabb -> get_custom_aabb. 6x float32
+    // (position xyz + size xyz), stored verbatim. Values exact in float32.
+    // DEVICE-VALIDATED 2026-06-13 (iPhone 12, iOS 26.5) — RID/Quaternion/AABB kinds
+    {
+        int64_t gp_aabb = kanama_ios_godot_construct_object("GPUParticles3D");
+        float ain[6] = { 1.5f, 2.5f, 3.5f, 4.5f, 5.5f, 6.5f };
+        const void *aa[1] = { ain };
+        int32_t at[1] = { KANAMA_IOS_PT_AABB };
+        kanama_ios_godot_ptrcall(kanama_ios_godot_get_method_bind("GeometryInstance3D", "set_custom_aabb", 259215842),
+            gp_aabb, at, aa, 1, KANAMA_IOS_PT_VOID, NULL);
+        float aout[6] = { 0 };
+        kanama_ios_godot_ptrcall(kanama_ios_godot_get_method_bind("GeometryInstance3D", "get_custom_aabb", 1068685055),
+            gp_aabb, NULL, NULL, 0, KANAMA_IOS_PT_AABB, aout);
+        int a_ok = 1;
+        for (int k = 0; k < 6; k++) {
+            if (aout[k] != ain[k]) { a_ok = 0; }
+        }
+        KANAMA_IOS_ST_CHECK("aabb set/get_custom_aabb round-trip", a_ok);
+    }
+
+    // Quaternion arg+return: Node3D.set_quaternion -> get_quaternion. 4x float32
+    // [x,y,z,w]. Godot stores rotation as a basis and re-derives the quaternion, so the
+    // round-trip is float (not bit-exact) — compare with epsilon. (0.5,0.5,0.5,0.5) is a
+    // unit quaternion with float32-exact components, isolating the engine conversion.
+    // DEVICE-VALIDATED 2026-06-13 (iPhone 12, iOS 26.5) — RID/Quaternion/AABB kinds
+    {
+        int64_t n3q = kanama_ios_godot_construct_object("Node3D");
+        float qin[4] = { 0.5f, 0.5f, 0.5f, 0.5f };
+        const void *qa[1] = { qin };
+        int32_t qt[1] = { KANAMA_IOS_PT_QUATERNION };
+        kanama_ios_godot_ptrcall(kanama_ios_godot_get_method_bind("Node3D", "set_quaternion", 1727505552),
+            n3q, qt, qa, 1, KANAMA_IOS_PT_VOID, NULL);
+        float qout[4] = { 0 };
+        kanama_ios_godot_ptrcall(kanama_ios_godot_get_method_bind("Node3D", "get_quaternion", 1222331677),
+            n3q, NULL, NULL, 0, KANAMA_IOS_PT_QUATERNION, qout);
+        int q_ok = 1;
+        for (int k = 0; k < 4; k++) {
+            float d = qout[k] - qin[k];
+            if (d < 0) { d = -d; }
+            if (d > 1e-4f) { q_ok = 0; }
+        }
+        KANAMA_IOS_ST_CHECK("quaternion set/get_quaternion round-trip", q_ok);
     }
 
     fprintf(stderr, "[kanama][ios][c] PTRCALL SELFTEST MATRIX: %d passed, %d failed\n", pass, fail);

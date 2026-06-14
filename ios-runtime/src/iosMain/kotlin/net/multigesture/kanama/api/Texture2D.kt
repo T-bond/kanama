@@ -3,6 +3,9 @@ package net.multigesture.kanama.api
 import java.lang.foreign.MemorySegment
 import net.multigesture.kanama.binding.runtime.ObjectCalls
 import net.multigesture.kanama.binding.runtime.*
+import net.multigesture.kanama.types.Color
+import net.multigesture.kanama.types.RID
+import net.multigesture.kanama.types.Rect2
 import net.multigesture.kanama.types.Vector2
 
 /**
@@ -35,6 +38,18 @@ open class Texture2D(handle: MemorySegment) : Texture(handle) {
 
     fun hasMipmaps(): Boolean {
         return ObjectCalls.ptrcallNoArgsRetBool(hasMipmapsBind, handle)
+    }
+
+    fun draw(canvasItem: RID, position: Vector2, modulate: Color, transpose: Boolean = false) {
+        ObjectCalls.ptrcallWithRIDVector2ColorBoolArgs(drawBind, handle, canvasItem, position, modulate, transpose)
+    }
+
+    fun drawRect(canvasItem: RID, rect: Rect2, tile: Boolean, modulate: Color, transpose: Boolean = false) {
+        ObjectCalls.ptrcallWithRIDRect2BoolColorBoolArgs(drawRectBind, handle, canvasItem, rect, tile, modulate, transpose)
+    }
+
+    fun drawRectRegion(canvasItem: RID, rect: Rect2, srcRect: Rect2, modulate: Color, transpose: Boolean = false, clipUv: Boolean = true) {
+        ObjectCalls.ptrcallWithRIDTwoRect2ColorTwoBoolArgs(drawRectRegionBind, handle, canvasItem, rect, srcRect, modulate, transpose, clipUv)
     }
 
     fun createPlaceholder(): Resource? {
@@ -81,6 +96,21 @@ open class Texture2D(handle: MemorySegment) : Texture(handle) {
         private const val HAS_MIPMAPS_HASH = 36873697L
         private val hasMipmapsBind by lazy {
             ObjectCalls.getMethodBind("Texture2D", "has_mipmaps", HAS_MIPMAPS_HASH)
+        }
+
+        private const val DRAW_HASH = 2729649137L
+        private val drawBind by lazy {
+            ObjectCalls.getMethodBind("Texture2D", "draw", DRAW_HASH)
+        }
+
+        private const val DRAW_RECT_HASH = 3499451691L
+        private val drawRectBind by lazy {
+            ObjectCalls.getMethodBind("Texture2D", "draw_rect", DRAW_RECT_HASH)
+        }
+
+        private const val DRAW_RECT_REGION_HASH = 2963678660L
+        private val drawRectRegionBind by lazy {
+            ObjectCalls.getMethodBind("Texture2D", "draw_rect_region", DRAW_RECT_REGION_HASH)
         }
 
         private const val CREATE_PLACEHOLDER_HASH = 121922552L

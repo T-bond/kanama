@@ -4,6 +4,7 @@ import java.lang.foreign.MemorySegment
 import kotlin.jvm.JvmName
 import net.multigesture.kanama.binding.runtime.ObjectCalls
 import net.multigesture.kanama.binding.runtime.*
+import net.multigesture.kanama.types.RID
 
 /**
  * Generated from Godot docs: Resource
@@ -55,6 +56,10 @@ open class Resource(handle: MemorySegment) : RefCounted(handle) {
 
     fun getName(): String {
         return ObjectCalls.ptrcallNoArgsRetString(getNameBind, handle)
+    }
+
+    fun getRid(): RID {
+        return ObjectCalls.ptrcallNoArgsRetRID(getRidBind, handle)
     }
 
     fun setLocalToScene(enable: Boolean) {
@@ -157,6 +162,11 @@ open class Resource(handle: MemorySegment) : RefCounted(handle) {
         private const val GET_NAME_HASH = 201670096L
         private val getNameBind by lazy {
             ObjectCalls.getMethodBind("Resource", "get_name", GET_NAME_HASH)
+        }
+
+        private const val GET_RID_HASH = 2944877500L
+        private val getRidBind by lazy {
+            ObjectCalls.getMethodBind("Resource", "get_rid", GET_RID_HASH)
         }
 
         private const val SET_LOCAL_TO_SCENE_HASH = 2586408642L

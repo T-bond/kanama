@@ -4,6 +4,7 @@ import java.lang.foreign.MemorySegment
 import kotlin.jvm.JvmName
 import net.multigesture.kanama.binding.runtime.ObjectCalls
 import net.multigesture.kanama.binding.runtime.*
+import net.multigesture.kanama.types.RID
 import net.multigesture.kanama.types.Rect2
 import net.multigesture.kanama.types.Vector2
 
@@ -385,6 +386,10 @@ open class Viewport(handle: MemorySegment) : Node(handle) {
 
     fun getPhysicsObjectPickingFirstOnly(): Boolean {
         return ObjectCalls.ptrcallNoArgsRetBool(getPhysicsObjectPickingFirstOnlyBind, handle)
+    }
+
+    fun getViewportRid(): RID {
+        return ObjectCalls.ptrcallNoArgsRetRID(getViewportRidBind, handle)
     }
 
     fun pushTextInput(text: String) {
@@ -956,6 +961,11 @@ open class Viewport(handle: MemorySegment) : Node(handle) {
         private const val GET_PHYSICS_OBJECT_PICKING_FIRST_ONLY_HASH = 2240911060L
         private val getPhysicsObjectPickingFirstOnlyBind by lazy {
             ObjectCalls.getMethodBind("Viewport", "get_physics_object_picking_first_only", GET_PHYSICS_OBJECT_PICKING_FIRST_ONLY_HASH)
+        }
+
+        private const val GET_VIEWPORT_RID_HASH = 2944877500L
+        private val getViewportRidBind by lazy {
+            ObjectCalls.getMethodBind("Viewport", "get_viewport_rid", GET_VIEWPORT_RID_HASH)
         }
 
         private const val PUSH_TEXT_INPUT_HASH = 83702148L

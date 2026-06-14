@@ -5,6 +5,7 @@ import kotlin.jvm.JvmName
 import net.multigesture.kanama.binding.runtime.ObjectCalls
 import net.multigesture.kanama.binding.runtime.*
 import net.multigesture.kanama.types.NodePath
+import net.multigesture.kanama.types.RID
 
 /**
  * Generated from Godot docs: Node
@@ -328,6 +329,10 @@ open class Node(handle: MemorySegment) : GodotObject(handle) {
 
     fun queueAccessibilityUpdate() {
         ObjectCalls.ptrcallNoArgs(queueAccessibilityUpdateBind, handle)
+    }
+
+    fun getAccessibilityElement(): RID {
+        return ObjectCalls.ptrcallNoArgsRetRID(getAccessibilityElementBind, handle)
     }
 
     fun setDisplayFolded(fold: Boolean) {
@@ -879,6 +884,11 @@ open class Node(handle: MemorySegment) : GodotObject(handle) {
         private const val QUEUE_ACCESSIBILITY_UPDATE_HASH = 3218959716L
         private val queueAccessibilityUpdateBind by lazy {
             ObjectCalls.getMethodBind("Node", "queue_accessibility_update", QUEUE_ACCESSIBILITY_UPDATE_HASH)
+        }
+
+        private const val GET_ACCESSIBILITY_ELEMENT_HASH = 2944877500L
+        private val getAccessibilityElementBind by lazy {
+            ObjectCalls.getMethodBind("Node", "get_accessibility_element", GET_ACCESSIBILITY_ELEMENT_HASH)
         }
 
         private const val SET_DISPLAY_FOLDED_HASH = 2586408642L

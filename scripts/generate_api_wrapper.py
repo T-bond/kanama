@@ -200,11 +200,14 @@ IOS_ARG_KINDS = {
     "NodePath",
     "Basis",
     "Transform3D",
+    "RID",
+    "Quaternion",
+    "AABB",
 }
 # Return shapes the iOS helpers can read back (keyed by CallShape.kotlin_return, the
 # stable per-helper return-type token). StringName/String/RID/List/Map returns
 # are intentionally absent until their read-back is wired + validated.
-IOS_RET_KOTLIN = {"Unit", "Boolean", "Int", "Long", "Double", "Vector2", "Vector2i", "Vector3", "Vector3i", "Color", "Rect2", "MemorySegment", "String", "Basis", "Transform3D"}
+IOS_RET_KOTLIN = {"Unit", "Boolean", "Int", "Long", "Double", "Vector2", "Vector2i", "Vector3", "Vector3i", "Color", "Rect2", "MemorySegment", "String", "Basis", "Transform3D", "RID", "Quaternion", "AABB"}
 
 # Helpers already hand-written in ios-runtime ObjectCalls.kt (the reference template +
 # override set). The generator must NOT re-emit these (they'd clash with the members).
@@ -1593,9 +1596,12 @@ import kotlinx.cinterop.reinterpret
 import kotlinx.cinterop.set
 import kotlinx.cinterop.value
 import net.multigesture.kanama.ios.cinterop.kanama_ios_godot_ptrcall
+import net.multigesture.kanama.types.AABB
 import net.multigesture.kanama.types.Basis
 import net.multigesture.kanama.types.Color
 import net.multigesture.kanama.types.NodePath
+import net.multigesture.kanama.types.Quaternion
+import net.multigesture.kanama.types.RID
 import net.multigesture.kanama.types.Rect2
 import net.multigesture.kanama.types.Transform3D
 import net.multigesture.kanama.types.Vector2
@@ -1638,6 +1644,9 @@ IOS_PT_TAG_VALUES = {
     "PT_NODE_PATH": 17,
     "PT_BASIS": 18,
     "PT_TRANSFORM3D": 19,
+    "PT_QUATERNION": 20,
+    "PT_AABB": 21,
+    "PT_RID": 14,
 }
 
 
@@ -1742,6 +1751,29 @@ def ios_arg_layout(kind: str, index: int) -> tuple[str, str, list[str], str]:
             ],
             f"{c}.reinterpret<CPointed>()",
         )
+    if kind == "RID":
+        # POD passthrough: a Godot RID is a single uint64 (8 bytes).
+        return ("RID", "PT_RID", [f"val {c} = alloc<LongVar>(); {c}.value = {a}.value"], f"{c}.ptr.reinterpret<CPointed>()")
+    if kind == "Quaternion":
+        # 4x float32 [x, y, z, w] — POD passthrough.
+        return (
+            "Quaternion",
+            "PT_QUATERNION",
+            [f"val {c} = allocArray<FloatVar>(4); {c}[0] = {a}.x.toFloat(); {c}[1] = {a}.y.toFloat(); {c}[2] = {a}.z.toFloat(); {c}[3] = {a}.w.toFloat()"],
+            f"{c}.reinterpret<CPointed>()",
+        )
+    if kind == "AABB":
+        # 6x float32: position xyz then size xyz — POD passthrough.
+        return (
+            "AABB",
+            "PT_AABB",
+            [
+                f"val {c} = allocArray<FloatVar>(6); "
+                f"{c}[0] = {a}.position.x.toFloat(); {c}[1] = {a}.position.y.toFloat(); {c}[2] = {a}.position.z.toFloat(); "
+                f"{c}[3] = {a}.size.x.toFloat(); {c}[4] = {a}.size.y.toFloat(); {c}[5] = {a}.size.z.toFloat()"
+            ],
+            f"{c}.reinterpret<CPointed>()",
+        )
     raise ValueError(f"iOS arg kind not audited: {kind}")
 
 
@@ -1805,6 +1837,25 @@ def ios_ret_layout(kotlin_return: str) -> tuple[str | None, str, list[str], str,
             "Vector3(ret[1].toDouble(), ret[4].toDouble(), ret[7].toDouble()), "
             "Vector3(ret[2].toDouble(), ret[5].toDouble(), ret[8].toDouble())), "
             "Vector3(ret[9].toDouble(), ret[10].toDouble(), ret[11].toDouble()))",
+        )
+    if kotlin_return == "RID":
+        return ("RID", "PT_RID", ["val ret = alloc<LongVar>(); ret.value = 0"], "ret.ptr", "RID(ret.value)")
+    if kotlin_return == "Quaternion":
+        return (
+            "Quaternion",
+            "PT_QUATERNION",
+            ["val ret = allocArray<FloatVar>(4)"],
+            "ret",
+            "Quaternion(ret[0].toDouble(), ret[1].toDouble(), ret[2].toDouble(), ret[3].toDouble())",
+        )
+    if kotlin_return == "AABB":
+        return (
+            "AABB",
+            "PT_AABB",
+            ["val ret = allocArray<FloatVar>(6)"],
+            "ret",
+            "AABB(Vector3(ret[0].toDouble(), ret[1].toDouble(), ret[2].toDouble()), "
+            "Vector3(ret[3].toDouble(), ret[4].toDouble(), ret[5].toDouble()))",
         )
     if kotlin_return == "MemorySegment":
         return ("MemorySegment", "PT_OBJECT", ["val ret = alloc<LongVar>(); ret.value = 0"], "ret.ptr", "MemorySegment.ofAddress(ret.value)")

@@ -4,6 +4,7 @@ import java.lang.foreign.MemorySegment
 import kotlin.jvm.JvmName
 import net.multigesture.kanama.binding.runtime.ObjectCalls
 import net.multigesture.kanama.binding.runtime.*
+import net.multigesture.kanama.types.RID
 import net.multigesture.kanama.types.Vector2
 
 /**
@@ -39,6 +40,10 @@ open class CollisionObject2D(handle: MemorySegment) : Node2D(handle) {
         get() = isPickable()
         @JvmName("setInputPickableProperty")
         set(value) = setPickable(value)
+
+    fun getRid(): RID {
+        return ObjectCalls.ptrcallNoArgsRetRID(getRidBind, handle)
+    }
 
     fun setCollisionLayer(layer: Long) {
         ObjectCalls.ptrcallWithUInt32Arg(setCollisionLayerBind, handle, layer)
@@ -178,6 +183,11 @@ open class CollisionObject2D(handle: MemorySegment) : Node2D(handle) {
 
         internal fun wrap(handle: MemorySegment): CollisionObject2D? =
             if (handle.address() == 0L) null else CollisionObject2D(handle)
+
+        private const val GET_RID_HASH = 2944877500L
+        private val getRidBind by lazy {
+            ObjectCalls.getMethodBind("CollisionObject2D", "get_rid", GET_RID_HASH)
+        }
 
         private const val SET_COLLISION_LAYER_HASH = 1286410249L
         private val setCollisionLayerBind by lazy {

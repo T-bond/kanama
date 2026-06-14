@@ -4,6 +4,7 @@ import java.lang.foreign.MemorySegment
 import kotlin.jvm.JvmName
 import net.multigesture.kanama.binding.runtime.ObjectCalls
 import net.multigesture.kanama.binding.runtime.*
+import net.multigesture.kanama.types.AABB
 import net.multigesture.kanama.types.Color
 import net.multigesture.kanama.types.NodePath
 import net.multigesture.kanama.types.Transform3D
@@ -109,6 +110,12 @@ class GPUParticles3D(handle: MemorySegment) : GeometryInstance3D(handle) {
         @JvmName("setCollisionBaseSizeProperty")
         set(value) = setCollisionBaseSize(value)
 
+    var visibilityAabb: AABB
+        @JvmName("visibilityAabbProperty")
+        get() = getVisibilityAabb()
+        @JvmName("setVisibilityAabbProperty")
+        set(value) = setVisibilityAabb(value)
+
     var localCoords: Boolean
         @JvmName("localCoordsProperty")
         get() = getUseLocalCoordinates()
@@ -185,6 +192,10 @@ class GPUParticles3D(handle: MemorySegment) : GeometryInstance3D(handle) {
         ObjectCalls.ptrcallWithDoubleArg(setRandomnessRatioBind, handle, ratio)
     }
 
+    fun setVisibilityAabb(aabb: AABB) {
+        ObjectCalls.ptrcallWithAABBArg(setVisibilityAabbBind, handle, aabb)
+    }
+
     fun setUseLocalCoordinates(enable: Boolean) {
         ObjectCalls.ptrcallWithBoolArg(setUseLocalCoordinatesBind, handle, enable)
     }
@@ -239,6 +250,10 @@ class GPUParticles3D(handle: MemorySegment) : GeometryInstance3D(handle) {
 
     fun getRandomnessRatio(): Double {
         return ObjectCalls.ptrcallNoArgsRetDouble(getRandomnessRatioBind, handle)
+    }
+
+    fun getVisibilityAabb(): AABB {
+        return ObjectCalls.ptrcallNoArgsRetAABB(getVisibilityAabbBind, handle)
     }
 
     fun getUseLocalCoordinates(): Boolean {
@@ -303,6 +318,10 @@ class GPUParticles3D(handle: MemorySegment) : GeometryInstance3D(handle) {
 
     fun restart(keepSeed: Boolean = false) {
         ObjectCalls.ptrcallWithBoolArg(restartBind, handle, keepSeed)
+    }
+
+    fun captureAabb(): AABB {
+        return ObjectCalls.ptrcallNoArgsRetAABB(captureAabbBind, handle)
     }
 
     fun setSubEmitter(path: NodePath) {
@@ -431,6 +450,11 @@ class GPUParticles3D(handle: MemorySegment) : GeometryInstance3D(handle) {
             ObjectCalls.getMethodBind("GPUParticles3D", "set_randomness_ratio", SET_RANDOMNESS_RATIO_HASH)
         }
 
+        private const val SET_VISIBILITY_AABB_HASH = 259215842L
+        private val setVisibilityAabbBind by lazy {
+            ObjectCalls.getMethodBind("GPUParticles3D", "set_visibility_aabb", SET_VISIBILITY_AABB_HASH)
+        }
+
         private const val SET_USE_LOCAL_COORDINATES_HASH = 2586408642L
         private val setUseLocalCoordinatesBind by lazy {
             ObjectCalls.getMethodBind("GPUParticles3D", "set_use_local_coordinates", SET_USE_LOCAL_COORDINATES_HASH)
@@ -499,6 +523,11 @@ class GPUParticles3D(handle: MemorySegment) : GeometryInstance3D(handle) {
         private const val GET_RANDOMNESS_RATIO_HASH = 1740695150L
         private val getRandomnessRatioBind by lazy {
             ObjectCalls.getMethodBind("GPUParticles3D", "get_randomness_ratio", GET_RANDOMNESS_RATIO_HASH)
+        }
+
+        private const val GET_VISIBILITY_AABB_HASH = 1068685055L
+        private val getVisibilityAabbBind by lazy {
+            ObjectCalls.getMethodBind("GPUParticles3D", "get_visibility_aabb", GET_VISIBILITY_AABB_HASH)
         }
 
         private const val GET_USE_LOCAL_COORDINATES_HASH = 36873697L
@@ -579,6 +608,11 @@ class GPUParticles3D(handle: MemorySegment) : GeometryInstance3D(handle) {
         private const val RESTART_HASH = 107499316L
         private val restartBind by lazy {
             ObjectCalls.getMethodBind("GPUParticles3D", "restart", RESTART_HASH)
+        }
+
+        private const val CAPTURE_AABB_HASH = 1068685055L
+        private val captureAabbBind by lazy {
+            ObjectCalls.getMethodBind("GPUParticles3D", "capture_aabb", CAPTURE_AABB_HASH)
         }
 
         private const val SET_SUB_EMITTER_HASH = 1348162250L

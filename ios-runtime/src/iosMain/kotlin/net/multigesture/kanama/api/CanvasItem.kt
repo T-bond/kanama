@@ -5,6 +5,7 @@ import kotlin.jvm.JvmName
 import net.multigesture.kanama.binding.runtime.ObjectCalls
 import net.multigesture.kanama.binding.runtime.*
 import net.multigesture.kanama.types.Color
+import net.multigesture.kanama.types.RID
 import net.multigesture.kanama.types.Rect2
 import net.multigesture.kanama.types.Vector2
 
@@ -101,6 +102,10 @@ open class CanvasItem(handle: MemorySegment) : Node(handle) {
         get() = getUseParentMaterial()
         @JvmName("setUseParentMaterialProperty")
         set(value) = setUseParentMaterial(value)
+
+    fun getCanvasItem(): RID {
+        return ObjectCalls.ptrcallNoArgsRetRID(getCanvasItemBind, handle)
+    }
 
     fun setVisible(visible: Boolean) {
         ObjectCalls.ptrcallWithBoolArg(setVisibleBind, handle, visible)
@@ -266,6 +271,10 @@ open class CanvasItem(handle: MemorySegment) : Node(handle) {
         return ObjectCalls.ptrcallNoArgsRetVector2(getGlobalMousePositionBind, handle)
     }
 
+    fun getCanvas(): RID {
+        return ObjectCalls.ptrcallNoArgsRetRID(getCanvasBind, handle)
+    }
+
     fun setUseParentMaterial(enable: Boolean) {
         ObjectCalls.ptrcallWithBoolArg(setUseParentMaterialBind, handle, enable)
     }
@@ -388,6 +397,11 @@ open class CanvasItem(handle: MemorySegment) : Node(handle) {
 
         internal fun wrap(handle: MemorySegment): CanvasItem? =
             if (handle.address() == 0L) null else CanvasItem(handle)
+
+        private const val GET_CANVAS_ITEM_HASH = 2944877500L
+        private val getCanvasItemBind by lazy {
+            ObjectCalls.getMethodBind("CanvasItem", "get_canvas_item", GET_CANVAS_ITEM_HASH)
+        }
 
         private const val SET_VISIBLE_HASH = 2586408642L
         private val setVisibleBind by lazy {
@@ -592,6 +606,11 @@ open class CanvasItem(handle: MemorySegment) : Node(handle) {
         private const val GET_GLOBAL_MOUSE_POSITION_HASH = 3341600327L
         private val getGlobalMousePositionBind by lazy {
             ObjectCalls.getMethodBind("CanvasItem", "get_global_mouse_position", GET_GLOBAL_MOUSE_POSITION_HASH)
+        }
+
+        private const val GET_CANVAS_HASH = 2944877500L
+        private val getCanvasBind by lazy {
+            ObjectCalls.getMethodBind("CanvasItem", "get_canvas", GET_CANVAS_HASH)
         }
 
         private const val SET_USE_PARENT_MATERIAL_HASH = 2586408642L
