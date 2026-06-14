@@ -106,11 +106,23 @@ class Area3D(handle: MemorySegment) : CollisionObject3D(handle) {
         @JvmName("setAudioBusOverrideProperty")
         set(value) = setAudioBusOverride(value)
 
+    var audioBusName: String
+        @JvmName("audioBusNameProperty")
+        get() = getAudioBusName()
+        @JvmName("setAudioBusNameProperty")
+        set(value) = setAudioBusName(value)
+
     var reverbBusEnabled: Boolean
         @JvmName("reverbBusEnabledProperty")
         get() = isUsingReverbBus()
         @JvmName("setReverbBusEnabledProperty")
         set(value) = setUseReverbBus(value)
+
+    var reverbBusName: String
+        @JvmName("reverbBusNameProperty")
+        get() = getReverbBusName()
+        @JvmName("setReverbBusNameProperty")
+        set(value) = setReverbBusName(value)
 
     var reverbBusAmount: Double
         @JvmName("reverbBusAmountProperty")
@@ -272,6 +284,10 @@ class Area3D(handle: MemorySegment) : CollisionObject3D(handle) {
         ObjectCalls.ptrcallWithStringNameArg(setAudioBusNameBind, handle, name)
     }
 
+    fun getAudioBusName(): String {
+        return ObjectCalls.ptrcallNoArgsRetStringName(getAudioBusNameBind, handle)
+    }
+
     fun setUseReverbBus(enable: Boolean) {
         ObjectCalls.ptrcallWithBoolArg(setUseReverbBusBind, handle, enable)
     }
@@ -282,6 +298,10 @@ class Area3D(handle: MemorySegment) : CollisionObject3D(handle) {
 
     fun setReverbBusName(name: String) {
         ObjectCalls.ptrcallWithStringNameArg(setReverbBusNameBind, handle, name)
+    }
+
+    fun getReverbBusName(): String {
+        return ObjectCalls.ptrcallNoArgsRetStringName(getReverbBusNameBind, handle)
     }
 
     fun setReverbAmount(amount: Double) {
@@ -509,6 +529,11 @@ class Area3D(handle: MemorySegment) : CollisionObject3D(handle) {
             ObjectCalls.getMethodBind("Area3D", "set_audio_bus_name", SET_AUDIO_BUS_NAME_HASH)
         }
 
+        private const val GET_AUDIO_BUS_NAME_HASH = 2002593661L
+        private val getAudioBusNameBind by lazy {
+            ObjectCalls.getMethodBind("Area3D", "get_audio_bus_name", GET_AUDIO_BUS_NAME_HASH)
+        }
+
         private const val SET_USE_REVERB_BUS_HASH = 2586408642L
         private val setUseReverbBusBind by lazy {
             ObjectCalls.getMethodBind("Area3D", "set_use_reverb_bus", SET_USE_REVERB_BUS_HASH)
@@ -522,6 +547,11 @@ class Area3D(handle: MemorySegment) : CollisionObject3D(handle) {
         private const val SET_REVERB_BUS_NAME_HASH = 3304788590L
         private val setReverbBusNameBind by lazy {
             ObjectCalls.getMethodBind("Area3D", "set_reverb_bus_name", SET_REVERB_BUS_NAME_HASH)
+        }
+
+        private const val GET_REVERB_BUS_NAME_HASH = 2002593661L
+        private val getReverbBusNameBind by lazy {
+            ObjectCalls.getMethodBind("Area3D", "get_reverb_bus_name", GET_REVERB_BUS_NAME_HASH)
         }
 
         private const val SET_REVERB_AMOUNT_HASH = 373806689L

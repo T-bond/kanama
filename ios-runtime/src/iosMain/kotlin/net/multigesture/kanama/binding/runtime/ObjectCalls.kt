@@ -29,6 +29,7 @@ import net.multigesture.kanama.ios.cinterop.kanama_ios_godot_get_method_bind
 import net.multigesture.kanama.ios.cinterop.kanama_ios_godot_get_singleton
 import net.multigesture.kanama.ios.cinterop.kanama_ios_godot_ptrcall
 import net.multigesture.kanama.ios.cinterop.kanama_ios_godot_ptrcall_no_args_ret_string
+import net.multigesture.kanama.ios.cinterop.kanama_ios_godot_ptrcall_no_args_ret_string_name
 import net.multigesture.kanama.types.Color
 import net.multigesture.kanama.types.Rect2
 import net.multigesture.kanama.types.Vector2
@@ -181,6 +182,23 @@ object ObjectCalls {
             } else {
                 val buf = allocArray<ByteVar>(len)
                 kanama_ios_godot_ptrcall_no_args_ret_string(
+                    methodBind.address(), instance.address(), buf, len)
+                buf.readBytes(len.toInt()).decodeToString()
+            }
+        }
+
+    // StringName return: GDExtension has no StringName->utf8, so the dedicated C helper
+    // converts the returned StringName to a String (String(from: StringName) ctor) and
+    // UTF-8 encodes it. Same two-call length protocol as ptrcallNoArgsRetString.
+    fun ptrcallNoArgsRetStringName(methodBind: MemorySegment, instance: MemorySegment): String =
+        memScoped {
+            val len = kanama_ios_godot_ptrcall_no_args_ret_string_name(
+                methodBind.address(), instance.address(), null, 0L)
+            if (len <= 0L) {
+                ""
+            } else {
+                val buf = allocArray<ByteVar>(len)
+                kanama_ios_godot_ptrcall_no_args_ret_string_name(
                     methodBind.address(), instance.address(), buf, len)
                 buf.readBytes(len.toInt()).decodeToString()
             }
@@ -441,6 +459,17 @@ fun kanamaIosRuntimeObjectCallsSelfTest() {
     val cls = ObjectCalls.ptrcallNoArgsRetString(
         ObjectCalls.getMethodBind("Object", "get_class", 201670096L), n2cls)
     check("string-ret(get_class==Node2D)", cls == "Node2D")
+
+    // StringName-return (Node.get_name): set a known name (StringName arg) then read it
+    // back through ptrcallNoArgsRetStringName — exercises the StringName->String ctor
+    // hop end to end. Deterministic; node name has no validation.
+    // DEVICE-VALIDATED 2026-06-13 (iPhone 12, iOS 26.5) — Phase 2.3b
+    val nName = ObjectCalls.constructObject("Node")
+    ObjectCalls.ptrcallWithStringNameArg(
+        ObjectCalls.getMethodBind("Node", "set_name", 3304788590L), nName, "KanamaSN")
+    val nm = ObjectCalls.ptrcallNoArgsRetStringName(
+        ObjectCalls.getMethodBind("Node", "get_name", 2002593661L), nName)
+    check("string-name-ret(get_name==KanamaSN)", nm == "KanamaSN")
 
     println("[kanama][ios][kn] OBJECTCALLS SELFTEST: $pass passed, $fail failed")
 }

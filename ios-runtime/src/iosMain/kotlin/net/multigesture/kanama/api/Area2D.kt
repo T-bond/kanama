@@ -94,6 +94,12 @@ class Area2D(handle: MemorySegment) : CollisionObject2D(handle) {
         @JvmName("setAudioBusOverrideProperty")
         set(value) = setAudioBusOverride(value)
 
+    var audioBusName: String
+        @JvmName("audioBusNameProperty")
+        get() = getAudioBusName()
+        @JvmName("setAudioBusNameProperty")
+        set(value) = setAudioBusName(value)
+
     fun setGravitySpaceOverrideMode(spaceOverrideMode: Long) {
         ObjectCalls.ptrcallWithLongArg(setGravitySpaceOverrideModeBind, handle, spaceOverrideMode)
     }
@@ -216,6 +222,10 @@ class Area2D(handle: MemorySegment) : CollisionObject2D(handle) {
 
     fun setAudioBusName(name: String) {
         ObjectCalls.ptrcallWithStringNameArg(setAudioBusNameBind, handle, name)
+    }
+
+    fun getAudioBusName(): String {
+        return ObjectCalls.ptrcallNoArgsRetStringName(getAudioBusNameBind, handle)
     }
 
     fun setAudioBusOverride(enable: Boolean) {
@@ -403,6 +413,11 @@ class Area2D(handle: MemorySegment) : CollisionObject2D(handle) {
         private const val SET_AUDIO_BUS_NAME_HASH = 3304788590L
         private val setAudioBusNameBind by lazy {
             ObjectCalls.getMethodBind("Area2D", "set_audio_bus_name", SET_AUDIO_BUS_NAME_HASH)
+        }
+
+        private const val GET_AUDIO_BUS_NAME_HASH = 2002593661L
+        private val getAudioBusNameBind by lazy {
+            ObjectCalls.getMethodBind("Area2D", "get_audio_bus_name", GET_AUDIO_BUS_NAME_HASH)
         }
 
         private const val SET_AUDIO_BUS_OVERRIDE_HASH = 2586408642L

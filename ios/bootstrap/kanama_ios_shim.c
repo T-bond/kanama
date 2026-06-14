@@ -267,6 +267,7 @@ static GDExtensionMethodBindPtr g_property_tweener_set_trans_bind = NULL;
 static GDExtensionMethodBindPtr g_property_tweener_set_ease_bind = NULL;
 static GDExtensionMethodBindPtr g_viewport_get_visible_rect_bind = NULL;
 static GDExtensionPtrConstructor g_node_path_from_string_constructor = NULL;
+static GDExtensionPtrConstructor g_string_from_string_name_constructor = NULL;
 static GDExtensionPtrConstructor g_packed_string_array_constructor = NULL;
 static GDExtensionPtrConstructor g_array_constructor = NULL;
 static GDExtensionPtrConstructor g_dictionary_constructor = NULL;
@@ -583,6 +584,9 @@ static int kanama_ios_resolve_godot_api(void) {
     g_string_destructor = g_variant_get_ptr_destructor(KANAMA_IOS_VARIANT_TYPE_STRING);
     g_node_path_destructor = g_variant_get_ptr_destructor(KANAMA_IOS_VARIANT_TYPE_NODE_PATH);
     g_node_path_from_string_constructor = g_variant_get_ptr_constructor(KANAMA_IOS_VARIANT_TYPE_NODE_PATH, 2);
+    // String(from: StringName) — constructor index 2 in extension_api.json. Used to
+    // marshal StringName ptrcall returns (no GDExtension StringName->utf8 exists).
+    g_string_from_string_name_constructor = g_variant_get_ptr_constructor(KANAMA_IOS_VARIANT_TYPE_STRING, 2);
     g_packed_string_array_constructor = g_variant_get_ptr_constructor(
         KANAMA_IOS_VARIANT_TYPE_PACKED_STRING_ARRAY,
         0
@@ -613,6 +617,7 @@ static int kanama_ios_resolve_godot_api(void) {
         g_string_destructor == NULL ||
         g_node_path_destructor == NULL ||
         g_node_path_from_string_constructor == NULL ||
+        g_string_from_string_name_constructor == NULL ||
         g_packed_string_array_constructor == NULL ||
         g_array_constructor == NULL ||
         g_dictionary_constructor == NULL ||
@@ -1220,6 +1225,49 @@ int64_t kanama_ios_godot_ptrcall_no_args_ret_string(
     );
 
     kanama_ios_destroy_string(&string_storage);
+    return length;
+}
+
+int64_t kanama_ios_godot_ptrcall_no_args_ret_string_name(
+    int64_t method_bind,
+    int64_t instance,
+    char *out_buf,
+    int64_t buf_size
+) {
+    if (!kanama_ios_resolve_godot_api() || method_bind == 0 || instance == 0) {
+        return -1;
+    }
+    if (g_string_to_utf8_chars == NULL || g_object_method_bind_ptrcall == NULL ||
+        g_string_from_string_name_constructor == NULL) {
+        return -1;
+    }
+
+    // ptrcall writes the returned Godot StringName (an 8-byte interned pointer) here.
+    uint64_t string_name_storage = 0;
+    g_object_method_bind_ptrcall(
+        (GDExtensionMethodBindPtr)(intptr_t)method_bind,
+        (GDExtensionObjectPtr)(intptr_t)instance,
+        NULL,
+        &string_name_storage
+    );
+
+    // No GDExtension StringName->utf8 exists, so build a String(from: StringName)
+    // and UTF-8 encode that (same path as the String-return helper).
+    uint64_t string_storage = 0;
+    const GDExtensionConstTypePtr ctor_args[1] = {
+        (GDExtensionConstTypePtr)&string_name_storage,
+    };
+    g_string_from_string_name_constructor(
+        (GDExtensionUninitializedTypePtr)&string_storage, ctor_args);
+
+    int64_t length = (int64_t)g_string_to_utf8_chars(
+        (GDExtensionConstStringPtr)&string_storage,
+        (out_buf != NULL && buf_size > 0) ? out_buf : NULL,
+        (out_buf != NULL && buf_size > 0) ? buf_size : 0
+    );
+
+    kanama_ios_destroy_string(&string_storage);
+    kanama_ios_destroy_string_name(&string_name_storage);
     return length;
 }
 
@@ -4384,6 +4432,29 @@ static void kanama_ios_ptrcall_selftest(void) {
             node2d_str, class_buf, (int64_t)sizeof(class_buf));
         KANAMA_IOS_ST_CHECK("string-ret get_class==Node2D",
             class_len == 6 && strncmp(class_buf, "Node2D", 6) == 0);
+    }
+
+    // StringName-return: Node.set_name("KanamaSN") -> get_name(). Exercises the
+    // StringName ptrcall return plus the StringName->String constructor hop. The
+    // PT_STRING_NAME arg path constructs the StringName C-side from the C string.
+    // DEVICE-VALIDATED 2026-06-13 (iPhone 12, iOS 26.5) — Phase 2.3b
+    {
+        int64_t node_sn = kanama_ios_godot_construct_object("Node");
+        if (node_sn == 0) {
+            fprintf(stderr, "[kanama][ios][c] SELFTEST note: Node construct returned 0\n");
+            fflush(stderr);
+        }
+        const char *sn_name = "KanamaSN";
+        const void *na[1] = { sn_name };
+        int32_t nt[1] = { KANAMA_IOS_PT_STRING_NAME };
+        kanama_ios_godot_ptrcall(kanama_ios_godot_get_method_bind("Node", "set_name", 3304788590),
+            node_sn, nt, na, 1, KANAMA_IOS_PT_VOID, NULL);
+        char name_buf[64];
+        int64_t name_len = kanama_ios_godot_ptrcall_no_args_ret_string_name(
+            kanama_ios_godot_get_method_bind("Node", "get_name", 2002593661),
+            node_sn, name_buf, (int64_t)sizeof(name_buf));
+        KANAMA_IOS_ST_CHECK("string-name-ret get_name==KanamaSN",
+            name_len == 8 && strncmp(name_buf, "KanamaSN", 8) == 0);
     }
 
     fprintf(stderr, "[kanama][ios][c] PTRCALL SELFTEST MATRIX: %d passed, %d failed\n", pass, fail);

@@ -174,6 +174,12 @@ open class Control(handle: MemorySegment) : CanvasItem(handle) {
         @JvmName("setLayoutDirectionProperty")
         set(value) = setLayoutDirection(value)
 
+    var translationContext: String
+        @JvmName("translationContextProperty")
+        get() = getTranslationContext()
+        @JvmName("setTranslationContextProperty")
+        set(value) = setTranslationContext(value)
+
     var autoTranslate: Boolean
         @JvmName("autoTranslateProperty")
         get() = isAutoTranslating()
@@ -243,6 +249,12 @@ open class Control(handle: MemorySegment) : CanvasItem(handle) {
         get() = getAccessibilityLive()
         @JvmName("setAccessibilityLiveProperty")
         set(value) = setAccessibilityLive(value)
+
+    var themeTypeVariation: String
+        @JvmName("themeTypeVariationProperty")
+        get() = getThemeTypeVariation()
+        @JvmName("setThemeTypeVariationProperty")
+        set(value) = setThemeTypeVariation(value)
 
     fun acceptEvent() {
         ObjectCalls.ptrcallNoArgs(acceptEventBind, handle)
@@ -564,6 +576,10 @@ open class Control(handle: MemorySegment) : CanvasItem(handle) {
         ObjectCalls.ptrcallWithStringNameArg(setThemeTypeVariationBind, handle, themeType)
     }
 
+    fun getThemeTypeVariation(): String {
+        return ObjectCalls.ptrcallNoArgsRetStringName(getThemeTypeVariationBind, handle)
+    }
+
     fun beginBulkThemeOverride() {
         ObjectCalls.ptrcallNoArgs(beginBulkThemeOverrideBind, handle)
     }
@@ -718,6 +734,10 @@ open class Control(handle: MemorySegment) : CanvasItem(handle) {
 
     fun setTranslationContext(context: String) {
         ObjectCalls.ptrcallWithStringNameArg(setTranslationContextBind, handle, context)
+    }
+
+    fun getTranslationContext(): String {
+        return ObjectCalls.ptrcallNoArgsRetStringName(getTranslationContextBind, handle)
     }
 
     fun setDefaultCursorShape(shape: Long) {
@@ -1356,6 +1376,11 @@ open class Control(handle: MemorySegment) : CanvasItem(handle) {
             ObjectCalls.getMethodBind("Control", "set_theme_type_variation", SET_THEME_TYPE_VARIATION_HASH)
         }
 
+        private const val GET_THEME_TYPE_VARIATION_HASH = 2002593661L
+        private val getThemeTypeVariationBind by lazy {
+            ObjectCalls.getMethodBind("Control", "get_theme_type_variation", GET_THEME_TYPE_VARIATION_HASH)
+        }
+
         private const val BEGIN_BULK_THEME_OVERRIDE_HASH = 3218959716L
         private val beginBulkThemeOverrideBind by lazy {
             ObjectCalls.getMethodBind("Control", "begin_bulk_theme_override", BEGIN_BULK_THEME_OVERRIDE_HASH)
@@ -1549,6 +1574,11 @@ open class Control(handle: MemorySegment) : CanvasItem(handle) {
         private const val SET_TRANSLATION_CONTEXT_HASH = 3304788590L
         private val setTranslationContextBind by lazy {
             ObjectCalls.getMethodBind("Control", "set_translation_context", SET_TRANSLATION_CONTEXT_HASH)
+        }
+
+        private const val GET_TRANSLATION_CONTEXT_HASH = 2002593661L
+        private val getTranslationContextBind by lazy {
+            ObjectCalls.getMethodBind("Control", "get_translation_context", GET_TRANSLATION_CONTEXT_HASH)
         }
 
         private const val SET_DEFAULT_CURSOR_SHAPE_HASH = 217062046L

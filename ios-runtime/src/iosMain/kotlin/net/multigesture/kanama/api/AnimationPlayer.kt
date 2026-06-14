@@ -9,6 +9,24 @@ import net.multigesture.kanama.binding.runtime.*
  * Generated from Godot docs: AnimationPlayer
  */
 class AnimationPlayer(handle: MemorySegment) : AnimationMixer(handle) {
+    var currentAnimation: String
+        @JvmName("currentAnimationProperty")
+        get() = getCurrentAnimation()
+        @JvmName("setCurrentAnimationProperty")
+        set(value) = setCurrentAnimation(value)
+
+    var assignedAnimation: String
+        @JvmName("assignedAnimationProperty")
+        get() = getAssignedAnimation()
+        @JvmName("setAssignedAnimationProperty")
+        set(value) = setAssignedAnimation(value)
+
+    var autoplay: String
+        @JvmName("autoplayProperty")
+        get() = getAutoplay()
+        @JvmName("setAutoplayProperty")
+        set(value) = setAutoplay(value)
+
     val currentAnimationLength: Double
         @JvmName("currentAnimationLengthProperty")
         get() = getCurrentAnimationLength()
@@ -159,8 +177,16 @@ class AnimationPlayer(handle: MemorySegment) : AnimationMixer(handle) {
         ObjectCalls.ptrcallWithStringNameArg(setCurrentAnimationBind, handle, animation)
     }
 
+    fun getCurrentAnimation(): String {
+        return ObjectCalls.ptrcallNoArgsRetStringName(getCurrentAnimationBind, handle)
+    }
+
     fun setAssignedAnimation(animation: String) {
         ObjectCalls.ptrcallWithStringNameArg(setAssignedAnimationBind, handle, animation)
+    }
+
+    fun getAssignedAnimation(): String {
+        return ObjectCalls.ptrcallNoArgsRetStringName(getAssignedAnimationBind, handle)
     }
 
     fun queue(name: String) {
@@ -185,6 +211,10 @@ class AnimationPlayer(handle: MemorySegment) : AnimationMixer(handle) {
 
     fun setAutoplay(name: String) {
         ObjectCalls.ptrcallWithStringNameArg(setAutoplayBind, handle, name)
+    }
+
+    fun getAutoplay(): String {
+        return ObjectCalls.ptrcallNoArgsRetStringName(getAutoplayBind, handle)
     }
 
     fun setMovieQuitOnFinishEnabled(enabled: Boolean) {
@@ -390,9 +420,19 @@ class AnimationPlayer(handle: MemorySegment) : AnimationMixer(handle) {
             ObjectCalls.getMethodBind("AnimationPlayer", "set_current_animation", SET_CURRENT_ANIMATION_HASH)
         }
 
+        private const val GET_CURRENT_ANIMATION_HASH = 2002593661L
+        private val getCurrentAnimationBind by lazy {
+            ObjectCalls.getMethodBind("AnimationPlayer", "get_current_animation", GET_CURRENT_ANIMATION_HASH)
+        }
+
         private const val SET_ASSIGNED_ANIMATION_HASH = 3304788590L
         private val setAssignedAnimationBind by lazy {
             ObjectCalls.getMethodBind("AnimationPlayer", "set_assigned_animation", SET_ASSIGNED_ANIMATION_HASH)
+        }
+
+        private const val GET_ASSIGNED_ANIMATION_HASH = 2002593661L
+        private val getAssignedAnimationBind by lazy {
+            ObjectCalls.getMethodBind("AnimationPlayer", "get_assigned_animation", GET_ASSIGNED_ANIMATION_HASH)
         }
 
         private const val QUEUE_HASH = 3304788590L
@@ -423,6 +463,11 @@ class AnimationPlayer(handle: MemorySegment) : AnimationMixer(handle) {
         private const val SET_AUTOPLAY_HASH = 3304788590L
         private val setAutoplayBind by lazy {
             ObjectCalls.getMethodBind("AnimationPlayer", "set_autoplay", SET_AUTOPLAY_HASH)
+        }
+
+        private const val GET_AUTOPLAY_HASH = 2002593661L
+        private val getAutoplayBind by lazy {
+            ObjectCalls.getMethodBind("AnimationPlayer", "get_autoplay", GET_AUTOPLAY_HASH)
         }
 
         private const val SET_MOVIE_QUIT_ON_FINISH_ENABLED_HASH = 2586408642L
@@ -500,18 +545,4 @@ class AnimationPlayer(handle: MemorySegment) : AnimationMixer(handle) {
             ObjectCalls.getMethodBind("AnimationPlayer", "get_method_call_mode", GET_METHOD_CALL_MODE_HASH)
         }
     }
-
-    // KANAMA-IOS-SUGAR: hand-added to a generated file; re-add after regeneration.
-    // ── Kanama sugar (not generated from Godot docs) ──────────────────────────
-
-    // KANAMA-IOS-STUB: getCurrentAnimation returns the last play() name, not Godot's live
-    // current_animation (String-return ptrcall not wired). Backlog.
-    // get_current_animation() returns StringName — a String-return ptrcall isn't wired
-    // yet. Track the last name passed to play() instead (the demos only change animation
-    // via play()), so `if (getCurrentAnimation() != "walk") play("walk")` stops
-    // re-triggering every frame (which caused the walk/idle animation to jitter).
-    // Backlog: real String-return ptrcall (then read Godot's actual current_animation).
-    private var currentAnimationName: String = ""
-
-    fun getCurrentAnimation(): String = currentAnimationName
 }

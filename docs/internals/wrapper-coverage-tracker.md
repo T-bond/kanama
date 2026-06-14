@@ -99,10 +99,26 @@ fable-reviewed).
    `get_class==Node2D` PASS on device (C 14→15, Kotlin 13→14, 0 failed, no notes).
    STUB count 11→ (Label.text get cleared). Gates: check_wrapper_generator,
    check_ios_no_silent_stubs, compileKotlinIosArm64, clang -fsyntax-only — all pass.
-3. **NEXT:** 2.3b — StringName-return (get_current_animation): needs the
-   String-from-StringName ctor hop (`variant_get_ptr_constructor`) since GDExtension
-   has no StringName→utf8; relax the generator gate to add `ptrcallNoArgsRetStringName`.
-   Then 2.4 (PT_STRING/PT_NODE_PATH args), 2.5 (Transform3D/Basis). 2.6 gated on 2.1/2.2 (now unblocked).
+3. **DONE: 2.3b StringName-return ptrcall (device-validated 2026-06-13).**
+   Dedicated C helper `kanama_ios_godot_ptrcall_no_args_ret_string_name`: ptrcall →
+   `String(from: StringName)` ctor (`variant_get_ptr_constructor(STRING, 2)`, since
+   GDExtension has no StringName→utf8) → `string_to_utf8_chars` → destruct both;
+   hand-written `ObjectCalls.ptrcallNoArgsRetStringName`. Generator gate relaxed to
+   the two no-arg getters (`shape.function in {ptrcallNoArgsRetString,
+   ptrcallNoArgsRetStringName}`). Real `AnimationPlayer.getCurrentAnimation()` now
+   generated (SUGAR cache + `currentAnimationName` dropped); 6 wrappers regenerated
+   (AnimationPlayer/Area2D/Area3D/Control/Label/Node) — additive StringName getters
+   (getName/getCurrentAnimation/getAudioBusName/getThemeTypeVariation/… + `var`
+   props). Self-test `Node.get_name==KanamaSN` PASS on device (C 15→16, Kotlin
+   14→15, 0 failed, no notes). Gates: check_wrapper_generator,
+   check_ios_no_silent_stubs (1 annotated site left), compileKotlinIosArm64,
+   clang -fsyntax-only — all pass. Build/deploy gotcha: a clean
+   ios_visual_smoke.sh rerun was needed — an earlier run left the prior xcframework
+   installed on device (self-test showed stale counts); the new symbol presence in
+   the built `.a` is the build-correctness check, device count is the deploy check.
+4. **NEXT:** 2.4 (PT_STRING/PT_NODE_PATH args — String/NodePath arg construction,
+   unblocks set_text-style writers + the platformer `view: NodePath` property),
+   2.5 (Transform3D/Basis). 2.6 gated on 2.1/2.2 (unblocked).
 - Workflow: impl per roadmap model tag → review diff → commit straight to main.
   (Fable 5 is no longer available as of 2026-06-12 — the review step and
   attribution are Opus 4.8: `Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>`.)
@@ -238,3 +254,26 @@ fable-reviewed).
   → 2.3b). Gates: check_wrapper_generator, check_ios_no_silent_stubs,
   compileKotlinIosArm64, clang -fsyntax-only — all pass. StringName-return
   (get_current_animation) deferred to 2.3b (needs String-from-StringName ctor hop).
+- **2026-06-13** — Phase 2.3b StringName-return ptrcall DONE (opus impl + review,
+  device-validated iPhone 12, iOS 26.5). GDExtension has no StringName→utf8, so the
+  dedicated C helper `kanama_ios_godot_ptrcall_no_args_ret_string_name` ptrcalls the
+  StringName, builds a String via the `String(from: StringName)` constructor
+  (`g_variant_get_ptr_constructor(KANAMA_IOS_VARIANT_TYPE_STRING, 2)` — index 2 per
+  extension_api.json; mirrors the existing node_path-from-string ctor pattern, added
+  to the hard-resolve guard), UTF-8 encodes, and destroys both. Kotlin
+  `ptrcallNoArgsRetStringName` reuses the two-call length protocol. Generator gate
+  relaxed: `shape.kotlin_return == "String"` now allows both `ptrcallNoArgsRetString`
+  and `ptrcallNoArgsRetStringName` (both hand-written). This unblocked the real
+  `AnimationPlayer.getCurrentAnimation()` (StringName return) — the SUGAR last-play()
+  cache + `currentAnimationName` field were dropped (AnimationPlayer regenerated
+  wholesale). 6 wrappers regenerated: AnimationPlayer (real getCurrentAnimation +
+  `var currentAnimation`/assignedAnimation/autoplay), Node (getName + `var name`),
+  Area2D/Area3D (audio/reverb bus name `var`s), Control (themeTypeVariation,
+  translationContext `var`s); Label/Node SUGAR re-applied (+`types.NodePath` import).
+  New self-test row Node.set_name("KanamaSN") → get_name() == "KanamaSN" in both
+  matrices: device C 15→16 passed/0 failed, Kotlin 14→15 passed/0 failed, no notes.
+  Gates: check_wrapper_generator, check_ios_no_silent_stubs (1 annotated site left),
+  compileKotlinIosArm64, clang -fsyntax-only — all pass. Deploy note: the device
+  briefly ran a stale xcframework after an interrupted run; verified build
+  correctness via `nm` of the rebuilt `.a` (symbol present) and re-ran a clean
+  ios_visual_smoke.sh to redeploy before trusting the device counts.

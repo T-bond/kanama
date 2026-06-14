@@ -230,6 +230,7 @@ IOS_HANDWRITTEN_HELPERS = {
     "ptrcallWithObjectArgs",
     "ptrcallWithStringNameAndBoolArgRetBool",
     "ptrcallNoArgsRetString",
+    "ptrcallNoArgsRetStringName",
 }
 PARAMETER_NAME_OVERRIDES = {
     ("Time", "get_datetime_dict_from_unix_time", "unix_time_val"): "unixTime",
@@ -851,12 +852,15 @@ def ios_method_supported(method: ApiMethod, object_types: set[str]) -> bool:
     shape = candidate_for(method, object_types)
     if shape is None or shape.kotlin_return not in IOS_RET_KOTLIN:
         return False
-    # iOS String read-back is wired only for the no-arg String getter
-    # (ptrcallNoArgsRetString). StringName no-arg returns and arg+String shapes share
-    # the "String" kotlin_return token but route through helpers not audited on iOS
-    # yet (StringName needs a String-from-StringName ctor hop — Phase 2.3b). Gate on
-    # the concrete helper so only get_text-style getters emit a real String call.
-    if shape.kotlin_return == "String" and shape.function != "ptrcallNoArgsRetString":
+    # iOS String read-back is wired for the two no-arg getters: ptrcallNoArgsRetString
+    # (String return) and ptrcallNoArgsRetStringName (StringName return → String via the
+    # String-from-StringName ctor hop). Arg+String/StringName shapes share the "String"
+    # kotlin_return token but route through helpers not audited on iOS yet — gate on the
+    # concrete helper so only the no-arg getters emit a real call.
+    if shape.kotlin_return == "String" and shape.function not in (
+        "ptrcallNoArgsRetString",
+        "ptrcallNoArgsRetStringName",
+    ):
         return False
     logical_args = method.logical_arg_kinds(object_types)
     if not all(kind in IOS_ARG_KINDS for kind in logical_args):

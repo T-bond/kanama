@@ -57,6 +57,20 @@ int64_t kanama_ios_godot_ptrcall_no_args_ret_string(
     int64_t buf_size
 );
 
+/*
+ * No-arg ptrcall returning a Godot StringName, marshalled to UTF-8.
+ *
+ * GDExtension has no StringName->utf8, so the returned StringName is converted to a
+ * String via the String(from: StringName) constructor and UTF-8 encoded from there.
+ * Same buffer/length contract as kanama_ios_godot_ptrcall_no_args_ret_string.
+ */
+int64_t kanama_ios_godot_ptrcall_no_args_ret_string_name(
+    int64_t method_bind,
+    int64_t instance,
+    char *out_buf,
+    int64_t buf_size
+);
+
 int64_t kanama_ios_godot_construct_object(const char *class_name);
 
 int64_t kanama_ios_godot_get_singleton(const char *name);

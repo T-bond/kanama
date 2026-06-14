@@ -10,6 +10,12 @@ import net.multigesture.kanama.types.NodePath
  * Generated from Godot docs: Node
  */
 open class Node(handle: MemorySegment) : GodotObject(handle) {
+    var name: String
+        @JvmName("nameProperty")
+        get() = getName()
+        @JvmName("setNameProperty")
+        set(value) = setName(value)
+
     var uniqueNameInOwner: Boolean
         @JvmName("uniqueNameInOwnerProperty")
         get() = isUniqueNameInOwner()
@@ -82,6 +88,10 @@ open class Node(handle: MemorySegment) : GodotObject(handle) {
 
     fun setName(name: String) {
         ObjectCalls.ptrcallWithStringNameArg(setNameBind, handle, name)
+    }
+
+    fun getName(): String {
+        return ObjectCalls.ptrcallNoArgsRetStringName(getNameBind, handle)
     }
 
     fun addChild(node: Node, forceReadableName: Boolean = false, internalValue: Long = 0L) {
@@ -538,6 +548,11 @@ open class Node(handle: MemorySegment) : GodotObject(handle) {
         private const val SET_NAME_HASH = 3304788590L
         private val setNameBind by lazy {
             ObjectCalls.getMethodBind("Node", "set_name", SET_NAME_HASH)
+        }
+
+        private const val GET_NAME_HASH = 2002593661L
+        private val getNameBind by lazy {
+            ObjectCalls.getMethodBind("Node", "get_name", GET_NAME_HASH)
         }
 
         private const val ADD_CHILD_HASH = 3863233950L
