@@ -202,6 +202,45 @@ JSON serializer (`ScriptModelJson.kt`) + per-script emission, and the
 platform-aware processor. The KSP-on-iOS Gradle wiring is validated and documented
 here, to land with 3.2.
 
+## Phase 3.2 plan (next session — concrete)
+
+Decision (clear from the architecture, no fork): **approach (b)** — the processor's
+Native emitter generates the iOS registrar Kotlin directly, the exact analogue of
+the JVM `ScriptCodeEmitter`. This removes BOTH the `parseIosScript` regex parser
+AND the separate `generateIosScriptRegistry` Gradle codegen, and dissolves the
+task-ordering problem (KSP emits the registrar into the iosArm64 compilation just
+like the JVM registrar). The standalone `.script-model.json` stays useful as the
+parallel-run oracle and for any non-Kotlin consumer.
+
+Steps:
+1. **Add `IosScriptCodeEmitter` to the processor** (Native analogue of
+   `ScriptCodeEmitter`). It must reproduce what `ios-runtime/build.gradle.kts`'s
+   `generateIosRegistrySource` / `generateIosGeneratedConstantsSource` /
+   `generateIosCompatibilitySources` emit today: `registerKanamaIosProjectScripts()`,
+   the per-script `KanamaIosScriptDescriptor` (path/baseType/methods/properties/
+   signals/factory), and the bridge classes (`call`/`callObject`/`callArgs`/
+   `callVector2i`/`callLong`/`setProperty`/`setPropertyString`/
+   `setPropertyObjectArray`) consumed by `KanamaIosRuntime`. Gate it on `!emitJvmCode`
+   (Native only), beside the JSON emission in `emitScriptRegistrar`.
+2. **Parallel-run gate first (de-risk before deleting anything):** generate the iOS
+   registry both ways for the demo scripts and assert equality (a `check_*`-style
+   build gate). The emitter must match the regex parser's output byte-for-byte (or a
+   normalized form) before cutover.
+3. **Cutover:** re-apply the KSP-on-iOS wiring (validated above), delete
+   `parseIosScript` + `generateIosScriptRegistry` + the `IosScriptBridgeKind`
+   heuristics + `IOS_UNWIRED_FUNCTION_ANNOTATIONS`.
+4. **Device-build check:** run `ios_visual_smoke` (iPhone) — confirm the probe
+   scripts pass KSP-on-iOS and the self-test matrix stays green. (Flag the user
+   before the device launch — the phone auto-locks.)
+5. **2.6 then falls out for free:** the emitter has full type fidelity, so
+   value-type `@ScriptProperty` delivery (NodePath/Vector/Color) is just an emitter
+   case over the Phase-2 type machinery — no separate 2.6 work.
+
+Open item carried from validation: object-typed `@ScriptProperty`s whose wrapper
+types don't resolve on Kotlin/Native (the `unsupported type 'null'` caveat) — decide
+whether the emitter degrades gracefully (skip + warn, like today's regex path) or
+requires the iOS wrapper to exist (Phase 2/4 dependency).
+
 ## Scope note
 
 3.1 is **design + the serialized model emission + parallel-run validation** — it
