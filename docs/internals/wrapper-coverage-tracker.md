@@ -185,7 +185,18 @@ needs a decision (see the numbered items below + the roadmap backlog):
   `*Signals`, so the shared-script→leaf-helper visibility gap doesn't bite the device path).
   **NEXT Step 4: device validation — FLAG USER FIRST (phone auto-locks).** Run ios_visual_smoke
   probes; confirm KSP-on-iOS registry drives the probe scripts + self-test matrix stays green
-  (39 C / 44 Kotlin). **AWAITING USER for the device run (2026-06-15).**
+  (39 C / 44 Kotlin). **Device run attempted 2026-06-15 (iPhone 12, UDID 48DF9662…): cutover
+  BUILD-VALIDATED end-to-end** — `kspKotlinIosArm64` emitted the registry as real `.kt`
+  (`generated iOS @ScriptClass registry for 1 script(s) (asResource=false)`), Kotlin/Native +
+  device xcframework + Godot export all succeeded, zero Kotlin/KSP/compile errors. **BLOCKED on
+  Xcode signing only:** the app build failed with `No Accounts: Add a new account in Accounts
+  settings` + `No profiles for net.multigesture.kanama.iosvisualsmoke` — no Apple ID registered in
+  Xcode Accounts for automatic provisioning (environmental, not a Kanama regression; team
+  BMB2Z6C76G personal). FIX: sign into Xcode → Settings → Accounts (laurence.muller@gmail.com),
+  then re-run `scripts/ios_visual_smoke.sh --physical-device --device 48DF9662-42F3-541F-9F88-
+  7FA2AB870F86 --development-team BMB2Z6C76G --allow-provisioning-updates --kanama-user-script-probe`
+  to capture the on-device self-test matrix + the "Kanama iOS project script ready" line. The
+  iOS-safe gate fixture is at `ios-runtime/src/iosScriptFixtures/kotlin-src/`.
 - **Step 5 (2.6) SCOPE CORRECTED — NOT "free", it's a value-type set-property path.** The design
   doc's "2.6 falls out for free as an emitter case" was optimistic: the model now carries full
   value-type fidelity (NODE_PATH/VECTOR3/COLOR…), and the emitter *could* generate the Kotlin-side
