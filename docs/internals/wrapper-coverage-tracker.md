@@ -99,9 +99,16 @@ needs a decision (see the numbered items below + the roadmap backlog):
 - **NEXT: Phase 3.1** — make the KSP processor emit the serialized script model the
   iOS build consumes (the architectural keystone). Then 3.2 retires the regex parser.
   **Design doc landed:** [script-model-unification-design.md](./script-model-unification-design.md).
-  Load-bearing decision pending: **Option A** (KSP emits JSON on JVM compile, iOS task
-  reads it) **vs B** (recommended — run the shared processor via KSP on the iOS native
-  target, the only path that truly deletes parseIosScript). 2.6 falls out of 3.2 for free.
+  **USER DECISION 2026-06-15: Option B** (run the shared processor via KSP on the iOS
+  native target — the path that deletes parseIosScript). 2.6 falls out of 3.2 for free.
+  **In progress (step 1a DONE, committed `bdee65f`):** extracted the platform-neutral
+  model into `processor/.../ScriptModel.kt`, byte-identical generated registrars
+  (verified via `:project-scripts:kspKotlin` content sha). **Next sub-steps:** 1b —
+  move ArgModel.readFromScratch/readPtrcallArg + TypeMapping's JVM ptrcall exprs off the
+  model into the JVM emitter (so the model is serialization-clean); then the JSON
+  serializer + schemaVersion; then the Option-B Gradle wiring (KSP on iosMain) + the
+  parallel-run gate (assert new model == parseIosScript for demo scripts) before 3.2
+  deletes the regex parser.
 - Cleanly self-test-validatable items: ~~Variant `Object.call` dispatch~~ DONE
   (item 8); ~~value-type BuiltinTypes on iOS~~ DONE (items 9–11): no-arg + args
   shapes across Transform3D/Basis/Vector2/Vector3/Quaternion + scalar float/bool/int
@@ -315,6 +322,12 @@ needs a decision (see the numbered items below + the roadmap backlog):
 
 ## Session log
 
+- **2026-06-15** — Phase 3.1 step 1a (opus impl). User chose Option B (KSP on the
+  iOS native target). Extracted the platform-neutral model into ScriptModel.kt
+  (byte-identical generated registrars, verified by content sha of
+  :project-scripts:kspKotlin output). Next: 1b (neutralize ArgModel/TypeMapping
+  JVM codegen off the model) → JSON serializer → Option-B Gradle wiring +
+  parallel-run gate. Committed bdee65f.
 - **2026-06-15** — Phase 3.1 framing (opus design). Design doc
   [script-model-unification-design.md] landed: two front-ends (KSP ScriptModel
   vs iOS parseIosScript regex) → one serialized platform-neutral JSON model;
