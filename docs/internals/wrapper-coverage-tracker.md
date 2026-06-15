@@ -185,7 +185,21 @@ needs a decision (see the numbered items below + the roadmap backlog):
   `*Signals`, so the shared-script→leaf-helper visibility gap doesn't bite the device path).
   **NEXT Step 4: device validation — FLAG USER FIRST (phone auto-locks).** Run ios_visual_smoke
   probes; confirm KSP-on-iOS registry drives the probe scripts + self-test matrix stays green
-  (39 C / 44 Kotlin). Then Step 5 = 2.6 value-type @ScriptProperty delivery (emitter case).
+  (39 C / 44 Kotlin). **AWAITING USER for the device run (2026-06-15).**
+- **Step 5 (2.6) SCOPE CORRECTED — NOT "free", it's a value-type set-property path.** The design
+  doc's "2.6 falls out for free as an emitter case" was optimistic: the model now carries full
+  value-type fidelity (NODE_PATH/VECTOR3/COLOR…), and the emitter *could* generate the Kotlin-side
+  construction, BUT the iOS C set-property callback `kanama_ios_script_instance_set_property`
+  (`ios/bootstrap/kanama_ios_shim.c:4277`) only marshals OBJECT/INT/BOOL/FLOAT/STRING/ARRAY —
+  value types fall through to `else → return 0` (undelivered). Delivering them needs the SAME kind
+  of work as the value-type method machinery (items 9–13): (1) C cases that marshal the Variant
+  value into a PT-tagged byte buffer + a new export `…set_property_value(handle, index, tag,
+  bytes, len)`; (2) a Kotlin `setScriptInstancePropertyValue` + a new `KanamaIosScriptBridge.
+  setPropertyValue(index, …)` default; (3) emitter `setPropertyValue` cases for value-type props
+  (currently classified godotClassName="" → skip+warn); (4) self-test rows + device run. So 2.6 is
+  a distinct ~multi-part feature to do AFTER the device confirms the Step 1–3 cutover (it also
+  needs its own device validation). The emitter is already structured for it — the
+  `toIosProperty` value-type branch is where the `setPropertyValue` classification slots in.
 - Cleanly self-test-validatable items: ~~Variant `Object.call` dispatch~~ DONE
   (item 8); ~~value-type BuiltinTypes on iOS~~ DONE (items 9–11): no-arg + args
   shapes across Transform3D/Basis/Vector2/Vector3/Quaternion + scalar float/bool/int
