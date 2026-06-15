@@ -29,6 +29,18 @@ data class Basis(
     fun orthonormalized(): Basis =
         fromFloat32(BuiltinCalls.callNoArgsFloat32(orthonormalizedBind, toFloat32()))
 
+    /**
+     * Returns a copy of this basis scaled by [scale] (each row multiplied by the matching
+     * [scale] component). IDENTITY scaled by (sx,sy,sz) is diag(sx,sy,sz).
+     */
+    fun scaled(scale: Vector3): Basis =
+        fromFloat32(BuiltinCalls.call(scaledBind, toFloat32(), 9, listOf(
+            BuiltinCalls.BArg.Floats(
+                BuiltinCalls.PT_VECTOR3,
+                floatArrayOf(scale.x.toFloat(), scale.y.toFloat(), scale.z.toFloat()),
+            ),
+        )))
+
     // Column-major 9 float32, matching the ObjectCalls Basis ptrcall layout.
     private fun toFloat32(): FloatArray =
         floatArrayOf(
@@ -54,6 +66,9 @@ data class Basis(
         }
         private val orthonormalizedBind by lazy {
             BuiltinCalls.getBuiltinMethod(BuiltinCalls.VT_BASIS, "orthonormalized", 594669093L)
+        }
+        private val scaledBind by lazy {
+            BuiltinCalls.getBuiltinMethod(BuiltinCalls.VT_BASIS, "scaled", 3934786792L)
         }
 
         private fun fromFloat32(c: FloatArray): Basis =

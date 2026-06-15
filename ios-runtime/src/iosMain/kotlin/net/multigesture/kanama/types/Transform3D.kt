@@ -59,6 +59,16 @@ data class Transform3D(
             BuiltinCalls.BArg.Real(weight),
         )))
 
+    /**
+     * Returns a copy of this transform translated by [offset] in global space (offset added
+     * to [origin] directly). For translation relative to the transform's own basis use
+     * `translated_local` instead (not yet wired on iOS).
+     */
+    fun translated(offset: Vector3): Transform3D =
+        fromFloat32(BuiltinCalls.call(translatedBind, toFloat32(), 12, listOf(
+            BuiltinCalls.BArg.Floats(BuiltinCalls.PT_VECTOR3, vec3(offset)),
+        )))
+
     // Column-major 12 float32, matching the ObjectCalls Transform3D ptrcall layout.
     private fun toFloat32(): FloatArray =
         floatArrayOf(
@@ -88,6 +98,9 @@ data class Transform3D(
         }
         private val interpolateWithBind by lazy {
             BuiltinCalls.getBuiltinMethod(BuiltinCalls.VT_TRANSFORM3D, "interpolate_with", 1786453358L)
+        }
+        private val translatedBind by lazy {
+            BuiltinCalls.getBuiltinMethod(BuiltinCalls.VT_TRANSFORM3D, "translated", 1405596198L)
         }
 
         private fun vec3(v: Vector3): FloatArray =

@@ -1,5 +1,6 @@
 package net.multigesture.kanama.types
 
+import net.multigesture.kanama.binding.runtime.BuiltinCalls
 import kotlin.math.cos
 import kotlin.math.sin
 import kotlin.math.sqrt
@@ -76,9 +77,28 @@ data class Vector3(
         )
     }
 
+    /**
+     * Returns the cross product of this vector and [with], computed by Godot via the
+     * value-type builtin call path (so the handedness/ordering matches the engine exactly).
+     */
+    fun cross(with: Vector3): Vector3 =
+        fromFloat32(BuiltinCalls.call(crossBind, toFloat32(), 3, listOf(
+            BuiltinCalls.BArg.Floats(BuiltinCalls.PT_VECTOR3, with.toFloat32()),
+        )))
+
+    private fun toFloat32(): FloatArray =
+        floatArrayOf(x.toFloat(), y.toFloat(), z.toFloat())
+
     companion object {
         val ZERO = Vector3(0.0, 0.0, 0.0)
         val ONE = Vector3(1.0, 1.0, 1.0)
         val UP = Vector3(0.0, 1.0, 0.0)
+
+        private val crossBind by lazy {
+            BuiltinCalls.getBuiltinMethod(BuiltinCalls.VT_VECTOR3, "cross", 2923479887L)
+        }
+
+        private fun fromFloat32(c: FloatArray): Vector3 =
+            Vector3(c[0].toDouble(), c[1].toDouble(), c[2].toDouble())
     }
 }

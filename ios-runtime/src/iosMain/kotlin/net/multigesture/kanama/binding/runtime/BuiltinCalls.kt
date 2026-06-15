@@ -33,6 +33,9 @@ import net.multigesture.kanama.ios.cinterop.kanama_ios_godot_get_builtin_method
  */
 object BuiltinCalls {
     // Godot Variant type ids (Variant::Type) — must match the engine enum.
+    const val VT_VECTOR2 = 5
+    const val VT_VECTOR3 = 9
+    const val VT_QUATERNION = 15
     const val VT_BASIS = 17
     const val VT_TRANSFORM3D = 18
 
@@ -40,8 +43,10 @@ object BuiltinCalls {
     // Used as the [BArg.Floats] tag for value-type args (struct types are passthrough C-side).
     const val PT_BOOL = 1
     const val PT_FLOAT64 = 5
+    const val PT_VECTOR2 = 6
     const val PT_VECTOR3 = 8
     const val PT_TRANSFORM3D = 19
+    const val PT_QUATERNION = 20
 
     /** An argument to a builtin method call (the value-type analogue of a ptrcall arg). */
     sealed interface BArg {

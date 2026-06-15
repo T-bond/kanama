@@ -78,9 +78,10 @@ iOS audited-kind widening BOTH complete and committed to main — 2.1 Vector2i/3
 Transform3D/Basis, plus RID/Quaternion/AABB. PLUS the iOS Variant `Object.call`
 dispatch (5 of the 8 IosGodotApi STUBs — call/set_deferred/disconnect/
 set_custom_mouse_cursor/SignalConnection.error) PLUS the iOS value-type (builtin)
-method call path (item 9 — Transform3D `inverse/affine_inverse/orthonormalized/
-looking_at/interpolate_with`, Basis `inverse/transposed/orthonormalized`). All
-device-validated on iPhone 12 (iOS 26.5); self-test matrix is now 30 C + 35 Kotlin
+method call path (items 9–11 — Transform3D `inverse/affine_inverse/orthonormalized/
+looking_at/interpolate_with/translated`, Basis `inverse/transposed/orthonormalized/
+scaled`, Vector3 `cross`, Vector2 `rotated`, Quaternion `inverse`). All
+device-validated on iPhone 12 (iOS 26.5); self-test matrix is now 35 C + 40 Kotlin
 rows, all green.
 `Plane` deferred (no emitted-class test method to anchor a row). 3 STUBs remain
 (deferred, see item 8): connectBound/disconnectBound (need `Callable.bindv`) and
@@ -88,16 +89,21 @@ SignalConnection.close (needs custom-Callable hash/equal + disconnect-callable).
 
 **The clean POD-widening seam is exhausted.** The remaining work is bigger /
 needs a decision (see the numbered items below + the roadmap backlog):
-- **2.6** (`@ScriptProperty` value delivery — platformer `view: NodePath`) is the
-  literal next, but extends the 711-line regex parser the roadmap retires in
-  Phase 3. Sequencing fork: do 2.6 through the parser now (~½–1 day, demo-validated,
-  re-done at Phase 3) **vs** Phase 3 KSP unification first (multi-day, then 2.6 is
-  clean). USER DECISION pending.
-- Cleanly self-test-validatable ~1-day items (no demo-run needed): ~~Variant
-  `Object.call` dispatch~~ DONE (item 8); ~~value-type BuiltinTypes on iOS~~ path
-  built + no-arg & args (Vector3/Transform3D/bool/double) shapes DONE (item 9 +
-  10) — extend to Vector2/Vector3/Quaternion ops & more methods the same way (add
-  a hash + a `types/` method + a self-test row).
+- **2.6** (`@ScriptProperty` value delivery — platformer `view: NodePath`) is
+  **sequenced AFTER Phase 3 KSP unification** (USER DECISION 2026-06-15): it would
+  extend the 711-line regex parser `parseIosScript` in `ios-runtime/build.gradle.kts`
+  (today warns + keeps the Kotlin default for value-type props, ~line 282) that
+  Phase 3.2 deletes. Marshalling primitives are ready; do Phase 3.1 (KSP emits a
+  serialized platform-neutral script model) → 3.2, then 2.6 once, clean.
+- **NEXT: Phase 3.1** — make the KSP processor emit the serialized script model the
+  iOS build consumes (the architectural keystone). Then 3.2 retires the regex parser.
+- Cleanly self-test-validatable items: ~~Variant `Object.call` dispatch~~ DONE
+  (item 8); ~~value-type BuiltinTypes on iOS~~ DONE (items 9–11): no-arg + args
+  shapes across Transform3D/Basis/Vector2/Vector3/Quaternion. The BuiltinCalls
+  value-type seam can keep being widened in parallel (add a hash + a `types/`
+  method + 2 self-test rows) — but a scalar-return shape (e.g. `dot`/`length`/
+  `determinant` returning a float, not a value type) is the next NEW capability
+  there; today the path only decodes float32-component (value-type) returns.
 - Each new audited kind = 1 iOS `types/` file + `ios_arg_layout`/`ios_ret_layout`
   case + 2 self-test rows (C+Kotlin) + regenerate + Node3D fixture refresh + a
   device run. ~30–60 min each. Two gotchas the hard way: do NOT `construct_object`
@@ -252,12 +258,35 @@ needs a decision (see the numbered items below + the roadmap backlog):
    products return `-0.0` in some zero slots; C `==0` is true (IEEE) but Kotlin data-class
    equality uses `Double.equals` where `-0.0 != 0.0`. The marshalling was correct; fixed by
    comparing components with `==` (numeric) instead of data-class `==`. Gates all pass.
+11. **DONE: value-type builtin methods widened — Vector ops + new variant types
+   (device-validated 2026-06-15).** Added `KANAMA_IOS_VARIANT_TYPE_VECTOR3=9`/
+   `QUATERNION=15` to the C shim + `BuiltinCalls` VT_VECTOR2/VECTOR3/QUATERNION +
+   PT_VECTOR2/QUATERNION constants. Wired 5 engine-computed methods via the existing
+   generic `get_builtin_method`/`builtin_call` path: `Vector3.cross(Vector3)`,
+   `Vector2.rotated(double)`, `Quaternion.inverse()` (no-arg→Self),
+   `Basis.scaled(Vector3)`, `Transform3D.translated(Vector3)` — 3 NEW variant types
+   (Vector2/Vector3/Quaternion get their first `toFloat32`/`fromFloat32` + bind
+   lazies) plus 2 new Vector3-arg shapes on existing Basis/Transform3D. Self-test:
+   +5 C rows, +5 Kotlin rows (cross x̂×ŷ=ẑ exact; rotated π/2 and Quaternion.inverse
+   90°-about-Z with ε=1e-4 since trig/length²-divide; scaled diag and translated
+   offset exact). Compared component-wise with numeric `==` (and ε), NOT data-class
+   `==` — the -0.0 trap (item 10). Device C 30→35, Kotlin 35→40, 0 failed, no notes.
+   Gates: check_wrapper_generator, check_ios_no_silent_stubs, compileKotlinIosArm64,
+   clang -fsyntax-only — all pass. **Next NEW capability on this seam:** a
+   scalar-return shape (`dot`/`length`/`determinant` → float, not a value type) — the
+   path currently decodes only float32-component value-type returns.
 - Workflow: impl per roadmap model tag → review diff → commit straight to main.
   (Fable 5 is no longer available as of 2026-06-12 — the review step and
   attribution are Opus 4.8: `Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>`.)
 
 ## Session log
 
+- **2026-06-15** — value-type builtin methods widened to Vector ops + new variant
+  types (opus impl). VT_VECTOR3/QUATERNION C constants + BuiltinCalls VT/PT consts;
+  wired Vector3.cross / Vector2.rotated / Quaternion.inverse / Basis.scaled /
+  Transform3D.translated. Device C 30→35, Kotlin 35→40, 0 failed. **USER DECISION:**
+  2.6 @ScriptProperty value delivery sequenced AFTER Phase 3 KSP unification (don't
+  extend the 711-line regex parser now); NEXT is Phase 3.1. See item 11.
 - **2026-06-15** — value-type builtin methods widened to the args path (opus impl).
   BuiltinCalls.call(BArg list); wired Transform3D affine_inverse/orthonormalized/
   looking_at/interpolate_with + Basis transposed/orthonormalized. Device C 28→30,

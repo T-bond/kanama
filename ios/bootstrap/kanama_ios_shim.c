@@ -414,6 +414,8 @@ enum {
     KANAMA_IOS_VARIANT_TYPE_VECTOR2 = 5,
     KANAMA_IOS_VARIANT_TYPE_VECTOR2I = 6,
     KANAMA_IOS_VARIANT_TYPE_RECT2 = 7,
+    KANAMA_IOS_VARIANT_TYPE_VECTOR3 = 9,
+    KANAMA_IOS_VARIANT_TYPE_QUATERNION = 15,
     KANAMA_IOS_VARIANT_TYPE_COLOR = 20,
     KANAMA_IOS_VARIANT_TYPE_STRING_NAME = 21,
     KANAMA_IOS_VARIANT_TYPE_NODE_PATH = 22,
@@ -5184,6 +5186,92 @@ static void kanama_ios_ptrcall_selftest(void) {
             out[1]==0 && out[2]==0 && out[3]==0 && out[5]==0 && out[6]==0 && out[7]==0 &&
             out[9]==1 && out[10]==2 && out[11]==4;
         KANAMA_IOS_ST_CHECK("builtin Transform3D.interpolate_with 0.5", ok);
+    }
+
+    // Builtin method with a Vector3 arg on a Vector3 base: Vector3.cross. x̂×ŷ = ẑ —
+    // cross((1,0,0),(0,1,0)) = (0,0,1). Exact float32; exercises VT_VECTOR3 + PT_VECTOR3 arg.
+    {
+        int64_t mb = kanama_ios_godot_get_builtin_method(
+            KANAMA_IOS_VARIANT_TYPE_VECTOR3, "cross", 2923479887);
+        float base[3] = { 1,0,0 };
+        float with[3] = { 0,1,0 };
+        const void *a[1] = { with };
+        int32_t t[1] = { KANAMA_IOS_PT_VECTOR3 };
+        float out[3] = { 9,9,9 };
+        kanama_ios_godot_builtin_call(mb, base, t, a, 1, out);
+        int ok = mb != 0 && out[0]==0 && out[1]==0 && out[2]==1;
+        KANAMA_IOS_ST_CHECK("builtin Vector3.cross x*y=z", ok);
+    }
+
+    // Builtin method with a float arg on a Vector2 base: Vector2.rotated. Rotating (1,0) by
+    // π/2 -> (~0,1). Float trig, so tolerance ε; exercises VT_VECTOR2 + PT_FLOAT64 scalar arg.
+    {
+        int64_t mb = kanama_ios_godot_get_builtin_method(
+            KANAMA_IOS_VARIANT_TYPE_VECTOR2, "rotated", 2544004089);
+        float base[2] = { 1,0 };
+        double angle = 1.5707963267948966;  // π/2
+        const void *a[1] = { &angle };
+        int32_t t[1] = { KANAMA_IOS_PT_FLOAT64 };
+        float out[2] = { 9,9 };
+        kanama_ios_godot_builtin_call(mb, base, t, a, 1, out);
+        int ok = mb != 0 &&
+            out[0] > -1e-4f && out[0] < 1e-4f &&
+            out[1] > 1 - 1e-4f && out[1] < 1 + 1e-4f;
+        KANAMA_IOS_ST_CHECK("builtin Vector2.rotated pi/2", ok);
+    }
+
+    // No-arg->Self builtin on a Quaternion base: Quaternion.inverse(). For a unit quaternion
+    // (90° about Z = (0,0,sin45,cos45)) the inverse is the conjugate: z flips sign, w kept.
+    // Float divide by length² so tolerance ε; exercises VT_QUATERNION.
+    {
+        int64_t mb = kanama_ios_godot_get_builtin_method(
+            KANAMA_IOS_VARIANT_TYPE_QUATERNION, "inverse", 4274879941);
+        float s = 0.70710677f;
+        float base[4] = { 0,0, s, s };
+        float out[4] = { 9,9,9,9 };
+        kanama_ios_godot_builtin_call(mb, base, NULL, NULL, 0, out);
+        int ok = mb != 0 &&
+            out[0] > -1e-4f && out[0] < 1e-4f &&
+            out[1] > -1e-4f && out[1] < 1e-4f &&
+            out[2] > -s - 1e-4f && out[2] < -s + 1e-4f &&
+            out[3] > s - 1e-4f && out[3] < s + 1e-4f;
+        KANAMA_IOS_ST_CHECK("builtin Quaternion.inverse 90z", ok);
+    }
+
+    // Builtin method with a Vector3 arg on a Basis base: Basis.scaled. IDENTITY scaled by
+    // (2,3,4) -> diag(2,3,4). Exact float32; exercises VT_BASIS + PT_VECTOR3 arg.
+    {
+        int64_t mb = kanama_ios_godot_get_builtin_method(
+            KANAMA_IOS_VARIANT_TYPE_BASIS, "scaled", 3934786792);
+        float base[9] = { 1,0,0, 0,1,0, 0,0,1 };
+        float scale[3] = { 2,3,4 };
+        const void *a[1] = { scale };
+        int32_t t[1] = { KANAMA_IOS_PT_VECTOR3 };
+        float out[9] = { 0 };
+        kanama_ios_godot_builtin_call(mb, base, t, a, 1, out);
+        int ok = mb != 0 &&
+            out[0]==2 && out[4]==3 && out[8]==4 &&
+            out[1]==0 && out[2]==0 && out[3]==0 && out[5]==0 && out[6]==0 && out[7]==0;
+        KANAMA_IOS_ST_CHECK("builtin Basis.scaled diag", ok);
+    }
+
+    // Builtin method with a Vector3 arg on a Transform3D base: Transform3D.translated.
+    // IDENTITY+origin0 translated by (1,2,3) -> IDENTITY+origin(1,2,3). Exact float32;
+    // exercises VT_TRANSFORM3D + PT_VECTOR3 arg.
+    {
+        int64_t mb = kanama_ios_godot_get_builtin_method(
+            KANAMA_IOS_VARIANT_TYPE_TRANSFORM3D, "translated", 1405596198);
+        float base[12] = { 1,0,0, 0,1,0, 0,0,1, 0,0,0 };
+        float offset[3] = { 1,2,3 };
+        const void *a[1] = { offset };
+        int32_t t[1] = { KANAMA_IOS_PT_VECTOR3 };
+        float out[12] = { 0 };
+        kanama_ios_godot_builtin_call(mb, base, t, a, 1, out);
+        int ok = mb != 0 &&
+            out[0]==1 && out[4]==1 && out[8]==1 &&
+            out[1]==0 && out[2]==0 && out[3]==0 && out[5]==0 && out[6]==0 && out[7]==0 &&
+            out[9]==1 && out[10]==2 && out[11]==3;
+        KANAMA_IOS_ST_CHECK("builtin Transform3D.translated offset", ok);
     }
 
     fprintf(stderr, "[kanama][ios][c] PTRCALL SELFTEST MATRIX: %d passed, %d failed\n", pass, fail);

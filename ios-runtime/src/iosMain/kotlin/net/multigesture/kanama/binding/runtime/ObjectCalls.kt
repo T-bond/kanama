@@ -739,5 +739,42 @@ fun kanamaIosRuntimeObjectCallsSelfTest() {
         Transform3D.IDENTITY.interpolateWith(Transform3D(Basis.IDENTITY, Vector3(2.0, 4.0, 8.0)), 0.5) ==
             Transform3D(Basis.IDENTITY, Vector3(1.0, 2.0, 4.0)))
 
+    // Vector3.cross (arg path: Vector3 base + Vector3 arg, new VT_VECTOR3): x̂×ŷ = ẑ. The
+    // cross product yields -0.0 in the zero slots, so compare component-wise with `==`
+    // (numeric, treats -0.0 == 0.0) rather than data-class equals (Double.equals: -0.0 != 0.0).
+    val cross = Vector3(1.0, 0.0, 0.0).cross(Vector3(0.0, 1.0, 0.0))
+    check("builtin-call(Vector3.cross x*y=z)", cross.x == 0.0 && cross.y == 0.0 && cross.z == 1.0)
+
+    // Vector2.rotated (arg path: Vector2 base + double scalar, new VT_VECTOR2): (1,0) by π/2 ->
+    // (~0,1). Float trig, so component-wise tolerance ε (also avoids the -0.0 data-class trap).
+    val rot = Vector2(1.0, 0.0).rotated(kotlin.math.PI / 2.0)
+    check("builtin-call(Vector2.rotated pi/2)",
+        kotlin.math.abs(rot.x) < 1e-4 && kotlin.math.abs(rot.y - 1.0) < 1e-4)
+
+    // Quaternion.inverse (no-arg->Self, new VT_QUATERNION): for the unit quaternion 90° about Z
+    // = (0,0,sin45,cos45) the inverse is the conjugate (z flips sign, w kept). Float divide by
+    // length² so component-wise tolerance ε.
+    val s = 0.7071067811865476
+    val qInv = Quaternion(0.0, 0.0, s, s).inverse()
+    check("builtin-call(Quaternion.inverse 90z)",
+        kotlin.math.abs(qInv.x) < 1e-4 && kotlin.math.abs(qInv.y) < 1e-4 &&
+            kotlin.math.abs(qInv.z + s) < 1e-4 && kotlin.math.abs(qInv.w - s) < 1e-4)
+
+    // Basis.scaled (arg path: Basis base + Vector3 arg): IDENTITY scaled by (2,3,4) -> diag(2,3,4).
+    // Exact float32, but compare component-wise with `==` to dodge any -0.0 in the off-diagonal.
+    val scaled = Basis.IDENTITY.scaled(Vector3(2.0, 3.0, 4.0))
+    check("builtin-call(Basis.scaled diag)",
+        vecEq(scaled.x, Vector3(2.0, 0.0, 0.0)) && vecEq(scaled.y, Vector3(0.0, 3.0, 0.0)) &&
+            vecEq(scaled.z, Vector3(0.0, 0.0, 4.0)))
+
+    // Transform3D.translated (arg path: Transform3D base + Vector3 arg): IDENTITY+origin0
+    // translated by (1,2,3) -> IDENTITY+origin(1,2,3). Exact; component-wise `==`.
+    val moved = Transform3D.IDENTITY.translated(Vector3(1.0, 2.0, 3.0))
+    check("builtin-call(Transform3D.translated offset)",
+        vecEq(moved.basis.x, Vector3(1.0, 0.0, 0.0)) &&
+            vecEq(moved.basis.y, Vector3(0.0, 1.0, 0.0)) &&
+            vecEq(moved.basis.z, Vector3(0.0, 0.0, 1.0)) &&
+            vecEq(moved.origin, Vector3(1.0, 2.0, 3.0)))
+
     println("[kanama][ios][kn] OBJECTCALLS SELFTEST: $pass passed, $fail failed")
 }
