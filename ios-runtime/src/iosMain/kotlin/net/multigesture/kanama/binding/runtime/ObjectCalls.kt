@@ -32,6 +32,7 @@ import net.multigesture.kanama.ios.cinterop.kanama_ios_godot_object_call
 import net.multigesture.kanama.ios.cinterop.kanama_ios_godot_ptrcall
 import net.multigesture.kanama.ios.cinterop.kanama_ios_godot_ptrcall_no_args_ret_string
 import net.multigesture.kanama.ios.cinterop.kanama_ios_godot_ptrcall_no_args_ret_string_name
+import net.multigesture.kanama.ios.decodeIosPropertyValue
 import net.multigesture.kanama.types.AABB
 import net.multigesture.kanama.types.Basis
 import net.multigesture.kanama.types.Color
@@ -792,6 +793,30 @@ fun kanamaIosRuntimeObjectCallsSelfTest() {
     // (1,5,2) -> Y = 1; (1,2,9) -> Z = 2. Non-zero expectations catch a wrong-width zero-read.
     check("builtin-call(Vector3.max_axis_index int)",
         Vector3(1.0, 5.0, 2.0).maxAxisIndex() == 1 && Vector3(1.0, 2.0, 9.0).maxAxisIndex() == 2)
+
+    // Value-type @ScriptProperty decode (Phase 3.2 Step 5 / 2.6): exercise decodeIosPropertyValue's
+    // tag dispatch — the Kotlin side of the set-property value path. The C side ships float32
+    // component buffers (Vector2/Vector3) and utf8 path bytes (NodePath) with PT_* tags; this
+    // reproduces those exact buffers and asserts the decoded value. Components compared numerically
+    // (1.5/-2.5/1/2/3 are exact in float32->double, no -0.0 in play).
+    memScoped {
+        val v2 = allocArray<FloatVar>(2)
+        v2[0] = 1.5f; v2[1] = -2.5f
+        val dv2 = decodeIosPropertyValue(6, v2.reinterpret(), 8) as? Vector2
+        check("setprop-decode(Vector2)", dv2 != null && dv2.x == 1.5 && dv2.y == -2.5)
+
+        val v3 = allocArray<FloatVar>(3)
+        v3[0] = 1.0f; v3[1] = 2.0f; v3[2] = 3.0f
+        val dv3 = decodeIosPropertyValue(8, v3.reinterpret(), 12) as? Vector3
+        check("setprop-decode(Vector3)", dv3 != null && dv3.x == 1.0 && dv3.y == 2.0 && dv3.z == 3.0)
+
+        val path = "../SceneTarget3D"
+        val pathBytes = path.encodeToByteArray()
+        val pb = allocArray<ByteVar>(pathBytes.size)
+        for (i in pathBytes.indices) pb[i] = pathBytes[i]
+        val dnp = decodeIosPropertyValue(17, pb, pathBytes.size) as? NodePath
+        check("setprop-decode(NodePath)", dnp != null && dnp.path == path)
+    }
 
     println("[kanama][ios][kn] OBJECTCALLS SELFTEST: $pass passed, $fail failed")
 }

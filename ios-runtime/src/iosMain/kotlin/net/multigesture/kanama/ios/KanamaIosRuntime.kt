@@ -3,13 +3,20 @@ package net.multigesture.kanama.ios
 import kotlinx.cinterop.ByteVar
 import kotlinx.cinterop.CPointer
 import kotlinx.cinterop.ExperimentalForeignApi
+import kotlinx.cinterop.FloatVar
 import kotlinx.cinterop.LongVar
 import kotlinx.cinterop.get
+import kotlinx.cinterop.readBytes
+import kotlinx.cinterop.reinterpret
 import kotlinx.cinterop.set
 import kotlinx.cinterop.toKString
 import net.multigesture.kanama.ios.cinterop.kanama_ios_godot_get_method_bind
 import net.multigesture.kanama.ios.cinterop.kanama_ios_godot_ptrcall_string_arg
 import net.multigesture.kanama.ios.cinterop.kanama_ios_godot_set_first_node_in_group_text
+import net.multigesture.kanama.types.Color
+import net.multigesture.kanama.types.NodePath
+import net.multigesture.kanama.types.Vector2
+import net.multigesture.kanama.types.Vector3
 import kotlin.experimental.ExperimentalNativeApi
 import kotlin.native.CName
 
@@ -57,6 +64,12 @@ internal interface KanamaIosScriptBridge {
         false
 
     fun setPropertyObjectArray(propertyIndex: Int, values: LongArray): Boolean =
+        false
+
+    // Value-type @ScriptProperty delivery (NodePath/Vector2/Vector3/Color). [value] is the
+    // already-decoded Kotlin value; the generated branch casts it to the field's type. See
+    // the C set-property value path + setScriptInstancePropertyValue's tag decode.
+    fun setPropertyValue(propertyIndex: Int, value: Any): Boolean =
         false
 
     val scriptInstance: Any?
@@ -398,6 +411,19 @@ internal object KanamaIosRuntime {
         return ok
     }
 
+    fun setScriptInstancePropertyValue(handle: Long, propertyIndex: Int, value: Any): Boolean {
+        val instance = scriptInstances[handle]
+        if (instance == null) {
+            log("property value set skipped for missing script instance handle=$handle")
+            return false
+        }
+        val ok = instance.bridge.setPropertyValue(propertyIndex, value)
+        if (ok) {
+            log("property value set handle=$handle index=$propertyIndex path=${instance.resource.path}")
+        }
+        return ok
+    }
+
     fun freeScriptInstance(handle: Long) {
         val instance = scriptInstances[handle]
         if (instance != null) {
@@ -689,6 +715,49 @@ fun kanamaIosRuntimeScriptInstanceSetPropertyArray(
         LongArray(count) { i -> objects[i] }
     }
     return if (KanamaIosRuntime.setScriptInstancePropertyArray(instanceHandle, propertyIndex, values)) 1 else 0
+}
+
+// PT_* tags — must match the KANAMA_IOS_PT_* enum in kanama_ios_shim.c. NODE_PATH ships utf8
+// path bytes; Vector2/3/Color ship contiguous float32 components.
+private const val IOS_PT_VECTOR2 = 6
+private const val IOS_PT_VECTOR3 = 8
+private const val IOS_PT_COLOR = 11
+private const val IOS_PT_NODE_PATH = 17
+
+@OptIn(ExperimentalForeignApi::class)
+internal fun decodeIosPropertyValue(ptTag: Int, bytes: CPointer<ByteVar>?, length: Int): Any? {
+    if (bytes == null) {
+        return null
+    }
+    return when (ptTag) {
+        IOS_PT_NODE_PATH -> NodePath(bytes.readBytes(if (length >= 0) length else 0).decodeToString())
+        IOS_PT_VECTOR2 -> {
+            val f = bytes.reinterpret<FloatVar>()
+            Vector2(f[0].toDouble(), f[1].toDouble())
+        }
+        IOS_PT_VECTOR3 -> {
+            val f = bytes.reinterpret<FloatVar>()
+            Vector3(f[0].toDouble(), f[1].toDouble(), f[2].toDouble())
+        }
+        IOS_PT_COLOR -> {
+            val f = bytes.reinterpret<FloatVar>()
+            Color(f[0], f[1], f[2], f[3])
+        }
+        else -> null
+    }
+}
+
+@OptIn(ExperimentalForeignApi::class, ExperimentalNativeApi::class)
+@CName("kanama_ios_runtime_script_instance_set_property_value")
+fun kanamaIosRuntimeScriptInstanceSetPropertyValue(
+    instanceHandle: Long,
+    propertyIndex: Int,
+    ptTag: Int,
+    bytes: CPointer<ByteVar>?,
+    length: Int,
+): Int {
+    val value = decodeIosPropertyValue(ptTag, bytes, length) ?: return 0
+    return if (KanamaIosRuntime.setScriptInstancePropertyValue(instanceHandle, propertyIndex, value)) 1 else 0
 }
 
 @OptIn(ExperimentalNativeApi::class)
