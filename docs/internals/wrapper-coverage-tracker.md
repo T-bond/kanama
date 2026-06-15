@@ -101,14 +101,17 @@ needs a decision (see the numbered items below + the roadmap backlog):
   **Design doc landed:** [script-model-unification-design.md](./script-model-unification-design.md).
   **USER DECISION 2026-06-15: Option B** (run the shared processor via KSP on the iOS
   native target — the path that deletes parseIosScript). 2.6 falls out of 3.2 for free.
-  **In progress (step 1a DONE, committed `bdee65f`):** extracted the platform-neutral
-  model into `processor/.../ScriptModel.kt`, byte-identical generated registrars
-  (verified via `:project-scripts:kspKotlin` content sha). **Next sub-steps:** 1b —
-  move ArgModel.readFromScratch/readPtrcallArg + TypeMapping's JVM ptrcall exprs off the
-  model into the JVM emitter (so the model is serialization-clean); then the JSON
-  serializer + schemaVersion; then the Option-B Gradle wiring (KSP on iosMain) + the
-  parallel-run gate (assert new model == parseIosScript for demo scripts) before 3.2
-  deletes the regex parser.
+  **In progress — DONE so far:** step 1a (model extracted into `ScriptModel.kt`,
+  `bdee65f`); step 1b (ArgModel JVM codegen moved to emitter-side extensions, model is
+  pure data, `357b2a8`); **JSON serializer + per-script emission** (`fb081b5`,
+  `ScriptModelJson.kt` — zero-dep, SCHEMA_VERSION=1, emits `<Script>ScriptModel.script-model.json`
+  next to each registrar). All byte-identical (registrar content sha unchanged across
+  all three). Validated the JSON carries value-type fidelity the regex parser can't:
+  DefaultProbeScript's `target: NodePath` → `"type":"NODE_PATH"` +
+  `defaultLiteral "NodePath(\"../SceneTarget3D\")"`. **REMAINING:** Option-B Gradle
+  wiring (apply KSP to `ios-runtime` iosMain so the shared processor runs on the native
+  target + emits the JSON there) + parallel-run gate (assert new model ==
+  parseIosScript for demo scripts), then 3.2 deletes the regex parser.
 - Cleanly self-test-validatable items: ~~Variant `Object.call` dispatch~~ DONE
   (item 8); ~~value-type BuiltinTypes on iOS~~ DONE (items 9–11): no-arg + args
   shapes across Transform3D/Basis/Vector2/Vector3/Quaternion + scalar float/bool/int
@@ -322,6 +325,13 @@ needs a decision (see the numbered items below + the roadmap backlog):
 
 ## Session log
 
+- **2026-06-15** — Phase 3.1 steps 1b + JSON serializer (opus impl). Moved
+  ArgModel JVM codegen to emitter-side extensions (357b2a8); added
+  ScriptModelJson.kt (zero-dep serializer, SCHEMA_VERSION=1) + per-script
+  `.script-model.json` emission (fb081b5). All byte-identical (registrar sha
+  unchanged). JSON validated to carry NODE_PATH value-type fidelity +
+  defaultLiteral that the regex parser can't. Remaining: Option-B KSP-on-iOS
+  Gradle wiring + parallel-run gate, then 3.2.
 - **2026-06-15** — Phase 3.1 step 1a (opus impl). User chose Option B (KSP on the
   iOS native target). Extracted the platform-neutral model into ScriptModel.kt
   (byte-identical generated registrars, verified by content sha of
