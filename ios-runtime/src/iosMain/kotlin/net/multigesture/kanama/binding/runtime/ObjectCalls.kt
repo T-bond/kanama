@@ -695,5 +695,18 @@ fun kanamaIosRuntimeObjectCallsSelfTest() {
     check("variant-call-value-object(set_meta/get_meta object)",
         gotObj is MemorySegment && gotObj.address() == metaObj.address())
 
+    // Value-type builtin method (BuiltinCalls) via variant_get_ptr_builtin_method + builtin_call.
+    // Basis.inverse() is a TRUE inverse: diag(2,4,8) -> diag(0.5,0.25,0.125) (powers of 2, exact
+    // float32). Transform3D.inverse() assumes orthonormal — it transposes the basis (diag stays
+    // diag) and sets origin = basisᵀ·(-origin); diag(2,4,8) + origin(1,2,3) -> diag(2,4,8) +
+    // origin(-2,-8,-24). Both exact in float32 so data-class == is stable; the nonzero origin
+    // proves the 12-float layout + that the engine actually transformed it (not a passthrough).
+    val bScale = Basis(Vector3(2.0, 0.0, 0.0), Vector3(0.0, 4.0, 0.0), Vector3(0.0, 0.0, 8.0))
+    check("builtin-call(Basis.inverse diag)",
+        bScale.inverse() == Basis(Vector3(0.5, 0.0, 0.0), Vector3(0.0, 0.25, 0.0), Vector3(0.0, 0.0, 0.125)))
+    val tScale = Transform3D(bScale, Vector3(1.0, 2.0, 3.0))
+    check("builtin-call(Transform3D.inverse orthonormal-transpose)",
+        tScale.inverse() == Transform3D(bScale, Vector3(-2.0, -8.0, -24.0)))
+
     println("[kanama][ios][kn] OBJECTCALLS SELFTEST: $pass passed, $fail failed")
 }

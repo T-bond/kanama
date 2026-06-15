@@ -70,17 +70,18 @@ Gated on Phase 4 exit. Not started by decision.
 | R8-minified APK smoke gate (review F2) | opus | todo |
 | AVAudioSession workaround | sonnet | todo |
 
-## RESUME HERE (updated 2026-06-14 — resume in Opus)
+## RESUME HERE (updated 2026-06-14b — resume in Opus)
 
 State: working tree CLEAN. Phase 1 (desktop/Android wrapper gaps) + Phase 2
 iOS audited-kind widening BOTH complete and committed to main — 2.1 Vector2i/3i,
 2.2 Color/Rect2, 2.3a/b String+StringName return, 2.4 String/NodePath args, 2.5
 Transform3D/Basis, plus RID/Quaternion/AABB. PLUS the iOS Variant `Object.call`
 dispatch (5 of the 8 IosGodotApi STUBs — call/set_deferred/disconnect/
-set_custom_mouse_cursor/SignalConnection.error). All device-validated on iPhone 12
-(iOS 26.5); self-test matrix is now 26 C + 28 Kotlin rows, all green. `Plane`
-deferred (no emitted-class test method to anchor a row). 3 STUBs remain (deferred,
-see item 8): connectBound/disconnectBound (need `Callable.bindv`) and
+set_custom_mouse_cursor/SignalConnection.error) PLUS the iOS value-type (builtin)
+method call path (item 9 — Transform3D/Basis `inverse()`). All device-validated on
+iPhone 12 (iOS 26.5); self-test matrix is now 28 C + 30 Kotlin rows, all green.
+`Plane` deferred (no emitted-class test method to anchor a row). 3 STUBs remain
+(deferred, see item 8): connectBound/disconnectBound (need `Callable.bindv`) and
 SignalConnection.close (needs custom-Callable hash/equal + disconnect-callable).
 
 **The clean POD-widening seam is exhausted.** The remaining work is bigger /
@@ -91,8 +92,9 @@ needs a decision (see the numbered items below + the roadmap backlog):
   re-done at Phase 3) **vs** Phase 3 KSP unification first (multi-day, then 2.6 is
   clean). USER DECISION pending.
 - Cleanly self-test-validatable ~1-day items (no demo-run needed): ~~Variant
-  `Object.call` dispatch~~ DONE (item 8), value-type BuiltinTypes on iOS
-  (`Transform3D.inverse()` etc.).
+  `Object.call` dispatch~~ DONE (item 8); value-type BuiltinTypes on iOS — path
+  built + `Transform3D`/`Basis.inverse()` DONE (item 9), extend to more value
+  methods (affine_inverse, looking_at, Vector ops, …) the same way.
 - Each new audited kind = 1 iOS `types/` file + `ios_arg_layout`/`ios_ret_layout`
   case + 2 self-test rows (C+Kotlin) + regenerate + Node3D fixture refresh + a
   device run. ~30–60 min each. Two gotchas the hard way: do NOT `construct_object`
@@ -218,12 +220,35 @@ needs a decision (see the numbered items below + the roadmap backlog):
    it can't be matched for disconnect). Gates: check_wrapper_generator,
    check_ios_no_silent_stubs (3 annotated STUBs left), compileKotlinIosArm64,
    clang -fsyntax-only — all pass.
+9. **DONE: iOS value-type (builtin) method call path (device-validated 2026-06-14).**
+   The value-type analogue of ObjectCalls/ptrcall — engine-computed builtin methods on
+   Variant value types. New C `kanama_ios_godot_get_builtin_method(variant_type, method,
+   hash)` (wraps `variant_get_ptr_builtin_method`; the hash keys the signature SHAPE — all
+   no-arg→Self methods on a type share one — and the StringName selects the method) +
+   `kanama_ios_godot_builtin_call(method_ptr, base, arg_tags[], arg_ptrs[], argc, ret_out)`
+   (calls `method(base, args, ret, argc)` with raw value byte buffers; args raw-typed like
+   ptrcall). Kotlin: new `BuiltinCalls` object (`getBuiltinMethod` + `callNoArgsFloat32`,
+   mirrors desktop `BuiltinTypes`). Wired `Transform3D.inverse()` + `Basis.inverse()` into
+   the iOS `types/` files (column-major float32 layout, same as the ObjectCalls ptrcall
+   helpers). Self-test: +2 C rows, +2 Kotlin rows — `Basis.inverse()` diag(2,4,8)→
+   diag(0.5,0.25,0.125) (true inverse) and `Transform3D.inverse()` diag(2,4,8)+origin(1,2,3)
+   →diag(2,4,8)+origin(-2,-8,-24) (Godot's inverse assumes orthonormal: transposes the basis
+   + re-derives origin — `affine_inverse` is the full inverse, not yet wired). Device C 26→28,
+   Kotlin 28→30, 0 failed. Gates: check_wrapper_generator, check_ios_no_silent_stubs,
+   compileKotlinIosArm64, clang -fsyntax-only — all pass. Extend the same way for more value
+   methods (affine_inverse/looking_at/interpolate_with/Vector ops).
 - Workflow: impl per roadmap model tag → review diff → commit straight to main.
   (Fable 5 is no longer available as of 2026-06-12 — the review step and
   attribution are Opus 4.8: `Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>`.)
 
 ## Session log
 
+- **2026-06-14** — iOS value-type (builtin) method call path (opus impl). New C
+  `get_builtin_method`/`builtin_call` + Kotlin `BuiltinCalls`; wired
+  `Transform3D.inverse()`/`Basis.inverse()`. Device-validated iPhone 12: C 26→28,
+  Kotlin 28→30, 0 failed. (Caught a self-test bug — Godot's `Transform3D.inverse`
+  transposes the basis assuming orthonormal, not a true inverse; fixed the
+  expectation.) See item 9.
 - **2026-06-14** — iOS Variant `Object.call` dispatch (opus impl). New generic C
   `kanama_ios_godot_object_call` + `object_disconnect` + Kotlin
   `ObjectCalls.callWithVariantArgs`; cleared 5 of the 8 IosGodotApi STUBs

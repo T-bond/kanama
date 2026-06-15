@@ -32,6 +32,33 @@ int64_t kanama_ios_godot_get_method_bind(
     int64_t hash
 );
 
+/*
+ * Resolve a builtin (value-type) method pointer (variant_get_ptr_builtin_method) —
+ * the value-type analogue of get_method_bind. Returns the function pointer as int64
+ * (0 on failure); cache it Kotlin-side like a MethodBind.
+ */
+int64_t kanama_ios_godot_get_builtin_method(
+    int32_t variant_type,
+    const char *method,
+    int64_t hash
+);
+
+/*
+ * Call a builtin (value-type) method: method_ptr(base, args, ret, argc). base and
+ * ret_out are raw value byte buffers (e.g. float32 components); args are raw TYPE
+ * bytes like kanama_ios_godot_ptrcall (POD passthrough; String/StringName/NodePath
+ * built C-side from a C string via the arg_types tags). ret_out may be NULL for a
+ * void return.
+ */
+void kanama_ios_godot_builtin_call(
+    int64_t method_ptr,
+    void *base,
+    const int32_t *arg_types,
+    const void *const *arg_ptrs,
+    int32_t arg_count,
+    void *ret_out
+);
+
 void kanama_ios_godot_ptrcall_string_arg(
     int64_t method_bind,
     int64_t instance,

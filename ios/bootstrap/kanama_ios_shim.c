@@ -405,6 +405,8 @@ enum {
 
 enum {
     KANAMA_IOS_VARIANT_TYPE_NIL = 0,
+    KANAMA_IOS_VARIANT_TYPE_BASIS = 17,
+    KANAMA_IOS_VARIANT_TYPE_TRANSFORM3D = 18,
     KANAMA_IOS_VARIANT_TYPE_BOOL = 1,
     KANAMA_IOS_VARIANT_TYPE_INT = 2,
     KANAMA_IOS_VARIANT_TYPE_FLOAT = 3,
@@ -1202,6 +1204,106 @@ void kanama_ios_godot_ptrcall(
                 break;
             default:
                 break;
+        }
+    }
+}
+
+// Resolve a builtin (value-type) method pointer — variant_get_ptr_builtin_method, the
+// value-type analogue of get_method_bind. The hash keys the method's signature shape
+// (all no-arg->Self methods on a type share one hash); the StringName selects the method.
+// Returns the function pointer as int64 (0 on failure), cached Kotlin-side like a MethodBind.
+int64_t kanama_ios_godot_get_builtin_method(
+    int32_t variant_type,
+    const char *method,
+    int64_t hash
+) {
+    if (!kanama_ios_resolve_godot_api() || g_variant_get_ptr_builtin_method == NULL || method == NULL) {
+        return 0;
+    }
+    uint64_t name_storage = 0;
+    kanama_ios_init_string_name(&name_storage, method);
+    GDExtensionPtrBuiltInMethod m = g_variant_get_ptr_builtin_method(
+        (GDExtensionVariantType)variant_type,
+        (GDExtensionConstStringNamePtr)&name_storage,
+        (GDExtensionInt)hash);
+    kanama_ios_destroy_string_name(&name_storage);
+    if (m == NULL) {
+        fprintf(stderr,
+                "[kanama][ios][c] get_builtin_method(type=%d, %s, %lld) returned NULL\n",
+                (int)variant_type, method, (long long)hash);
+        fflush(stderr);
+    }
+    return (int64_t)(intptr_t)m;
+}
+
+// Call a builtin (value-type) method: method_ptr(base, args, ret, argc). `base` and
+// `ret_out` are raw value byte buffers (laid out by Kotlin, e.g. float32 components);
+// args are raw TYPE bytes like ptrcall (POD passthrough; String/StringName/NodePath are
+// constructed C-side from a C string and destroyed after). Mirrors kanama_ios_godot_ptrcall
+// but drives a builtin method pointer + value base instead of a MethodBind + object instance.
+void kanama_ios_godot_builtin_call(
+    int64_t method_ptr,
+    void *base,
+    const int32_t *arg_types,
+    const void *const *arg_ptrs,
+    int32_t arg_count,
+    void *ret_out
+) {
+    if (!kanama_ios_resolve_godot_api() || method_ptr == 0) {
+        return;
+    }
+    if (arg_count < 0) {
+        arg_count = 0;
+    }
+    if (arg_count > KANAMA_IOS_PTRCALL_MAX_ARGS) {
+        arg_count = KANAMA_IOS_PTRCALL_MAX_ARGS;
+    }
+
+    const void *args[KANAMA_IOS_PTRCALL_MAX_ARGS];
+    uint64_t builtin_cells[KANAMA_IOS_PTRCALL_MAX_ARGS];
+    int constructed[KANAMA_IOS_PTRCALL_MAX_ARGS];
+
+    for (int32_t i = 0; i < arg_count; i++) {
+        constructed[i] = 0;
+        int32_t tag = (arg_types != NULL) ? arg_types[i] : KANAMA_IOS_PT_VOID;
+        const char *str = (arg_ptrs != NULL) ? (const char *)arg_ptrs[i] : "";
+        switch (tag) {
+            case KANAMA_IOS_PT_STRING_NAME:
+                builtin_cells[i] = 0;
+                kanama_ios_init_string_name(&builtin_cells[i], str);
+                args[i] = (const void *)&builtin_cells[i];
+                constructed[i] = tag;
+                break;
+            case KANAMA_IOS_PT_STRING:
+                builtin_cells[i] = 0;
+                kanama_ios_init_string(&builtin_cells[i], str);
+                args[i] = (const void *)&builtin_cells[i];
+                constructed[i] = tag;
+                break;
+            case KANAMA_IOS_PT_NODE_PATH:
+                builtin_cells[i] = 0;
+                kanama_ios_init_node_path(&builtin_cells[i], str);
+                args[i] = (const void *)&builtin_cells[i];
+                constructed[i] = tag;
+                break;
+            default:
+                args[i] = (arg_ptrs != NULL ? arg_ptrs[i] : NULL);
+                break;
+        }
+    }
+
+    ((GDExtensionPtrBuiltInMethod)(intptr_t)method_ptr)(
+        (GDExtensionTypePtr)base,
+        (const GDExtensionConstTypePtr *)args,
+        (GDExtensionTypePtr)ret_out,
+        (int32_t)arg_count);
+
+    for (int32_t i = 0; i < arg_count; i++) {
+        switch (constructed[i]) {
+            case KANAMA_IOS_PT_STRING_NAME: kanama_ios_destroy_string_name(&builtin_cells[i]); break;
+            case KANAMA_IOS_PT_STRING:      kanama_ios_destroy_string(&builtin_cells[i]); break;
+            case KANAMA_IOS_PT_NODE_PATH:   kanama_ios_destroy_node_path(&builtin_cells[i]); break;
+            default: break;
         }
     }
 }
@@ -5010,6 +5112,37 @@ static void kanama_ios_ptrcall_selftest(void) {
         int connected_after = kanama_ios_object_is_connected(node3d, dc_sig, dc_target, dc_method);
         KANAMA_IOS_ST_CHECK("object disconnect (connected->disconnected)",
             connected_before == 1 && dc_rc == 0 && connected_after == 0);
+    }
+
+    // Value-type builtin method: Transform3D.inverse() assumes an orthonormal basis — it
+    // TRANSPOSES the basis (diag(2,4,8) stays diag) and sets origin = basisᵀ·(-origin), so
+    // diag(2,4,8) + origin(1,2,3) -> diag(2,4,8) + origin(-2,-8,-24). Exact float32; the
+    // nonzero origin proves the 12-float layout + that the engine transformed it.
+    // Exercises variant_get_ptr_builtin_method + kanama_ios_godot_builtin_call.
+    {
+        int64_t inv = kanama_ios_godot_get_builtin_method(
+            KANAMA_IOS_VARIANT_TYPE_TRANSFORM3D, "inverse", 3816817146);
+        float base[12] = { 2,0,0, 0,4,0, 0,0,8, 1,2,3 };
+        float out[12] = { 0 };
+        kanama_ios_godot_builtin_call(inv, base, NULL, NULL, 0, out);
+        int ok = inv != 0 &&
+            out[0]==2 && out[4]==4 && out[8]==8 &&
+            out[1]==0 && out[2]==0 && out[3]==0 && out[5]==0 && out[6]==0 && out[7]==0 &&
+            out[9]==-2 && out[10]==-8 && out[11]==-24;
+        KANAMA_IOS_ST_CHECK("builtin Transform3D.inverse orthonormal-transpose", ok);
+    }
+
+    // Value-type builtin method: Basis.inverse() of diag(2,4,8) -> diag(0.5,0.25,0.125).
+    {
+        int64_t inv = kanama_ios_godot_get_builtin_method(
+            KANAMA_IOS_VARIANT_TYPE_BASIS, "inverse", 594669093);
+        float base[9] = { 2,0,0, 0,4,0, 0,0,8 };
+        float out[9] = { 0 };
+        kanama_ios_godot_builtin_call(inv, base, NULL, NULL, 0, out);
+        int ok = inv != 0 &&
+            out[0]==0.5f && out[4]==0.25f && out[8]==0.125f &&
+            out[1]==0 && out[2]==0 && out[3]==0 && out[5]==0 && out[6]==0 && out[7]==0;
+        KANAMA_IOS_ST_CHECK("builtin Basis.inverse diag", ok);
     }
 
     fprintf(stderr, "[kanama][ios][c] PTRCALL SELFTEST MATRIX: %d passed, %d failed\n", pass, fail);
