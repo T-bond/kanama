@@ -120,6 +120,28 @@ needs a decision (see the numbered items below + the roadmap backlog):
   the device path on KSP for no gain until 3.2). **REMAINING (3.2):** re-apply the KSP-on-iOS
   wiring + the JSON-consuming iOS registry codegen (replacing parseIosScript) + a device-build
   check + the parallel-run gate; then delete the regex parser (2.6 falls out free).
+- **Phase 3.2 IN PROGRESS (2026-06-15, Opus).** Approach (b): processor's Native emitter
+  generates the iOS registrar Kotlin directly. **Step 1 DONE (this commit):**
+  `IosScriptCodeEmitter.kt` added to `:processor` — AGGREGATING emitter over `List<ScriptModel>`
+  reproducing all three old `ios-runtime/build.gradle.kts` generators (`generateIosRegistrySource`
+  + `generateIosGeneratedConstantsSource` + `generateIosCompatibilitySources`) byte-for-byte,
+  with the rich→thin mapping: virtuals filtered to the wired set {_ready,_exit_tree,_process,
+  _physics_process,_input} (others warn like IOS_UNWIRED), `bridgeKindFor` re-expressed over
+  `ArgModel` types (objectWrapperFqName→OBJECT, VECTOR2I/FLOAT/INT→typed, else UNSUPPORTED),
+  property classification from `objectWrapperFqName`/`type`/`arrayElementWrapperFqName`, `shortHash`
+  /`kotlinString`/`constantIdentifier` copied verbatim for byte-match. Added `nullable: Boolean`
+  to `ScriptPropertyModel` (populated from `resolvedType.nullability`; JVM emitter ignores it;
+  serializer bumped to **SCHEMA_VERSION=2**, adds `"nullable"`) — needed so object-typed iOS
+  `@ScriptProperty`s deliver `null` for a 0 handle only when the field is nullable. Emitter is
+  compiled but NOT yet wired into the processor (no call site) — that lands in Step 2 with the
+  KSP-on-iOS wiring + parallel-run gate. JVM registrar `.kt` output unchanged (ScriptCodeEmitter
+  doesn't read `nullable`); `:processor:compileKotlin` + `:project-scripts:kspKotlin` green.
+  Defaults taken (per design-doc open items): unresolved object-prop wrapper on K/N → skip+warn;
+  gate comparison form → normalized text diff (emit iOS registry as `.kt.txt` resource so it
+  doesn't compile/collide, diff vs regex output). **NEXT Step 2:** wire emitter into processor
+  `finish()` on Native (needs script-roots as a KSP option to derive `res://…` resourcePath),
+  re-apply KSP-on-iOS, add the parallel-run gate task. Then Step 3 cutover, Step 4 device
+  (FLAG USER — phone auto-locks), Step 5 = 2.6.
 - Cleanly self-test-validatable items: ~~Variant `Object.call` dispatch~~ DONE
   (item 8); ~~value-type BuiltinTypes on iOS~~ DONE (items 9–11): no-arg + args
   shapes across Transform3D/Basis/Vector2/Vector3/Quaternion + scalar float/bool/int

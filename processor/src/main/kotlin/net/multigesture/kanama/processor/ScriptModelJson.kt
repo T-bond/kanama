@@ -9,7 +9,7 @@ package net.multigesture.kanama.processor
 // from that name. SCHEMA_VERSION is bumped whenever the shape changes; the consumer
 // fails closed on a mismatch.
 
-internal const val SCRIPT_MODEL_SCHEMA_VERSION = 1
+internal const val SCRIPT_MODEL_SCHEMA_VERSION = 2
 
 internal fun scriptModelToJson(model: ScriptModel): String {
     val sb = StringBuilder()
@@ -34,6 +34,7 @@ private fun JsonWriter.writeProperty(p: ScriptPropertyModel) = obj {
     field("godotName", p.godotName)
     field("type", p.type.name)
     field("isMutable", p.isMutable)
+    field("nullable", p.nullable)
     field("hint", p.hint)
     field("hintString", p.hintString)
     field("usage", p.usage)

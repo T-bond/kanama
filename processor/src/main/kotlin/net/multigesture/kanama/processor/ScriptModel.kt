@@ -131,6 +131,13 @@ internal data class ScriptPropertyModel(
     val customScriptIsResource: Boolean = false,
     val arrayElementCustomScriptIsResource: Boolean = false,
     val arrayElementString: Boolean = false,
+    /**
+     * Source-level nullability of the property type. The JVM emitter does not need it
+     * (VariantConverters handle null), but the iOS emitter does: an object-typed
+     * `@ScriptProperty` delivers `null` for a 0 handle only when the Kotlin field is
+     * nullable. Phase 3.2 ([IosScriptCodeEmitter]).
+     */
+    val nullable: Boolean = false,
 )
 
 internal data class ScriptPropertyGroupModel(

@@ -519,6 +519,7 @@ class KanamaProcessor(
                 scriptType.customScriptIsResource,
                 scriptType.arrayElementCustomScriptIsResource,
                 scriptType.arrayElementString,
+                resolvedType.nullability == Nullability.NULLABLE,
             )
         }
 
