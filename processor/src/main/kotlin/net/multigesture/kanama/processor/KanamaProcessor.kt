@@ -699,7 +699,8 @@ class KanamaProcessor(
     // ---------- iOS @ScriptClass registry emission (Kotlin/Native target, Phase 3.2) ----------
 
     private fun emitIosScriptRegistry() {
-        if (iosScripts.isEmpty()) return
+        // Always emit the registry (even with zero scripts) so the `actual` always exists for the
+        // `expect registerKanamaIosProjectScripts()` in the shared iosMain source set.
         // Gate phase: emit as `.kt.txt` resources (not compiled) so the regex-generated registry
         // still drives the build and a verify task can diff the two. Cutover flips this to `.kt`
         // via -Pkanama…=false → the KSP option below. Default stays resource until the gate passes.

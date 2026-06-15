@@ -91,8 +91,11 @@ internal class IosScriptCodeEmitter(
         builder.appendLine("import java.lang.foreign.MemorySegment")
         imports.forEach { builder.appendLine("import $it") }
         builder.appendLine()
-        builder.appendLine("@Suppress(\"unused\")")
-        builder.appendLine("internal fun registerKanamaIosProjectScripts() {")
+        // `actual` of the `expect` declared in the shared iosMain source set: KSP emits this
+        // registry into the per-target leaf source sets (iosArm64Main / iosSimulatorArm64Main),
+        // which the shared KanamaIosRuntime cannot reference directly, so the call site is an
+        // expect/actual pair. (The pre-cutover regex path emitted into iosMain itself.)
+        builder.appendLine("internal actual fun registerKanamaIosProjectScripts() {")
         builder.appendLine("    if (KanamaIosGeneratedProjectScripts.registered) return")
         builder.appendLine("    KanamaIosGeneratedProjectScripts.registered = true")
         scripts.forEach { script ->
@@ -456,7 +459,7 @@ internal class IosScriptCodeEmitter(
         val isObject = objectWrapperFqName != null
         val listElementClassName = arrayElementWrapperFqName?.substringAfterLast('.') ?: ""
         val godotClassName = when {
-            isObject -> objectWrapperFqName!!.substringAfterLast('.')
+            isObject -> objectWrapperFqName.substringAfterLast('.')
             isList -> ""
             else -> when (type) {
                 TypeMapping.INT -> "Long"

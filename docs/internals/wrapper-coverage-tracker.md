@@ -165,6 +165,27 @@ needs a decision (see the numbered items below + the roadmap backlog):
   emit real `.kt` (`kanamaIosRegistryAsResource=false`), delete `parseIosScript` +
   `generateIosScriptRegistry` + `IosScriptBridgeKind` + `IOS_UNWIRED_FUNCTION_ANNOTATIONS`, point
   iosMain srcDir at the KSP output. Then Step 4 device (FLAG USER), Step 5 = 2.6.
+- **Step 3 DONE — cutover (2026-06-15), regex parser DELETED.** `ios-runtime/build.gradle.kts`
+  rewritten to KSP-only: removed `parseIosScript`, `generateIosRegistrySource`/
+  `generateIosGeneratedConstantsSource`/`generateIosCompatibilitySources`, all the `IosScript*`
+  data classes + `IosScriptBridgeKind` + `bridgeKindFor` + `IOS_UNWIRED_FUNCTION_ANNOTATIONS`, the
+  `generateIosProjectScriptRegistry` task, the `iosMain` regex srcDir, and the transitional
+  `checkIosScriptRegistryParity` gate. Processor now emits real `.kt` (`kanamaIosRegistryAsResource
+  =false`). **KMP structural fix (the one non-obvious thing):** KSP emits the registry into the
+  per-target LEAF source sets (iosArm64Main/iosSimulatorArm64Main), which the shared iosMain
+  `KanamaIosRuntime` cannot reference — so `registerKanamaIosProjectScripts()` is now an
+  `expect` (hand-written in iosMain) / `actual` (generated per leaf) pair. The emitter emits
+  `internal actual fun …`; the processor ALWAYS emits the registry (empty body when no
+  @ScriptClass) so the expect is always satisfied. **Validated:** `:ios-runtime:compileKotlinIosArm64`
+  (device target) GREEN with the gate fixture — the generated `.kt` registry links into the native
+  lib. (Simulator target only fails on `cinteropKanama_iosIosSimulatorArm64` = `xcrun: unable to
+  find xcodebuild` — environmental, command-line-tools dir vs full Xcode; ios_visual_smoke sets
+  DEVELOPER_DIR. Unrelated to the change.) JVM path + processor still clean, no warnings.
+  Constants/compat helpers stay leaf-only (probe scripts don't reference generated `*Names`/
+  `*Signals`, so the shared-script→leaf-helper visibility gap doesn't bite the device path).
+  **NEXT Step 4: device validation — FLAG USER FIRST (phone auto-locks).** Run ios_visual_smoke
+  probes; confirm KSP-on-iOS registry drives the probe scripts + self-test matrix stays green
+  (39 C / 44 Kotlin). Then Step 5 = 2.6 value-type @ScriptProperty delivery (emitter case).
 - Cleanly self-test-validatable items: ~~Variant `Object.call` dispatch~~ DONE
   (item 8); ~~value-type BuiltinTypes on iOS~~ DONE (items 9–11): no-arg + args
   shapes across Transform3D/Basis/Vector2/Vector3/Quaternion + scalar float/bool/int
