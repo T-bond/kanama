@@ -241,6 +241,36 @@ types don't resolve on Kotlin/Native (the `unsupported type 'null'` caveat) — 
 whether the emitter degrades gracefully (skip + warn, like today's regex path) or
 requires the iOS wrapper to exist (Phase 2/4 dependency).
 
+### Resolved unknowns (so 3.2 starts with zero discovery cost)
+
+- **`MemorySegment` on iOS is a shim**, not the JVM type:
+  `ios-runtime/src/iosMain/kotlin/java/lang/foreign/MemorySegment.kt` is a
+  Kotlin/Native `class MemorySegment(Long)` with `ofAddress(Long)`. The iOS API
+  wrappers take it (`GodotObject(handle: MemorySegment)`), so the emitter must keep
+  producing `…api.GodotObject(MemorySegment.ofAddress(handle))` exactly as
+  `generateIosRegistrySource` does today — it compiles on K/N via the shim.
+- **The emitter must reproduce three current generators** in
+  `ios-runtime/build.gradle.kts`: `generateIosRegistrySource` (`:319` — the
+  `registerKanamaIosProjectScripts()` aggregator + per-script `KanamaIosScriptDescriptor`
+  + the bridge classes with `call`/`callObject`/`callArgs`/`callVector2i`/`callLong`/
+  `setProperty`/`setPropertyString`/`setPropertyObjectArray` dispatch),
+  `generateIosGeneratedConstantsSource` (`:498` — `<Class>Signals` emit helpers), and
+  `generateIosCompatibilitySources`.
+- **Model mapping to replicate** (rich `ScriptModel` → the regex path's thin fields):
+  `method.argumentCount` = `args.size`; `bridgeKind` = `bridgeKindFor` re-expressed
+  over `MethodModel.args` types (ZERO/DOUBLE/LONG/VECTOR2I/OBJECT/OBJECT_OBJECT_LONG/
+  UNSUPPORTED); `property.isObjectType`/`godotClassName`/`isList`/`listElementClassName`/
+  `isNullable` ← `ScriptPropertyModel.objectWrapperFqName`/`type`/`arrayElementWrapperFqName`.
+  Get these classifications byte-equal or the parallel-run gate won't pass.
+- **Validation is semantic, not a byte-diff:** the regex path emits ONE aggregated
+  file in package `net.multigesture.kanama.ios`; the processor emits PER-script files
+  in `net.multigesture.kanama.generated`. The gate must normalize (e.g. compare the
+  set of generated declarations / the assembled registry), or the processor must
+  emit the same aggregated shape. Decide the comparison form first.
+- **No processor unit-test infra:** validating codegen requires running KSP, so the
+  parallel-run gate lives in the build (re-add the validated KSP-on-iOS wiring, run
+  both paths over the demo scripts, assert equivalence) — then the device check.
+
 ## Scope note
 
 3.1 is **design + the serialized model emission + parallel-run validation** — it
