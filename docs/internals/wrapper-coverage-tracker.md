@@ -194,9 +194,24 @@ needs a decision (see the numbered items below + the roadmap backlog):
   Xcode Accounts for automatic provisioning (environmental, not a Kanama regression; team
   BMB2Z6C76G personal). FIX: sign into Xcode → Settings → Accounts (laurence.muller@gmail.com),
   then re-run `scripts/ios_visual_smoke.sh --physical-device --device 48DF9662-42F3-541F-9F88-
-  7FA2AB870F86 --development-team BMB2Z6C76G --allow-provisioning-updates --kanama-user-script-probe`
+  7FA2AB870F86 --development-team DVZT29Q4QT --allow-provisioning-updates --kanama-user-script-probe`
   to capture the on-device self-test matrix + the "Kanama iOS project script ready" line. The
   iOS-safe gate fixture is at `ios-runtime/src/iosScriptFixtures/kotlin-src/`.
+- **Step 4 DONE — DEVICE-VALIDATED on iPhone 12 (2026-06-15).** `--kanama-user-script-probe` ran:
+  `PTRCALL SELFTEST MATRIX: 39 passed, 0 failed` (C) + `OBJECTCALLS SELFTEST: 44 passed, 0 failed`
+  (Kotlin) — matrix unchanged by the cutover. **The KSP-on-iOS registry drove the user script:**
+  console shows `created script resource handle=1 path=res://kotlin-src/IosSmokeScript.kt
+  base=Label methods=[_ready]` → `created script instance` → `project script method call …
+  method=_ready` — i.e. the descriptor (path + baseType + methods) emitted by the processor's
+  `registerKanamaIosProjectScripts()` registered correctly and `_ready` dispatched through the
+  generated bridge. Two signing gotchas resolved: (1) Apple ID was logged out of Xcode (`No
+  Accounts` → user signed in); (2) the correct Team ID is **`DVZT29Q4QT`** (the cert's **OU**
+  field), NOT the CN parenthetical `BMB2Z6C76G` (a per-cert identifier) — `--development-team
+  DVZT29Q4QT --allow-provisioning-updates` → `BUILD SUCCEEDED` → installed + launched. Console
+  isn't streamed by the script's plain `devicectl process launch`; recapture with `xcrun devicectl
+  device process launch --console --terminate-existing --device 48DF9662… <bundleid>`. **Phase 3.2
+  steps 1–4 COMPLETE; regex parser dead, iOS registry unified on KSP, device-green.** Remaining:
+  Step 5 = 2.6 value-type set-property path (scope corrected below — not free).
 - **Step 5 (2.6) SCOPE CORRECTED — NOT "free", it's a value-type set-property path.** The design
   doc's "2.6 falls out for free as an emitter case" was optimistic: the model now carries full
   value-type fidelity (NODE_PATH/VECTOR3/COLOR…), and the emitter *could* generate the Kotlin-side
