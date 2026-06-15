@@ -1,5 +1,6 @@
 plugins {
     kotlin("multiplatform")
+    id("com.google.devtools.ksp")
 }
 
 import java.io.File
@@ -708,4 +709,68 @@ kotlin {
 
 tasks.matching { it.name.startsWith("compileKotlinIos") }.configureEach {
     dependsOn(generateIosProjectScriptRegistry)
+}
+
+// KSP consumes the iosMain sources, which include the regex-generated registry srcDir during
+// the parallel-run gate, so the KSP tasks must run after that codegen.
+tasks.matching { it.name.startsWith("kspKotlinIos") }.configureEach {
+    dependsOn(generateIosProjectScriptRegistry)
+}
+
+// Phase 3.2: run the shared KSP processor on the iOS native targets so the iOS @ScriptClass
+// registry is derived from the same platform-neutral model as desktop/Android. During the
+// parallel-run gate the processor emits the registry as `.kt.txt` RESOURCES (not compiled), so
+// the regex-generated registry above still drives the build; `checkIosScriptRegistryParity`
+// diffs the two. The cutover deletes the regex path and flips the processor to emit real `.kt`.
+dependencies {
+    add("kspIosArm64", project(":processor"))
+    add("kspIosSimulatorArm64", project(":processor"))
+}
+
+ksp {
+    // The processor derives each script's `res://…` path relative to these roots.
+    arg(
+        "kanamaScriptRoots",
+        iosScriptDirs(configuredIosScriptDirs.orNull)
+            .map { file(it).absolutePath }
+            .joinToString(File.pathSeparator),
+    )
+}
+
+val checkIosScriptRegistryParity by tasks.registering {
+    dependsOn(generateIosProjectScriptRegistry)
+    dependsOn("kspKotlinIosArm64")
+    doLast {
+        val regexDir = generatedIosProjectScriptsSourceDir
+        val kspResourceDir = layout.buildDirectory
+            .dir("generated/ksp/iosArm64/iosArm64Main/resources").get().asFile
+        val pairs = listOf(
+            Triple(
+                "registry",
+                File(regexDir, "net/multigesture/kanama/ios/KanamaIosProjectRegistry.generated.kt"),
+                File(kspResourceDir, "net/multigesture/kanama/ios/KanamaIosProjectRegistry.generated.kt.txt"),
+            ),
+            Triple(
+                "constants",
+                File(regexDir, "net/multigesture/kanama/generated/KanamaIosScriptConstants.generated.kt"),
+                File(kspResourceDir, "net/multigesture/kanama/generated/KanamaIosScriptConstants.generated.kt.txt"),
+            ),
+        )
+        fun norm(f: File): String =
+            f.readText().trimEnd().lines().joinToString("\n") { it.trimEnd() }
+        val problems = mutableListOf<String>()
+        pairs.forEach { (name, regex, ksp) ->
+            when {
+                !regex.exists() -> problems += "$name: regex output missing ($regex)"
+                !ksp.exists() -> problems += "$name: KSP output missing ($ksp)"
+                norm(regex) != norm(ksp) ->
+                    problems += "$name: KSP iOS registry differs from regex output\n  regex=$regex\n  ksp=$ksp"
+            }
+        }
+        check(problems.isEmpty()) {
+            "iOS @ScriptClass registry parity check failed (KSP processor vs regex parser):\n" +
+                problems.joinToString("\n")
+        }
+        println("[kanama-ios] script registry parity OK (regex == KSP) for ${pairs.size} files")
+    }
 }

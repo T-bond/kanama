@@ -52,6 +52,18 @@ class KanamaProcessor(
     private val scriptAggregatorSources = mutableListOf<KSFile>()
     private var scriptClassTypes: Map<String, ScriptClassTypeInfo> = emptyMap()
 
+    // Phase 3.2: on the iOS (Kotlin/Native) target the processor emits the iOS @ScriptClass
+    // registry Kotlin itself (replacing the parseIosScript regex parser). It accumulates the
+    // platform-neutral models here and emits the aggregated iOS sources in finish() via
+    // IosScriptCodeEmitter. The `res://…` resource path each script reports to Godot is derived
+    // from its source path relative to the configured script roots (passed as a KSP option).
+    private val iosScripts = mutableListOf<IosScriptInput>()
+    private val scriptRoots: List<String> =
+        (env.options["kanamaScriptRoots"] ?: "")
+            .split(File.pathSeparator, ",")
+            .map { it.trim() }
+            .filter { it.isNotEmpty() }
+
     // The JVM registrars/aggregators emit MemorySegment/Panama code that only compiles on
     // the JVM target. On non-JVM targets (iOS Kotlin/Native — Phase 3.1 Option B) the
     // processor emits ONLY the platform-neutral .script-model.json; the iOS-specific
@@ -106,9 +118,28 @@ class KanamaProcessor(
                 scriptAggregatorSources += it
             }
             emitScriptRegistrar(model, symbol.containingFile!!)
+            if (!emitJvmCode) {
+                iosScripts += IosScriptInput(model, iosResourcePath(symbol.containingFile!!))
+            }
         }
 
         return emptyList()
+    }
+
+    /** The `res://…` path Godot reports for [file], relative to the configured script roots. */
+    private fun iosResourcePath(file: KSFile): String {
+        val norm = file.filePath.replace(File.separatorChar, '/')
+        val root = scriptRoots
+            .map { it.replace(File.separatorChar, '/').removeSuffix("/") }
+            .filter { norm.startsWith("$it/") }
+            .maxByOrNull { it.length }
+        if (root != null) {
+            val rel = norm.removePrefix("$root/")
+            return if (root.substringAfterLast('/') == "kotlin-src") "res://kotlin-src/$rel" else "res://$rel"
+        }
+        // Fallback when roots are not provided: anchor at a kotlin-src segment if present.
+        val idx = norm.indexOf("/kotlin-src/")
+        return if (idx >= 0) "res://" + norm.substring(idx + 1) else "res://" + norm.substringAfterLast('/')
     }
 
     private fun buildScriptClassTypeMap(scriptSymbols: List<KSClassDeclaration>): Map<String, ScriptClassTypeInfo> {
@@ -133,9 +164,14 @@ class KanamaProcessor(
     }
 
     override fun finish() {
-        // Aggregators wire up the JVM registrars; on non-JVM targets only the JSON models
-        // were emitted, so there is nothing to aggregate.
-        if (!emitJvmCode) return
+        // On the iOS (Kotlin/Native) target, emit the aggregated @ScriptClass registry Kotlin
+        // (Phase 3.2). During the parallel-run gate these go out as `.kt.txt` RESOURCES so they
+        // are not compiled and cannot collide with the still-active regex-generated registry;
+        // the cutover flips them to real `.kt`. There are no JVM aggregators to emit on Native.
+        if (!emitJvmCode) {
+            emitIosScriptRegistry()
+            return
+        }
         if (registrarSimpleNames.isEmpty()) return
         emitAggregator(
             fileName = "KanamaRegistry",
@@ -471,7 +507,18 @@ class KanamaProcessor(
             val godotName = if (nameOverride.isNullOrEmpty()) camelToSnake(kotlinName) else nameOverride
             val resolvedType = prop.type.resolve()
             val fq = resolvedType.declaration.qualifiedName?.asString()
-            val scriptType = scriptPropertyTypeModel(resolvedType, simpleName, kotlinName, scriptClassTypes)
+            // On the iOS (Kotlin/Native) target a @ScriptProperty may reference an API wrapper
+            // that exists only in the desktop source set (the hand-curated iosMain api/ subset is
+            // smaller), so its type fails to resolve here. Degrade gracefully — skip the property
+            // with a warning, like the old regex path did — instead of failing the whole script.
+            // On the JVM target an unresolved type is a real user error and still throws.
+            val scriptType = try {
+                scriptPropertyTypeModel(resolvedType, simpleName, kotlinName, scriptClassTypes)
+            } catch (e: IllegalArgumentException) {
+                if (emitJvmCode) throw e
+                env.logger.warn("[kanama:ksp] $simpleName.$kotlinName: ${e.message}; skipping on iOS (type not available on Kotlin/Native)")
+                continue
+            }
             val hint = ann?.arguments?.firstOrNull { it.name?.asString() == "hint" }?.value as? Int ?: 0
             val hintString = ann?.arguments?.firstOrNull { it.name?.asString() == "hintString" }?.value as? String ?: ""
             val usage = ann?.arguments?.firstOrNull { it.name?.asString() == "usage" }?.value as? Int ?: 6
@@ -646,6 +693,40 @@ class KanamaProcessor(
                 "for ${model.fqName} " +
                 "(attachTo=${model.attachTo}, props=${model.properties.size}, " +
                 "virtuals=${model.virtuals.size}, methods=${model.methods.size}, signals=${model.signals.size})",
+        )
+    }
+
+    // ---------- iOS @ScriptClass registry emission (Kotlin/Native target, Phase 3.2) ----------
+
+    private fun emitIosScriptRegistry() {
+        if (iosScripts.isEmpty()) return
+        // Gate phase: emit as `.kt.txt` resources (not compiled) so the regex-generated registry
+        // still drives the build and a verify task can diff the two. Cutover flips this to `.kt`
+        // via -Pkanama…=false → the KSP option below. Default stays resource until the gate passes.
+        val asResource = env.options["kanamaIosRegistryAsResource"]?.toBoolean() ?: true
+        val extension = if (asResource) "kt.txt" else "kt"
+        val emitter = IosScriptCodeEmitter(iosScripts) { env.logger.warn("[kanama:ksp] $it") }
+        val deps = Dependencies(aggregating = true, *scriptAggregatorSources.toTypedArray())
+
+        fun write(packageName: String, fileName: String, content: String) {
+            env.codeGenerator.createNewFile(
+                dependencies = deps,
+                packageName = packageName,
+                fileName = fileName,
+                extensionName = extension,
+            ).use { it.write(content.toByteArray(Charsets.UTF_8)) }
+        }
+
+        write("net.multigesture.kanama.ios", "KanamaIosProjectRegistry.generated", emitter.registrySource())
+        write("net.multigesture.kanama.generated", "KanamaIosScriptConstants.generated", emitter.constantsSource())
+        emitter.compatibilitySources().forEach { (relativePath, source) ->
+            // relativePath = "<pkg as dirs>/KanamaIosCompatibility.generated.kt"
+            val packageName = relativePath.substringBeforeLast('/').replace('/', '.')
+            write(packageName, "KanamaIosCompatibility.generated", source)
+        }
+        env.logger.warn(
+            "[kanama:ksp] generated iOS @ScriptClass registry for ${iosScripts.size} script(s) " +
+                "(asResource=$asResource)",
         )
     }
 

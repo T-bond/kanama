@@ -142,6 +142,29 @@ needs a decision (see the numbered items below + the roadmap backlog):
   `finish()` on Native (needs script-roots as a KSP option to derive `res://…` resourcePath),
   re-apply KSP-on-iOS, add the parallel-run gate task. Then Step 3 cutover, Step 4 device
   (FLAG USER — phone auto-locks), Step 5 = 2.6.
+- **Step 2 DONE — parallel-run gate GREEN (2026-06-15).** Wired the emitter into the processor
+  `finish()` on Native: accumulates `IosScriptInput` per `@ScriptClass`, derives each `res://…`
+  path from a new `kanamaScriptRoots` KSP option (relative to the configured script roots, with
+  the `kotlin-src` rule), and emits the 3 aggregated iOS sources via `IosScriptCodeEmitter`. Gate
+  phase emits them as `.kt.txt` RESOURCES (not compiled → no collision with the still-active
+  regex registry). Added skip+warn degradation: on Native an unresolved `@ScriptProperty` type
+  (desktop-only wrapper absent from the curated iosMain `api/` subset) is skipped with a warning
+  instead of hard-failing the script (JVM still throws — real user error). Re-applied KSP-on-iOS
+  in `ios-runtime/build.gradle.kts` (`id("com.google.devtools.ksp")` + `kspIosArm64`/
+  `kspIosSimulatorArm64` → `:processor`, `ksp { arg("kanamaScriptRoots", …) }`, `kspKotlinIos*`
+  dependsOn the regex codegen task). New `checkIosScriptRegistryParity` task normalized-diffs the
+  KSP `.kt.txt` vs the regex `.kt`. New iOS-safe fixture
+  `ios-runtime/src/iosScriptFixtures/kotlin-src/GateFixtureScript.kt` (ZERO/DOUBLE/OBJECT/LONG
+  bridge kinds + zero-arg helper + scalar Long/String `@ScriptProperty` + `@Signal`). **Result:
+  `parity OK (regex == KSP) for 2 files`** — both registries 78 lines, byte-identical after
+  normalize; `res://kotlin-src/GateFixtureScript.kt` path + `shortHash` reproduced exactly. konan
+  2.3.21 present; `kspKotlinIosArm64` runs host-side. `local_ci` does NOT build iOS native (only
+  ios_visual_smoke does, with iOS-safe probes), so KSP-on-iOS adds no CI regression and the device
+  path is unchanged until cutover. Run the gate with `-PkanamaIosProjectScriptsDirs=<repo>/
+  ios-runtime/src/iosScriptFixtures/kotlin-src`. **NEXT Step 3 cutover:** flip the processor to
+  emit real `.kt` (`kanamaIosRegistryAsResource=false`), delete `parseIosScript` +
+  `generateIosScriptRegistry` + `IosScriptBridgeKind` + `IOS_UNWIRED_FUNCTION_ANNOTATIONS`, point
+  iosMain srcDir at the KSP output. Then Step 4 device (FLAG USER), Step 5 = 2.6.
 - Cleanly self-test-validatable items: ~~Variant `Object.call` dispatch~~ DONE
   (item 8); ~~value-type BuiltinTypes on iOS~~ DONE (items 9–11): no-arg + args
   shapes across Transform3D/Basis/Vector2/Vector3/Quaternion + scalar float/bool/int
