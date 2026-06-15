@@ -70,7 +70,7 @@ Gated on Phase 4 exit. Not started by decision.
 | R8-minified APK smoke gate (review F2) | opus | todo |
 | AVAudioSession workaround | sonnet | todo |
 
-## RESUME HERE (updated 2026-06-14b — resume in Opus)
+## RESUME HERE (updated 2026-06-15 — resume in Opus)
 
 State: working tree CLEAN. Phase 1 (desktop/Android wrapper gaps) + Phase 2
 iOS audited-kind widening BOTH complete and committed to main — 2.1 Vector2i/3i,
@@ -78,8 +78,10 @@ iOS audited-kind widening BOTH complete and committed to main — 2.1 Vector2i/3
 Transform3D/Basis, plus RID/Quaternion/AABB. PLUS the iOS Variant `Object.call`
 dispatch (5 of the 8 IosGodotApi STUBs — call/set_deferred/disconnect/
 set_custom_mouse_cursor/SignalConnection.error) PLUS the iOS value-type (builtin)
-method call path (item 9 — Transform3D/Basis `inverse()`). All device-validated on
-iPhone 12 (iOS 26.5); self-test matrix is now 28 C + 30 Kotlin rows, all green.
+method call path (item 9 — Transform3D `inverse/affine_inverse/orthonormalized/
+looking_at/interpolate_with`, Basis `inverse/transposed/orthonormalized`). All
+device-validated on iPhone 12 (iOS 26.5); self-test matrix is now 30 C + 35 Kotlin
+rows, all green.
 `Plane` deferred (no emitted-class test method to anchor a row). 3 STUBs remain
 (deferred, see item 8): connectBound/disconnectBound (need `Callable.bindv`) and
 SignalConnection.close (needs custom-Callable hash/equal + disconnect-callable).
@@ -92,9 +94,10 @@ needs a decision (see the numbered items below + the roadmap backlog):
   re-done at Phase 3) **vs** Phase 3 KSP unification first (multi-day, then 2.6 is
   clean). USER DECISION pending.
 - Cleanly self-test-validatable ~1-day items (no demo-run needed): ~~Variant
-  `Object.call` dispatch~~ DONE (item 8); value-type BuiltinTypes on iOS — path
-  built + `Transform3D`/`Basis.inverse()` DONE (item 9), extend to more value
-  methods (affine_inverse, looking_at, Vector ops, …) the same way.
+  `Object.call` dispatch~~ DONE (item 8); ~~value-type BuiltinTypes on iOS~~ path
+  built + no-arg & args (Vector3/Transform3D/bool/double) shapes DONE (item 9 +
+  10) — extend to Vector2/Vector3/Quaternion ops & more methods the same way (add
+  a hash + a `types/` method + a self-test row).
 - Each new audited kind = 1 iOS `types/` file + `ios_arg_layout`/`ios_ret_layout`
   case + 2 self-test rows (C+Kotlin) + regenerate + Node3D fixture refresh + a
   device run. ~30–60 min each. Two gotchas the hard way: do NOT `construct_object`
@@ -237,12 +240,28 @@ needs a decision (see the numbered items below + the roadmap backlog):
    Kotlin 28→30, 0 failed. Gates: check_wrapper_generator, check_ios_no_silent_stubs,
    compileKotlinIosArm64, clang -fsyntax-only — all pass. Extend the same way for more value
    methods (affine_inverse/looking_at/interpolate_with/Vector ops).
+10. **DONE: value-type builtin methods widened — args path (device-validated 2026-06-15).**
+   Generalized `BuiltinCalls` with a `call(methodPtr, base, retCount, args)` that takes a
+   `BArg` list (`Floats(tag, FloatArray)` / `Bool` / `Real`) so builtin methods can take
+   args (the C `kanama_ios_godot_builtin_call` already handled tagged args). Wired
+   `Transform3D.affineInverse/orthonormalized/lookingAt(Vector3,Vector3,bool)/
+   interpolateWith(Transform3D,double)` + `Basis.transposed/orthonormalized`. Self-test:
+   +2 C rows (looking_at arg path PT_VECTOR3×2+PT_BOOL; interpolate_with PT_TRANSFORM3D+
+   PT_FLOAT64) +5 Kotlin rows. Device C 28→30, Kotlin 30→35, 0 failed. **Gotcha:** the
+   Kotlin `lookingAt` row first FAILED while the C row PASSED — `looking_at`'s cross
+   products return `-0.0` in some zero slots; C `==0` is true (IEEE) but Kotlin data-class
+   equality uses `Double.equals` where `-0.0 != 0.0`. The marshalling was correct; fixed by
+   comparing components with `==` (numeric) instead of data-class `==`. Gates all pass.
 - Workflow: impl per roadmap model tag → review diff → commit straight to main.
   (Fable 5 is no longer available as of 2026-06-12 — the review step and
   attribution are Opus 4.8: `Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>`.)
 
 ## Session log
 
+- **2026-06-15** — value-type builtin methods widened to the args path (opus impl).
+  BuiltinCalls.call(BArg list); wired Transform3D affine_inverse/orthonormalized/
+  looking_at/interpolate_with + Basis transposed/orthonormalized. Device C 28→30,
+  Kotlin 30→35, 0 failed. Caught a -0.0/Double.equals self-test gotcha (see item 10).
 - **2026-06-14** — iOS value-type (builtin) method call path (opus impl). New C
   `get_builtin_method`/`builtin_call` + Kotlin `BuiltinCalls`; wired
   `Transform3D.inverse()`/`Basis.inverse()`. Device-validated iPhone 12: C 26→28,

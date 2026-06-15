@@ -708,5 +708,36 @@ fun kanamaIosRuntimeObjectCallsSelfTest() {
     check("builtin-call(Transform3D.inverse orthonormal-transpose)",
         tScale.inverse() == Transform3D(bScale, Vector3(-2.0, -8.0, -24.0)))
 
+    // affine_inverse() is the TRUE inverse (incl. scale): basis diag(2,4,8)->diag(0.5,0.25,0.125),
+    // origin = inv_basis·(-origin) = (0.5·-1, 0.25·-2, 0.125·-3) = (-0.5,-0.5,-0.375). Exact.
+    check("builtin-call(Transform3D.affineInverse scale)",
+        tScale.affineInverse() == Transform3D(
+            Basis(Vector3(0.5, 0.0, 0.0), Vector3(0.0, 0.25, 0.0), Vector3(0.0, 0.0, 0.125)),
+            Vector3(-0.5, -0.5, -0.375)))
+    // Basis.transposed(): shear x=(1,0,0),y=(2,1,0),z=(0,0,1) -> x=(1,2,0),y=(0,1,0),z=(0,0,1).
+    // Asymmetric so a no-op/wrong-layout fails; exact float32.
+    val bShear = Basis(Vector3(1.0, 0.0, 0.0), Vector3(2.0, 1.0, 0.0), Vector3(0.0, 0.0, 1.0))
+    check("builtin-call(Basis.transposed shear)",
+        bShear.transposed() == Basis(Vector3(1.0, 2.0, 0.0), Vector3(0.0, 1.0, 0.0), Vector3(0.0, 0.0, 1.0)))
+    // Basis.orthonormalized(): normalizes each axis — diag(2,4,8) -> IDENTITY. Exact.
+    check("builtin-call(Basis.orthonormalized scale)", bScale.orthonormalized() == Basis.IDENTITY)
+    // Transform3D.looking_at (arg path: Vector3,Vector3,bool): discards rotation, points -Z at
+    // target. From origin 0 a 90°-about-Z base, looking at (0,0,-4) up +Y -> IDENTITY (origin 0).
+    // Compared component-wise with `==` (not data-class equals): looking_at's cross products
+    // yield -0.0 in some zero slots, and Double.equals treats -0.0 != 0.0 (but `==` doesn't).
+    val tRot = Transform3D(
+        Basis(Vector3(0.0, 1.0, 0.0), Vector3(-1.0, 0.0, 0.0), Vector3(0.0, 0.0, 1.0)), Vector3.ZERO)
+    val look = tRot.lookingAt(Vector3(0.0, 0.0, -4.0), Vector3(0.0, 1.0, 0.0), false)
+    fun vecEq(a: Vector3, b: Vector3) = a.x == b.x && a.y == b.y && a.z == b.z
+    val idT = Transform3D.IDENTITY
+    check("builtin-call(Transform3D.lookingAt -Z)",
+        vecEq(look.basis.x, idT.basis.x) && vecEq(look.basis.y, idT.basis.y) &&
+            vecEq(look.basis.z, idT.basis.z) && vecEq(look.origin, idT.origin))
+    // Transform3D.interpolate_with (arg path: Transform3D,double) at weight 0.5: midpoint of
+    // origin0 and origin(2,4,8) is (1,2,4); identity bases slerp to identity. Exact.
+    check("builtin-call(Transform3D.interpolateWith 0.5)",
+        Transform3D.IDENTITY.interpolateWith(Transform3D(Basis.IDENTITY, Vector3(2.0, 4.0, 8.0)), 0.5) ==
+            Transform3D(Basis.IDENTITY, Vector3(1.0, 2.0, 4.0)))
+
     println("[kanama][ios][kn] OBJECTCALLS SELFTEST: $pass passed, $fail failed")
 }

@@ -25,6 +25,40 @@ data class Transform3D(
     fun inverse(): Transform3D =
         fromFloat32(BuiltinCalls.callNoArgsFloat32(inverseBind, toFloat32()))
 
+    /**
+     * Returns the full (affine) inverse of this transform — the true matrix inverse, valid
+     * even when the [basis] has scale or shear (unlike [inverse], which assumes orthonormal).
+     */
+    fun affineInverse(): Transform3D =
+        fromFloat32(BuiltinCalls.callNoArgsFloat32(affineInverseBind, toFloat32()))
+
+    /** Returns a copy of this transform with its [basis] orthonormalized (Gram-Schmidt). */
+    fun orthonormalized(): Transform3D =
+        fromFloat32(BuiltinCalls.callNoArgsFloat32(orthonormalizedBind, toFloat32()))
+
+    /**
+     * Returns a copy of this transform rotated so the forward axis (-Z) points toward
+     * [target], keeping the up axis as close to [up] as possible; the result is
+     * orthonormalized and the original rotation/scale is discarded (origin is kept). If
+     * [useModelFront] is true the +Z axis (asset front) is treated as forward instead.
+     */
+    fun lookingAt(target: Vector3, up: Vector3 = Vector3.UP, useModelFront: Boolean = false): Transform3D =
+        fromFloat32(BuiltinCalls.call(lookingAtBind, toFloat32(), 12, listOf(
+            BuiltinCalls.BArg.Floats(BuiltinCalls.PT_VECTOR3, vec3(target)),
+            BuiltinCalls.BArg.Floats(BuiltinCalls.PT_VECTOR3, vec3(up)),
+            BuiltinCalls.BArg.Bool(useModelFront),
+        )))
+
+    /**
+     * Returns the linear interpolation between this transform and [to] by [weight]
+     * (0 = this, 1 = [to]); the rotation is interpolated via quaternion slerp.
+     */
+    fun interpolateWith(to: Transform3D, weight: Double): Transform3D =
+        fromFloat32(BuiltinCalls.call(interpolateWithBind, toFloat32(), 12, listOf(
+            BuiltinCalls.BArg.Floats(BuiltinCalls.PT_TRANSFORM3D, to.toFloat32()),
+            BuiltinCalls.BArg.Real(weight),
+        )))
+
     // Column-major 12 float32, matching the ObjectCalls Transform3D ptrcall layout.
     private fun toFloat32(): FloatArray =
         floatArrayOf(
@@ -37,10 +71,27 @@ data class Transform3D(
     companion object {
         val IDENTITY = Transform3D(Basis.IDENTITY, Vector3.ZERO)
 
-        // All no-arg->Self Transform3D builtin methods share this signature-shape hash.
+        // The hash keys the signature SHAPE; the name selects the method. The no-arg->Self
+        // methods (inverse/affine_inverse/orthonormalized) share one hash; looking_at and
+        // interpolate_with have their own argument shapes.
         private val inverseBind by lazy {
             BuiltinCalls.getBuiltinMethod(BuiltinCalls.VT_TRANSFORM3D, "inverse", 3816817146L)
         }
+        private val affineInverseBind by lazy {
+            BuiltinCalls.getBuiltinMethod(BuiltinCalls.VT_TRANSFORM3D, "affine_inverse", 3816817146L)
+        }
+        private val orthonormalizedBind by lazy {
+            BuiltinCalls.getBuiltinMethod(BuiltinCalls.VT_TRANSFORM3D, "orthonormalized", 3816817146L)
+        }
+        private val lookingAtBind by lazy {
+            BuiltinCalls.getBuiltinMethod(BuiltinCalls.VT_TRANSFORM3D, "looking_at", 90889270L)
+        }
+        private val interpolateWithBind by lazy {
+            BuiltinCalls.getBuiltinMethod(BuiltinCalls.VT_TRANSFORM3D, "interpolate_with", 1786453358L)
+        }
+
+        private fun vec3(v: Vector3): FloatArray =
+            floatArrayOf(v.x.toFloat(), v.y.toFloat(), v.z.toFloat())
 
         private fun fromFloat32(c: FloatArray): Transform3D =
             Transform3D(

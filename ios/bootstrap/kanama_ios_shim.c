@@ -5145,6 +5145,47 @@ static void kanama_ios_ptrcall_selftest(void) {
         KANAMA_IOS_ST_CHECK("builtin Basis.inverse diag", ok);
     }
 
+    // Builtin method with args (Vector3, Vector3, bool): Transform3D.looking_at. A 90°-about-Z
+    // base at origin 0, looking at (0,0,-4) up +Y -> IDENTITY basis (rotation discarded),
+    // origin 0. Validates the builtin_call arg path (PT_VECTOR3 x2 + PT_BOOL).
+    {
+        int64_t mb = kanama_ios_godot_get_builtin_method(
+            KANAMA_IOS_VARIANT_TYPE_TRANSFORM3D, "looking_at", 90889270);
+        float base[12] = { 0,-1,0, 1,0,0, 0,0,1, 0,0,0 };  // column axes x=(0,1,0),y=(-1,0,0),z=(0,0,1)
+        float target[3] = { 0,0,-4 };
+        float up[3] = { 0,1,0 };
+        uint8_t use_model_front = 0;
+        const void *a[3] = { target, up, &use_model_front };
+        int32_t t[3] = { KANAMA_IOS_PT_VECTOR3, KANAMA_IOS_PT_VECTOR3, KANAMA_IOS_PT_BOOL };
+        float out[12] = { 0 };
+        kanama_ios_godot_builtin_call(mb, base, t, a, 3, out);
+        int ok = mb != 0 &&
+            out[0]==1 && out[4]==1 && out[8]==1 &&
+            out[1]==0 && out[2]==0 && out[3]==0 && out[5]==0 && out[6]==0 && out[7]==0 &&
+            out[9]==0 && out[10]==0 && out[11]==0;
+        KANAMA_IOS_ST_CHECK("builtin Transform3D.looking_at -Z->identity", ok);
+    }
+
+    // Builtin method with args (Transform3D, float->8-byte double): Transform3D.interpolate_with.
+    // base IDENTITY+origin0, to IDENTITY+origin(2,4,8), weight 0.5 -> IDENTITY+origin(1,2,4).
+    // Validates the builtin_call arg path (PT_TRANSFORM3D struct + PT_FLOAT64 scalar).
+    {
+        int64_t mb = kanama_ios_godot_get_builtin_method(
+            KANAMA_IOS_VARIANT_TYPE_TRANSFORM3D, "interpolate_with", 1786453358);
+        float base[12] = { 1,0,0, 0,1,0, 0,0,1, 0,0,0 };
+        float to[12]   = { 1,0,0, 0,1,0, 0,0,1, 2,4,8 };
+        double weight = 0.5;
+        const void *a[2] = { to, &weight };
+        int32_t t[2] = { KANAMA_IOS_PT_TRANSFORM3D, KANAMA_IOS_PT_FLOAT64 };
+        float out[12] = { 0 };
+        kanama_ios_godot_builtin_call(mb, base, t, a, 2, out);
+        int ok = mb != 0 &&
+            out[0]==1 && out[4]==1 && out[8]==1 &&
+            out[1]==0 && out[2]==0 && out[3]==0 && out[5]==0 && out[6]==0 && out[7]==0 &&
+            out[9]==1 && out[10]==2 && out[11]==4;
+        KANAMA_IOS_ST_CHECK("builtin Transform3D.interpolate_with 0.5", ok);
+    }
+
     fprintf(stderr, "[kanama][ios][c] PTRCALL SELFTEST MATRIX: %d passed, %d failed\n", pass, fail);
     fflush(stderr);
 #undef KANAMA_IOS_ST_CHECK

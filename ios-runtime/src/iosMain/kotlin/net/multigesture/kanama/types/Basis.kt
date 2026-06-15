@@ -21,6 +21,14 @@ data class Basis(
     fun inverse(): Basis =
         fromFloat32(BuiltinCalls.callNoArgsFloat32(inverseBind, toFloat32()))
 
+    /** Returns the transpose of this basis (rows and columns swapped). */
+    fun transposed(): Basis =
+        fromFloat32(BuiltinCalls.callNoArgsFloat32(transposedBind, toFloat32()))
+
+    /** Returns this basis with its axes orthogonalized and normalized (Gram-Schmidt). */
+    fun orthonormalized(): Basis =
+        fromFloat32(BuiltinCalls.callNoArgsFloat32(orthonormalizedBind, toFloat32()))
+
     // Column-major 9 float32, matching the ObjectCalls Basis ptrcall layout.
     private fun toFloat32(): FloatArray =
         floatArrayOf(
@@ -36,9 +44,16 @@ data class Basis(
             Vector3(0.0, 0.0, 1.0),
         )
 
-        // All no-arg->Self Basis builtin methods share this signature-shape hash.
+        // All no-arg->Self Basis builtin methods share this signature-shape hash; the name
+        // selects the method (inverse / transposed / orthonormalized).
         private val inverseBind by lazy {
             BuiltinCalls.getBuiltinMethod(BuiltinCalls.VT_BASIS, "inverse", 594669093L)
+        }
+        private val transposedBind by lazy {
+            BuiltinCalls.getBuiltinMethod(BuiltinCalls.VT_BASIS, "transposed", 594669093L)
+        }
+        private val orthonormalizedBind by lazy {
+            BuiltinCalls.getBuiltinMethod(BuiltinCalls.VT_BASIS, "orthonormalized", 594669093L)
         }
 
         private fun fromFloat32(c: FloatArray): Basis =
