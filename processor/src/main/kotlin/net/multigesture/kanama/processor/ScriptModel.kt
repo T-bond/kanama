@@ -58,38 +58,14 @@ internal data class ArgModel(
     val nullable: Boolean = false,
     val hasDefault: Boolean = false,
 ) {
+    /** Neutral: the Kotlin type the arg surfaces as (object wrapper FQN or mapped type). */
     val kotlinType: String
         get() = (objectWrapperFqName ?: type.kotlinType) + if (nullable) "?" else ""
-
-    fun readFromScratch(s: String): String =
-        if (objectWrapperFqName != null) {
-            if (objectWrapperFqName in RESOURCE_WRAPPERS_WITH_FROM_HANDLE) {
-                val value = "$objectWrapperFqName.fromHandle(${s}.get(ADDRESS, 0))"
-                if (nullable) value else "$value ?: error(\"Expected $objectWrapperFqName argument '$name'\")"
-            } else {
-                val handle = "${s}.get(ADDRESS, 0)"
-                if (nullable) "if ($handle.address() == 0L) null else $objectWrapperFqName($handle)" else "$objectWrapperFqName($handle)"
-            }
-        } else {
-            type.readFromScratch(s)
-        }
-
-    fun readPtrcallArg(ptr: String): String =
-        if (objectWrapperFqName != null) {
-            if (objectWrapperFqName in RESOURCE_WRAPPERS_WITH_FROM_HANDLE) {
-                val value = "$objectWrapperFqName.fromHandle($ptr.reinterpret(${type.ptrcallSizeBytesExpr}).get(ADDRESS, 0))"
-                if (nullable) value else "$value ?: error(\"Expected $objectWrapperFqName argument '$name'\")"
-            } else {
-                val handle = "$ptr.reinterpret(${type.ptrcallSizeBytesExpr}).get(ADDRESS, 0)"
-                if (nullable) "if ($handle.address() == 0L) null else $objectWrapperFqName($handle)" else "$objectWrapperFqName($handle)"
-            }
-        } else {
-            type.readPtrcallArg(ptr)
-        }
-
-    fun signalEmitValueExpr(): String =
-        if (type == TypeMapping.NODE_PATH) "$name.path" else name
 }
+
+// ArgModel's JVM-emit codegen (readFromScratch/readPtrcallArg/signalEmitValueExpr) lives
+// with the JVM emitter in KanamaProcessor.kt as extension functions — not on the model —
+// so the model stays a pure, serializable data holder (Phase 3.1).
 
 internal data class PropertyModel(
     val kotlinName: String,

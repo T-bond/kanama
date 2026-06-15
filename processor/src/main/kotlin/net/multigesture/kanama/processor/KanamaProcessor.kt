@@ -874,6 +874,38 @@ internal val RESOURCE_WRAPPERS_WITH_FROM_HANDLE = setOf(
     "net.multigesture.kanama.api.FastNoiseLite",
 )
 
+// JVM-emitter codegen for ArgModel — string-builds MemorySegment/ptrcall read expressions.
+// Extension functions (not members on ArgModel) so the model stays a pure, serializable
+// data holder; the iOS emitter re-derives its own marshalling from the arg's neutral type.
+internal fun ArgModel.readFromScratch(s: String): String =
+    if (objectWrapperFqName != null) {
+        if (objectWrapperFqName in RESOURCE_WRAPPERS_WITH_FROM_HANDLE) {
+            val value = "$objectWrapperFqName.fromHandle(${s}.get(ADDRESS, 0))"
+            if (nullable) value else "$value ?: error(\"Expected $objectWrapperFqName argument '$name'\")"
+        } else {
+            val handle = "${s}.get(ADDRESS, 0)"
+            if (nullable) "if ($handle.address() == 0L) null else $objectWrapperFqName($handle)" else "$objectWrapperFqName($handle)"
+        }
+    } else {
+        type.readFromScratch(s)
+    }
+
+internal fun ArgModel.readPtrcallArg(ptr: String): String =
+    if (objectWrapperFqName != null) {
+        if (objectWrapperFqName in RESOURCE_WRAPPERS_WITH_FROM_HANDLE) {
+            val value = "$objectWrapperFqName.fromHandle($ptr.reinterpret(${type.ptrcallSizeBytesExpr}).get(ADDRESS, 0))"
+            if (nullable) value else "$value ?: error(\"Expected $objectWrapperFqName argument '$name'\")"
+        } else {
+            val handle = "$ptr.reinterpret(${type.ptrcallSizeBytesExpr}).get(ADDRESS, 0)"
+            if (nullable) "if ($handle.address() == 0L) null else $objectWrapperFqName($handle)" else "$objectWrapperFqName($handle)"
+        }
+    } else {
+        type.readPtrcallArg(ptr)
+    }
+
+internal fun ArgModel.signalEmitValueExpr(): String =
+    if (type == TypeMapping.NODE_PATH) "$name.path" else name
+
 private fun constantIdentifier(name: String): String {
     val parts = name
         .trim('_')
