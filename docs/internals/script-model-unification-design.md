@@ -167,6 +167,41 @@ wants the regex parser *deleted*, which only B achieves cleanly. B also sets up
 3. **Schema-version policy** — fail-closed on mismatch (recommend) vs
    best-effort. With one repo producing and consuming, fail-closed is simplest.
 
+## Option B — validated 2026-06-15 (wiring held for 3.2)
+
+The Option-B path was proven end-to-end, then the Gradle wiring was reverted from
+main pending its 3.2 consumer (see "what's committed" below):
+
+- **Processor is platform-aware** (committed, `0735e99`): `emitJvmCode` (from
+  `env.platforms`) gates the JVM registrar/aggregator emission; the
+  `.script-model.json` is emitted on every target. On the JVM target output is
+  byte-identical; on Native only the JSON is produced.
+- **KSP on the iOS native target works.** Applying `id("com.google.devtools.ksp")`
+  + `add("kspIosArm64", project(":processor"))` (and `kspIosSimulatorArm64`) to
+  `ios-runtime`, with the user scripts already on `iosMain` via `kotlin.srcDir`
+  (`ios-runtime/build.gradle.kts:698`), made `kspKotlinIosArm64` run the shared
+  processor over the `@ScriptClass` sources and emit the JSON to
+  `build/generated/ksp/iosArm64/iosArm64Main/resources/…`. **Proofs:** (1) zero
+  `.kt` registrars emitted on the iOS target (platform-gating correct, Native
+  compile unaffected); (2) the iOS-emitted `DefaultProbeScript` JSON is
+  **byte-identical** to the JVM-emitted one — one source of truth, both targets.
+- **Caveat found:** two example scripts (`VehicleWrapperProbe`, `SnowWrapperProbe`)
+  failed KSP on iOS with `unsupported ScriptProperty type 'null'` — their
+  object-typed `@ScriptProperty`s reference desktop API wrapper types that don't
+  resolve on the iOS compilation. The processor (correctly) fails closed on an
+  unresolved ScriptProperty type. Real iOS scripts use iOS-available types; this is
+  a property-type-resolution divergence to handle as types/wrappers unify (Phase
+  2/4), not a wiring defect.
+- **Why the wiring isn't in main yet:** it gates *every* iOS build (incl. the
+  device self-test path) on KSP success, but its consumer (3.2) doesn't exist, so
+  committing it alone adds device-build risk for no functional gain. 3.2 re-applies
+  it together with the JSON-consuming iOS registry codegen and a device-build check.
+
+**What's committed for 3.1:** the platform-neutral model (`ScriptModel.kt`), the
+JSON serializer (`ScriptModelJson.kt`) + per-script emission, and the
+platform-aware processor. The KSP-on-iOS Gradle wiring is validated and documented
+here, to land with 3.2.
+
 ## Scope note
 
 3.1 is **design + the serialized model emission + parallel-run validation** — it

@@ -108,10 +108,18 @@ needs a decision (see the numbered items below + the roadmap backlog):
   next to each registrar). All byte-identical (registrar content sha unchanged across
   all three). Validated the JSON carries value-type fidelity the regex parser can't:
   DefaultProbeScript's `target: NodePath` → `"type":"NODE_PATH"` +
-  `defaultLiteral "NodePath(\"../SceneTarget3D\")"`. **REMAINING:** Option-B Gradle
-  wiring (apply KSP to `ios-runtime` iosMain so the shared processor runs on the native
-  target + emits the JSON there) + parallel-run gate (assert new model ==
-  parseIosScript for demo scripts), then 3.2 deletes the regex parser.
+  `defaultLiteral "NodePath(\"../SceneTarget3D\")"`. **Processor now platform-aware**
+  (`0735e99`): `emitJvmCode` gates the JVM registrars/aggregators; Native emits JSON only
+  (JVM byte-identical). **Option B VALIDATED end-to-end (2026-06-15, wiring held for 3.2):**
+  KSP applied to `ios-runtime` native targets ran the shared processor over example_project
+  @ScriptClass sources → emitted JSON to `build/generated/ksp/iosArm64/…`; **zero `.kt`
+  registrars on iOS** (gating correct) and the **iOS JSON byte-identical to the JVM JSON**
+  (one source of truth). Caveat: 2 example scripts with object-typed ScriptProperties fail
+  KSP on iOS (`unsupported type 'null'` — desktop wrappers don't resolve on K/N; a Phase
+  2/4 type-unification concern). Wiring reverted from main (it gates every iOS build incl.
+  the device path on KSP for no gain until 3.2). **REMAINING (3.2):** re-apply the KSP-on-iOS
+  wiring + the JSON-consuming iOS registry codegen (replacing parseIosScript) + a device-build
+  check + the parallel-run gate; then delete the regex parser (2.6 falls out free).
 - Cleanly self-test-validatable items: ~~Variant `Object.call` dispatch~~ DONE
   (item 8); ~~value-type BuiltinTypes on iOS~~ DONE (items 9–11): no-arg + args
   shapes across Transform3D/Basis/Vector2/Vector3/Quaternion + scalar float/bool/int
@@ -325,6 +333,13 @@ needs a decision (see the numbered items below + the roadmap backlog):
 
 ## Session log
 
+- **2026-06-15** — Phase 3.1 processor platform-awareness + Option B validation
+  (opus impl). emitJvmCode gates JVM registrars (0735e99). Proved KSP-on-iOS
+  (Option B): ran the shared processor on ios-runtime's native target →
+  JSON-only emission, zero .kt registrars, iOS JSON byte-identical to JVM JSON.
+  Caveat: object-typed ScriptProperties using desktop wrappers don't resolve on
+  K/N (Phase 2/4). Held the Gradle wiring out of main (gates every iOS build for
+  no gain until the 3.2 consumer); documented in the design doc. Remaining = 3.2.
 - **2026-06-15** — Phase 3.1 steps 1b + JSON serializer (opus impl). Moved
   ArgModel JVM codegen to emitter-side extensions (357b2a8); added
   ScriptModelJson.kt (zero-dep serializer, SCHEMA_VERSION=1) + per-script
