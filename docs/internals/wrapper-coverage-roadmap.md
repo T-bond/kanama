@@ -138,6 +138,32 @@ hand-shaped methods; coverage page reads ≥99% with virtuals counted.
 | Single source of truth for the Godot version pin (Gradle property → CI, iOS template path, docs) | **sonnet** | Architecture review F4 |
 | R8-minified APK smoke gate (validate `consumer-rules.pro`) | **opus** | Architecture review F2 |
 | AVAudioSession category workaround in iOS shim (engine bug mitigation) | **sonnet** | ios-backend-roadmap |
+| Value-type `==` faithfulness to GDScript/C# (see below) | **sonnet** (generator change), **opus** review | 2026-06-15 session |
+
+### Value-type equality divergence from GDScript/C# (all platforms)
+
+Kanama value types (`Vector2/3/4`, `Transform3D`, `Basis`, `Color`, `Quaternion`, …)
+are plain Kotlin `data class`es with `Double`/`Float` components and no custom `equals`,
+on **both** JVM (desktop/Android) and Native (iOS). So `==` uses `Double.equals`
+(total ordering), which diverges from Godot's componentwise IEEE `==`:
+
+- `Vector3(-0.0, 0, 0) == Vector3.ZERO` → **`false`** in Kanama, **`true`** in GDScript
+  and C# (`-0.0 == 0.0` under IEEE). Reachable in real code, e.g. `velocity = dir * 0.0`
+  yields `-0.0` components, so a `velocity == Vector3.ZERO` rest-check misfires.
+- `NaN` components: data-class `==` treats `NaN == NaN` as `true`; GDScript/C# `==` give
+  `false`.
+
+**Goal: match GDScript and C# semantics.** Fix = generator-emitted `equals` + `hashCode`
+on every value type that compares components numerically and **canonicalizes signed zero**
+(`-0.0`→`+0.0` in both `equals` and `hashCode`, so the `equals`/`hashCode` contract holds —
+overriding `equals` alone silently corrupts `HashMap`/`HashSet`). Caveat: `NaN` cannot be
+made non-reflexive (`NaN != NaN`) without violating `Object.equals` reflexivity, so leave
+`NaN` as the JVM default (`NaN == NaN` true) — closer to Godot, not identical; document it.
+Do NOT normalize `-0.0` at construction (per-vector hot-path cost; and Godot *stores*
+`-0.0`, only its `==` ignores the sign). Also add `isEqualApprox`/`isZeroApprox` helpers
+(Godot's recommended fuzzy comparison) and steer users there. Self-test note: until fixed,
+assert engine results component-wise with numeric `==`, not data-class `==` (see
+wrapper-coverage-tracker item 10 — the iOS `looking_at` `-0.0` self-test failure).
 
 ## Sequencing summary
 
