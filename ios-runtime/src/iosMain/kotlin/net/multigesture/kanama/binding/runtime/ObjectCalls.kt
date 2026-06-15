@@ -784,5 +784,14 @@ fun kanamaIosRuntimeObjectCallsSelfTest() {
     check("builtin-call(Basis.determinant scalar)",
         Basis(Vector3(2.0, 0.0, 0.0), Vector3(0.0, 4.0, 0.0), Vector3(0.0, 0.0, 8.0)).determinant() == 64.0)
 
+    // Bool-return builtin (ptr-ABI uint8 -> Boolean via callBool): Vector3.is_normalized().
+    // (0,0,1) is normalized -> true; (2,0,0) is not -> false. Both directions guard the decode.
+    check("builtin-call(Vector3.is_normalized bool)",
+        Vector3(0.0, 0.0, 1.0).isNormalized() && !Vector3(2.0, 0.0, 0.0).isNormalized())
+    // Int-return builtin (ptr-ABI int64 -> Int via callInt): Vector3.max_axis_index().
+    // (1,5,2) -> Y = 1; (1,2,9) -> Z = 2. Non-zero expectations catch a wrong-width zero-read.
+    check("builtin-call(Vector3.max_axis_index int)",
+        Vector3(1.0, 5.0, 2.0).maxAxisIndex() == 1 && Vector3(1.0, 2.0, 9.0).maxAxisIndex() == 2)
+
     println("[kanama][ios][kn] OBJECTCALLS SELFTEST: $pass passed, $fail failed")
 }

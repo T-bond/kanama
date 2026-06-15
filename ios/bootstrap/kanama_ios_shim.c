@@ -5304,6 +5304,33 @@ static void kanama_ios_ptrcall_selftest(void) {
         KANAMA_IOS_ST_CHECK("builtin Basis.determinant scalar", ok);
     }
 
+    // Bool-return builtin: Vector3.is_normalized() of (0,0,1) -> true. The ptr-ABI encodes a
+    // bool return as a single uint8 (PtrToArg<bool> = uint8), so decode ONE byte (a wider
+    // read would catch garbage in the high bytes). Returning true (1) also fails loudly if a
+    // wrong-width read yields 0.
+    {
+        int64_t mb = kanama_ios_godot_get_builtin_method(
+            KANAMA_IOS_VARIANT_TYPE_VECTOR3, "is_normalized", 3918633141);
+        float base[3] = { 0,0,1 };
+        uint8_t out = 0xFF;
+        kanama_ios_godot_builtin_call(mb, base, NULL, NULL, 0, &out);
+        int ok = mb != 0 && out == 1;
+        KANAMA_IOS_ST_CHECK("builtin Vector3.is_normalized bool", ok);
+    }
+
+    // Int-return builtin: Vector3.max_axis_index() of (1,5,2) -> 1 (Y). The ptr-ABI encodes an
+    // int return as int64 (PtrToArg<int64_t> direct), so decode 8 bytes. Expecting 1 (not 0)
+    // catches a wrong-width zero-read.
+    {
+        int64_t mb = kanama_ios_godot_get_builtin_method(
+            KANAMA_IOS_VARIANT_TYPE_VECTOR3, "max_axis_index", 3173160232);
+        float base[3] = { 1,5,2 };
+        int64_t out = -1;
+        kanama_ios_godot_builtin_call(mb, base, NULL, NULL, 0, &out);
+        int ok = mb != 0 && out == 1;
+        KANAMA_IOS_ST_CHECK("builtin Vector3.max_axis_index int", ok);
+    }
+
     fprintf(stderr, "[kanama][ios][c] PTRCALL SELFTEST MATRIX: %d passed, %d failed\n", pass, fail);
     fflush(stderr);
 #undef KANAMA_IOS_ST_CHECK

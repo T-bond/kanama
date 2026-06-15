@@ -80,9 +80,10 @@ dispatch (5 of the 8 IosGodotApi STUBs — call/set_deferred/disconnect/
 set_custom_mouse_cursor/SignalConnection.error) PLUS the iOS value-type (builtin)
 method call path (items 9–11 — Transform3D `inverse/affine_inverse/orthonormalized/
 looking_at/interpolate_with/translated`, Basis `inverse/transposed/orthonormalized/
-scaled/determinant`, Vector3 `cross/dot`, Vector2 `rotated`, Quaternion `inverse`
-— incl. scalar `float` returns). All device-validated on iPhone 12 (iOS 26.5);
-self-test matrix is now 37 C + 42 Kotlin rows, all green.
+scaled/determinant`, Vector3 `cross/dot/is_normalized/max_axis_index`, Vector2
+`rotated`, Quaternion `inverse` — incl. scalar `float`/`bool`/`int` returns). All
+device-validated on iPhone 12 (iOS 26.5); self-test matrix is now 39 C + 44 Kotlin
+rows, all green.
 `Plane` deferred (no emitted-class test method to anchor a row). 3 STUBs remain
 (deferred, see item 8): connectBound/disconnectBound (need `Callable.bindv`) and
 SignalConnection.close (needs custom-Callable hash/equal + disconnect-callable).
@@ -99,11 +100,11 @@ needs a decision (see the numbered items below + the roadmap backlog):
   iOS build consumes (the architectural keystone). Then 3.2 retires the regex parser.
 - Cleanly self-test-validatable items: ~~Variant `Object.call` dispatch~~ DONE
   (item 8); ~~value-type BuiltinTypes on iOS~~ DONE (items 9–11): no-arg + args
-  shapes across Transform3D/Basis/Vector2/Vector3/Quaternion + scalar float returns
-  (item 12). The BuiltinCalls value-type seam can keep being widened in parallel (add
-  a hash + a `types/` method + 2 self-test rows). Remaining NEW capabilities there:
-  an `int`/`bool` scalar return (distinct decode width) and value-type *args* whose
-  base differs from current shapes; float-component value/scalar returns are done.
+  shapes across Transform3D/Basis/Vector2/Vector3/Quaternion + scalar float/bool/int
+  returns (items 12–13). The BuiltinCalls value-type seam is now broadly covered (add
+  a hash + a `types/` method + 2 self-test rows for any further method). The four
+  return widths are settled: value-type components = float32; scalar float = 8-byte
+  double; bool = uint8; int = int64. **NEXT (per user 2026-06-15): Phase 3.1.**
 - Each new audited kind = 1 iOS `types/` file + `ios_arg_layout`/`ios_ret_layout`
   case + 2 self-test rows (C+Kotlin) + regenerate + Node3D fixture refresh + a
   device run. ~30–60 min each. Two gotchas the hard way: do NOT `construct_object`
@@ -290,12 +291,31 @@ needs a decision (see the numbered items below + the roadmap backlog):
    compileKotlinIosArm64, clang -fsyntax-only — all pass. **Next NEW capabilities on this
    seam:** an `int`/`bool` scalar return (different decode width) — float-component value
    returns AND scalar float returns are now both done.
+13. **DONE: value-type builtin `bool` + `int` returns (device-validated 2026-06-15).**
+   `BuiltinCalls.callBool` (decodes a uint8) + `callInt` (decodes an int64), both via the
+   shared `invokeBuiltin`. Wired `Vector3.isNormalized()` (hash 3918633141, bool) +
+   `Vector3.maxAxisIndex()` (hash 3173160232, int). Return widths taken from the Godot
+   4.6.2 source (`core/variant/method_ptrcall.h`): `PtrToArg<bool>` = uint8 (1 byte),
+   `PtrToArg<int64_t>` = direct 8 bytes — so a bool return is ONE byte, an int return is
+   int64, NOT real_t. Self-test (both directions per row to guard the decode):
+   is_normalized (0,0,1)=true / (2,0,0)=false; max_axis_index (1,5,2)=1 / (1,2,9)=2 —
+   non-zero expectations catch a wrong-width zero-read. Validated first try (widths were
+   right): device C 37→39, Kotlin 42→44, 0 failed. Gates: check_wrapper_generator,
+   check_ios_no_silent_stubs, compileKotlinIosArm64, clang -fsyntax-only — all pass. The
+   four value-type return widths are now all settled (float32 components / double scalar /
+   uint8 bool / int64 int). **The BuiltinCalls value-type seam is broadly covered; NEXT is
+   Phase 3.1** (KSP-emitted script model) per the user decision.
 - Workflow: impl per roadmap model tag → review diff → commit straight to main.
   (Fable 5 is no longer available as of 2026-06-12 — the review step and
   attribution are Opus 4.8: `Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>`.)
 
 ## Session log
 
+- **2026-06-15** — value-type builtin `bool`+`int` returns (opus impl).
+  BuiltinCalls.callBool (uint8) + callInt (int64); wired Vector3.is_normalized +
+  max_axis_index. Return widths read from Godot source (PtrToArg<bool>=uint8,
+  <int64_t>=8B). Device C 37→39, Kotlin 42→44, 0 failed, first try. All four
+  value-type return widths now settled. NEXT: Phase 3.1. See item 13.
 - **2026-06-15** — value-type builtin scalar-`float` returns (opus impl).
   BuiltinCalls.callScalar (+ shared MemScope.invokeBuiltin); wired Vector3.dot +
   Basis.determinant. Caught a device-only bug: scalar float returns are 8-byte

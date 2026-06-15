@@ -95,6 +95,20 @@ data class Vector3(
             BuiltinCalls.BArg.Floats(BuiltinCalls.PT_VECTOR3, with.toFloat32()),
         ))
 
+    /**
+     * Returns whether this vector is normalized (length ≈ 1), per Godot's own check (bool
+     * return decoded from the ptr-ABI's uint8).
+     */
+    fun isNormalized(): Boolean =
+        BuiltinCalls.callBool(isNormalizedBind, toFloat32())
+
+    /**
+     * Returns the index (0 = x, 1 = y, 2 = z) of this vector's largest component, computed
+     * by Godot (int return decoded from the ptr-ABI's int64).
+     */
+    fun maxAxisIndex(): Int =
+        BuiltinCalls.callInt(maxAxisIndexBind, toFloat32()).toInt()
+
     private fun toFloat32(): FloatArray =
         floatArrayOf(x.toFloat(), y.toFloat(), z.toFloat())
 
@@ -108,6 +122,12 @@ data class Vector3(
         }
         private val dotBind by lazy {
             BuiltinCalls.getBuiltinMethod(BuiltinCalls.VT_VECTOR3, "dot", 1047977935L)
+        }
+        private val isNormalizedBind by lazy {
+            BuiltinCalls.getBuiltinMethod(BuiltinCalls.VT_VECTOR3, "is_normalized", 3918633141L)
+        }
+        private val maxAxisIndexBind by lazy {
+            BuiltinCalls.getBuiltinMethod(BuiltinCalls.VT_VECTOR3, "max_axis_index", 3173160232L)
         }
 
         private fun fromFloat32(c: FloatArray): Vector3 =

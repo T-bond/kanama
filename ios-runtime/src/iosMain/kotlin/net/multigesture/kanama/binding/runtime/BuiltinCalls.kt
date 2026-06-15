@@ -10,6 +10,7 @@ import kotlinx.cinterop.DoubleVar
 import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.cinterop.FloatVar
 import kotlinx.cinterop.IntVar
+import kotlinx.cinterop.LongVar
 import kotlinx.cinterop.MemScope
 import kotlinx.cinterop.alloc
 import kotlinx.cinterop.allocArray
@@ -123,6 +124,29 @@ object BuiltinCalls {
     fun callScalar(methodPtr: Long, base: FloatArray, args: List<BArg> = emptyList()): Double =
         memScoped {
             val ret = alloc<DoubleVar>()
+            invokeBuiltin(methodPtr, base, args, ret.ptr)
+            ret.value
+        }
+
+    /**
+     * Builtin method returning a `bool` (is_normalized / is_finite / …). Godot's ptr-ABI
+     * encodes a bool return as a single `uint8_t` (`PtrToArg<bool>` = uint8), so decode one
+     * byte (≠ 0 → true).
+     */
+    fun callBool(methodPtr: Long, base: FloatArray, args: List<BArg> = emptyList()): Boolean =
+        memScoped {
+            val ret = alloc<ByteVar>()
+            invokeBuiltin(methodPtr, base, args, ret.ptr)
+            ret.value.toInt() != 0
+        }
+
+    /**
+     * Builtin method returning an `int` (max_axis_index / … ). Godot's ptr-ABI encodes an
+     * int return as `int64_t` (`PtrToArg<int64_t>` is direct 8-byte), so decode a Long.
+     */
+    fun callInt(methodPtr: Long, base: FloatArray, args: List<BArg> = emptyList()): Long =
+        memScoped {
+            val ret = alloc<LongVar>()
             invokeBuiltin(methodPtr, base, args, ret.ptr)
             ret.value
         }
