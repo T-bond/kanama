@@ -260,6 +260,7 @@ static GDExtensionMethodBindPtr g_audio_set_stream_paused_bind = NULL;
 static GDExtensionMethodBindPtr g_audio_play_bind = NULL;
 static GDExtensionMethodBindPtr g_object_emit_signal_bind = NULL;
 static GDExtensionMethodBindPtr g_object_connect_bind = NULL;
+static GDExtensionMethodBindPtr g_object_disconnect_bind = NULL;
 static GDExtensionMethodBindPtr g_tween_tween_property_bind = NULL;
 static GDExtensionMethodBindPtr g_tween_set_parallel_bind = NULL;
 static GDExtensionMethodBindPtr g_tween_kill_bind = NULL;
@@ -293,6 +294,8 @@ static GDExtensionVariantFromTypeConstructorFunc g_variant_from_float = NULL;
 static GDExtensionVariantFromTypeConstructorFunc g_variant_from_object = NULL;
 static GDExtensionVariantFromTypeConstructorFunc g_variant_from_string_name = NULL;
 static GDExtensionVariantFromTypeConstructorFunc g_variant_from_int = NULL;
+static GDExtensionVariantFromTypeConstructorFunc g_variant_from_bool = NULL;
+static GDExtensionVariantFromTypeConstructorFunc g_variant_from_string = NULL;
 static int g_main_loop_callbacks_registered = 0;
 static int g_main_loop_callbacks_active = 0;
 static int g_main_loop_callback_frame_count = 0;
@@ -474,6 +477,10 @@ enum {
     KANAMA_IOS_AUDIO_STREAM_PLAYER_SET_STREAM_PAUSED_HASH = 2586408642U,
     KANAMA_IOS_OBJECT_EMIT_SIGNAL_HASH = 4047867050U,
     KANAMA_IOS_OBJECT_CONNECT_HASH = 1518946055U,
+    KANAMA_IOS_OBJECT_DISCONNECT_HASH = 1874754934U,
+    KANAMA_IOS_OBJECT_CALL_HASH = 3400424181U,
+    KANAMA_IOS_OBJECT_SET_DEFERRED_HASH = 3776071444U,
+    KANAMA_IOS_INPUT_SET_CUSTOM_MOUSE_CURSOR_HASH = 703945977U,
     KANAMA_IOS_TWEEN_TWEEN_PROPERTY_HASH = 4049770449U,
     KANAMA_IOS_TWEEN_SET_PARALLEL_HASH = 1942052223U,
     KANAMA_IOS_TWEEN_KILL_HASH = 3218959716U,
@@ -617,6 +624,8 @@ static int kanama_ios_resolve_godot_api(void) {
     g_variant_from_object = g_get_variant_from_type_constructor(KANAMA_IOS_VARIANT_TYPE_OBJECT);
     g_variant_from_string_name = g_get_variant_from_type_constructor(KANAMA_IOS_VARIANT_TYPE_STRING_NAME);
     g_variant_from_int = g_get_variant_from_type_constructor(KANAMA_IOS_VARIANT_TYPE_INT);
+    g_variant_from_bool = g_get_variant_from_type_constructor(KANAMA_IOS_VARIANT_TYPE_BOOL);
+    g_variant_from_string = g_get_variant_from_type_constructor(KANAMA_IOS_VARIANT_TYPE_STRING);
 
     if (
         g_string_name_destructor == NULL ||
@@ -641,7 +650,9 @@ static int kanama_ios_resolve_godot_api(void) {
         g_variant_from_float == NULL ||
         g_variant_from_object == NULL ||
         g_variant_from_string_name == NULL ||
-        g_variant_from_int == NULL
+        g_variant_from_int == NULL ||
+        g_variant_from_bool == NULL ||
+        g_variant_from_string == NULL
     ) {
         fprintf(stderr, "[kanama][ios][c] error: failed to resolve Godot builtin helpers\n");
         return 0;
@@ -2714,6 +2725,318 @@ int64_t kanama_ios_godot_object_connect(
     return (call_ok && connect_error == 0) ? 0 : -1;
 }
 
+// Generic Variant Object.call dispatch. Boxes each PT-tagged arg into a Variant,
+// invokes method_bind via object_method_bind_call (the Variant path, for varargs /
+// dynamic dispatch the ptrcall path can't express — Object::call, set_deferred,
+// set_custom_mouse_cursor, …), and decodes a SCALAR return (nil/bool/int/float/
+// String/Object) back through the out params. Returns the decoded Variant type tag
+// (KANAMA_IOS_VARIANT_TYPE_*), or -1 if the call did not dispatch. Marshalling is
+// concentrated here and guarded by check_call_error so the boxing bug class stays
+// in one place (see docs/internals/ios-backend-architecture.md).
+int32_t kanama_ios_godot_object_call(
+    int64_t method_bind,
+    int64_t instance,
+    const int32_t *arg_tags,
+    const void *const *arg_ptrs,
+    int32_t arg_count,
+    int64_t *out_int,
+    double *out_double,
+    char *out_str,
+    int64_t out_str_size,
+    int64_t *out_str_len
+) {
+    if (out_int != NULL) *out_int = 0;
+    if (out_double != NULL) *out_double = 0.0;
+    if (out_str_len != NULL) *out_str_len = 0;
+    if (!kanama_ios_resolve_godot_api() || method_bind == 0 || instance == 0) {
+        return -1;
+    }
+    if (arg_count < 0) {
+        arg_count = 0;
+    }
+    if (arg_count > KANAMA_IOS_PTRCALL_MAX_ARGS) {
+        arg_count = KANAMA_IOS_PTRCALL_MAX_ARGS;
+    }
+
+    uint8_t variants[KANAMA_IOS_PTRCALL_MAX_ARGS][24];
+    // String-family builtin storage: cells[i] holds the constructed String/StringName/
+    // NodePath; cell_kind[i] is its PT tag (0 = none) so the matching destructor runs.
+    uint64_t cells[KANAMA_IOS_PTRCALL_MAX_ARGS];
+    int cell_kind[KANAMA_IOS_PTRCALL_MAX_ARGS];
+    GDExtensionConstVariantPtr args[KANAMA_IOS_PTRCALL_MAX_ARGS];
+
+    for (int32_t i = 0; i < arg_count; i++) {
+        memset(variants[i], 0, 24);
+        cells[i] = 0;
+        cell_kind[i] = 0;
+        int32_t tag = (arg_tags != NULL) ? arg_tags[i] : KANAMA_IOS_PT_VOID;
+        const void *p = (arg_ptrs != NULL) ? arg_ptrs[i] : NULL;
+        switch (tag) {
+            case KANAMA_IOS_PT_VOID:
+                g_variant_new_nil((GDExtensionUninitializedVariantPtr)variants[i]);
+                break;
+            case KANAMA_IOS_PT_BOOL: {
+                uint8_t b = (p != NULL && *(const uint8_t *)p) ? 1 : 0;
+                g_variant_from_bool(variants[i], &b);
+                break;
+            }
+            case KANAMA_IOS_PT_INT32:
+            case KANAMA_IOS_PT_INT64: {
+                int64_t v = (p != NULL) ? *(const int64_t *)p : 0;
+                g_variant_from_int(variants[i], &v);
+                break;
+            }
+            case KANAMA_IOS_PT_FLOAT32:
+            case KANAMA_IOS_PT_FLOAT64: {
+                double v = (p != NULL) ? *(const double *)p : 0.0;
+                g_variant_from_float(variants[i], &v);
+                break;
+            }
+            case KANAMA_IOS_PT_STRING:
+                kanama_ios_init_string(&cells[i], (p != NULL) ? (const char *)p : "");
+                g_variant_from_string(variants[i], &cells[i]);
+                cell_kind[i] = KANAMA_IOS_PT_STRING;
+                break;
+            case KANAMA_IOS_PT_STRING_NAME:
+                kanama_ios_init_string_name(&cells[i], (p != NULL) ? (const char *)p : "");
+                g_variant_from_string_name(variants[i], &cells[i]);
+                cell_kind[i] = KANAMA_IOS_PT_STRING_NAME;
+                break;
+            case KANAMA_IOS_PT_NODE_PATH:
+                kanama_ios_init_node_path(&cells[i], (p != NULL) ? (const char *)p : "");
+                g_variant_from_node_path(variants[i], &cells[i]);
+                cell_kind[i] = KANAMA_IOS_PT_NODE_PATH;
+                break;
+            case KANAMA_IOS_PT_OBJECT: {
+                // p points to an int64 handle; a 0 handle boxes as a nil Object.
+                GDExtensionObjectPtr obj =
+                    (p != NULL) ? (GDExtensionObjectPtr)(intptr_t)(*(const int64_t *)p) : NULL;
+                g_variant_from_object(variants[i], &obj);
+                break;
+            }
+            case KANAMA_IOS_PT_VECTOR2:
+                g_variant_from_vector2(variants[i], (void *)p);
+                break;
+            case KANAMA_IOS_PT_VECTOR2I:
+                g_variant_from_vector2i(variants[i], (void *)p);
+                break;
+            case KANAMA_IOS_PT_COLOR:
+                g_variant_from_color(variants[i], (void *)p);
+                break;
+            default:
+                fprintf(stderr,
+                        "[kanama][ios][c] object_call: unsupported arg tag %d at index %d -> nil\n",
+                        (int)tag, (int)i);
+                fflush(stderr);
+                g_variant_new_nil((GDExtensionUninitializedVariantPtr)variants[i]);
+                break;
+        }
+        args[i] = (GDExtensionConstVariantPtr)variants[i];
+    }
+
+    uint8_t ret_variant[24];
+    memset(ret_variant, 0, sizeof(ret_variant));
+    GDExtensionCallError error;
+    memset(&error, 0, sizeof(error));
+    g_object_method_bind_call(
+        (GDExtensionMethodBindPtr)(intptr_t)method_bind,
+        (GDExtensionObjectPtr)(intptr_t)instance,
+        (arg_count > 0) ? args : NULL,
+        arg_count,
+        ret_variant,
+        &error
+    );
+    int call_ok = kanama_ios_check_call_error("Object::call", &error);
+
+    int32_t ret_type = KANAMA_IOS_VARIANT_TYPE_NIL;
+    if (call_ok) {
+        ret_type = (int32_t)g_variant_get_type(ret_variant);
+        switch (ret_type) {
+            case KANAMA_IOS_VARIANT_TYPE_BOOL: {
+                uint8_t b = 0;
+                g_variant_to_bool(&b, ret_variant);
+                if (out_int != NULL) *out_int = b ? 1 : 0;
+                break;
+            }
+            case KANAMA_IOS_VARIANT_TYPE_INT: {
+                int64_t v = 0;
+                g_variant_to_int(&v, ret_variant);
+                if (out_int != NULL) *out_int = v;
+                break;
+            }
+            case KANAMA_IOS_VARIANT_TYPE_FLOAT: {
+                double v = 0.0;
+                g_variant_to_float(&v, ret_variant);
+                if (out_double != NULL) *out_double = v;
+                break;
+            }
+            case KANAMA_IOS_VARIANT_TYPE_STRING: {
+                uint64_t str_storage = 0;
+                g_variant_to_string(&str_storage, ret_variant);
+                if (g_string_to_utf8_chars != NULL) {
+                    int64_t len = (int64_t)g_string_to_utf8_chars(
+                        (GDExtensionConstStringPtr)&str_storage,
+                        (out_str != NULL && out_str_size > 0) ? out_str : NULL,
+                        (out_str != NULL && out_str_size > 0) ? out_str_size : 0);
+                    if (out_str_len != NULL) *out_str_len = len;
+                }
+                kanama_ios_destroy_string(&str_storage);
+                break;
+            }
+            case KANAMA_IOS_VARIANT_TYPE_OBJECT: {
+                GDExtensionObjectPtr obj = NULL;
+                g_variant_to_object(&obj, ret_variant);
+                if (out_int != NULL) *out_int = (int64_t)(intptr_t)obj;
+                break;
+            }
+            default:
+                // NIL / un-decoded type: leave outs zero; Kotlin surfaces null.
+                break;
+        }
+    }
+
+    g_variant_destroy(ret_variant);
+    for (int32_t i = 0; i < arg_count; i++) {
+        g_variant_destroy(variants[i]);
+        switch (cell_kind[i]) {
+            case KANAMA_IOS_PT_STRING:      kanama_ios_destroy_string(&cells[i]); break;
+            case KANAMA_IOS_PT_STRING_NAME: kanama_ios_destroy_string_name(&cells[i]); break;
+            case KANAMA_IOS_PT_NODE_PATH:   kanama_ios_destroy_node_path(&cells[i]); break;
+            default: break;
+        }
+    }
+    return call_ok ? ret_type : -1;
+}
+
+// Object.disconnect(signal, Callable(target, method)) — the symmetric teardown of
+// kanama_ios_godot_object_connect (same object+method Callable construction + boxing).
+// Returns 0 on a clean dispatch, -1 otherwise.
+int32_t kanama_ios_godot_object_disconnect(
+    int64_t object,
+    const char *signal_name,
+    int64_t target_object,
+    const char *method_name
+) {
+    if (!kanama_ios_resolve_godot_api() || object == 0 || target_object == 0 ||
+        signal_name == NULL || method_name == NULL) {
+        return -1;
+    }
+    GDExtensionMethodBindPtr method_bind = kanama_ios_get_method_bind_cached(
+        &g_object_disconnect_bind,
+        "Object",
+        "disconnect",
+        KANAMA_IOS_OBJECT_DISCONNECT_HASH
+    );
+    if (method_bind == NULL) {
+        return -1;
+    }
+
+    uint64_t signal_name_storage = 0;
+    uint64_t method_name_storage = 0;
+    kanama_ios_init_string_name(&signal_name_storage, signal_name);
+    kanama_ios_init_string_name(&method_name_storage, method_name);
+
+    GDExtensionObjectPtr target = (GDExtensionObjectPtr)(intptr_t)target_object;
+    const void *callable_args[2] = { &target, &method_name_storage };
+    uint8_t callable_value[24];
+    uint8_t callable_variant[24];
+    memset(callable_value, 0, sizeof(callable_value));
+    memset(callable_variant, 0, sizeof(callable_variant));
+    g_callable_object_method_constructor(callable_value, callable_args);
+    g_variant_from_callable(callable_variant, callable_value);
+
+    uint8_t signal_variant[24];
+    uint8_t ret_variant[24];
+    memset(signal_variant, 0, sizeof(signal_variant));
+    memset(ret_variant, 0, sizeof(ret_variant));
+    g_variant_from_string_name(signal_variant, &signal_name_storage);
+    kanama_ios_check_variant_arg("Object::disconnect", 0, signal_variant, KANAMA_IOS_VARIANT_TYPE_STRING_NAME);
+    kanama_ios_check_variant_arg("Object::disconnect", 1, callable_variant, KANAMA_IOS_VARIANT_TYPE_CALLABLE);
+    const GDExtensionConstVariantPtr args[2] = {
+        (GDExtensionConstVariantPtr)signal_variant,
+        (GDExtensionConstVariantPtr)callable_variant,
+    };
+    GDExtensionCallError error;
+    memset(&error, 0, sizeof(error));
+    g_object_method_bind_call(
+        method_bind,
+        (GDExtensionObjectPtr)(intptr_t)object,
+        args,
+        2,
+        ret_variant,
+        &error
+    );
+    int call_ok = kanama_ios_check_call_error("Object::disconnect", &error);
+    g_variant_destroy(ret_variant);
+    g_variant_destroy(signal_variant);
+    g_variant_destroy(callable_variant);
+    g_callable_destructor(callable_value);
+    kanama_ios_destroy_string_name(&method_name_storage);
+    kanama_ios_destroy_string_name(&signal_name_storage);
+    return call_ok ? 0 : -1;
+}
+
+// Self-test helper: Object.is_connected(signal, Callable(target, method)) -> 1 / 0 (-1 error).
+// Mirrors the connect/disconnect Callable construction; lets the disconnect self-test row be
+// fail-loud (assert connected before, not-connected after) rather than a no-crash smoke check.
+static int kanama_ios_object_is_connected(
+    int64_t object,
+    const char *signal_name,
+    int64_t target_object,
+    const char *method_name
+) {
+    if (!kanama_ios_resolve_godot_api() || object == 0 || target_object == 0 ||
+        signal_name == NULL || method_name == NULL) {
+        return -1;
+    }
+    GDExtensionMethodBindPtr method_bind =
+        (GDExtensionMethodBindPtr)(intptr_t)kanama_ios_godot_get_method_bind(
+            "Object", "is_connected", 768136979);
+    if (method_bind == NULL) {
+        return -1;
+    }
+
+    uint64_t signal_name_storage = 0;
+    uint64_t method_name_storage = 0;
+    kanama_ios_init_string_name(&signal_name_storage, signal_name);
+    kanama_ios_init_string_name(&method_name_storage, method_name);
+
+    GDExtensionObjectPtr target = (GDExtensionObjectPtr)(intptr_t)target_object;
+    const void *callable_args[2] = { &target, &method_name_storage };
+    uint8_t callable_value[24];
+    uint8_t callable_variant[24];
+    uint8_t signal_variant[24];
+    uint8_t ret_variant[24];
+    memset(callable_value, 0, sizeof(callable_value));
+    memset(callable_variant, 0, sizeof(callable_variant));
+    memset(signal_variant, 0, sizeof(signal_variant));
+    memset(ret_variant, 0, sizeof(ret_variant));
+    g_callable_object_method_constructor(callable_value, callable_args);
+    g_variant_from_callable(callable_variant, callable_value);
+    g_variant_from_string_name(signal_variant, &signal_name_storage);
+    const GDExtensionConstVariantPtr args[2] = {
+        (GDExtensionConstVariantPtr)signal_variant,
+        (GDExtensionConstVariantPtr)callable_variant,
+    };
+    GDExtensionCallError error;
+    memset(&error, 0, sizeof(error));
+    g_object_method_bind_call(method_bind, (GDExtensionObjectPtr)(intptr_t)object, args, 2, ret_variant, &error);
+    int call_ok = kanama_ios_check_call_error("Object::is_connected", &error);
+    int result = -1;
+    if (call_ok) {
+        uint8_t b = 0;
+        g_variant_to_bool(&b, ret_variant);
+        result = b ? 1 : 0;
+    }
+    g_variant_destroy(ret_variant);
+    g_variant_destroy(signal_variant);
+    g_variant_destroy(callable_variant);
+    g_callable_destructor(callable_value);
+    kanama_ios_destroy_string_name(&method_name_storage);
+    kanama_ios_destroy_string_name(&signal_name_storage);
+    return result;
+}
+
 int64_t kanama_ios_godot_tween_tween_property_vector2(
     int64_t tween,
     int64_t target,
@@ -4641,6 +4964,52 @@ static void kanama_ios_ptrcall_selftest(void) {
             if (d > 1e-4f) { q_ok = 0; }
         }
         KANAMA_IOS_ST_CHECK("quaternion set/get_quaternion round-trip", q_ok);
+    }
+
+    // Variant Object.call dispatch (string return): Object.call("get_class") -> "Node3D".
+    // Exercises kanama_ios_godot_object_call: String arg boxing + String return decode.
+    {
+        int64_t call_bind = kanama_ios_godot_get_method_bind("Object", "call", 3400424181);
+        const void *ca[1] = { "get_class" };
+        int32_t ct[1] = { KANAMA_IOS_PT_STRING };
+        char buf[64];
+        memset(buf, 0, sizeof(buf));
+        int64_t slen = 0;
+        int32_t rt = kanama_ios_godot_object_call(call_bind, node3d, ct, ca, 1,
+            NULL, NULL, buf, (int64_t)sizeof(buf), &slen);
+        KANAMA_IOS_ST_CHECK("variant-call get_class==Node3D",
+            rt == KANAMA_IOS_VARIANT_TYPE_STRING && slen == 6 && strncmp(buf, "Node3D", 6) == 0);
+    }
+
+    // Variant Object.call dispatch (int value arg + int return): set_meta("k",4242) via call,
+    // then get_meta("k")==4242. Validates a non-method-name VALUE arg through the boxing path
+    // (the same path set_deferred uses) and INT return decode.
+    {
+        int64_t call_bind = kanama_ios_godot_get_method_bind("Object", "call", 3400424181);
+        int64_t meta_val = 4242;
+        const void *sa[3] = { "set_meta", "kanama_call", &meta_val };
+        int32_t st[3] = { KANAMA_IOS_PT_STRING, KANAMA_IOS_PT_STRING, KANAMA_IOS_PT_INT64 };
+        kanama_ios_godot_object_call(call_bind, node3d, st, sa, 3, NULL, NULL, NULL, 0, NULL);
+        const void *ga[2] = { "get_meta", "kanama_call" };
+        int32_t gt[2] = { KANAMA_IOS_PT_STRING, KANAMA_IOS_PT_STRING };
+        int64_t got = 0;
+        int32_t rt = kanama_ios_godot_object_call(call_bind, node3d, gt, ga, 2, &got, NULL, NULL, 0, NULL);
+        KANAMA_IOS_ST_CHECK("variant-call set_meta/get_meta int round-trip",
+            rt == KANAMA_IOS_VARIANT_TYPE_INT && got == 4242);
+    }
+
+    // Object.disconnect: connect node3d.property_list_changed -> target.notify_property_list_changed,
+    // confirm is_connected, disconnect, confirm not connected. Fail-loud via is_connected.
+    {
+        int64_t dc_target = kanama_ios_godot_construct_object("Node");
+        const char *dc_sig = "property_list_changed";
+        const char *dc_method = "notify_property_list_changed";
+        kanama_ios_godot_object_connect(node3d, dc_sig, dc_target, dc_method, 0);
+        int connected_before = kanama_ios_object_is_connected(node3d, dc_sig, dc_target, dc_method);
+        int dc_rc = kanama_ios_godot_object_disconnect(node3d, dc_sig, dc_target, dc_method);
+        int connected_after = kanama_ios_object_is_connected(node3d, dc_sig, dc_target, dc_method);
+        KANAMA_IOS_ST_CHECK("object disconnect (connected->disconnected)",
+            connected_before == 1 && dc_rc == 0 && connected_after == 0);
     }
 
     fprintf(stderr, "[kanama][ios][c] PTRCALL SELFTEST MATRIX: %d passed, %d failed\n", pass, fail);

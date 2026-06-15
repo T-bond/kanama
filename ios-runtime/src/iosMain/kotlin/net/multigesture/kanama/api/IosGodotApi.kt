@@ -66,6 +66,7 @@ import net.multigesture.kanama.ios.cinterop.kanama_ios_godot_construct_object
 import net.multigesture.kanama.ios.cinterop.kanama_ios_godot_node_set_process_unhandled_input
 import net.multigesture.kanama.ios.cinterop.kanama_ios_godot_object_connect
 import net.multigesture.kanama.ios.cinterop.kanama_ios_godot_object_connect_callable
+import net.multigesture.kanama.ios.cinterop.kanama_ios_godot_object_disconnect
 import net.multigesture.kanama.ios.cinterop.kanama_ios_godot_object_emit_signal_int
 import net.multigesture.kanama.ios.cinterop.kanama_ios_godot_object_emit_signal_vector2i
 import net.multigesture.kanama.ios.cinterop.kanama_ios_godot_object_is_class
@@ -140,22 +141,26 @@ open class GodotObject(
     fun signal(name: String): GodotSignal =
         GodotSignal(this, name)
 
-    // KANAMA-IOS-STUB: should dispatch via the Variant Object.call path; not wired yet. Backlog.
+    // Variant Object.call dispatch: [method, *args] boxed into Variants, called via the
+    // Variant path (the varargs path ptrcall can't express). Scalar return decoded to Any?.
     fun call(method: String, vararg args: Any?): Any? =
-        null
+        ObjectCalls.callWithVariantArgs(callBind, handle, listOf(method, *args))
 
-    // KANAMA-IOS-STUB: should call Object.set_deferred via Variant dispatch; not wired yet. Backlog.
+    // Object.set_deferred(property, value) via the Variant path; applies on the next idle frame.
     fun setDeferred(property: String, value: Any?) {
+        ObjectCalls.callWithVariantArgs(setDeferredBind, handle, listOf(property, value))
     }
 
     fun connect(signalName: String, target: GodotObject, method: String, flags: Long = CONNECT_DEFAULT): Long =
         IosGodot.objectConnect(handle.address(), signalName, target.handle.address(), method, flags)
 
-    // KANAMA-IOS-STUB: should call Object.disconnect; not wired yet. Backlog.
+    // Object.disconnect(signal, Callable(target, method)) — symmetric to connect().
     fun disconnect(signalName: String, target: GodotObject, method: String) {
+        IosGodot.objectDisconnect(handle.address(), signalName, target.handle.address(), method)
     }
 
-    // KANAMA-IOS-STUB: connectBound should call Object.connect with bound args Callable; not wired yet. Backlog.
+    // KANAMA-IOS-STUB: connectBound needs Callable.bindv(Array) over the boundArgs before
+    // Object.connect; deferred with the bound/custom-Callable work (beyond Object.call). Backlog.
     fun connectBound(
         signalName: String,
         target: GodotObject,
@@ -164,7 +169,8 @@ open class GodotObject(
         flags: Long = CONNECT_DEFAULT,
     ): Long = 0L
 
-    // KANAMA-IOS-STUB: should call Object.disconnect; not wired yet. Backlog.
+    // KANAMA-IOS-STUB: disconnectBound needs the same Callable.bindv(boundArgs) to rebuild the
+    // bound Callable Object.disconnect must match; deferred with connectBound. Backlog.
     fun disconnectBound(signalName: String, target: GodotObject, method: String, boundArgs: List<Any?>) {
     }
 
@@ -194,6 +200,10 @@ open class GodotObject(
         const val CONNECT_DEFAULT = 0L
         const val CONNECT_ONE_SHOT = 4L
 
+        // Variant-call binds (resolved once) for the dynamic Object.call / set_deferred path.
+        private val callBind by lazy { ObjectCalls.getMethodBind("Object", "call", 3400424181L) }
+        private val setDeferredBind by lazy { ObjectCalls.getMethodBind("Object", "set_deferred", 3776071444L) }
+
         fun fromHandle(handle: MemorySegment): GodotObject? = wrap(handle)
 
         internal fun wrap(handle: MemorySegment): GodotObject? =
@@ -221,7 +231,7 @@ class GodotSignal internal constructor(
             // but release defensively in case it never reached the trampoline path.
             IosCallableRegistry.release(callbackId)
         }
-        return SignalConnection()
+        return SignalConnection(result)
     }
 
     fun connectObject(
@@ -245,11 +255,12 @@ class GodotSignal internal constructor(
     }
 }
 
-class SignalConnection internal constructor() : AutoCloseable {
-    // KANAMA-IOS-STUB: should carry the real connect() return Error; hardcoded OK. Backlog.
-    val error: Long = 0L
-
-    // KANAMA-IOS-STUB: close() should disconnect the connection; not wired yet. Backlog.
+class SignalConnection internal constructor(
+    // Real Object.connect return Error (0 == OK) from the lambda-connect path.
+    val error: Long = 0L,
+) : AutoCloseable {
+    // KANAMA-IOS-STUB: close() should disconnect the lambda Callable; needs custom-Callable
+    // identity (hash/equal) + a disconnect-callable C path. Backlog (bound/custom Callables).
     override fun close() {
     }
 }
@@ -386,9 +397,14 @@ object Input {
     private val isActionJustPressedBind by lazy {
         ObjectCalls.getMethodBind("Input", "is_action_just_pressed", 1558498928L)
     }
+    private val setCustomMouseCursorBind by lazy {
+        ObjectCalls.getMethodBind("Input", "set_custom_mouse_cursor", 703945977L)
+    }
 
-    // KANAMA-IOS-STUB: cosmetic; needs Texture2D arg marshalling to call set_custom_mouse_cursor. Backlog.
+    // Input.set_custom_mouse_cursor(image, shape, hotspot) via the Variant path (Object arg +
+    // int + Vector2). A null texture resets the cursor for that shape.
     fun setCustomMouseCursor(texture: Texture2D?, shape: Long = 0L, hotspot: Vector2 = Vector2.ZERO) {
+        ObjectCalls.callWithVariantArgs(setCustomMouseCursorBind, singleton, listOf(texture, shape, hotspot))
     }
 
     fun getAxis(negativeAction: String, positiveAction: String): Double =
@@ -693,6 +709,9 @@ internal object IosGodot {
 
     fun objectConnect(sourceObject: Long, signalName: String, targetObject: Long, method: String, flags: Long): Long =
         kanama_ios_godot_object_connect(sourceObject, signalName, targetObject, method, flags)
+
+    fun objectDisconnect(sourceObject: Long, signalName: String, targetObject: Long, method: String): Int =
+        kanama_ios_godot_object_disconnect(sourceObject, signalName, targetObject, method)
 
     fun objectConnectCallable(sourceObject: Long, signalName: String, callbackId: Long, flags: Long): Long =
         kanama_ios_godot_object_connect_callable(sourceObject, signalName, callbackId, flags)

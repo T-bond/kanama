@@ -208,6 +208,38 @@ int64_t kanama_ios_godot_object_connect_callable(
     int64_t flags
 );
 
+/*
+ * Generic Variant Object.call dispatch (the varargs / dynamic path ptrcall can't
+ * express). arg_tags[i] is a KANAMA_IOS_PT_* tag and arg_ptrs[i] points to that
+ * arg's payload (uint8 bool / int64 / double / C-string for String-family / int64
+ * handle for Object / laid-out float32|int32 for Vector2/Vector2i/Color). The args
+ * are boxed into Variants, method_bind is invoked via object_method_bind_call, and a
+ * SCALAR return is decoded: bool/int/Object-handle into *out_int, float into
+ * *out_double, String UTF-8 into out_str (no terminator; *out_str_len gets the full
+ * byte length, pass out_str=NULL/out_str_size=0 to measure). Returns the decoded
+ * Variant type tag (KANAMA_IOS_VARIANT_TYPE_*), or -1 if the call did not dispatch.
+ */
+int32_t kanama_ios_godot_object_call(
+    int64_t method_bind,
+    int64_t instance,
+    const int32_t *arg_tags,
+    const void *const *arg_ptrs,
+    int32_t arg_count,
+    int64_t *out_int,
+    double *out_double,
+    char *out_str,
+    int64_t out_str_size,
+    int64_t *out_str_len
+);
+
+/* Object.disconnect(signal, Callable(target, method)) — symmetric to object_connect. */
+int32_t kanama_ios_godot_object_disconnect(
+    int64_t object,
+    const char *signal_name,
+    int64_t target_object,
+    const char *method_name
+);
+
 int64_t kanama_ios_godot_tween_tween_property_vector2(
     int64_t tween,
     int64_t target,

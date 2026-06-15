@@ -24,9 +24,11 @@ import kotlinx.cinterop.readBytes
 import kotlinx.cinterop.reinterpret
 import kotlinx.cinterop.set
 import kotlinx.cinterop.value
+import net.multigesture.kanama.api.GodotObject
 import net.multigesture.kanama.ios.cinterop.kanama_ios_godot_construct_object
 import net.multigesture.kanama.ios.cinterop.kanama_ios_godot_get_method_bind
 import net.multigesture.kanama.ios.cinterop.kanama_ios_godot_get_singleton
+import net.multigesture.kanama.ios.cinterop.kanama_ios_godot_object_call
 import net.multigesture.kanama.ios.cinterop.kanama_ios_godot_ptrcall
 import net.multigesture.kanama.ios.cinterop.kanama_ios_godot_ptrcall_no_args_ret_string
 import net.multigesture.kanama.ios.cinterop.kanama_ios_godot_ptrcall_no_args_ret_string_name
@@ -70,6 +72,15 @@ object ObjectCalls {
     private const val PT_RECT2 = 12
     private const val PT_OBJECT = 13
     private const val PT_STRING_NAME = 15
+    private const val PT_STRING = 16
+
+    // Godot Variant type tags (returned by kanama_ios_godot_object_call, for decoding
+    // a scalar return). Must match the KANAMA_IOS_VARIANT_TYPE_* enum in the C shim.
+    private const val VT_BOOL = 1
+    private const val VT_INT = 2
+    private const val VT_FLOAT = 3
+    private const val VT_STRING = 4
+    private const val VT_OBJECT = 24
 
     fun constructObject(className: String): MemorySegment =
         MemorySegment.ofAddress(kanama_ios_godot_construct_object(className))
@@ -336,6 +347,98 @@ object ObjectCalls {
             kanama_ios_godot_ptrcall(methodBind.address(), instance.address(), types, ptrs, n, PT_VOID, null)
             Unit
         }
+
+    // Generic Variant Object.call dispatch (mirrors desktop ObjectCalls.callWithVariantArgs):
+    // boxes each arg into a Variant C-side and invokes [methodBind] via the Variant path,
+    // for the varargs / dynamic methods ptrcall can't express (Object.call, set_deferred,
+    // set_custom_mouse_cursor). Returns the decoded SCALAR result (Boolean/Long/Double/
+    // String/object MemorySegment) or null (nil / non-scalar return). String returns over
+    // 1 KiB are truncated (the value is captured once — the call is not re-issued).
+    fun callWithVariantArgs(
+        methodBind: MemorySegment,
+        instance: MemorySegment,
+        args: List<Any?>,
+    ): Any? =
+        memScoped {
+            val n = args.size
+            val tags = allocArray<IntVar>(if (n > 0) n else 1)
+            val ptrs = allocArray<COpaquePointerVar>(if (n > 0) n else 1)
+            for (i in 0 until n) {
+                when (val a = args[i]) {
+                    null -> { tags[i] = PT_VOID; ptrs[i] = null }
+                    is Boolean -> {
+                        val c = alloc<ByteVar>(); c.value = if (a) 1 else 0
+                        tags[i] = PT_BOOL; ptrs[i] = c.ptr.reinterpret<CPointed>()
+                    }
+                    is Int -> {
+                        val c = alloc<LongVar>(); c.value = a.toLong()
+                        tags[i] = PT_INT64; ptrs[i] = c.ptr.reinterpret<CPointed>()
+                    }
+                    is Long -> {
+                        val c = alloc<LongVar>(); c.value = a
+                        tags[i] = PT_INT64; ptrs[i] = c.ptr.reinterpret<CPointed>()
+                    }
+                    is Float -> {
+                        val c = alloc<DoubleVar>(); c.value = a.toDouble()
+                        tags[i] = PT_FLOAT64; ptrs[i] = c.ptr.reinterpret<CPointed>()
+                    }
+                    is Double -> {
+                        val c = alloc<DoubleVar>(); c.value = a
+                        tags[i] = PT_FLOAT64; ptrs[i] = c.ptr.reinterpret<CPointed>()
+                    }
+                    is String -> { tags[i] = PT_STRING; ptrs[i] = a.cstr.ptr.reinterpret<CPointed>() }
+                    is Vector2 -> {
+                        val c = allocArray<FloatVar>(2); c[0] = a.x.toFloat(); c[1] = a.y.toFloat()
+                        tags[i] = PT_VECTOR2; ptrs[i] = c.reinterpret<CPointed>()
+                    }
+                    is Vector2i -> {
+                        val c = allocArray<IntVar>(2); c[0] = a.x; c[1] = a.y
+                        tags[i] = PT_VECTOR2I; ptrs[i] = c.reinterpret<CPointed>()
+                    }
+                    is Color -> {
+                        val c = allocArray<FloatVar>(4); c[0] = a.r; c[1] = a.g; c[2] = a.b; c[3] = a.a
+                        tags[i] = PT_COLOR; ptrs[i] = c.reinterpret<CPointed>()
+                    }
+                    is GodotObject -> {
+                        val c = alloc<LongVar>(); c.value = a.handle.address()
+                        tags[i] = PT_OBJECT; ptrs[i] = c.ptr.reinterpret<CPointed>()
+                    }
+                    is MemorySegment -> {
+                        val c = alloc<LongVar>(); c.value = a.address()
+                        tags[i] = PT_OBJECT; ptrs[i] = c.ptr.reinterpret<CPointed>()
+                    }
+                    else -> error("callWithVariantArgs: unsupported arg type ${a::class.simpleName}")
+                }
+            }
+            val outInt = alloc<LongVar>()
+            val outDouble = alloc<DoubleVar>()
+            val strBufSize = 1024L
+            val outStr = allocArray<ByteVar>(strBufSize)
+            val outStrLen = alloc<LongVar>()
+            val retType = kanama_ios_godot_object_call(
+                methodBind.address(),
+                instance.address(),
+                tags,
+                ptrs,
+                n,
+                outInt.ptr,
+                outDouble.ptr,
+                outStr,
+                strBufSize,
+                outStrLen.ptr,
+            )
+            when (retType) {
+                VT_BOOL -> outInt.value != 0L
+                VT_INT -> outInt.value
+                VT_FLOAT -> outDouble.value
+                VT_STRING -> {
+                    val len = minOf(outStrLen.value, strBufSize).toInt().coerceAtLeast(0)
+                    outStr.readBytes(len).decodeToString()
+                }
+                VT_OBJECT -> if (outInt.value != 0L) MemorySegment.ofAddress(outInt.value) else null
+                else -> null
+            }
+        }
 }
 
 // Debug-gated self-test (called from the C scene-init self-test): validates the full
@@ -561,6 +664,36 @@ fun kanamaIosRuntimeObjectCallsSelfTest() {
     fun nearly(a: Double, b: Double) = (if (a > b) a - b else b - a) < 1e-4
     check("quaternion(set/get_quaternion)",
         nearly(qOut.x, qIn.x) && nearly(qOut.y, qIn.y) && nearly(qOut.z, qIn.z) && nearly(qOut.w, qIn.w))
+
+    // Variant Object.call dispatch (ObjectCalls.callWithVariantArgs): the Kotlin marshalling
+    // path — Any? args -> PT-tagged Variants C-side -> object_method_bind_call -> scalar return
+    // decode. Node (not a Control) avoids the treeless-Control post-init Theme segfault.
+    // (iOS Variant Object.call dispatch — the 5 IosGodotApi STUBs)
+    val callBind = ObjectCalls.getMethodBind("Object", "call", 3400424181L)
+    val callNode = ObjectCalls.constructObject("Node")
+    // String value arg: call("set_name", "KCall") then read it back via ptrcall.
+    ObjectCalls.callWithVariantArgs(callBind, callNode, listOf("set_name", "KCall"))
+    check("variant-call-arg(set_name)", ObjectCalls.ptrcallNoArgsRetStringName(
+        ObjectCalls.getMethodBind("Node", "get_name", 2002593661L), callNode) == "KCall")
+    // String return decode: call("get_class") -> "Node".
+    check("variant-call-ret-string(get_class==Node)",
+        ObjectCalls.callWithVariantArgs(callBind, callNode, listOf("get_class")) == "Node")
+    // Int return decode: call("get_child_count") -> 0L on a fresh node.
+    check("variant-call-ret-int(get_child_count==0)",
+        ObjectCalls.callWithVariantArgs(callBind, callNode, listOf("get_child_count")) == 0L)
+    // Bool return decode: call("is_inside_tree") -> false (not in a tree).
+    check("variant-call-ret-bool(is_inside_tree==false)",
+        ObjectCalls.callWithVariantArgs(callBind, callNode, listOf("is_inside_tree")) == false)
+    // Int VALUE arg + int return via set_meta/get_meta (the boxing path set_deferred uses).
+    ObjectCalls.callWithVariantArgs(callBind, callNode, listOf("set_meta", "kcall", 4242L))
+    check("variant-call-value-int(set_meta/get_meta)",
+        ObjectCalls.callWithVariantArgs(callBind, callNode, listOf("get_meta", "kcall")) == 4242L)
+    // Object VALUE arg (GodotObject) + Object return via set_meta/get_meta.
+    val metaObj = ObjectCalls.constructObject("Node")
+    ObjectCalls.callWithVariantArgs(callBind, callNode, listOf("set_meta", "kobj", GodotObject(metaObj)))
+    val gotObj = ObjectCalls.callWithVariantArgs(callBind, callNode, listOf("get_meta", "kobj"))
+    check("variant-call-value-object(set_meta/get_meta object)",
+        gotObj is MemorySegment && gotObj.address() == metaObj.address())
 
     println("[kanama][ios][kn] OBJECTCALLS SELFTEST: $pass passed, $fail failed")
 }

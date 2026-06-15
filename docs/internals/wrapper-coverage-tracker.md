@@ -70,14 +70,18 @@ Gated on Phase 4 exit. Not started by decision.
 | R8-minified APK smoke gate (review F2) | opus | todo |
 | AVAudioSession workaround | sonnet | todo |
 
-## RESUME HERE (updated 2026-06-13 — resume in Opus)
+## RESUME HERE (updated 2026-06-14 — resume in Opus)
 
 State: working tree CLEAN. Phase 1 (desktop/Android wrapper gaps) + Phase 2
 iOS audited-kind widening BOTH complete and committed to main — 2.1 Vector2i/3i,
 2.2 Color/Rect2, 2.3a/b String+StringName return, 2.4 String/NodePath args, 2.5
-Transform3D/Basis, plus RID/Quaternion/AABB. All device-validated on iPhone 12
-(iOS 26.5); self-test matrix is 23 C + 22 Kotlin rows, all green. `Plane` deferred
-(no emitted-class test method to anchor a row).
+Transform3D/Basis, plus RID/Quaternion/AABB. PLUS the iOS Variant `Object.call`
+dispatch (5 of the 8 IosGodotApi STUBs — call/set_deferred/disconnect/
+set_custom_mouse_cursor/SignalConnection.error). All device-validated on iPhone 12
+(iOS 26.5); self-test matrix is now 26 C + 28 Kotlin rows, all green. `Plane`
+deferred (no emitted-class test method to anchor a row). 3 STUBs remain (deferred,
+see item 8): connectBound/disconnectBound (need `Callable.bindv`) and
+SignalConnection.close (needs custom-Callable hash/equal + disconnect-callable).
 
 **The clean POD-widening seam is exhausted.** The remaining work is bigger /
 needs a decision (see the numbered items below + the roadmap backlog):
@@ -86,8 +90,8 @@ needs a decision (see the numbered items below + the roadmap backlog):
   Phase 3. Sequencing fork: do 2.6 through the parser now (~½–1 day, demo-validated,
   re-done at Phase 3) **vs** Phase 3 KSP unification first (multi-day, then 2.6 is
   clean). USER DECISION pending.
-- Cleanly self-test-validatable ~1-day items (no demo-run needed): Variant
-  `Object.call` dispatch (8 IosGodotApi STUBs), value-type BuiltinTypes on iOS
+- Cleanly self-test-validatable ~1-day items (no demo-run needed): ~~Variant
+  `Object.call` dispatch~~ DONE (item 8), value-type BuiltinTypes on iOS
   (`Transform3D.inverse()` etc.).
 - Each new audited kind = 1 iOS `types/` file + `ios_arg_layout`/`ios_ret_layout`
   case + 2 self-test rows (C+Kotlin) + regenerate + Node3D fixture refresh + a
@@ -189,15 +193,43 @@ needs a decision (see the numbered items below + the roadmap backlog):
 7. **NEXT:** 2.6 proper (`@ScriptProperty` value-type delivery — NodePath/Vector/
    Color to Kotlin script instances; unblocks platformer `view: NodePath`) requires
    extending the regex annotation parser the roadmap flags for Phase-3 KSP
-   replacement first — sequencing decision pending. Other gaps: Variant Object.call
-   dispatch, String-arg signal payloads, custom-Callable lambdas, TypedArray ARGS,
-   value-type BuiltinTypes on iOS.
+   replacement first — sequencing decision pending. Other gaps: String-arg signal
+   payloads, custom-Callable lambdas, TypedArray ARGS, value-type BuiltinTypes on iOS.
+8. **DONE: Variant `Object.call` dispatch (device-validated 2026-06-14).** New generic
+   C entry `kanama_ios_godot_object_call(method_bind, instance, arg_tags[], arg_ptrs[],
+   argc, out_int, out_double, out_str/size/len)` boxes PT-tagged args into Variants via
+   `object_method_bind_call` (the varargs/dynamic path ptrcall can't express) and decodes
+   a SCALAR return (nil/bool/int/float/String/Object); resolves `g_variant_from_bool`/
+   `g_variant_from_string`. Plus `kanama_ios_godot_object_disconnect` (object+method
+   Callable, symmetric to the existing `object_connect`) + a static `is_connected`
+   self-test helper. Kotlin: hand-written `ObjectCalls.callWithVariantArgs(bind, instance,
+   List<Any?>)` (mirrors desktop) marshals Any?→PT tag+payload and decodes the return.
+   Cleared **5 of the 8 IosGodotApi STUBs**: `GodotObject.call` (Object.call),
+   `setDeferred` (Object.set_deferred), `disconnect` (Object.disconnect),
+   `Input.setCustomMouseCursor` (Input.set_custom_mouse_cursor — Object/int/Vector2 args),
+   `SignalConnection.error` (plumbed the real connect-callable result). Self-test: +3 C
+   rows (Object.call get_class→String, set_meta/get_meta int value+return, connect→
+   disconnect via is_connected) +6 Kotlin rows (callWithVariantArgs string-arg, string/int/
+   bool returns, set_meta/get_meta int + object value+return). Device C 23→26, Kotlin
+   22→28, 0 failed, no notes. **3 STUBs deferred** (a distinct feature — bound/custom
+   Callables, beyond Object.call): `connectBound`/`disconnectBound` need
+   `Callable.bindv(Array)`; `SignalConnection.close` needs custom-Callable hash/equal +
+   a disconnect-callable C path (the custom callable is created with no identity today, so
+   it can't be matched for disconnect). Gates: check_wrapper_generator,
+   check_ios_no_silent_stubs (3 annotated STUBs left), compileKotlinIosArm64,
+   clang -fsyntax-only — all pass.
 - Workflow: impl per roadmap model tag → review diff → commit straight to main.
   (Fable 5 is no longer available as of 2026-06-12 — the review step and
   attribution are Opus 4.8: `Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>`.)
 
 ## Session log
 
+- **2026-06-14** — iOS Variant `Object.call` dispatch (opus impl). New generic C
+  `kanama_ios_godot_object_call` + `object_disconnect` + Kotlin
+  `ObjectCalls.callWithVariantArgs`; cleared 5 of the 8 IosGodotApi STUBs
+  (call/set_deferred/disconnect/set_custom_mouse_cursor/SignalConnection.error).
+  Device-validated iPhone 12: C 23→26, Kotlin 22→28, 0 failed. 3 Callable STUBs
+  deferred (connectBound/disconnectBound bindv, SignalConnection.close). See item 8.
 - **2026-06-12** — Roadmap + tracker created. Architecture review landed
   (`56f29aa`, `4449ece`): compatibility_minimum 4.7 fix, R8 consumer-rules
   scaffold. Phase 1.1 started.

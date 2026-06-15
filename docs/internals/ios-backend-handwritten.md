@@ -8,7 +8,7 @@ without being listed here, so we don't repeat the deep-dive bugs from unwired
 annotations/signals. `scripts/check_ios_no_silent_stubs.py` fails CI on an
 un-annotated bare-default return.
 
-Totals: **11 STUB** · **10 HANDWRITTEN** · **3 SUGAR** (24 marked sites).
+Totals: **3 STUB** · **10 HANDWRITTEN** · **1 SUGAR** (14 marked sites).
 
 ## STUB
 
@@ -16,17 +16,9 @@ _Silent stubs — should call real Godot but don't yet (follow up to avoid silen
 
 | Location | Note |
 |---|---|
-| `ios/bootstrap/kanama_ios_shim.c:390` | PT_STRING / PT_NODE_PATH arg construction not implemented in the |
-| `ios-runtime/src/iosMain/kotlin/net/multigesture/kanama/api/AnimationPlayer.kt:507` | getCurrentAnimation returns the last play() name, not Godot's live |
-| `ios-runtime/src/iosMain/kotlin/net/multigesture/kanama/api/IosGodotApi.kt:143` | should dispatch via the Variant Object.call path; not wired yet. Backlog. |
-| `ios-runtime/src/iosMain/kotlin/net/multigesture/kanama/api/IosGodotApi.kt:147` | should call Object.set_deferred via Variant dispatch; not wired yet. Backlog. |
-| `ios-runtime/src/iosMain/kotlin/net/multigesture/kanama/api/IosGodotApi.kt:154` | should call Object.disconnect; not wired yet. Backlog. |
-| `ios-runtime/src/iosMain/kotlin/net/multigesture/kanama/api/IosGodotApi.kt:158` | connectBound should call Object.connect with bound args Callable; not wired yet. Backlog. |
-| `ios-runtime/src/iosMain/kotlin/net/multigesture/kanama/api/IosGodotApi.kt:167` | should call Object.disconnect; not wired yet. Backlog. |
-| `ios-runtime/src/iosMain/kotlin/net/multigesture/kanama/api/IosGodotApi.kt:249` | should carry the real connect() return Error; hardcoded OK. Backlog. |
-| `ios-runtime/src/iosMain/kotlin/net/multigesture/kanama/api/IosGodotApi.kt:252` | close() should disconnect the connection; not wired yet. Backlog. |
-| `ios-runtime/src/iosMain/kotlin/net/multigesture/kanama/api/IosGodotApi.kt:390` | cosmetic; needs Texture2D arg marshalling to call set_custom_mouse_cursor. Backlog. |
-| `ios-runtime/src/iosMain/kotlin/net/multigesture/kanama/api/Label.kt:430` | get_text not read (String-return ptrcall not wired); set is real. Backlog. |
+| `ios-runtime/src/iosMain/kotlin/net/multigesture/kanama/api/IosGodotApi.kt:162` | connectBound needs Callable.bindv(Array) over the boundArgs before |
+| `ios-runtime/src/iosMain/kotlin/net/multigesture/kanama/api/IosGodotApi.kt:172` | disconnectBound needs the same Callable.bindv(boundArgs) to rebuild the |
+| `ios-runtime/src/iosMain/kotlin/net/multigesture/kanama/api/IosGodotApi.kt:262` | close() should disconnect the lambda Callable; needs custom-Callable |
 
 ## HANDWRITTEN
 
@@ -34,16 +26,16 @@ _Intentionally bespoke — not generatable from extension_api.json; correct as-i
 
 | Location | Note |
 |---|---|
-| `ios-runtime/src/iosMain/kotlin/net/multigesture/kanama/api/IosGodotApi.kt:107` | KanamaScope bridges Godot's main thread to Kotlin coroutines; not generatable from extension_api.json. |
-| `ios-runtime/src/iosMain/kotlin/net/multigesture/kanama/api/IosGodotApi.kt:121` | MainThread.post is a no-op shim; on iOS main thread dispatch is handled by Godot's frame loop, not a JVM executor. |
-| `ios-runtime/src/iosMain/kotlin/net/multigesture/kanama/api/IosGodotApi.kt:138` | signal/connect/emitSignal/await use the custom GDExtension |
-| `ios-runtime/src/iosMain/kotlin/net/multigesture/kanama/api/IosGodotApi.kt:189` | AutoCloseable no-op base; Godot object lifetime is managed externally, not by Kotlin's close(). |
-| `ios-runtime/src/iosMain/kotlin/net/multigesture/kanama/api/IosGodotApi.kt:313` | Tweener/PropertyTweener/Tween use the Variant tween_property path |
-| `ios-runtime/src/iosMain/kotlin/net/multigesture/kanama/api/IosGodotApi.kt:381` | Input is the bespoke singleton glue (getSingleton + cached binds); |
-| `ios-runtime/src/iosMain/kotlin/net/multigesture/kanama/api/IosGodotApi.kt:401` | pure-Kotlin math helpers (no Godot call). Bespoke utility. |
-| `ios-runtime/src/iosMain/kotlin/net/multigesture/kanama/api/IosGodotApi.kt:423` | ResourceLoader singleton glue over the C shim resource loader. |
-| `ios-runtime/src/iosMain/kotlin/net/multigesture/kanama/api/IosGodotApi.kt:436` | GD global helpers (rand*, print) — Kotlin/native impls, bespoke. |
-| `ios-runtime/src/iosMain/kotlin/net/multigesture/kanama/api/IosGodotApi.kt:461` | thin cinterop facade over the C shim helpers used by the bespoke |
+| `ios-runtime/src/iosMain/kotlin/net/multigesture/kanama/api/IosGodotApi.kt:108` | KanamaScope bridges Godot's main thread to Kotlin coroutines; not generatable from extension_api.json. |
+| `ios-runtime/src/iosMain/kotlin/net/multigesture/kanama/api/IosGodotApi.kt:122` | MainThread.post is a no-op shim; on iOS main thread dispatch is handled by Godot's frame loop, not a JVM executor. |
+| `ios-runtime/src/iosMain/kotlin/net/multigesture/kanama/api/IosGodotApi.kt:139` | signal/connect/emitSignal/await use the custom GDExtension |
+| `ios-runtime/src/iosMain/kotlin/net/multigesture/kanama/api/IosGodotApi.kt:195` | AutoCloseable no-op base; Godot object lifetime is managed externally, not by Kotlin's close(). |
+| `ios-runtime/src/iosMain/kotlin/net/multigesture/kanama/api/IosGodotApi.kt:324` | Tweener/PropertyTweener/Tween use the Variant tween_property path |
+| `ios-runtime/src/iosMain/kotlin/net/multigesture/kanama/api/IosGodotApi.kt:392` | Input is the bespoke singleton glue (getSingleton + cached binds); |
+| `ios-runtime/src/iosMain/kotlin/net/multigesture/kanama/api/IosGodotApi.kt:417` | pure-Kotlin math helpers (no Godot call). Bespoke utility. |
+| `ios-runtime/src/iosMain/kotlin/net/multigesture/kanama/api/IosGodotApi.kt:439` | ResourceLoader singleton glue over the C shim resource loader. |
+| `ios-runtime/src/iosMain/kotlin/net/multigesture/kanama/api/IosGodotApi.kt:452` | GD global helpers (rand*, print) — Kotlin/native impls, bespoke. |
+| `ios-runtime/src/iosMain/kotlin/net/multigesture/kanama/api/IosGodotApi.kt:477` | thin cinterop facade over the C shim helpers used by the bespoke |
 
 ## SUGAR
 
@@ -51,7 +43,5 @@ _Hand-added inside a GENERATED wrapper file — regeneration overwrites it; re-a
 
 | Location | Note |
 |---|---|
-| `ios-runtime/src/iosMain/kotlin/net/multigesture/kanama/api/AnimationPlayer.kt:504` | hand-added to a generated file; re-add after regeneration. |
-| `ios-runtime/src/iosMain/kotlin/net/multigesture/kanama/api/Label.kt:426` | hand-added to a generated file; re-add after regeneration. |
-| `ios-runtime/src/iosMain/kotlin/net/multigesture/kanama/api/Node.kt:925` | hand-added to a generated file; re-add after regeneration. |
+| `ios-runtime/src/iosMain/kotlin/net/multigesture/kanama/api/Node.kt:1070` | hand-added to a generated file; re-add after regeneration. |
 
