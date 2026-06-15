@@ -91,6 +91,17 @@ extern int32_t kanama_ios_runtime_script_instance_set_property_string(
     int32_t property_index,
     const char *value
 );
+// Value-type (NodePath/Vector2/Vector3/Color) @ScriptProperty delivery: the C side extracts
+// the Variant into a PT-tagged raw byte buffer and hands it across. NODE_PATH ships its utf8
+// path bytes (PT_NODE_PATH); Vector2/3/Color ship their float32 components (PT_VECTOR2/
+// PT_VECTOR3/PT_COLOR). Mirrors the value-type method-call marshalling.
+extern int32_t kanama_ios_runtime_script_instance_set_property_value(
+    int64_t instance_handle,
+    int32_t property_index,
+    int32_t pt_tag,
+    const uint8_t *bytes,
+    int32_t length
+);
 extern void kanama_ios_runtime_script_instance_free(int64_t instance_handle);
 extern void kanama_ios_runtime_dispatch_callable(
     int64_t callback_id,
@@ -281,6 +292,12 @@ static GDExtensionTypeFromVariantConstructorFunc g_variant_to_object = NULL;
 static GDExtensionTypeFromVariantConstructorFunc g_variant_to_int = NULL;
 static GDExtensionTypeFromVariantConstructorFunc g_variant_to_vector2i = NULL;
 static GDExtensionTypeFromVariantConstructorFunc g_variant_to_array = NULL;
+// Value-type @ScriptProperty extraction (set-property value path).
+static GDExtensionTypeFromVariantConstructorFunc g_variant_to_vector2 = NULL;
+static GDExtensionTypeFromVariantConstructorFunc g_variant_to_vector3 = NULL;
+static GDExtensionTypeFromVariantConstructorFunc g_variant_to_color = NULL;
+static GDExtensionTypeFromVariantConstructorFunc g_variant_to_node_path = NULL;
+static GDExtensionPtrConstructor g_string_from_node_path_constructor = NULL;
 static GDExtensionPtrBuiltInMethod g_array_size_method = NULL;
 static GDExtensionPtrBuiltInMethod g_array_get_method = NULL;
 static GDExtensionVariantFromTypeConstructorFunc g_variant_from_vector2i = NULL;
@@ -288,6 +305,7 @@ static GDExtensionPtrConstructor g_callable_object_method_constructor = NULL;
 static GDExtensionVariantFromTypeConstructorFunc g_variant_from_callable = NULL;
 static GDExtensionPtrDestructor g_callable_destructor = NULL;
 static GDExtensionVariantFromTypeConstructorFunc g_variant_from_vector2 = NULL;
+static GDExtensionVariantFromTypeConstructorFunc g_variant_from_vector3 = NULL;
 static GDExtensionVariantFromTypeConstructorFunc g_variant_from_color = NULL;
 static GDExtensionVariantFromTypeConstructorFunc g_variant_from_node_path = NULL;
 static GDExtensionVariantFromTypeConstructorFunc g_variant_from_float = NULL;
@@ -617,11 +635,19 @@ static int kanama_ios_resolve_godot_api(void) {
     g_variant_to_int = g_get_variant_to_type_constructor(KANAMA_IOS_VARIANT_TYPE_INT);
     g_variant_to_vector2i = g_get_variant_to_type_constructor(KANAMA_IOS_VARIANT_TYPE_VECTOR2I);
     g_variant_to_array = g_get_variant_to_type_constructor(KANAMA_IOS_VARIANT_TYPE_ARRAY);
+    g_variant_to_vector2 = g_get_variant_to_type_constructor(KANAMA_IOS_VARIANT_TYPE_VECTOR2);
+    g_variant_to_vector3 = g_get_variant_to_type_constructor(KANAMA_IOS_VARIANT_TYPE_VECTOR3);
+    g_variant_to_color = g_get_variant_to_type_constructor(KANAMA_IOS_VARIANT_TYPE_COLOR);
+    g_variant_to_node_path = g_get_variant_to_type_constructor(KANAMA_IOS_VARIANT_TYPE_NODE_PATH);
+    // String(from: NodePath) — constructor index 3 in extension_api.json. Lets the set-property
+    // value path turn a NodePath Variant into utf8 (no GDExtension NodePath->utf8 exists).
+    g_string_from_node_path_constructor = g_variant_get_ptr_constructor(KANAMA_IOS_VARIANT_TYPE_STRING, 3);
     g_variant_from_vector2i = g_get_variant_from_type_constructor(KANAMA_IOS_VARIANT_TYPE_VECTOR2I);
     g_callable_object_method_constructor = g_variant_get_ptr_constructor(KANAMA_IOS_VARIANT_TYPE_CALLABLE, 2);
     g_variant_from_callable = g_get_variant_from_type_constructor(KANAMA_IOS_VARIANT_TYPE_CALLABLE);
     g_callable_destructor = g_variant_get_ptr_destructor(KANAMA_IOS_VARIANT_TYPE_CALLABLE);
     g_variant_from_vector2 = g_get_variant_from_type_constructor(KANAMA_IOS_VARIANT_TYPE_VECTOR2);
+    g_variant_from_vector3 = g_get_variant_from_type_constructor(KANAMA_IOS_VARIANT_TYPE_VECTOR3);
     g_variant_from_color = g_get_variant_from_type_constructor(KANAMA_IOS_VARIANT_TYPE_COLOR);
     g_variant_from_node_path = g_get_variant_from_type_constructor(KANAMA_IOS_VARIANT_TYPE_NODE_PATH);
     g_variant_from_float = g_get_variant_from_type_constructor(KANAMA_IOS_VARIANT_TYPE_FLOAT);
@@ -4356,6 +4382,49 @@ static GDExtensionBool kanama_ios_script_instance_set_property(
             instance->runtime_handle, property_index, objects, (int32_t)size);
         free(objects);
         return (GDExtensionBool)ok;
+    } else if (type == KANAMA_IOS_VARIANT_TYPE_NODE_PATH
+               && g_variant_to_node_path != NULL
+               && g_string_from_node_path_constructor != NULL) {
+        // NodePath -> String(from NodePath) -> utf8; deliver the path bytes (PT_NODE_PATH).
+        uint64_t raw_np = 0;
+        g_variant_to_node_path(
+            (GDExtensionUninitializedTypePtr)&raw_np, (GDExtensionVariantPtr)(intptr_t)value);
+        uint64_t raw_str = 0;
+        const GDExtensionConstTypePtr np_args[1] = { (GDExtensionConstTypePtr)&raw_np };
+        g_string_from_node_path_constructor((GDExtensionUninitializedTypePtr)&raw_str, np_args);
+        char *utf8 = kanama_ios_string_to_utf8_dup((GDExtensionConstStringPtr)&raw_str);
+        kanama_ios_destroy_string(&raw_str);
+        kanama_ios_destroy_node_path(&raw_np);
+        int32_t ok = kanama_ios_runtime_script_instance_set_property_value(
+            instance->runtime_handle, property_index, KANAMA_IOS_PT_NODE_PATH,
+            (const uint8_t *)(utf8 != NULL ? utf8 : ""),
+            (int32_t)(utf8 != NULL ? strlen(utf8) : 0));
+        free(utf8);
+        return (GDExtensionBool)ok;
+    } else if (type == KANAMA_IOS_VARIANT_TYPE_VECTOR2 && g_variant_to_vector2 != NULL) {
+        float comps[2] = {0};
+        g_variant_to_vector2(
+            (GDExtensionUninitializedTypePtr)comps, (GDExtensionVariantPtr)(intptr_t)value);
+        int32_t ok = kanama_ios_runtime_script_instance_set_property_value(
+            instance->runtime_handle, property_index, KANAMA_IOS_PT_VECTOR2,
+            (const uint8_t *)comps, (int32_t)sizeof(comps));
+        return (GDExtensionBool)ok;
+    } else if (type == KANAMA_IOS_VARIANT_TYPE_VECTOR3 && g_variant_to_vector3 != NULL) {
+        float comps[3] = {0};
+        g_variant_to_vector3(
+            (GDExtensionUninitializedTypePtr)comps, (GDExtensionVariantPtr)(intptr_t)value);
+        int32_t ok = kanama_ios_runtime_script_instance_set_property_value(
+            instance->runtime_handle, property_index, KANAMA_IOS_PT_VECTOR3,
+            (const uint8_t *)comps, (int32_t)sizeof(comps));
+        return (GDExtensionBool)ok;
+    } else if (type == KANAMA_IOS_VARIANT_TYPE_COLOR && g_variant_to_color != NULL) {
+        float comps[4] = {0};
+        g_variant_to_color(
+            (GDExtensionUninitializedTypePtr)comps, (GDExtensionVariantPtr)(intptr_t)value);
+        int32_t ok = kanama_ios_runtime_script_instance_set_property_value(
+            instance->runtime_handle, property_index, KANAMA_IOS_PT_COLOR,
+            (const uint8_t *)comps, (int32_t)sizeof(comps));
+        return (GDExtensionBool)ok;
     } else {
         return 0;
     }
@@ -5329,6 +5398,60 @@ static void kanama_ios_ptrcall_selftest(void) {
         kanama_ios_godot_builtin_call(mb, base, NULL, NULL, 0, &out);
         int ok = mb != 0 && out == 1;
         KANAMA_IOS_ST_CHECK("builtin Vector3.max_axis_index int", ok);
+    }
+
+    // Value-type @ScriptProperty delivery (Phase 3.2 Step 5 / 2.6): exercise the set-property
+    // extraction primitives — the exact converters kanama_ios_script_instance_set_property uses
+    // to turn an incoming Variant into the PT-tagged bytes the Kotlin runtime decodes. NodePath
+    // goes through variant->NodePath->String(idx3)->utf8; Vector2/Vector3 through variant->float32.
+    // NodePath round-trip: build a NodePath Variant, extract it back to a utf8 path string.
+    if (g_variant_from_node_path != NULL && g_variant_to_node_path != NULL
+        && g_string_from_node_path_constructor != NULL) {
+        uint64_t np = 0;
+        kanama_ios_init_node_path(&np, "../SceneTarget3D");
+        uint8_t variant[24] = {0};
+        g_variant_from_node_path((GDExtensionUninitializedVariantPtr)variant, (GDExtensionTypePtr)&np);
+        uint64_t np_out = 0;
+        g_variant_to_node_path(
+            (GDExtensionUninitializedTypePtr)&np_out, (GDExtensionVariantPtr)variant);
+        uint64_t str_out = 0;
+        const GDExtensionConstTypePtr np_args[1] = { (GDExtensionConstTypePtr)&np_out };
+        g_string_from_node_path_constructor((GDExtensionUninitializedTypePtr)&str_out, np_args);
+        char *utf8 = kanama_ios_string_to_utf8_dup((GDExtensionConstStringPtr)&str_out);
+        KANAMA_IOS_ST_CHECK("setprop-nodepath", utf8 != NULL && strcmp(utf8, "../SceneTarget3D") == 0);
+        free(utf8);
+        kanama_ios_destroy_string(&str_out);
+        kanama_ios_destroy_node_path(&np_out);
+        kanama_ios_destroy_node_path(&np);
+        if (g_variant_destroy != NULL) { g_variant_destroy((GDExtensionVariantPtr)variant); }
+    } else {
+        KANAMA_IOS_ST_CHECK("setprop-nodepath", 0);
+    }
+    // Vector2 round-trip: build a Vector2 Variant, extract its float32 components.
+    if (g_variant_from_vector2 != NULL && g_variant_to_vector2 != NULL) {
+        float in[2] = { 1.5f, -2.5f };
+        uint8_t variant[24] = {0};
+        g_variant_from_vector2((GDExtensionUninitializedVariantPtr)variant, (GDExtensionTypePtr)in);
+        float out[2] = { 0, 0 };
+        g_variant_to_vector2(
+            (GDExtensionUninitializedTypePtr)out, (GDExtensionVariantPtr)variant);
+        KANAMA_IOS_ST_CHECK("setprop-vector2", out[0] == 1.5f && out[1] == -2.5f);
+        if (g_variant_destroy != NULL) { g_variant_destroy((GDExtensionVariantPtr)variant); }
+    } else {
+        KANAMA_IOS_ST_CHECK("setprop-vector2", 0);
+    }
+    // Vector3 round-trip: build a Vector3 Variant, extract its float32 components.
+    if (g_variant_from_vector3 != NULL && g_variant_to_vector3 != NULL) {
+        float in[3] = { 1.0f, 2.0f, 3.0f };
+        uint8_t variant[24] = {0};
+        g_variant_from_vector3((GDExtensionUninitializedVariantPtr)variant, (GDExtensionTypePtr)in);
+        float out[3] = { 0, 0, 0 };
+        g_variant_to_vector3(
+            (GDExtensionUninitializedTypePtr)out, (GDExtensionVariantPtr)variant);
+        KANAMA_IOS_ST_CHECK("setprop-vector3", out[0] == 1.0f && out[1] == 2.0f && out[2] == 3.0f);
+        if (g_variant_destroy != NULL) { g_variant_destroy((GDExtensionVariantPtr)variant); }
+    } else {
+        KANAMA_IOS_ST_CHECK("setprop-vector3", 0);
     }
 
     fprintf(stderr, "[kanama][ios][c] PTRCALL SELFTEST MATRIX: %d passed, %d failed\n", pass, fail);
