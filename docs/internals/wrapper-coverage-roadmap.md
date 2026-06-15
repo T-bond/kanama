@@ -85,7 +85,7 @@ addition is implemented twice.
 
 | # | Task | Model | Notes |
 |---|---|---|---|
-| 3.1 | Make the KSP processor emit a serialized, platform-neutral script model (classes, callbacks, signals, properties) consumable by the iOS build | **fable** | The architectural keystone: one source of truth for desktop/Android/iOS registration |
+| 3.1 | Make the KSP processor emit a serialized, platform-neutral script model (classes, callbacks, signals, properties) consumable by the iOS build — design: [script-model-unification-design.md](./script-model-unification-design.md) | **fable** | The architectural keystone: one source of truth for desktop/Android/iOS registration |
 | 3.2 | Replace `parseIosScript` regex parser with the KSP model consumer | **opus** | Mechanical-ish once 3.1 lands, but touches codegen + C-shim dispatch wiring |
 | 3.3 | Replace enumerated `IosScriptBridgeKind` with generated per-signature trampolines (multi-arg + value-arg signal payloads) | **fable** | Removes the "missing bridge kind" bug class (the platformer coin bug); C-shim `kanama_ios_script_instance_call` becomes generated |
 | 3.4 | Wire remaining annotations (`@OnEnterTree`, `@OnInput`, `@OnUnhandledInput`, `@OnShortcutInput`, `@OnUnhandledKeyInput`, `@Rpc` parse-side) | **sonnet** | Trivial once 3.1–3.3 exist; today each is a manual `when` branch + warning |

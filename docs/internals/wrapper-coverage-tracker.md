@@ -98,6 +98,10 @@ needs a decision (see the numbered items below + the roadmap backlog):
   serialized platform-neutral script model) → 3.2, then 2.6 once, clean.
 - **NEXT: Phase 3.1** — make the KSP processor emit the serialized script model the
   iOS build consumes (the architectural keystone). Then 3.2 retires the regex parser.
+  **Design doc landed:** [script-model-unification-design.md](./script-model-unification-design.md).
+  Load-bearing decision pending: **Option A** (KSP emits JSON on JVM compile, iOS task
+  reads it) **vs B** (recommended — run the shared processor via KSP on the iOS native
+  target, the only path that truly deletes parseIosScript). 2.6 falls out of 3.2 for free.
 - Cleanly self-test-validatable items: ~~Variant `Object.call` dispatch~~ DONE
   (item 8); ~~value-type BuiltinTypes on iOS~~ DONE (items 9–11): no-arg + args
   shapes across Transform3D/Basis/Vector2/Vector3/Quaternion + scalar float/bool/int
@@ -311,6 +315,12 @@ needs a decision (see the numbered items below + the roadmap backlog):
 
 ## Session log
 
+- **2026-06-15** — Phase 3.1 framing (opus design). Design doc
+  [script-model-unification-design.md] landed: two front-ends (KSP ScriptModel
+  vs iOS parseIosScript regex) → one serialized platform-neutral JSON model;
+  schema sketch, what the iOS model lacks, the A-vs-B fork (where the model is
+  produced for iOS; recommend B = KSP on the native target), parallel-run
+  validation, migration mapping to 3.2–3.4. Decision A/B pending.
 - **2026-06-15** — value-type builtin `bool`+`int` returns (opus impl).
   BuiltinCalls.callBool (uint8) + callInt (int64); wired Vector3.is_normalized +
   max_axis_index. Return widths read from Godot source (PtrToArg<bool>=uint8,
