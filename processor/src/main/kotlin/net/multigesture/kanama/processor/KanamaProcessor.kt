@@ -615,6 +615,17 @@ class KanamaProcessor(
             fileName = registrarName,
         ).use { it.write(source.toByteArray(Charsets.UTF_8)) }
 
+        // Phase 3.1: also emit the platform-neutral serialized model. The iOS build (Option
+        // B) consumes these instead of regex-parsing the source; on the JVM target they are
+        // an additive artifact (the registrar above is unchanged). See
+        // script-model-unification-design.md.
+        env.codeGenerator.createNewFile(
+            dependencies = Dependencies(aggregating = false, sourceFile),
+            packageName = GENERATED_PACKAGE,
+            fileName = "${model.simpleName}ScriptModel",
+            extensionName = "script-model.json",
+        ).use { it.write(scriptModelToJson(model).toByteArray(Charsets.UTF_8)) }
+
         env.logger.warn(
             "[kanama:ksp] generated $GENERATED_PACKAGE.$registrarName " +
                 "for ${model.fqName} " +
