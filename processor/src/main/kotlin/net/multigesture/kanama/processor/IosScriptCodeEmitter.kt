@@ -54,6 +54,9 @@ internal data class IosProperty(
     val isList: Boolean,
     val listElementClassName: String,
     val isNullable: Boolean,
+    // FQ Kotlin type for a value-type property (NodePath/Vector2/Vector3) delivered via the
+    // set-property value path (PT-tagged bytes -> setPropertyValue). Empty for non-value types.
+    val valueTypeClassName: String = "",
 )
 
 internal data class IosSignal(
@@ -252,6 +255,18 @@ internal class IosScriptCodeEmitter(
                 script.properties.forEachIndexed { index, property ->
                     if (property.isList && property.listElementClassName.isNotEmpty()) {
                         builder.appendLine("        $index -> { script.${property.kotlinName} = values.map { net.multigesture.kanama.api.${property.listElementClassName}(java.lang.foreign.MemorySegment.ofAddress(it)) }; true }")
+                    }
+                }
+                builder.appendLine("        else -> false")
+                builder.appendLine("    }")
+            }
+            val valueProperties = script.properties.filter { it.valueTypeClassName.isNotEmpty() }
+            if (valueProperties.isNotEmpty()) {
+                builder.appendLine()
+                builder.appendLine("    override fun setPropertyValue(propertyIndex: Int, value: Any): Boolean = when (propertyIndex) {")
+                script.properties.forEachIndexed { index, property ->
+                    if (property.valueTypeClassName.isNotEmpty()) {
+                        builder.appendLine("        $index -> { script.${property.kotlinName} = value as ${property.valueTypeClassName}; true }")
                     }
                 }
                 builder.appendLine("        else -> false")
@@ -458,6 +473,7 @@ internal class IosScriptCodeEmitter(
         val isList = type == TypeMapping.ARRAY
         val isObject = objectWrapperFqName != null
         val listElementClassName = arrayElementWrapperFqName?.substringAfterLast('.') ?: ""
+        var valueTypeClassName = ""
         val godotClassName = when {
             isObject -> objectWrapperFqName.substringAfterLast('.')
             isList -> ""
@@ -466,8 +482,15 @@ internal class IosScriptCodeEmitter(
                 TypeMapping.FLOAT -> "Double"
                 TypeMapping.BOOL -> "Boolean"
                 TypeMapping.STRING -> "String"
-                // Value types (NodePath/Vector*/Color/…) have no iOS @ScriptProperty path
-                // yet: emit no setProperty case, keep the Kotlin default. (2.6 extends this.)
+                // Value types delivered through the set-property value path: the C side ships
+                // PT-tagged bytes, the runtime decodes them, and setPropertyValue assigns the
+                // typed value. godotClassName stays empty (no setProperty Long case).
+                TypeMapping.NODE_PATH, TypeMapping.VECTOR2, TypeMapping.VECTOR3 -> {
+                    valueTypeClassName = type.kotlinType
+                    ""
+                }
+                // Remaining value types (Vector2i/Vector3i/Quaternion/Basis/…) still lack a C
+                // marshalling case: emit no setProperty case, keep the Kotlin default.
                 else -> {
                     warn("[kanama-ios] $className.$kotlinName ($type) — no iOS @ScriptProperty path for this value type, will keep its Kotlin default")
                     ""
@@ -482,6 +505,7 @@ internal class IosScriptCodeEmitter(
             isList = isList,
             listElementClassName = listElementClassName,
             isNullable = nullable,
+            valueTypeClassName = valueTypeClassName,
         )
     }
 

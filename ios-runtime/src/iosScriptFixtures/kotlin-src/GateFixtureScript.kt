@@ -11,6 +11,9 @@ import net.multigesture.kanama.annotations.Signal
 import net.multigesture.kanama.api.GodotObject
 import net.multigesture.kanama.api.KanamaScript
 import net.multigesture.kanama.api.Label
+import net.multigesture.kanama.types.NodePath
+import net.multigesture.kanama.types.Vector2
+import net.multigesture.kanama.types.Vector3
 
 // Parallel-run gate fixture (Phase 3.2). Exercises the common iOS bridge shapes so the
 // `checkIosScriptRegistryParity` task can prove the KSP processor emits the same registry as
@@ -23,6 +26,17 @@ class GateFixtureScript(godotObject: MemorySegment) : KanamaScript<Label>(godotO
 
     @ScriptProperty
     var title: String = ""
+
+    // Value-type @ScriptProperty delivery (Phase 3.2 Step 5 / 2.6). The motivating case is the
+    // platformer `view: NodePath`; offset/aim exercise the Vector2/Vector3 set-property paths.
+    @ScriptProperty
+    var view: NodePath = NodePath.EMPTY
+
+    @ScriptProperty
+    var offset: Vector2 = Vector2(0f, 0f)
+
+    @ScriptProperty
+    var aim: Vector3 = Vector3(0f, 0f, 0f)
 
     @OnReady
     fun ready() {
