@@ -52,6 +52,13 @@ class KanamaProcessor(
     private val scriptAggregatorSources = mutableListOf<KSFile>()
     private var scriptClassTypes: Map<String, ScriptClassTypeInfo> = emptyMap()
 
+    // The JVM registrars/aggregators emit MemorySegment/Panama code that only compiles on
+    // the JVM target. On non-JVM targets (iOS Kotlin/Native — Phase 3.1 Option B) the
+    // processor emits ONLY the platform-neutral .script-model.json; the iOS-specific
+    // registrar codegen consumes that JSON (Phase 3.2). Gate all JVM-code emission on this.
+    private val emitJvmCode: Boolean =
+        env.platforms.isEmpty() || env.platforms.any { it.platformName.equals("JVM", ignoreCase = true) }
+
     override fun process(resolver: Resolver): List<KSAnnotated> {
         // Phase 5: @RegisterClass → full ClassDB type registration.
         val symbols = resolver.getSymbolsWithAnnotation(REGISTER_CLASS_FQN)
@@ -126,6 +133,9 @@ class KanamaProcessor(
     }
 
     override fun finish() {
+        // Aggregators wire up the JVM registrars; on non-JVM targets only the JSON models
+        // were emitted, so there is nothing to aggregate.
+        if (!emitJvmCode) return
         if (registrarSimpleNames.isEmpty()) return
         emitAggregator(
             fileName = "KanamaRegistry",
@@ -356,6 +366,8 @@ class KanamaProcessor(
     // ---------- Emission ----------
 
     private fun emitRegistrar(model: ClassModel, sourceFile: KSFile) {
+        // @RegisterClass emits JVM-only ClassDB registration; no iOS counterpart yet.
+        if (!emitJvmCode) return
         val registrarName = "${model.simpleName}Registrar"
         val source = CodeEmitter(model, registrarName).emit()
 
@@ -606,6 +618,19 @@ class KanamaProcessor(
     }
 
     private fun emitScriptRegistrar(model: ScriptModel, sourceFile: KSFile) {
+        // Phase 3.1: always emit the platform-neutral serialized model. The iOS build
+        // (Option B) consumes these instead of regex-parsing the source; on the JVM target
+        // it is an additive artifact alongside the registrar. See
+        // script-model-unification-design.md.
+        env.codeGenerator.createNewFile(
+            dependencies = Dependencies(aggregating = false, sourceFile),
+            packageName = GENERATED_PACKAGE,
+            fileName = "${model.simpleName}ScriptModel",
+            extensionName = "script-model.json",
+        ).use { it.write(scriptModelToJson(model).toByteArray(Charsets.UTF_8)) }
+
+        // The JVM registrar (MemorySegment/Panama) only compiles on the JVM target.
+        if (!emitJvmCode) return
         val registrarName = "${model.simpleName}ScriptRegistrar"
         val source = ScriptCodeEmitter(model, registrarName).emit()
 
@@ -614,17 +639,6 @@ class KanamaProcessor(
             packageName = GENERATED_PACKAGE,
             fileName = registrarName,
         ).use { it.write(source.toByteArray(Charsets.UTF_8)) }
-
-        // Phase 3.1: also emit the platform-neutral serialized model. The iOS build (Option
-        // B) consumes these instead of regex-parsing the source; on the JVM target they are
-        // an additive artifact (the registrar above is unchanged). See
-        // script-model-unification-design.md.
-        env.codeGenerator.createNewFile(
-            dependencies = Dependencies(aggregating = false, sourceFile),
-            packageName = GENERATED_PACKAGE,
-            fileName = "${model.simpleName}ScriptModel",
-            extensionName = "script-model.json",
-        ).use { it.write(scriptModelToJson(model).toByteArray(Charsets.UTF_8)) }
 
         env.logger.warn(
             "[kanama:ksp] generated $GENERATED_PACKAGE.$registrarName " +
