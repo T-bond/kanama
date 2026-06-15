@@ -776,5 +776,13 @@ fun kanamaIosRuntimeObjectCallsSelfTest() {
             vecEq(moved.basis.z, Vector3(0.0, 0.0, 1.0)) &&
             vecEq(moved.origin, Vector3(1.0, 2.0, 3.0)))
 
+    // Scalar-return builtin (real_t -> float32 on iOS, decoded to Double via callScalar).
+    // Vector3.dot: (1,2,3)·(4,5,6) = 32; exact integer in float32 so `==` is stable.
+    check("builtin-call(Vector3.dot scalar)",
+        Vector3(1.0, 2.0, 3.0).dot(Vector3(4.0, 5.0, 6.0)) == 32.0)
+    // Basis.determinant: diag(2,4,8) -> 64; exact integer.
+    check("builtin-call(Basis.determinant scalar)",
+        Basis(Vector3(2.0, 0.0, 0.0), Vector3(0.0, 4.0, 0.0), Vector3(0.0, 0.0, 8.0)).determinant() == 64.0)
+
     println("[kanama][ios][kn] OBJECTCALLS SELFTEST: $pass passed, $fail failed")
 }

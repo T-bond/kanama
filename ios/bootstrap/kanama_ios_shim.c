@@ -5274,6 +5274,36 @@ static void kanama_ios_ptrcall_selftest(void) {
         KANAMA_IOS_ST_CHECK("builtin Transform3D.translated offset", ok);
     }
 
+    // Scalar-return builtin, arg path: Vector3.dot. (1,2,3)·(4,5,6) = 4+10+18 = 32. Exact.
+    // KEY: a builtin method's scalar `float` (Variant FLOAT) return is encoded as an 8-byte
+    // DOUBLE in the GDExtension ptr-ABI, regardless of real_t precision — NOT a real_t/float32
+    // like value-type components. Decoding it as a 4-byte float reads the low half of the
+    // double and yields 0 (the bug this row guards). Matches desktop BuiltinTypes (JAVA_DOUBLE ret).
+    {
+        int64_t mb = kanama_ios_godot_get_builtin_method(
+            KANAMA_IOS_VARIANT_TYPE_VECTOR3, "dot", 1047977935);
+        float base[3] = { 1,2,3 };
+        float with[3] = { 4,5,6 };
+        const void *a[1] = { with };
+        int32_t t[1] = { KANAMA_IOS_PT_VECTOR3 };
+        double out = 0;
+        kanama_ios_godot_builtin_call(mb, base, t, a, 1, &out);
+        int ok = mb != 0 && out == 32;
+        KANAMA_IOS_ST_CHECK("builtin Vector3.dot scalar", ok);
+    }
+
+    // Scalar-return builtin, no-arg: Basis.determinant of diag(2,4,8) = 2*4*8 = 64. Exact.
+    // Scalar return is an 8-byte double (see Vector3.dot above).
+    {
+        int64_t mb = kanama_ios_godot_get_builtin_method(
+            KANAMA_IOS_VARIANT_TYPE_BASIS, "determinant", 466405837);
+        float base[9] = { 2,0,0, 0,4,0, 0,0,8 };
+        double out = 0;
+        kanama_ios_godot_builtin_call(mb, base, NULL, NULL, 0, &out);
+        int ok = mb != 0 && out == 64;
+        KANAMA_IOS_ST_CHECK("builtin Basis.determinant scalar", ok);
+    }
+
     fprintf(stderr, "[kanama][ios][c] PTRCALL SELFTEST MATRIX: %d passed, %d failed\n", pass, fail);
     fflush(stderr);
 #undef KANAMA_IOS_ST_CHECK

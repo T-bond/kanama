@@ -86,6 +86,15 @@ data class Vector3(
             BuiltinCalls.BArg.Floats(BuiltinCalls.PT_VECTOR3, with.toFloat32()),
         )))
 
+    /**
+     * Returns the dot product of this vector and [with], computed by Godot via the
+     * value-type builtin call path (scalar `real_t` return decoded to Double).
+     */
+    fun dot(with: Vector3): Double =
+        BuiltinCalls.callScalar(dotBind, toFloat32(), listOf(
+            BuiltinCalls.BArg.Floats(BuiltinCalls.PT_VECTOR3, with.toFloat32()),
+        ))
+
     private fun toFloat32(): FloatArray =
         floatArrayOf(x.toFloat(), y.toFloat(), z.toFloat())
 
@@ -96,6 +105,9 @@ data class Vector3(
 
         private val crossBind by lazy {
             BuiltinCalls.getBuiltinMethod(BuiltinCalls.VT_VECTOR3, "cross", 2923479887L)
+        }
+        private val dotBind by lazy {
+            BuiltinCalls.getBuiltinMethod(BuiltinCalls.VT_VECTOR3, "dot", 1047977935L)
         }
 
         private fun fromFloat32(c: FloatArray): Vector3 =

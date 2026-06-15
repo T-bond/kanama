@@ -41,6 +41,13 @@ data class Basis(
             ),
         )))
 
+    /**
+     * Returns the determinant of this basis, computed by Godot (scalar `real_t` return
+     * decoded to Double). A negative determinant means the basis flips orientation.
+     */
+    fun determinant(): Double =
+        BuiltinCalls.callScalar(determinantBind, toFloat32())
+
     // Column-major 9 float32, matching the ObjectCalls Basis ptrcall layout.
     private fun toFloat32(): FloatArray =
         floatArrayOf(
@@ -69,6 +76,9 @@ data class Basis(
         }
         private val scaledBind by lazy {
             BuiltinCalls.getBuiltinMethod(BuiltinCalls.VT_BASIS, "scaled", 3934786792L)
+        }
+        private val determinantBind by lazy {
+            BuiltinCalls.getBuiltinMethod(BuiltinCalls.VT_BASIS, "determinant", 466405837L)
         }
 
         private fun fromFloat32(c: FloatArray): Basis =

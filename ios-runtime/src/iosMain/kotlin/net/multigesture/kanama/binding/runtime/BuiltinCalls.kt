@@ -5,10 +5,12 @@ package net.multigesture.kanama.binding.runtime
 import kotlinx.cinterop.ByteVar
 import kotlinx.cinterop.CPointed
 import kotlinx.cinterop.COpaquePointerVar
+import kotlinx.cinterop.CValuesRef
 import kotlinx.cinterop.DoubleVar
 import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.cinterop.FloatVar
 import kotlinx.cinterop.IntVar
+import kotlinx.cinterop.MemScope
 import kotlinx.cinterop.alloc
 import kotlinx.cinterop.allocArray
 import kotlinx.cinterop.get
@@ -61,37 +63,45 @@ object BuiltinCalls {
     fun getBuiltinMethod(variantType: Int, method: String, hash: Long): Long =
         kanama_ios_godot_get_builtin_method(variantType, method, hash)
 
+    // Marshal [base] (float32 components) + [args] (PT-tagged), then invoke the builtin
+    // method writing into the caller-supplied [ret] buffer. The ret encoding is the
+    // caller's choice (float32 components for a value-type return; an 8-byte double for a
+    // scalar `float` return — see [callScalar]). Concentrates the arg layout/tags, mirroring
+    // the desktop `BuiltinTypes` call helpers.
+    private fun MemScope.invokeBuiltin(methodPtr: Long, base: FloatArray, args: List<BArg>, ret: CValuesRef<*>?) {
+        val baseBuf = allocArray<FloatVar>(if (base.isNotEmpty()) base.size else 1)
+        for (i in base.indices) baseBuf[i] = base[i]
+        val n = args.size
+        val tags = allocArray<IntVar>(if (n > 0) n else 1)
+        val ptrs = allocArray<COpaquePointerVar>(if (n > 0) n else 1)
+        args.forEachIndexed { i, a ->
+            when (a) {
+                is BArg.Floats -> {
+                    val b = allocArray<FloatVar>(if (a.values.isNotEmpty()) a.values.size else 1)
+                    for (j in a.values.indices) b[j] = a.values[j]
+                    tags[i] = a.tag; ptrs[i] = b.reinterpret<CPointed>()
+                }
+                is BArg.Bool -> {
+                    val b = alloc<ByteVar>(); b.value = if (a.value) 1 else 0
+                    tags[i] = PT_BOOL; ptrs[i] = b.ptr.reinterpret<CPointed>()
+                }
+                is BArg.Real -> {
+                    val b = alloc<DoubleVar>(); b.value = a.value
+                    tags[i] = PT_FLOAT64; ptrs[i] = b.ptr.reinterpret<CPointed>()
+                }
+            }
+        }
+        kanama_ios_godot_builtin_call(methodPtr, baseBuf, if (n > 0) tags else null, if (n > 0) ptrs else null, n, ret)
+    }
+
     /**
      * Call a builtin method whose base and return are value types laid out as float32
-     * components ([base] in, [retCount] floats out), with optional [args]. Marshalling
-     * (arg layout + tags) is concentrated here, mirroring the desktop `BuiltinTypes.call`.
+     * components ([base] in, [retCount] floats out), with optional [args].
      */
     fun call(methodPtr: Long, base: FloatArray, retCount: Int, args: List<BArg> = emptyList()): FloatArray =
         memScoped {
-            val baseBuf = allocArray<FloatVar>(if (base.isNotEmpty()) base.size else 1)
-            for (i in base.indices) baseBuf[i] = base[i]
-            val n = args.size
-            val tags = allocArray<IntVar>(if (n > 0) n else 1)
-            val ptrs = allocArray<COpaquePointerVar>(if (n > 0) n else 1)
-            args.forEachIndexed { i, a ->
-                when (a) {
-                    is BArg.Floats -> {
-                        val b = allocArray<FloatVar>(if (a.values.isNotEmpty()) a.values.size else 1)
-                        for (j in a.values.indices) b[j] = a.values[j]
-                        tags[i] = a.tag; ptrs[i] = b.reinterpret<CPointed>()
-                    }
-                    is BArg.Bool -> {
-                        val b = alloc<ByteVar>(); b.value = if (a.value) 1 else 0
-                        tags[i] = PT_BOOL; ptrs[i] = b.ptr.reinterpret<CPointed>()
-                    }
-                    is BArg.Real -> {
-                        val b = alloc<DoubleVar>(); b.value = a.value
-                        tags[i] = PT_FLOAT64; ptrs[i] = b.ptr.reinterpret<CPointed>()
-                    }
-                }
-            }
             val ret = allocArray<FloatVar>(if (retCount > 0) retCount else 1)
-            kanama_ios_godot_builtin_call(methodPtr, baseBuf, if (n > 0) tags else null, if (n > 0) ptrs else null, n, ret)
+            invokeBuiltin(methodPtr, base, args, ret)
             FloatArray(retCount) { ret[it] }
         }
 
@@ -101,4 +111,19 @@ object BuiltinCalls {
      */
     fun callNoArgsFloat32(methodPtr: Long, base: FloatArray): FloatArray =
         call(methodPtr, base, base.size, emptyList())
+
+    /**
+     * Builtin method returning a scalar `float` (dot / length / determinant / …). Godot's
+     * GDExtension ptr-ABI encodes a `float`-typed (Variant FLOAT) return as an 8-byte
+     * `double` regardless of the engine's real_t precision — NOT a real_t/float32, unlike
+     * value-type *components*. So decode the return as a double (matches desktop
+     * `BuiltinTypes`, which allocates a JAVA_DOUBLE ret). An `int`/`bool` scalar return
+     * would need its own decode width.
+     */
+    fun callScalar(methodPtr: Long, base: FloatArray, args: List<BArg> = emptyList()): Double =
+        memScoped {
+            val ret = alloc<DoubleVar>()
+            invokeBuiltin(methodPtr, base, args, ret.ptr)
+            ret.value
+        }
 }

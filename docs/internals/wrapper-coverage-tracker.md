@@ -80,9 +80,9 @@ dispatch (5 of the 8 IosGodotApi STUBs — call/set_deferred/disconnect/
 set_custom_mouse_cursor/SignalConnection.error) PLUS the iOS value-type (builtin)
 method call path (items 9–11 — Transform3D `inverse/affine_inverse/orthonormalized/
 looking_at/interpolate_with/translated`, Basis `inverse/transposed/orthonormalized/
-scaled`, Vector3 `cross`, Vector2 `rotated`, Quaternion `inverse`). All
-device-validated on iPhone 12 (iOS 26.5); self-test matrix is now 35 C + 40 Kotlin
-rows, all green.
+scaled/determinant`, Vector3 `cross/dot`, Vector2 `rotated`, Quaternion `inverse`
+— incl. scalar `float` returns). All device-validated on iPhone 12 (iOS 26.5);
+self-test matrix is now 37 C + 42 Kotlin rows, all green.
 `Plane` deferred (no emitted-class test method to anchor a row). 3 STUBs remain
 (deferred, see item 8): connectBound/disconnectBound (need `Callable.bindv`) and
 SignalConnection.close (needs custom-Callable hash/equal + disconnect-callable).
@@ -99,11 +99,11 @@ needs a decision (see the numbered items below + the roadmap backlog):
   iOS build consumes (the architectural keystone). Then 3.2 retires the regex parser.
 - Cleanly self-test-validatable items: ~~Variant `Object.call` dispatch~~ DONE
   (item 8); ~~value-type BuiltinTypes on iOS~~ DONE (items 9–11): no-arg + args
-  shapes across Transform3D/Basis/Vector2/Vector3/Quaternion. The BuiltinCalls
-  value-type seam can keep being widened in parallel (add a hash + a `types/`
-  method + 2 self-test rows) — but a scalar-return shape (e.g. `dot`/`length`/
-  `determinant` returning a float, not a value type) is the next NEW capability
-  there; today the path only decodes float32-component (value-type) returns.
+  shapes across Transform3D/Basis/Vector2/Vector3/Quaternion + scalar float returns
+  (item 12). The BuiltinCalls value-type seam can keep being widened in parallel (add
+  a hash + a `types/` method + 2 self-test rows). Remaining NEW capabilities there:
+  an `int`/`bool` scalar return (distinct decode width) and value-type *args* whose
+  base differs from current shapes; float-component value/scalar returns are done.
 - Each new audited kind = 1 iOS `types/` file + `ios_arg_layout`/`ios_ret_layout`
   case + 2 self-test rows (C+Kotlin) + regenerate + Node3D fixture refresh + a
   device run. ~30–60 min each. Two gotchas the hard way: do NOT `construct_object`
@@ -275,12 +275,33 @@ needs a decision (see the numbered items below + the roadmap backlog):
    clang -fsyntax-only — all pass. **Next NEW capability on this seam:** a
    scalar-return shape (`dot`/`length`/`determinant` → float, not a value type) — the
    path currently decodes only float32-component value-type returns.
+12. **DONE: value-type builtin scalar-`float` returns (device-validated 2026-06-15).**
+   `BuiltinCalls.callScalar` (returns Double) + refactored a shared private
+   `MemScope.invokeBuiltin` so the value-type `call` and the scalar path share arg/base
+   marshalling. Wired `Vector3.dot(Vector3)` (hash 1047977935) + `Basis.determinant()`
+   (hash 466405837). **GOTCHA caught on device (first run: C 35/2-fail, Kotlin 40/2-fail):**
+   a builtin method's scalar `float` (Variant FLOAT) return is encoded as an **8-byte
+   double** in the GDExtension ptr-ABI regardless of real_t precision — NOT a real_t/
+   float32 like value-type *components*. Decoding it as float32 reads the low half of the
+   double → 0. Fixed by allocating a `DoubleVar`/`double` return (C row used `double out`
+   too); this matches desktop `BuiltinTypes` (allocates a `JAVA_DOUBLE` ret). Self-test:
+   dot (1,2,3)·(4,5,6)=32, det diag(2,4,8)=64, both exact. Re-run: device C 35→37,
+   Kotlin 40→42, 0 failed. Gates: check_wrapper_generator, check_ios_no_silent_stubs,
+   compileKotlinIosArm64, clang -fsyntax-only — all pass. **Next NEW capabilities on this
+   seam:** an `int`/`bool` scalar return (different decode width) — float-component value
+   returns AND scalar float returns are now both done.
 - Workflow: impl per roadmap model tag → review diff → commit straight to main.
   (Fable 5 is no longer available as of 2026-06-12 — the review step and
   attribution are Opus 4.8: `Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>`.)
 
 ## Session log
 
+- **2026-06-15** — value-type builtin scalar-`float` returns (opus impl).
+  BuiltinCalls.callScalar (+ shared MemScope.invokeBuiltin); wired Vector3.dot +
+  Basis.determinant. Caught a device-only bug: scalar float returns are 8-byte
+  doubles in the GDExtension ptr-ABI (not real_t/float32 like components) — decode
+  as double, matching desktop BuiltinTypes. Device C 35→37, Kotlin 40→42, 0 failed.
+  See item 12.
 - **2026-06-15** — value-type builtin methods widened to Vector ops + new variant
   types (opus impl). VT_VECTOR3/QUATERNION C constants + BuiltinCalls VT/PT consts;
   wired Vector3.cross / Vector2.rotated / Quaternion.inverse / Basis.scaled /
