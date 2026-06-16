@@ -44,7 +44,7 @@ Commits go straight to `main`, attributed `Co-Authored-By: Claude Fable 5`.
 | 3.1 KSP platform-neutral script model | opus | done | 2026-06-15: KSP emits the serialized ScriptModel; iOS consumes it (keystone) |
 | 3.2 iOS consumes KSP model (delete regex parser) | opus | done | 2026-06-15: regex parser deleted; KSP-on-iOS registry; device-validated |
 | 3.3 Generated per-signature trampolines | opus | done | 2026-06-15: enumerated IosScriptBridgeKind replaced by generic PT-tagged callV; arg-bearing dispatch device-validated (matrix C42/K53); platformer coin bug class gone — see RESUME HERE |
-| 3.4 Wire remaining annotations | opus | build-validated | 2026-06-16: @OnEnterTree/@OnExitTree + @OnUnhandled/@OnShortcut/@OnUnhandledKeyInput wired (generic callV); @Rpc parse-side (config-delivery deferred); IOS_UNWIRED set now empty. Device-validation pending — see RESUME HERE |
+| 3.4 Wire remaining annotations | opus | done | 2026-06-16: @OnEnterTree/@OnExitTree + @OnUnhandled/@OnShortcut/@OnUnhandledKeyInput wired (generic callV); @Rpc parse-side (config-delivery deferred); IOS_UNWIRED set now empty. **DEVICE-VALIDATED iPhone 12**: _enter_tree (notification path) + _unhandled_input (124 taps) dispatch, matrix 42/53 unchanged — see RESUME HERE |
 | 3.5 Non-object signal payloads | sonnet | done | 2026-06-15: subsumed by 3.3 — value-arg signal payloads arrive as inbound callV, marshalled by type |
 
 ## Phase 4 — Retire hand-written iOS surfaces
@@ -286,8 +286,19 @@ needs a decision (see the numbered items below + the roadmap backlog):
   callV + arg decode` / `… emitter generates per-signature callV; delete IosScriptBridgeKind` /
   `test: add arg-bearing _process probe`. **3.5 (non-object signal payloads) is subsumed** — a
   value-arg signal payload arrives as an inbound `callV` and now marshals by type.
-- **3.4 DONE (build-validated 2026-06-16) — remaining lifecycle/input virtuals wired; the old
-  IOS_UNWIRED_FUNCTION_ANNOTATIONS set is now empty.** Wired @OnEnterTree/@OnExitTree,
+- **3.4 DONE + DEVICE-VALIDATED on iPhone 12 (2026-06-16) — remaining lifecycle/input virtuals
+  wired; the old IOS_UNWIRED_FUNCTION_ANNOTATIONS set is now empty.** Device run
+  (`ios_visual_smoke --kanama-user-script-probe`, team DVZT29Q4QT): descriptor
+  `methods=[_enter_tree,_ready,_process,_unhandled_input,_shortcut_input,_unhandled_key_input,
+  _exit_tree]`; **`_enter_tree` dispatched via the notification path** (new); **`_unhandled_input`
+  dispatched on screen tap** (124 calls — required `mouse_filter=2` on the probe scene Controls so
+  the touch passes through to the Viewport unhandled-input path instead of being absorbed as GUI
+  input); `view=../Background` (2.6) + arg-bearing `_process` intact; **PTRCALL 42/0 + OBJECTCALLS
+  53/0, no regression**. The three new `set_process_*_input` binds configured without crashing
+  (correct signature hash). `_shortcut_input`/`_unhandled_key_input` are key-event virtuals (need a
+  paired hardware keyboard to fire) — register + enable proven; dispatch is the same generic path
+  as the now-proven `_unhandled_input`. Probe commit `test: ios_visual_smoke probe exercises Phase
+  3.4 virtuals on device`. Wired @OnEnterTree/@OnExitTree,
   @OnUnhandledInput/@OnShortcutInput/@OnUnhandledKeyInput, + @Rpc parse-side. The split that
   matters: **per-frame/input virtuals arrive via the script-instance `call` callback** (need the
   Node processing flag enabled), **tree virtuals arrive via the `notification` callback** (like
@@ -309,10 +320,12 @@ needs a decision (see the numbered items below + the roadmap backlog):
   virtual returns VARIANT_NIL); "parse-side" only. Gates green: clang -fsyntax-only,
   :processor:compileKotlin + JVM KSP, :ios-runtime:compileKotlinIosArm64 (device target) with the
   gate fixture, check_ios_no_silent_stubs, :processor:test. Commit `feat: iOS wire remaining
-  lifecycle/input virtuals + @Rpc parse-side (Phase 3.4)`. **NEXT: device-validate (FLAG USER —
-  iPhone 12 auto-locks) via ios_visual_smoke (probe a script with the new virtuals; confirm
-  enter_tree/exit_tree fire on tree add/remove and unhandled/shortcut/unhandled_key input
-  dispatch). Then goal 2: assess Android parity vs desktop.**
+  lifecycle/input virtuals + @Rpc parse-side (Phase 3.4)`. **Device-validated 2026-06-16 (above).
+  Phase 3 is essentially complete** (remaining iOS odds-and-ends: @Rpc `_get_rpc_config` delivery
+  to Godot multiplayer; method RETURN values still nil; `_get_script_property_list` for the
+  on-device inspector — all nice-to-haves, none blocking gameplay parity). **NEXT (parity-first
+  goal 2): assess Android parity vs desktop — the less-examined platform; figure out what's
+  actually missing for desktop parity before the Phase 5 full-Godot-API capstone.**
 - Cleanly self-test-validatable items: ~~Variant `Object.call` dispatch~~ DONE
   (item 8); ~~value-type BuiltinTypes on iOS~~ DONE (items 9–11): no-arg + args
   shapes across Transform3D/Basis/Vector2/Vector3/Quaternion + scalar float/bool/int
