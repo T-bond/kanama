@@ -29,11 +29,11 @@ Commits go straight to `main`, attributed `Co-Authored-By: Claude Fable 5`.
 
 | Task | Model | Status | Notes |
 |---|---|---|---|
-| 2.1 Vector2i / Vector3i | sonnet | done | 2026-06-12: kinds+matrix+probe rows; Sprite2D +3 methods; device self-test PENDING |
-| 2.2 Color / Rect2 returns | sonnet | done | 2026-06-12: kinds+tags+matrix+probe rows; CanvasItem +16 methods (incl. real get_modulate + 12 draw*), Control +4, GPUParticles2D +3, Sprite2D +3, Label/Viewport/CollisionShape3D/CollisionObject2D minor; STUB 12→11, SUGAR 5→3; fable-reviewed; device self-test PENDING |
-| 2.3 String-return ptrcall | opus | todo | |
-| 2.4 PT_STRING / PT_NODE_PATH args | opus | todo | |
-| 2.5 Transform3D / Basis | opus | todo | |
+| 2.1 Vector2i / Vector3i | sonnet | done | 2026-06-12: kinds+matrix+probe rows; Sprite2D +3 methods; DEVICE-VALIDATED (item 1) |
+| 2.2 Color / Rect2 returns | sonnet | done | 2026-06-12: kinds+tags+matrix+probe rows; CanvasItem +16 methods (incl. real get_modulate + 12 draw*), Control +4, GPUParticles2D +3, Sprite2D +3, Label/Viewport/CollisionShape3D/CollisionObject2D minor; STUB 12→11, SUGAR 5→3; fable-reviewed; DEVICE-VALIDATED (item 1) |
+| 2.3 String-return ptrcall | opus | done | 2026-06-12/13: 2.3a String + 2.3b StringName no-arg getters; device-validated (items 2–3) |
+| 2.4 PT_STRING / PT_NODE_PATH args | opus | done | 2026-06-13: String/NodePath args; Label.text full; device-validated (item 4) |
+| 2.5 Transform3D / Basis | opus | done | 2026-06-13: POD float32 kinds (+RID/Quaternion/AABB, item 6); device-validated (item 5) |
 | 2.6 @ScriptProperty value types | opus | done | 2026-06-15: value-type set-property DONE + device-validated end-to-end — scene `view: NodePath` reaches the Kotlin field on iPhone 12 (NodePath/Vector2/Vector3 C extraction + Kotlin decode + emitter; matrix C42/K47). Earlier "blocked on subsystem" was an export-drop confound (iOS-only probe not desktop-registered), not an iOS bug — see RESUME HERE |
 | 2.7 Variant / typed-array / vararg | opus | todo | after 1.2–1.3 |
 
@@ -41,11 +41,11 @@ Commits go straight to `main`, attributed `Co-Authored-By: Claude Fable 5`.
 
 | Task | Model | Status | Notes |
 |---|---|---|---|
-| 3.1 KSP platform-neutral script model | fable | todo | keystone |
-| 3.2 iOS consumes KSP model (delete regex parser) | opus | todo | |
-| 3.3 Generated per-signature trampolines | fable | todo | |
+| 3.1 KSP platform-neutral script model | opus | done | 2026-06-15: KSP emits the serialized ScriptModel; iOS consumes it (keystone) |
+| 3.2 iOS consumes KSP model (delete regex parser) | opus | done | 2026-06-15: regex parser deleted; KSP-on-iOS registry; device-validated |
+| 3.3 Generated per-signature trampolines | opus | done | 2026-06-15: enumerated IosScriptBridgeKind replaced by generic PT-tagged callV; arg-bearing dispatch device-validated (matrix C42/K53); platformer coin bug class gone — see RESUME HERE |
 | 3.4 Wire remaining annotations | sonnet | todo | after 3.1–3.3 |
-| 3.5 Non-object signal payloads | sonnet | todo | likely subsumed by 3.3 |
+| 3.5 Non-object signal payloads | sonnet | done | 2026-06-15: subsumed by 3.3 — value-arg signal payloads arrive as inbound callV, marshalled by type |
 
 ## Phase 4 — Retire hand-written iOS surfaces
 
@@ -263,6 +263,29 @@ needs a decision (see the numbered items below + the roadmap backlog):
   property values at export. (A real `_get_script_property_list` Array<Dictionary> is still worth
   building eventually for the on-device inspector / `Object.get_property_list`, but it is NOT
   required for gameplay scene delivery — demote from blocker to nice-to-have.)
+- **3.3 DONE + DEVICE-VALIDATED (2026-06-15) — generated per-signature inbound call; the
+  "platformer coin bug" class is gone.** Replaced the enumerated `IosScriptBridgeKind` (ZERO/
+  DOUBLE/OBJECT/OBJECT_OBJECT_LONG/VECTOR2I/LONG + UNSUPPORTED) with one generic PT-tagged path:
+  (1) C `kanama_ios_script_instance_call` marshals every Variant arg into `arg_tags[]/arg_ptrs[]`
+  (the inverse of `kanama_ios_godot_object_call`; INT/BOOL/FLOAT/STRING/NODE_PATH/VECTOR2/VECTOR2I/
+  VECTOR3/COLOR/OBJECT, unaudited→PT_VOID) → new export `…_call_v(handle,index,tags,ptrs,argc)`.
+  (2) Kotlin `decodeIosCallArg(tag,ptr)` + `…call_v` @CName + `KanamaIosScriptBridge.callV(name,
+  args)`. (3) Emitter emits ONE `callV` override, one branch per method, each arg cast/wrapped by
+  its declared type (`callArgExpr` over `ArgModel`); a method with an unaudited arg type is
+  skip+warned (boundary is now "audited type", not "enumerated call shape"). Deleted
+  `IosScriptBridgeKind`/`bridgeKindFor`/`objectArgType` + the five typed exports/bridge methods/C
+  externs/runtime wrappers; `_input_event` is now a normal multi-arg method; `_ready` routes through
+  `callV`. **Previously-UNSUPPORTED shapes now dispatch** — `GateFixtureScript` compile-covers
+  `(Long,Double)`/`String`/`Vector3`/`NodePath`/`(Object,Object)`; the generated `callV` casts each
+  correctly. **Device (iPhone 12): matrix C 42 / Kotlin 53** (+6 `callarg-decode` rows: Long/Bool/
+  Double/Vector2i/Object/String) **0 failed**, `view=../Background` still delivered (2.6 no
+  regression), and **`_process dispatched argc=1 delta>0=true`** — an arg-bearing FLOAT virtual
+  dispatched end-to-end through the generic path (Godot → C PT-marshal → decode → `process(args[0]
+  as Double)`). Returns stay nil (out of scope; the emitter knows `returnType` for a later phase).
+  Commits: `feat: iOS generic per-signature inbound script call` (C) / `… Kotlin runtime generic
+  callV + arg decode` / `… emitter generates per-signature callV; delete IosScriptBridgeKind` /
+  `test: add arg-bearing _process probe`. **3.5 (non-object signal payloads) is subsumed** — a
+  value-arg signal payload arrives as an inbound `callV` and now marshals by type.
 - Cleanly self-test-validatable items: ~~Variant `Object.call` dispatch~~ DONE
   (item 8); ~~value-type BuiltinTypes on iOS~~ DONE (items 9–11): no-arg + args
   shapes across Transform3D/Basis/Vector2/Vector3/Quaternion + scalar float/bool/int
