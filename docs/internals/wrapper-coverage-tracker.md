@@ -34,7 +34,7 @@ Commits go straight to `main`, attributed `Co-Authored-By: Claude Fable 5`.
 | 2.3 String-return ptrcall | opus | todo | |
 | 2.4 PT_STRING / PT_NODE_PATH args | opus | todo | |
 | 2.5 Transform3D / Basis | opus | todo | |
-| 2.6 @ScriptProperty value types | opus | partial | 2026-06-15: value-type set-property MARSHALLING done + device-validated (NodePath/Vector2/Vector3 C extraction + Kotlin decode + emitter; matrix C42/K47). Scene-driven delivery BLOCKED on a separate iOS subsystem (Script `_get_script_property_list` + pending-set replay) that affects ALL @ScriptProperty types — see RESUME HERE |
+| 2.6 @ScriptProperty value types | opus | done | 2026-06-15: value-type set-property DONE + device-validated end-to-end — scene `view: NodePath` reaches the Kotlin field on iPhone 12 (NodePath/Vector2/Vector3 C extraction + Kotlin decode + emitter; matrix C42/K47). Earlier "blocked on subsystem" was an export-drop confound (iOS-only probe not desktop-registered), not an iOS bug — see RESUME HERE |
 | 2.7 Variant / typed-array / vararg | opus | todo | after 1.2–1.3 |
 
 ## Phase 3 — KSP model unification
@@ -241,27 +241,28 @@ needs a decision (see the numbered items below + the roadmap backlog):
   extraction primitives) +3 Kotlin (`setprop-decode(Vector2/Vector3/NodePath)`). **Device: matrix
   C 39→42, Kotlin 44→47, 0 failed** (commits `feat: iOS value-type @ScriptProperty set-property
   C path` / `… Kotlin runtime value-type … decode` / `… emitter setPropertyValue case`).
-- **BLOCKER FOUND — scene-driven @ScriptProperty delivery has NEVER worked on iOS (ANY type).**
-  With the value-type marshalling proven by self-test, the end-to-end check (scene stores
-  `view = NodePath("../Background")` on the `--kanama-user-script-probe` Label) showed `view=`
-  **empty**: a `set_property` diagnostic confirmed Godot **never calls the instance set callback**
-  during scene load. Root cause: the iOS Script reported NO property list. Landed the prerequisite
-  (commit `feat: iOS script instance advertises @ScriptProperty list (get_property_list)`):
-  instance `get_property_list` now returns name+Variant::Type+usage(STORAGE|EDITOR); plumbed the
-  variant type from the KSP descriptor (`KanamaIosScriptProperty.variantType` +
-  `…script_resource_property_type` export + emitter `godotVariantTypeFor` + a C
-  `script_property_types` table). **But that alone is INSUFFICIENT — device re-test still shows
-  `set_property` never called.** Desktop makes this work with TWO more pieces iOS lacks (see
-  `src/main/kotlin/binding/ScriptBridge.kt`): (a) the **Script-level** `_get_script_property_list`
-  virtual returns the real properties (iOS returns `ARRAY_EMPTY`, shim line ~3507 — needs C
-  Array<Dictionary> construction); (b) a **pending-set record/replay** layer
-  (`applyOrRecordScriptPropertySet` / `pendingScriptPropertyValuesByOwnerAddress` /
-  `applyPendingScriptPropertyValues`) that captures property sets arriving before the instance
-  exists and replays them on creation. **NEXT (separate subsystem, all @ScriptProperty types):**
-  implement `_get_script_property_list` (real Array<Dictionary>) + pending-set record/replay on
-  iOS, then the existing OBJECT/INT/STRING/value-type set paths all light up from scenes; re-run
-  the probe and confirm `view=../Background`. The probe + the value-type set paths are already in
-  place waiting for it.
+- **SCENE-DRIVEN DELIVERY WORKS — 2.6 DONE end-to-end + DEVICE-VALIDATED (2026-06-15).** The
+  earlier "blocked on a subsystem" finding was a **test-harness confound, NOT an iOS bug.** The
+  `--kanama-user-script-probe` `IosSmokeScript` was registered only for iOS (KSP); scene **export
+  runs on desktop**, which therefore didn't know `view` was a property and **dropped
+  `view = NodePath("../Background")` from the packed `.pck`** (verified: the NodePath value was
+  absent from the binary scene). So there was never a value to deliver — `set_property` had nothing
+  to fire on, which masqueraded as "the callback never works." Fix is purely test-side: also pass
+  `-PkanamaProjectScriptsDir=<probe kotlin-src>` so `project-scripts` (the **desktop** jar)
+  registers the probe — mirroring a real dual-target script (commit `test: dual-register iOS
+  user-script probe …`). **Re-run on iPhone 12: `DIAG set_property called (index=0)` →
+  `project script value-type property view=../Background`** — the NodePath flows scene → C
+  marshalling → Kotlin decode → field. Matrix stays 42/47. **No `_get_script_property_list`
+  Array<Dictionary> and no pending-set replay were needed** — Godot calls the instance
+  `set_property` for scene-stored props directly (the instance `get_property_list` was not even
+  consulted during scene load; it's still a correct GDExtension-contract improvement for the
+  inspector and stays committed). **Net: scene-authored value-type `@ScriptProperty` (and by the
+  same path OBJECT/INT/BOOL/FLOAT/STRING/ARRAY) deliver on iOS for any dual-target script.**
+  **Lesson:** a script must be registered wherever it's USED — desktop for editor/export +
+  scene-packing, iOS for runtime; an iOS-only `@ScriptClass` silently loses scene-authored
+  property values at export. (A real `_get_script_property_list` Array<Dictionary> is still worth
+  building eventually for the on-device inspector / `Object.get_property_list`, but it is NOT
+  required for gameplay scene delivery — demote from blocker to nice-to-have.)
 - Cleanly self-test-validatable items: ~~Variant `Object.call` dispatch~~ DONE
   (item 8); ~~value-type BuiltinTypes on iOS~~ DONE (items 9–11): no-arg + args
   shapes across Transform3D/Basis/Vector2/Vector3/Quaternion + scalar float/bool/int
