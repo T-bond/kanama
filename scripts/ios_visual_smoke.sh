@@ -1460,6 +1460,10 @@ if [[ -z "$godot_project_baseline_dir" ]]; then
   fi
   if [[ "$kanama_user_script_probe" -eq 1 ]]; then
     install_ios_addon_args+=("-PkanamaIosProjectScriptsDir=$project_dir/kotlin-src")
+    # Also compile the probe into the DESKTOP scripts jar so the export-time editor knows its
+    # @ScriptProperty names — otherwise scene-stored values (e.g. view: NodePath) are dropped at
+    # export and never reach the iOS runtime. Mirrors how a real dual-target script is registered.
+    install_ios_addon_args+=("-PkanamaProjectScriptsDir=$project_dir/kotlin-src")
   fi
   if [[ "$kanama_bunnymark_probe" -eq 1 ]]; then
     install_ios_addon_args+=("-PkanamaIosProjectScriptsDir=$project_dir/kotlin-src")
@@ -1748,6 +1752,14 @@ if [[ "$physical_device" -eq 0 && "$kanama_user_script_probe" -eq 1 ]]; then
     echo "[ios_visual_smoke] project script ready log detected"
   else
     echo "[ios_visual_smoke] project script ready log missing" >&2
+    exit 1
+  fi
+  # Value-type @ScriptProperty delivery: the scene stores view = NodePath("../Background"); the
+  # probe logs the NodePath that arrived. Confirms scene-driven value-type set-property end to end.
+  if rg -q 'value-type property view=\.\./Background' "$stderr_log" "$stdout_log"; then
+    echo "[ios_visual_smoke] project script value-type NodePath property delivered"
+  else
+    echo "[ios_visual_smoke] project script value-type NodePath property missing" >&2
     exit 1
   fi
 fi
