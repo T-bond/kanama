@@ -34,7 +34,7 @@ Commits go straight to `main`, attributed `Co-Authored-By: Claude Fable 5`.
 | 2.3 String-return ptrcall | opus | todo | |
 | 2.4 PT_STRING / PT_NODE_PATH args | opus | todo | |
 | 2.5 Transform3D / Basis | opus | todo | |
-| 2.6 @ScriptProperty value types | sonnet | todo | after 2.1–2.5 |
+| 2.6 @ScriptProperty value types | opus | partial | 2026-06-15: value-type set-property MARSHALLING done + device-validated (NodePath/Vector2/Vector3 C extraction + Kotlin decode + emitter; matrix C42/K47). Scene-driven delivery BLOCKED on a separate iOS subsystem (Script `_get_script_property_list` + pending-set replay) that affects ALL @ScriptProperty types — see RESUME HERE |
 | 2.7 Variant / typed-array / vararg | opus | todo | after 1.2–1.3 |
 
 ## Phase 3 — KSP model unification
@@ -226,6 +226,42 @@ needs a decision (see the numbered items below + the roadmap backlog):
   a distinct ~multi-part feature to do AFTER the device confirms the Step 1–3 cutover (it also
   needs its own device validation). The emitter is already structured for it — the
   `toIosProperty` value-type branch is where the `setPropertyValue` classification slots in.
+- **Step 5 (2.6) — value-type marshalling DONE + DEVICE-VALIDATED (2026-06-15); scene-driven
+  delivery is a SEPARATE iOS subsystem, deferred.** Built + device-green on iPhone 12:
+  (1) C `kanama_ios_script_instance_set_property` now marshals NODE_PATH/VECTOR2/VECTOR3/COLOR
+  Variants → PT-tagged byte buffers via new variant_to converters + `String(from NodePath)` ctor
+  → new export `kanama_ios_runtime_script_instance_set_property_value(handle,index,pt_tag,bytes,
+  len)` (`kanama_ios.h`-style extern in the shim). (2) Kotlin `setScriptInstancePropertyValue`
+  @CName + `decodeIosPropertyValue` (PT_NODE_PATH utf8→NodePath; PT_VECTOR2/3 float32→Vector2/3;
+  PT_COLOR→Color) + `KanamaIosScriptBridge.setPropertyValue(index, value: Any)` default-false.
+  (3) Emitter: `toIosProperty` classifies NODE_PATH/VECTOR2/VECTOR3 as value types
+  (`valueTypeClassName`), generates a `setPropertyValue` override (`script.x = value as <T>`); JVM
+  emitter untouched. (Color is not a `fqToTypeMapping` property type, so the C Color case is
+  defensive-only.) Self-test rows: +3 C (`setprop-nodepath/vector2/vector3` round-trip the
+  extraction primitives) +3 Kotlin (`setprop-decode(Vector2/Vector3/NodePath)`). **Device: matrix
+  C 39→42, Kotlin 44→47, 0 failed** (commits `feat: iOS value-type @ScriptProperty set-property
+  C path` / `… Kotlin runtime value-type … decode` / `… emitter setPropertyValue case`).
+- **BLOCKER FOUND — scene-driven @ScriptProperty delivery has NEVER worked on iOS (ANY type).**
+  With the value-type marshalling proven by self-test, the end-to-end check (scene stores
+  `view = NodePath("../Background")` on the `--kanama-user-script-probe` Label) showed `view=`
+  **empty**: a `set_property` diagnostic confirmed Godot **never calls the instance set callback**
+  during scene load. Root cause: the iOS Script reported NO property list. Landed the prerequisite
+  (commit `feat: iOS script instance advertises @ScriptProperty list (get_property_list)`):
+  instance `get_property_list` now returns name+Variant::Type+usage(STORAGE|EDITOR); plumbed the
+  variant type from the KSP descriptor (`KanamaIosScriptProperty.variantType` +
+  `…script_resource_property_type` export + emitter `godotVariantTypeFor` + a C
+  `script_property_types` table). **But that alone is INSUFFICIENT — device re-test still shows
+  `set_property` never called.** Desktop makes this work with TWO more pieces iOS lacks (see
+  `src/main/kotlin/binding/ScriptBridge.kt`): (a) the **Script-level** `_get_script_property_list`
+  virtual returns the real properties (iOS returns `ARRAY_EMPTY`, shim line ~3507 — needs C
+  Array<Dictionary> construction); (b) a **pending-set record/replay** layer
+  (`applyOrRecordScriptPropertySet` / `pendingScriptPropertyValuesByOwnerAddress` /
+  `applyPendingScriptPropertyValues`) that captures property sets arriving before the instance
+  exists and replays them on creation. **NEXT (separate subsystem, all @ScriptProperty types):**
+  implement `_get_script_property_list` (real Array<Dictionary>) + pending-set record/replay on
+  iOS, then the existing OBJECT/INT/STRING/value-type set paths all light up from scenes; re-run
+  the probe and confirm `view=../Background`. The probe + the value-type set paths are already in
+  place waiting for it.
 - Cleanly self-test-validatable items: ~~Variant `Object.call` dispatch~~ DONE
   (item 8); ~~value-type BuiltinTypes on iOS~~ DONE (items 9–11): no-arg + args
   shapes across Transform3D/Basis/Vector2/Vector3/Quaternion + scalar float/bool/int
