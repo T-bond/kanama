@@ -35,7 +35,7 @@ Commits go straight to `main`, attributed `Co-Authored-By: Claude Fable 5`.
 | 2.4 PT_STRING / PT_NODE_PATH args | opus | done | 2026-06-13: String/NodePath args; Label.text full; device-validated (item 4) |
 | 2.5 Transform3D / Basis | opus | done | 2026-06-13: POD float32 kinds (+RID/Quaternion/AABB, item 6); device-validated (item 5) |
 | 2.6 @ScriptProperty value types | opus | done | 2026-06-15: value-type set-property DONE + device-validated end-to-end — scene `view: NodePath` reaches the Kotlin field on iPhone 12 (NodePath/Vector2/Vector3 C extraction + Kotlin decode + emitter; matrix C42/K47). Earlier "blocked on subsystem" was an export-drop confound (iOS-only probe not desktop-registered), not an iOS bug — see RESUME HERE |
-| 2.7 Variant / typed-array / vararg | opus | todo | after 1.2–1.3 |
+| 2.7 Variant / typed-array / vararg | opus | in-progress | 2026-06-16: full value order. **2.7a Transform2D DONE + device-validated** (PTRCALL 43 / OBJECTCALLS 54, +20 wrapper methods). Remaining: NodePath/StringName/String returns, Packed*/Typed* arrays, Variant. Callable+vararg deferred (parity w/ desktop 1.4). See RESUME HERE |
 
 ## Phase 3 — KSP model unification
 
@@ -324,8 +324,27 @@ needs a decision (see the numbered items below + the roadmap backlog):
   Phase 3 is essentially complete** (remaining iOS odds-and-ends: @Rpc `_get_rpc_config` delivery
   to Godot multiplayer; method RETURN values still nil; `_get_script_property_list` for the
   on-device inspector — all nice-to-haves, none blocking gameplay parity). **NEXT (parity-first
-  goal 2): assess Android parity vs desktop — the less-examined platform; figure out what's
-  actually missing for desktop parity before the Phase 5 full-Godot-API capstone.**
+  goal 2): assess Android parity vs desktop.** *(Updated: user chose to finish Phase 2 (2.7) +
+  Phase 4 + Phase 5 FIRST, then the Android parity assessment — see 2.7 below.)*
+- **2.7 IN PROGRESS (2026-06-16) — finishing Phase 2 in value order before Phase 4/5 (user
+  decision).** Measured the real gap with a per-emitted-class iOS skip report: 165 "un-audited
+  shape" skips, but 75 are *peer-class* gaps (audited Object shape, concrete class not emitted —
+  a Phase-4 breadth axis, NOT 2.7) and ~86 are true shape-gaps. Sub-features in value order:
+  **(a) Transform2D** [DONE], (b) NodePath/StringName/String returns (~22), (c) Packed*Array
+  (~19), (d) Typed object arrays (~20), (e) Variant (~10). **Callable (3) + vararg (4) stay
+  DEFERRED to match desktop 1.4** (cross-platform policy, not an iOS gap). Method to add a value
+  type: Kotlin `types/X.kt` + `IOS_ARG_KINDS`/`IOS_RET_KOTLIN` + `IOS_PT_TAG_VALUES` + a
+  `ios_arg/ret_layout` case (POD passthrough → no per-type C code; the ptrcall `default` ships
+  the buffer) + a C `KANAMA_IOS_PT_*` enum + a C self-test row + a Kotlin self-test row + regen
+  the affected wrappers (skip SUGAR files — only Node has SUGAR now) + the Node3D fixture +
+  device-validate. Reusable scratch report: `/tmp/ios27/skips.txt` (regen via the per-class
+  `--ios-emit-class` loop; RTK rewrites `diff` so use python/`difflib` for additive checks).
+  - **2.7a Transform2D DONE + DEVICE-VALIDATED (iPhone 12, 2026-06-16).** 6×float32 (columns x,
+    y, origin — each Vector2; no column-major reshuffle, the columns ARE the axes). +20 wrapper
+    methods (CanvasItem/CollisionObject2D/GPUParticles2D/Node2D/Viewport). Self-test rows:
+    Node2D.set_transform → CanvasItem.get_transform round-trip (Node2D overrides get_transform to
+    the local one). **PTRCALL 43/0 + OBJECTCALLS 54/0** on device. Commit `feat: iOS Transform2D
+    arg+return audited type (Phase 2.7a)`. **NEXT: 2.7b NodePath/StringName/String returns.**
 - Cleanly self-test-validatable items: ~~Variant `Object.call` dispatch~~ DONE
   (item 8); ~~value-type BuiltinTypes on iOS~~ DONE (items 9–11): no-arg + args
   shapes across Transform3D/Basis/Vector2/Vector3/Quaternion + scalar float/bool/int
