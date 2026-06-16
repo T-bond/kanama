@@ -410,6 +410,7 @@ scene_header="[gd_scene format=3]"
 script_resource_line=""
 main_script_line=""
 status_script_line=""
+status_extra_props=""
 if [[ "$kanama_probe" -eq 1 ]]; then
   status_node_groups=' groups=["kanama_ios_probe"]'
   status_text="Waiting for Kanama iOS frame probe"
@@ -427,6 +428,10 @@ elif [[ "$kanama_user_script_probe" -eq 1 ]]; then
   scene_header='[gd_scene load_steps=2 format=3]'
   script_resource_line='[ext_resource type="Script" path="res://kotlin-src/IosSmokeScript.kt" id="1_probe"]'
   status_script_line='script = ExtResource("1_probe")'
+  # Value-type @ScriptProperty (Phase 3.2 step 5 / 2.6) end-to-end check: the scene stores a
+  # NodePath into the script's `view` property, so Godot drives the set-property value path at
+  # instantiation; _ready logs what arrived.
+  status_extra_props='view = NodePath("../Background")'
   mkdir -p "$project_dir/kotlin-src"
   cat >"$project_dir/kotlin-src/IosSmokeScript.kt" <<'EOF'
 package net.multigesture.kanama.iossmoke
@@ -434,14 +439,20 @@ package net.multigesture.kanama.iossmoke
 import java.lang.foreign.MemorySegment
 import net.multigesture.kanama.annotations.OnReady
 import net.multigesture.kanama.annotations.ScriptClass
+import net.multigesture.kanama.annotations.ScriptProperty
 import net.multigesture.kanama.api.KanamaScript
 import net.multigesture.kanama.api.Label
+import net.multigesture.kanama.types.NodePath
 
 @ScriptClass(attachTo = "Label")
 class IosSmokeScript(godotObject: MemorySegment) : KanamaScript<Label>(godotObject, ::Label) {
+    @ScriptProperty
+    var view: NodePath = NodePath.EMPTY
+
     @OnReady
     fun ready() {
         self.text = "Kanama iOS project script ready"
+        println("[kanama][ios][kn] project script value-type property view=${view.path}")
     }
 }
 EOF
@@ -1376,6 +1387,7 @@ text = "$status_text"
 horizontal_alignment = 1
 vertical_alignment = 1
 $status_script_line
+$status_extra_props
 EOF
 fi
 fi

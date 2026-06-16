@@ -27,6 +27,10 @@ internal data class KanamaIosScriptMethod(
 
 internal data class KanamaIosScriptProperty(
     val name: String,
+    // Godot Variant::Type, so the script instance can advertise this @ScriptProperty to the
+    // engine (get_property_list) — required for scene-stored values to be applied. Default 0
+    // (NIL) keeps older generated registrars compiling.
+    val variantType: Int = 0,
 )
 
 internal data class KanamaIosScriptSignal(
@@ -193,6 +197,9 @@ internal object KanamaIosRuntime {
 
     fun scriptResourcePropertyName(handle: Long, propertyIndex: Int): String =
         scriptResources[handle]?.descriptor?.properties?.getOrNull(propertyIndex)?.name.orEmpty()
+
+    fun scriptResourcePropertyType(handle: Long, propertyIndex: Int): Int =
+        scriptResources[handle]?.descriptor?.properties?.getOrNull(propertyIndex)?.variantType ?: 0
 
     fun scriptResourceSignalCount(handle: Long): Int =
         scriptResources[handle]?.descriptor?.signals?.size ?: 0
@@ -613,6 +620,11 @@ fun kanamaIosRuntimeScriptResourcePropertyName(
 ) {
     writeCString(KanamaIosRuntime.scriptResourcePropertyName(scriptHandle, propertyIndex), buffer, bufferSize)
 }
+
+@OptIn(ExperimentalNativeApi::class)
+@CName("kanama_ios_runtime_script_resource_property_type")
+fun kanamaIosRuntimeScriptResourcePropertyType(scriptHandle: Long, propertyIndex: Int): Int =
+    KanamaIosRuntime.scriptResourcePropertyType(scriptHandle, propertyIndex)
 
 @OptIn(ExperimentalNativeApi::class)
 @CName("kanama_ios_runtime_script_resource_signal_count")

@@ -38,6 +38,12 @@ extern void kanama_ios_runtime_script_resource_property_name(
     char *buffer,
     int32_t buffer_size
 );
+// Godot Variant::Type of property [property_index] (so the script instance can advertise its
+// @ScriptProperty list to the engine — needed for scene-stored values to be applied).
+extern int32_t kanama_ios_runtime_script_resource_property_type(
+    int64_t script_handle,
+    int32_t property_index
+);
 extern int32_t kanama_ios_runtime_script_resource_signal_count(int64_t script_handle);
 extern void kanama_ios_runtime_script_resource_signal_name(
     int64_t script_handle,
@@ -160,6 +166,7 @@ typedef struct {
     char **script_method_name_texts;
     int32_t script_method_count;
     uint64_t *script_property_names;
+    int32_t *script_property_types;
     int32_t script_property_count;
     uint64_t *script_signal_names;
     char **script_signal_name_texts;
@@ -959,7 +966,12 @@ static void kanama_ios_script_resource_init_metadata(KanamaIosExtensionInstance 
     int32_t property_count = kanama_ios_runtime_script_resource_property_count(instance->script_handle);
     if (property_count > 0) {
         instance->script_property_names = calloc((size_t)property_count, sizeof(uint64_t));
-        if (instance->script_property_names == NULL) {
+        instance->script_property_types = calloc((size_t)property_count, sizeof(int32_t));
+        if (instance->script_property_names == NULL || instance->script_property_types == NULL) {
+            free(instance->script_property_names);
+            free(instance->script_property_types);
+            instance->script_property_names = NULL;
+            instance->script_property_types = NULL;
             return;
         }
         instance->script_property_count = property_count;
@@ -972,6 +984,8 @@ static void kanama_ios_script_resource_init_metadata(KanamaIosExtensionInstance 
                 property_name,
                 (int32_t)sizeof(property_name)
             );
+            instance->script_property_types[i] = kanama_ios_runtime_script_resource_property_type(
+                instance->script_handle, i);
             if (property_name[0] == '\0') {
                 continue;
             }
@@ -1034,6 +1048,7 @@ static void kanama_ios_script_resource_clear_metadata(KanamaIosExtensionInstance
         }
         free(instance->script_property_names);
     }
+    free(instance->script_property_types);
     if (instance->script_signal_names != NULL) {
         for (int32_t i = 0; i < instance->script_signal_count; i++) {
             kanama_ios_destroy_string_name(&instance->script_signal_names[i]);
@@ -1051,6 +1066,7 @@ static void kanama_ios_script_resource_clear_metadata(KanamaIosExtensionInstance
     instance->script_base_type_text = NULL;
     instance->script_path = NULL;
     instance->script_property_names = NULL;
+    instance->script_property_types = NULL;
     instance->script_property_count = 0;
     instance->script_signal_names = NULL;
     instance->script_signal_name_texts = NULL;
@@ -3807,15 +3823,47 @@ static GDExtensionBool kanama_ios_script_instance_false_3(
     return 0;
 }
 
+// Empty String / StringName for property-info fields: a Godot String/StringName is a single
+// pointer whose null (zero) value IS the canonical empty value, so a shared zero qword serves
+// for every entry's class_name + hint_string without per-entry allocation.
+static const uint64_t g_kanama_ios_empty_string_storage = 0;
+
 static const GDExtensionPropertyInfo *kanama_ios_script_instance_get_property_list(
     GDExtensionScriptInstanceDataPtr data,
     uint32_t *count
 ) {
-    (void)data;
-    if (count != NULL) {
-        *count = 0;
+    KanamaIosScriptInstance *instance = kanama_ios_script_instance_data(data);
+    if (instance == NULL || instance->script == NULL
+        || instance->script->script_property_count <= 0
+        || instance->script->script_property_names == NULL
+        || instance->script->script_property_types == NULL) {
+        if (count != NULL) {
+            *count = 0;
+        }
+        return NULL;
     }
-    return NULL;
+    int32_t n = instance->script->script_property_count;
+    GDExtensionPropertyInfo *list = calloc((size_t)n, sizeof(GDExtensionPropertyInfo));
+    if (list == NULL) {
+        if (count != NULL) {
+            *count = 0;
+        }
+        return NULL;
+    }
+    for (int32_t i = 0; i < n; i++) {
+        list[i].type = (GDExtensionVariantType)instance->script->script_property_types[i];
+        list[i].name = (GDExtensionStringNamePtr)&instance->script->script_property_names[i];
+        list[i].class_name = (GDExtensionStringNamePtr)&g_kanama_ios_empty_string_storage;
+        list[i].hint = 0;
+        list[i].hint_string = (GDExtensionStringPtr)&g_kanama_ios_empty_string_storage;
+        // PROPERTY_USAGE_STORAGE | PROPERTY_USAGE_EDITOR — so scene-stored @ScriptProperty
+        // values are applied to the instance (and the inspector shows them).
+        list[i].usage = 6;
+    }
+    if (count != NULL) {
+        *count = (uint32_t)n;
+    }
+    return list;
 }
 
 static void kanama_ios_script_instance_free_property_list(
@@ -3824,8 +3872,10 @@ static void kanama_ios_script_instance_free_property_list(
     uint32_t count
 ) {
     (void)data;
-    (void)list;
     (void)count;
+    // The per-entry name StringNames are owned by the instance; class_name/hint_string are the
+    // shared empty storage. Only the array itself was allocated here.
+    free((void *)list);
 }
 
 static GDExtensionVariantType kanama_ios_script_instance_get_property_type(

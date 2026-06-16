@@ -57,6 +57,9 @@ internal data class IosProperty(
     // FQ Kotlin type for a value-type property (NodePath/Vector2/Vector3) delivered via the
     // set-property value path (PT-tagged bytes -> setPropertyValue). Empty for non-value types.
     val valueTypeClassName: String = "",
+    // Godot Variant::Type, so the iOS script instance can advertise this property to the engine
+    // (get_property_list) — required for scene-stored @ScriptProperty values to be delivered.
+    val godotVariantType: Int = 0,
 )
 
 internal data class IosSignal(
@@ -117,7 +120,7 @@ internal class IosScriptCodeEmitter(
             builder.appendLine("            properties = listOf(")
             script.properties.forEach { property ->
                 builder.appendLine(
-                    "                KanamaIosScriptProperty(${kotlinString(property.godotName)}),",
+                    "                KanamaIosScriptProperty(${kotlinString(property.godotName)}, ${property.godotVariantType}),",
                 )
             }
             builder.appendLine("            ),")
@@ -497,6 +500,11 @@ internal class IosScriptCodeEmitter(
                 }
             }
         }
+        val godotVariantType = when {
+            isObject -> 24 // OBJECT
+            isList -> 28 // ARRAY
+            else -> godotVariantTypeFor(type)
+        }
         return IosProperty(
             godotName = godotName,
             kotlinName = kotlinName,
@@ -506,7 +514,25 @@ internal class IosScriptCodeEmitter(
             listElementClassName = listElementClassName,
             isNullable = nullable,
             valueTypeClassName = valueTypeClassName,
+            godotVariantType = godotVariantType,
         )
+    }
+
+    /** Maps a [TypeMapping] to its Godot Variant::Type integer (engine enum). */
+    private fun godotVariantTypeFor(type: TypeMapping): Int = when (type) {
+        TypeMapping.BOOL -> 1
+        TypeMapping.INT -> 2
+        TypeMapping.FLOAT -> 3
+        TypeMapping.STRING -> 4
+        TypeMapping.VECTOR2 -> 5
+        TypeMapping.VECTOR2I -> 6
+        TypeMapping.VECTOR3 -> 9
+        TypeMapping.VECTOR3I -> 10
+        TypeMapping.QUATERNION -> 15
+        TypeMapping.BASIS -> 17
+        TypeMapping.NODE_PATH -> 22
+        TypeMapping.OBJECT -> 24
+        TypeMapping.ARRAY -> 28
     }
 
     // ---------- string helpers (reproduce the build.gradle.kts versions exactly) ----------
