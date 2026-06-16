@@ -1475,6 +1475,18 @@ if [[ -z "$godot_project_baseline_dir" ]]; then
     install_ios_addon_args+=("-PkanamaIosProjectScriptsDir=$project_dir/kotlin-src")
   fi
 
+  # Guardrail: registering project scripts for iOS (KSP) but NOT for the desktop scripts jar means
+  # the export-time editor doesn't know their @ScriptProperty names, so scene-stored property
+  # values (e.g. view: NodePath) are silently DROPPED from the packed scene and never reach the
+  # iOS runtime. Real dual-target scripts pass both. Warn so this trap isn't re-diagnosed as an
+  # iOS runtime bug (it cost ~3 device cycles once).
+  if printf '%s\n' "${install_ios_addon_args[@]}" | rg -q '^-PkanamaIosProjectScriptsDir=' \
+    && ! printf '%s\n' "${install_ios_addon_args[@]}" | rg -q '^-PkanamaProjectScriptsDir='; then
+    echo "[ios_visual_smoke] WARNING: project scripts registered for iOS but not desktop " \
+      "(-PkanamaProjectScriptsDir unset) — any scene-stored @ScriptProperty values will be " \
+      "dropped at export. Add -PkanamaProjectScriptsDir for dual-target registration." >&2
+  fi
+
   DEVELOPER_DIR="$xcode_developer_dir" "$ROOT_DIR/gradlew" "${install_ios_addon_args[@]}"
 fi
 
