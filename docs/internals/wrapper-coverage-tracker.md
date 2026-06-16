@@ -44,7 +44,7 @@ Commits go straight to `main`, attributed `Co-Authored-By: Claude Fable 5`.
 | 3.1 KSP platform-neutral script model | opus | done | 2026-06-15: KSP emits the serialized ScriptModel; iOS consumes it (keystone) |
 | 3.2 iOS consumes KSP model (delete regex parser) | opus | done | 2026-06-15: regex parser deleted; KSP-on-iOS registry; device-validated |
 | 3.3 Generated per-signature trampolines | opus | done | 2026-06-15: enumerated IosScriptBridgeKind replaced by generic PT-tagged callV; arg-bearing dispatch device-validated (matrix C42/K53); platformer coin bug class gone — see RESUME HERE |
-| 3.4 Wire remaining annotations | sonnet | todo | after 3.1–3.3 |
+| 3.4 Wire remaining annotations | opus | build-validated | 2026-06-16: @OnEnterTree/@OnExitTree + @OnUnhandled/@OnShortcut/@OnUnhandledKeyInput wired (generic callV); @Rpc parse-side (config-delivery deferred); IOS_UNWIRED set now empty. Device-validation pending — see RESUME HERE |
 | 3.5 Non-object signal payloads | sonnet | done | 2026-06-15: subsumed by 3.3 — value-arg signal payloads arrive as inbound callV, marshalled by type |
 
 ## Phase 4 — Retire hand-written iOS surfaces
@@ -286,6 +286,33 @@ needs a decision (see the numbered items below + the roadmap backlog):
   callV + arg decode` / `… emitter generates per-signature callV; delete IosScriptBridgeKind` /
   `test: add arg-bearing _process probe`. **3.5 (non-object signal payloads) is subsumed** — a
   value-arg signal payload arrives as an inbound `callV` and now marshals by type.
+- **3.4 DONE (build-validated 2026-06-16) — remaining lifecycle/input virtuals wired; the old
+  IOS_UNWIRED_FUNCTION_ANNOTATIONS set is now empty.** Wired @OnEnterTree/@OnExitTree,
+  @OnUnhandledInput/@OnShortcutInput/@OnUnhandledKeyInput, + @Rpc parse-side. The split that
+  matters: **per-frame/input virtuals arrive via the script-instance `call` callback** (need the
+  Node processing flag enabled), **tree virtuals arrive via the `notification` callback** (like
+  `_ready`). (1) Emitter `VirtualModel.toIosMethod` wired set now lists all 9 virtuals — the
+  generic callV dispatches each signature, so each is just a method-list + callV branch (verified
+  in the generated registry: descriptor lists `_enter_tree/_exit_tree/_unhandled_input/
+  _shortcut_input/_unhandled_key_input` + callV branches). (2) C shim:
+  `configure_lifecycle_processing` now also enables `set_process_{unhandled,shortcut,
+  unhandled_key}_input` (all share the `void(bool)` bind hash `2586408642` = `SET_PROCESS_INPUT_HASH`,
+  the GDExtension method-bind hash is signature-derived not name-derived — verified vs
+  extension_api.json); new `kanama_ios_script_instance_dispatch_tree_virtual` routes `_enter_tree`/
+  `_exit_tree` through `call_v` (argc 0) on the ENTER_TREE/EXIT_TREE notifications (added
+  `NOTIFICATION_EXIT_TREE=11`); **deleted the stale `_unhandled_input`→`_input` aliasing hack** in
+  the call path (unhandled_input is now a real wired method). (3) iosMain annotations subset gained
+  the missing OnUnhandled*/Shortcut*/Rpc/RpcMode/RpcTransferMode decls (the curated subset lacked
+  them). (4) Gate fixture compile-covers the 5 new virtuals + an `@Rpc(@RegisterFunction)` method
+  (`net_score`). @Rpc note: model captures RpcModel and the method stays dispatchable via callV, but
+  **on-device `_get_rpc_config` delivery to Godot multiplayer is still NIL** (a later phase — the C
+  virtual returns VARIANT_NIL); "parse-side" only. Gates green: clang -fsyntax-only,
+  :processor:compileKotlin + JVM KSP, :ios-runtime:compileKotlinIosArm64 (device target) with the
+  gate fixture, check_ios_no_silent_stubs, :processor:test. Commit `feat: iOS wire remaining
+  lifecycle/input virtuals + @Rpc parse-side (Phase 3.4)`. **NEXT: device-validate (FLAG USER —
+  iPhone 12 auto-locks) via ios_visual_smoke (probe a script with the new virtuals; confirm
+  enter_tree/exit_tree fire on tree add/remove and unhandled/shortcut/unhandled_key input
+  dispatch). Then goal 2: assess Android parity vs desktop.**
 - Cleanly self-test-validatable items: ~~Variant `Object.call` dispatch~~ DONE
   (item 8); ~~value-type BuiltinTypes on iOS~~ DONE (items 9–11): no-arg + args
   shapes across Transform3D/Basis/Vector2/Vector3/Quaternion + scalar float/bool/int
