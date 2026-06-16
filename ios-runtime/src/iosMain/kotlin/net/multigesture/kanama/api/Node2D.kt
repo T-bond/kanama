@@ -4,6 +4,7 @@ import java.lang.foreign.MemorySegment
 import kotlin.jvm.JvmName
 import net.multigesture.kanama.binding.runtime.ObjectCalls
 import net.multigesture.kanama.binding.runtime.*
+import net.multigesture.kanama.types.Transform2D
 import net.multigesture.kanama.types.Vector2
 
 /**
@@ -174,6 +175,14 @@ open class Node2D(handle: MemorySegment) : CanvasItem(handle) {
         return ObjectCalls.ptrcallNoArgsRetVector2(getGlobalScaleBind, handle)
     }
 
+    fun setTransform(xform: Transform2D) {
+        ObjectCalls.ptrcallWithTransform2DArg(setTransformBind, handle, xform)
+    }
+
+    fun setGlobalTransform(xform: Transform2D) {
+        ObjectCalls.ptrcallWithTransform2DArg(setGlobalTransformBind, handle, xform)
+    }
+
     fun lookAt(point: Vector2) {
         ObjectCalls.ptrcallWithVector2Arg(lookAtBind, handle, point)
     }
@@ -188,6 +197,10 @@ open class Node2D(handle: MemorySegment) : CanvasItem(handle) {
 
     fun toGlobal(localPoint: Vector2): Vector2 {
         return ObjectCalls.ptrcallWithVector2ArgRetVector2(toGlobalBind, handle, localPoint)
+    }
+
+    fun getRelativeTransformToParent(parent: Node): Transform2D {
+        return ObjectCalls.ptrcallWithObjectArgRetTransform2D(getRelativeTransformToParentBind, handle, parent.handle)
     }
 
     companion object {
@@ -327,6 +340,16 @@ open class Node2D(handle: MemorySegment) : CanvasItem(handle) {
             ObjectCalls.getMethodBind("Node2D", "get_global_scale", GET_GLOBAL_SCALE_HASH)
         }
 
+        private const val SET_TRANSFORM_HASH = 2761652528L
+        private val setTransformBind by lazy {
+            ObjectCalls.getMethodBind("Node2D", "set_transform", SET_TRANSFORM_HASH)
+        }
+
+        private const val SET_GLOBAL_TRANSFORM_HASH = 2761652528L
+        private val setGlobalTransformBind by lazy {
+            ObjectCalls.getMethodBind("Node2D", "set_global_transform", SET_GLOBAL_TRANSFORM_HASH)
+        }
+
         private const val LOOK_AT_HASH = 743155724L
         private val lookAtBind by lazy {
             ObjectCalls.getMethodBind("Node2D", "look_at", LOOK_AT_HASH)
@@ -345,6 +368,11 @@ open class Node2D(handle: MemorySegment) : CanvasItem(handle) {
         private const val TO_GLOBAL_HASH = 2656412154L
         private val toGlobalBind by lazy {
             ObjectCalls.getMethodBind("Node2D", "to_global", TO_GLOBAL_HASH)
+        }
+
+        private const val GET_RELATIVE_TRANSFORM_TO_PARENT_HASH = 904556875L
+        private val getRelativeTransformToParentBind by lazy {
+            ObjectCalls.getMethodBind("Node2D", "get_relative_transform_to_parent", GET_RELATIVE_TRANSFORM_TO_PARENT_HASH)
         }
     }
 }

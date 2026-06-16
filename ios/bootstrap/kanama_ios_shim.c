@@ -413,6 +413,7 @@ enum {
     KANAMA_IOS_PT_TRANSFORM3D, // 12x float32 (9 basis column-major + 3 origin)
     KANAMA_IOS_PT_QUATERNION,  // 4x float32 (x, y, z, w)
     KANAMA_IOS_PT_AABB,        // 6x float32 (position xyz + size xyz)
+    KANAMA_IOS_PT_TRANSFORM2D, // 6x float32 (columns x, y, origin — each Vector2)
     // (KANAMA_IOS_PT_RID = 14 above is also POD passthrough: a single uint64.)
 };
 
@@ -5245,6 +5246,28 @@ static void kanama_ios_ptrcall_selftest(void) {
             if (bout[k] != bin[k]) { b_ok = 0; }
         }
         KANAMA_IOS_ST_CHECK("basis set/get_basis round-trip", b_ok);
+    }
+
+    // Transform2D arg+return: Node2D.set_transform(T) -> get_transform(). 6x float32
+    // (columns x, y, origin — each Vector2), POD passthrough. get_transform is declared on
+    // CanvasItem but Node2D overrides it to return the local _transform, so it round-trips.
+    // x=(2,0) y=(0,4) origin=(1.25,2.5) — all exact in float32; the asymmetric layout also
+    // catches a wrong component order. Phase 2.7a.
+    {
+        int64_t n2 = kanama_ios_godot_construct_object("Node2D");
+        float t2in[6] = { 2.0f, 0, 0, 4.0f, 1.25f, 2.5f };
+        const void *t2a[1] = { t2in };
+        int32_t t2t[1] = { KANAMA_IOS_PT_TRANSFORM2D };
+        kanama_ios_godot_ptrcall(kanama_ios_godot_get_method_bind("Node2D", "set_transform", 2761652528),
+            n2, t2t, t2a, 1, KANAMA_IOS_PT_VOID, NULL);
+        float t2out[6] = { 0 };
+        kanama_ios_godot_ptrcall(kanama_ios_godot_get_method_bind("CanvasItem", "get_transform", 3814499831),
+            n2, NULL, NULL, 0, KANAMA_IOS_PT_TRANSFORM2D, t2out);
+        int t2_ok = 1;
+        for (int k = 0; k < 6; k++) {
+            if (t2out[k] != t2in[k]) { t2_ok = 0; }
+        }
+        KANAMA_IOS_ST_CHECK("transform2d set/get_transform round-trip", t2_ok);
     }
 
     // RID arg+return: a GPUParticles3D auto-assigns a particles base RID. Read it

@@ -199,6 +199,7 @@ IOS_ARG_KINDS = {
     "String",
     "NodePath",
     "Basis",
+    "Transform2D",
     "Transform3D",
     "RID",
     "Quaternion",
@@ -207,7 +208,7 @@ IOS_ARG_KINDS = {
 # Return shapes the iOS helpers can read back (keyed by CallShape.kotlin_return, the
 # stable per-helper return-type token). StringName/String/RID/List/Map returns
 # are intentionally absent until their read-back is wired + validated.
-IOS_RET_KOTLIN = {"Unit", "Boolean", "Int", "Long", "Double", "Vector2", "Vector2i", "Vector3", "Vector3i", "Color", "Rect2", "MemorySegment", "String", "Basis", "Transform3D", "RID", "Quaternion", "AABB"}
+IOS_RET_KOTLIN = {"Unit", "Boolean", "Int", "Long", "Double", "Vector2", "Vector2i", "Vector3", "Vector3i", "Color", "Rect2", "MemorySegment", "String", "Basis", "Transform2D", "Transform3D", "RID", "Quaternion", "AABB"}
 
 # Helpers already hand-written in ios-runtime ObjectCalls.kt (the reference template +
 # override set). The generator must NOT re-emit these (they'd clash with the members).
@@ -1603,6 +1604,7 @@ import net.multigesture.kanama.types.NodePath
 import net.multigesture.kanama.types.Quaternion
 import net.multigesture.kanama.types.RID
 import net.multigesture.kanama.types.Rect2
+import net.multigesture.kanama.types.Transform2D
 import net.multigesture.kanama.types.Transform3D
 import net.multigesture.kanama.types.Vector2
 import net.multigesture.kanama.types.Vector2i
@@ -1646,6 +1648,7 @@ IOS_PT_TAG_VALUES = {
     "PT_TRANSFORM3D": 19,
     "PT_QUATERNION": 20,
     "PT_AABB": 21,
+    "PT_TRANSFORM2D": 22,
     "PT_RID": 14,
 }
 
@@ -1737,6 +1740,21 @@ def ios_arg_layout(kind: str, index: int) -> tuple[str, str, list[str], str]:
             ],
             f"{c}.reinterpret<CPointed>()",
         )
+    if kind == "Transform2D":
+        # 6x float32: the three columns (x axis, y axis, origin), each a Vector2. POD
+        # passthrough — components are real_t=float32 on single-precision iOS. Unlike
+        # Basis/Transform3D the columns ARE the stored axes, so no column-major reshuffle.
+        return (
+            "Transform2D",
+            "PT_TRANSFORM2D",
+            [
+                f"val {c} = allocArray<FloatVar>(6); "
+                f"{c}[0] = {a}.x.x.toFloat(); {c}[1] = {a}.x.y.toFloat(); "
+                f"{c}[2] = {a}.y.x.toFloat(); {c}[3] = {a}.y.y.toFloat(); "
+                f"{c}[4] = {a}.origin.x.toFloat(); {c}[5] = {a}.origin.y.toFloat()"
+            ],
+            f"{c}.reinterpret<CPointed>()",
+        )
     if kind == "Transform3D":
         # 12x float32: 9 column-major basis components then the 3 origin components.
         return (
@@ -1825,6 +1843,17 @@ def ios_ret_layout(kotlin_return: str) -> tuple[str | None, str, list[str], str,
             "Basis(Vector3(ret[0].toDouble(), ret[3].toDouble(), ret[6].toDouble()), "
             "Vector3(ret[1].toDouble(), ret[4].toDouble(), ret[7].toDouble()), "
             "Vector3(ret[2].toDouble(), ret[5].toDouble(), ret[8].toDouble()))",
+        )
+    if kotlin_return == "Transform2D":
+        # 6x float32: the three columns (x axis, y axis, origin), each a Vector2.
+        return (
+            "Transform2D",
+            "PT_TRANSFORM2D",
+            ["val ret = allocArray<FloatVar>(6)"],
+            "ret",
+            "Transform2D(Vector2(ret[0].toDouble(), ret[1].toDouble()), "
+            "Vector2(ret[2].toDouble(), ret[3].toDouble()), "
+            "Vector2(ret[4].toDouble(), ret[5].toDouble()))",
         )
     if kotlin_return == "Transform3D":
         # 12x float32: 9 column-major basis + 3 origin.

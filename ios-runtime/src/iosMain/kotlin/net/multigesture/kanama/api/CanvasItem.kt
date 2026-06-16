@@ -7,6 +7,7 @@ import net.multigesture.kanama.binding.runtime.*
 import net.multigesture.kanama.types.Color
 import net.multigesture.kanama.types.RID
 import net.multigesture.kanama.types.Rect2
+import net.multigesture.kanama.types.Transform2D
 import net.multigesture.kanama.types.Vector2
 
 /**
@@ -251,6 +252,10 @@ open class CanvasItem(handle: MemorySegment) : Node(handle) {
         ObjectCalls.ptrcallWithVector2DoubleVector2Args(drawSetTransformBind, handle, position, rotation, scale)
     }
 
+    fun drawSetTransformMatrix(xform: Transform2D) {
+        ObjectCalls.ptrcallWithTransform2DArg(drawSetTransformMatrixBind, handle, xform)
+    }
+
     fun drawAnimationSlice(animationLength: Double, sliceBegin: Double, sliceEnd: Double, offset: Double = 0.0) {
         ObjectCalls.ptrcallWithFourDoubleArgs(drawAnimationSliceBind, handle, animationLength, sliceBegin, sliceEnd, offset)
     }
@@ -259,8 +264,32 @@ open class CanvasItem(handle: MemorySegment) : Node(handle) {
         ObjectCalls.ptrcallNoArgs(drawEndAnimationBind, handle)
     }
 
+    fun getTransform(): Transform2D {
+        return ObjectCalls.ptrcallNoArgsRetTransform2D(getTransformBind, handle)
+    }
+
+    fun getGlobalTransform(): Transform2D {
+        return ObjectCalls.ptrcallNoArgsRetTransform2D(getGlobalTransformBind, handle)
+    }
+
+    fun getGlobalTransformWithCanvas(): Transform2D {
+        return ObjectCalls.ptrcallNoArgsRetTransform2D(getGlobalTransformWithCanvasBind, handle)
+    }
+
+    fun getViewportTransform(): Transform2D {
+        return ObjectCalls.ptrcallNoArgsRetTransform2D(getViewportTransformBind, handle)
+    }
+
     fun getViewportRect(): Rect2 {
         return ObjectCalls.ptrcallNoArgsRetRect2(getViewportRectBind, handle)
+    }
+
+    fun getCanvasTransform(): Transform2D {
+        return ObjectCalls.ptrcallNoArgsRetTransform2D(getCanvasTransformBind, handle)
+    }
+
+    fun getScreenTransform(): Transform2D {
+        return ObjectCalls.ptrcallNoArgsRetTransform2D(getScreenTransformBind, handle)
     }
 
     fun getLocalMousePosition(): Vector2 {
@@ -583,6 +612,11 @@ open class CanvasItem(handle: MemorySegment) : Node(handle) {
             ObjectCalls.getMethodBind("CanvasItem", "draw_set_transform", DRAW_SET_TRANSFORM_HASH)
         }
 
+        private const val DRAW_SET_TRANSFORM_MATRIX_HASH = 2761652528L
+        private val drawSetTransformMatrixBind by lazy {
+            ObjectCalls.getMethodBind("CanvasItem", "draw_set_transform_matrix", DRAW_SET_TRANSFORM_MATRIX_HASH)
+        }
+
         private const val DRAW_ANIMATION_SLICE_HASH = 3112831842L
         private val drawAnimationSliceBind by lazy {
             ObjectCalls.getMethodBind("CanvasItem", "draw_animation_slice", DRAW_ANIMATION_SLICE_HASH)
@@ -593,9 +627,39 @@ open class CanvasItem(handle: MemorySegment) : Node(handle) {
             ObjectCalls.getMethodBind("CanvasItem", "draw_end_animation", DRAW_END_ANIMATION_HASH)
         }
 
+        private const val GET_TRANSFORM_HASH = 3814499831L
+        private val getTransformBind by lazy {
+            ObjectCalls.getMethodBind("CanvasItem", "get_transform", GET_TRANSFORM_HASH)
+        }
+
+        private const val GET_GLOBAL_TRANSFORM_HASH = 3814499831L
+        private val getGlobalTransformBind by lazy {
+            ObjectCalls.getMethodBind("CanvasItem", "get_global_transform", GET_GLOBAL_TRANSFORM_HASH)
+        }
+
+        private const val GET_GLOBAL_TRANSFORM_WITH_CANVAS_HASH = 3814499831L
+        private val getGlobalTransformWithCanvasBind by lazy {
+            ObjectCalls.getMethodBind("CanvasItem", "get_global_transform_with_canvas", GET_GLOBAL_TRANSFORM_WITH_CANVAS_HASH)
+        }
+
+        private const val GET_VIEWPORT_TRANSFORM_HASH = 3814499831L
+        private val getViewportTransformBind by lazy {
+            ObjectCalls.getMethodBind("CanvasItem", "get_viewport_transform", GET_VIEWPORT_TRANSFORM_HASH)
+        }
+
         private const val GET_VIEWPORT_RECT_HASH = 1639390495L
         private val getViewportRectBind by lazy {
             ObjectCalls.getMethodBind("CanvasItem", "get_viewport_rect", GET_VIEWPORT_RECT_HASH)
+        }
+
+        private const val GET_CANVAS_TRANSFORM_HASH = 3814499831L
+        private val getCanvasTransformBind by lazy {
+            ObjectCalls.getMethodBind("CanvasItem", "get_canvas_transform", GET_CANVAS_TRANSFORM_HASH)
+        }
+
+        private const val GET_SCREEN_TRANSFORM_HASH = 3814499831L
+        private val getScreenTransformBind by lazy {
+            ObjectCalls.getMethodBind("CanvasItem", "get_screen_transform", GET_SCREEN_TRANSFORM_HASH)
         }
 
         private const val GET_LOCAL_MOUSE_POSITION_HASH = 3341600327L

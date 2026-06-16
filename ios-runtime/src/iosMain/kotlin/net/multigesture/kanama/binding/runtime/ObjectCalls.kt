@@ -41,6 +41,7 @@ import net.multigesture.kanama.types.NodePath
 import net.multigesture.kanama.types.Quaternion
 import net.multigesture.kanama.types.RID
 import net.multigesture.kanama.types.Rect2
+import net.multigesture.kanama.types.Transform2D
 import net.multigesture.kanama.types.Transform3D
 import net.multigesture.kanama.types.Vector2
 import net.multigesture.kanama.types.Vector2i
@@ -621,6 +622,18 @@ fun kanamaIosRuntimeObjectCallsSelfTest() {
     val tOut = ObjectCalls.ptrcallNoArgsRetTransform3D(
         ObjectCalls.getMethodBind("Node3D", "get_transform", 3229777777L), n3t)
     check("transform3d(set/get_transform)", tOut == tIn)
+
+    // Transform2D arg+return (Node2D.set_transform -> CanvasItem.get_transform): 6x float32
+    // (columns x, y, origin — each Vector2). Node2D overrides CanvasItem.get_transform to
+    // return the local _transform, so a bare node round-trips. x=(2,0) y=(0,4) origin=(1.25,2.5)
+    // — exact in float32; the asymmetric layout also catches a wrong component order. Phase 2.7a.
+    val n2t = ObjectCalls.constructObject("Node2D")
+    val t2In = Transform2D(Vector2(2.0, 0.0), Vector2(0.0, 4.0), Vector2(1.25, 2.5))
+    ObjectCalls.ptrcallWithTransform2DArg(
+        ObjectCalls.getMethodBind("Node2D", "set_transform", 2761652528L), n2t, t2In)
+    val t2Out = ObjectCalls.ptrcallNoArgsRetTransform2D(
+        ObjectCalls.getMethodBind("CanvasItem", "get_transform", 3814499831L), n2t)
+    check("transform2d(set/get_transform)", t2Out == t2In)
 
     // Basis arg+return (Node3D.set_basis -> get_basis): 9x float32 column-major.
     // DEVICE-VALIDATED 2026-06-13 (iPhone 12, iOS 26.5) — Phase 2.5

@@ -6,6 +6,7 @@ import net.multigesture.kanama.binding.runtime.ObjectCalls
 import net.multigesture.kanama.binding.runtime.*
 import net.multigesture.kanama.types.RID
 import net.multigesture.kanama.types.Rect2
+import net.multigesture.kanama.types.Transform2D
 import net.multigesture.kanama.types.Vector2
 
 /**
@@ -246,6 +247,18 @@ open class Viewport(handle: MemorySegment) : Node(handle) {
         @JvmName("setPositionalShadowAtlas16BitsProperty")
         set(value) = setPositionalShadowAtlas16Bits(value)
 
+    var canvasTransform: Transform2D
+        @JvmName("canvasTransformProperty")
+        get() = getCanvasTransform()
+        @JvmName("setCanvasTransformProperty")
+        set(value) = setCanvasTransform(value)
+
+    var globalCanvasTransform: Transform2D
+        @JvmName("globalCanvasTransformProperty")
+        get() = getGlobalCanvasTransform()
+        @JvmName("setGlobalCanvasTransformProperty")
+        set(value) = setGlobalCanvasTransform(value)
+
     var canvasCullMask: Long
         @JvmName("canvasCullMaskProperty")
         get() = getCanvasCullMask()
@@ -263,6 +276,34 @@ open class Viewport(handle: MemorySegment) : Node(handle) {
         get() = getOversamplingOverride()
         @JvmName("setOversamplingOverrideProperty")
         set(value) = setOversamplingOverride(value)
+
+    fun setCanvasTransform(xform: Transform2D) {
+        ObjectCalls.ptrcallWithTransform2DArg(setCanvasTransformBind, handle, xform)
+    }
+
+    fun getCanvasTransform(): Transform2D {
+        return ObjectCalls.ptrcallNoArgsRetTransform2D(getCanvasTransformBind, handle)
+    }
+
+    fun setGlobalCanvasTransform(xform: Transform2D) {
+        ObjectCalls.ptrcallWithTransform2DArg(setGlobalCanvasTransformBind, handle, xform)
+    }
+
+    fun getGlobalCanvasTransform(): Transform2D {
+        return ObjectCalls.ptrcallNoArgsRetTransform2D(getGlobalCanvasTransformBind, handle)
+    }
+
+    fun getStretchTransform(): Transform2D {
+        return ObjectCalls.ptrcallNoArgsRetTransform2D(getStretchTransformBind, handle)
+    }
+
+    fun getFinalTransform(): Transform2D {
+        return ObjectCalls.ptrcallNoArgsRetTransform2D(getFinalTransformBind, handle)
+    }
+
+    fun getScreenTransform(): Transform2D {
+        return ObjectCalls.ptrcallNoArgsRetTransform2D(getScreenTransformBind, handle)
+    }
 
     fun getVisibleRect(): Rect2 {
         return ObjectCalls.ptrcallNoArgsRetRect2(getVisibleRectBind, handle)
@@ -807,6 +848,41 @@ open class Viewport(handle: MemorySegment) : Node(handle) {
 
         internal fun wrap(handle: MemorySegment): Viewport? =
             if (handle.address() == 0L) null else Viewport(handle)
+
+        private const val SET_CANVAS_TRANSFORM_HASH = 2761652528L
+        private val setCanvasTransformBind by lazy {
+            ObjectCalls.getMethodBind("Viewport", "set_canvas_transform", SET_CANVAS_TRANSFORM_HASH)
+        }
+
+        private const val GET_CANVAS_TRANSFORM_HASH = 3814499831L
+        private val getCanvasTransformBind by lazy {
+            ObjectCalls.getMethodBind("Viewport", "get_canvas_transform", GET_CANVAS_TRANSFORM_HASH)
+        }
+
+        private const val SET_GLOBAL_CANVAS_TRANSFORM_HASH = 2761652528L
+        private val setGlobalCanvasTransformBind by lazy {
+            ObjectCalls.getMethodBind("Viewport", "set_global_canvas_transform", SET_GLOBAL_CANVAS_TRANSFORM_HASH)
+        }
+
+        private const val GET_GLOBAL_CANVAS_TRANSFORM_HASH = 3814499831L
+        private val getGlobalCanvasTransformBind by lazy {
+            ObjectCalls.getMethodBind("Viewport", "get_global_canvas_transform", GET_GLOBAL_CANVAS_TRANSFORM_HASH)
+        }
+
+        private const val GET_STRETCH_TRANSFORM_HASH = 3814499831L
+        private val getStretchTransformBind by lazy {
+            ObjectCalls.getMethodBind("Viewport", "get_stretch_transform", GET_STRETCH_TRANSFORM_HASH)
+        }
+
+        private const val GET_FINAL_TRANSFORM_HASH = 3814499831L
+        private val getFinalTransformBind by lazy {
+            ObjectCalls.getMethodBind("Viewport", "get_final_transform", GET_FINAL_TRANSFORM_HASH)
+        }
+
+        private const val GET_SCREEN_TRANSFORM_HASH = 3814499831L
+        private val getScreenTransformBind by lazy {
+            ObjectCalls.getMethodBind("Viewport", "get_screen_transform", GET_SCREEN_TRANSFORM_HASH)
+        }
 
         private const val GET_VISIBLE_RECT_HASH = 1639390495L
         private val getVisibleRectBind by lazy {
