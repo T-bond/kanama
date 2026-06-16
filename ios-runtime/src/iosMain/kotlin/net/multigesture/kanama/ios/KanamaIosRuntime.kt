@@ -1,9 +1,12 @@
 package net.multigesture.kanama.ios
 
 import kotlinx.cinterop.ByteVar
+import kotlinx.cinterop.COpaquePointerVar
 import kotlinx.cinterop.CPointer
+import kotlinx.cinterop.DoubleVar
 import kotlinx.cinterop.ExperimentalForeignApi
 import kotlinx.cinterop.FloatVar
+import kotlinx.cinterop.IntVar
 import kotlinx.cinterop.LongVar
 import kotlinx.cinterop.get
 import kotlinx.cinterop.readBytes
@@ -16,6 +19,7 @@ import net.multigesture.kanama.ios.cinterop.kanama_ios_godot_set_first_node_in_g
 import net.multigesture.kanama.types.Color
 import net.multigesture.kanama.types.NodePath
 import net.multigesture.kanama.types.Vector2
+import net.multigesture.kanama.types.Vector2i
 import net.multigesture.kanama.types.Vector3
 import kotlin.experimental.ExperimentalNativeApi
 import kotlin.native.CName
@@ -47,18 +51,10 @@ internal data class KanamaIosScriptDescriptor(
 )
 
 internal interface KanamaIosScriptBridge {
-    fun call(methodName: String, firstArg: Double): Boolean
-
-    fun callObject(methodName: String, objectArg: Long): Boolean =
-        false
-
-    fun callArgs(methodName: String, arg1: Long, arg2: Long, arg3: Long): Boolean =
-        false
-
-    fun callVector2i(methodName: String, x: Long, y: Long): Boolean =
-        false
-
-    fun callLong(methodName: String, value: Long): Boolean =
+    // Generic per-signature inbound dispatch (Phase 3.3): [args] are the already-decoded Kotlin
+    // values (one per method param, in order); the generated branch casts/wraps each to its
+    // declared type and invokes the script method.
+    fun callV(methodName: String, args: List<Any?>): Boolean =
         false
 
     fun setProperty(propertyIndex: Int, value: Long): Boolean =
@@ -243,10 +239,12 @@ internal object KanamaIosRuntime {
             log("ready skipped for missing script instance handle=$handle")
             return
         }
-        callScriptInstance(handle, "_ready", 0.0)
+        callScriptInstanceV(handle, "_ready", emptyList())
     }
 
-    fun callScriptInstance(handle: Long, methodIndex: Int, firstArg: Double): Boolean {
+    // Generic per-signature dispatch (Phase 3.3): the C side marshalled the Variant args into
+    // PT-tagged buffers and the @CName export decoded them to [args]; route to the generated callV.
+    fun callScriptInstanceV(handle: Long, methodIndex: Int, args: List<Any?>): Boolean {
         val instance = scriptInstances[handle]
         if (instance == null) {
             log("call skipped for missing script instance handle=$handle")
@@ -257,24 +255,10 @@ internal object KanamaIosRuntime {
             log("call skipped for missing method index=$methodIndex handle=$handle")
             return false
         }
-        return callScriptInstance(handle, method.name, firstArg)
+        return callScriptInstanceV(handle, method.name, args)
     }
 
-    fun callScriptInstanceObject(handle: Long, methodIndex: Int, objectArg: Long): Boolean {
-        val instance = scriptInstances[handle]
-        if (instance == null) {
-            log("object call skipped for missing script instance handle=$handle")
-            return false
-        }
-        val method = instance.resource.descriptor?.methods?.getOrNull(methodIndex)
-        if (method == null) {
-            log("object call skipped for missing method index=$methodIndex handle=$handle")
-            return false
-        }
-        return callScriptInstanceObject(handle, method.name, objectArg)
-    }
-
-    fun callScriptInstance(handle: Long, methodName: String, firstArg: Double): Boolean {
+    fun callScriptInstanceV(handle: Long, methodName: String, args: List<Any?>): Boolean {
         val instance = scriptInstances[handle]
         if (instance == null) {
             log("call skipped for missing script instance handle=$handle")
@@ -286,97 +270,12 @@ internal object KanamaIosRuntime {
             }
             instance.readyCalled = true
         }
-        val ok = instance.bridge.call(methodName, firstArg)
+        val ok = instance.bridge.callV(methodName, args)
         if (ok && shouldLogScriptMethodCall(methodName)) {
             val kind = if (instance.resource.path == PROBE_SCRIPT_PATH) "built-in probe" else "project script"
             log("$kind method call handle=$handle path=${instance.resource.path} method=$methodName")
         }
         return ok
-    }
-
-    fun callScriptInstanceObject(handle: Long, methodName: String, objectArg: Long): Boolean {
-        val instance = scriptInstances[handle]
-        if (instance == null) {
-            log("object call skipped for missing script instance handle=$handle")
-            return false
-        }
-        if (objectArg == 0L) {
-            log("object call skipped for null object method=$methodName handle=$handle")
-            return false
-        }
-        val ok = instance.bridge.callObject(methodName, objectArg)
-        if (ok && shouldLogScriptMethodCall(methodName)) {
-            val kind = if (instance.resource.path == PROBE_SCRIPT_PATH) "built-in probe" else "project script"
-            log("$kind object method call handle=$handle path=${instance.resource.path} method=$methodName")
-        }
-        return ok
-    }
-
-    fun callScriptInstanceArgs(handle: Long, methodIndex: Int, arg1: Long, arg2: Long, arg3: Long): Boolean {
-        val instance = scriptInstances[handle]
-        if (instance == null) {
-            log("args call skipped for missing script instance handle=$handle")
-            return false
-        }
-        val method = instance.resource.descriptor?.methods?.getOrNull(methodIndex)
-        if (method == null) {
-            log("args call skipped for missing method index=$methodIndex handle=$handle")
-            return false
-        }
-        return callScriptInstanceArgs(handle, method.name, arg1, arg2, arg3)
-    }
-
-    fun callScriptInstanceArgs(handle: Long, methodName: String, arg1: Long, arg2: Long, arg3: Long): Boolean {
-        val instance = scriptInstances[handle]
-        if (instance == null) {
-            log("args call skipped for missing script instance handle=$handle")
-            return false
-        }
-        val ok = instance.bridge.callArgs(methodName, arg1, arg2, arg3)
-        if (ok && shouldLogScriptMethodCall(methodName)) {
-            val kind = if (instance.resource.path == PROBE_SCRIPT_PATH) "built-in probe" else "project script"
-            log("$kind args method call handle=$handle path=${instance.resource.path} method=$methodName")
-        }
-        return ok
-    }
-
-    fun callScriptInstanceVector2i(handle: Long, methodIndex: Int, x: Long, y: Long): Boolean {
-        val instance = scriptInstances[handle]
-        if (instance == null) {
-            log("vector2i call skipped for missing script instance handle=$handle")
-            return false
-        }
-        val method = instance.resource.descriptor?.methods?.getOrNull(methodIndex)
-        if (method == null) {
-            log("vector2i call skipped for missing method index=$methodIndex handle=$handle")
-            return false
-        }
-        return callScriptInstanceVector2i(handle, method.name, x, y)
-    }
-
-    fun callScriptInstanceVector2i(handle: Long, methodName: String, x: Long, y: Long): Boolean {
-        val instance = scriptInstances[handle]
-        if (instance == null) {
-            log("vector2i call skipped for missing script instance handle=$handle")
-            return false
-        }
-        val ok = instance.bridge.callVector2i(methodName, x, y)
-        if (ok && shouldLogScriptMethodCall(methodName)) {
-            val kind = if (instance.resource.path == PROBE_SCRIPT_PATH) "built-in probe" else "project script"
-            log("$kind vector2i method call handle=$handle path=${instance.resource.path} method=$methodName")
-        }
-        return ok
-    }
-
-    fun callScriptInstanceLong(handle: Long, methodIndex: Int, value: Long): Boolean {
-        val instance = scriptInstances[handle] ?: return false
-        val method = instance.resource.descriptor?.methods?.getOrNull(methodIndex) ?: return false
-        return callScriptInstanceLong(handle, method.name, value)
-    }
-
-    fun callScriptInstanceLong(handle: Long, methodName: String, value: Long): Boolean {
-        val instance = scriptInstances[handle] ?: return false
-        return instance.bridge.callLong(methodName, value)
     }
 
     fun setScriptInstanceProperty(handle: Long, propertyIndex: Int, value: Long): Boolean {
@@ -504,7 +403,7 @@ internal object KanamaIosRuntime {
     private class BuiltInProbeScript(
         private val ownerObject: Long,
     ) : KanamaIosScriptBridge {
-        override fun call(methodName: String, firstArg: Double): Boolean {
+        override fun callV(methodName: String, args: List<Any?>): Boolean {
             if (methodName != "_ready") {
                 return false
             }
@@ -654,46 +553,6 @@ fun kanamaIosRuntimeScriptInstanceReady(instanceHandle: Long) {
 }
 
 @OptIn(ExperimentalNativeApi::class)
-@CName("kanama_ios_runtime_script_instance_call")
-fun kanamaIosRuntimeScriptInstanceCall(instanceHandle: Long, methodIndex: Int, firstArg: Double): Int =
-    if (KanamaIosRuntime.callScriptInstance(instanceHandle, methodIndex, firstArg)) 1 else 0
-
-@OptIn(ExperimentalNativeApi::class)
-@CName("kanama_ios_runtime_script_instance_call_object")
-fun kanamaIosRuntimeScriptInstanceCallObject(instanceHandle: Long, methodIndex: Int, objectArg: Long): Int =
-    if (KanamaIosRuntime.callScriptInstanceObject(instanceHandle, methodIndex, objectArg)) 1 else 0
-
-@OptIn(ExperimentalNativeApi::class)
-@CName("kanama_ios_runtime_script_instance_call_args")
-fun kanamaIosRuntimeScriptInstanceCallArgs(
-    instanceHandle: Long,
-    methodIndex: Int,
-    arg1: Long,
-    arg2: Long,
-    arg3: Long,
-): Int =
-    if (KanamaIosRuntime.callScriptInstanceArgs(instanceHandle, methodIndex, arg1, arg2, arg3)) 1 else 0
-
-@OptIn(ExperimentalNativeApi::class)
-@CName("kanama_ios_runtime_script_instance_call_vector2i")
-fun kanamaIosRuntimeScriptInstanceCallVector2i(
-    instanceHandle: Long,
-    methodIndex: Int,
-    x: Long,
-    y: Long,
-): Int =
-    if (KanamaIosRuntime.callScriptInstanceVector2i(instanceHandle, methodIndex, x, y)) 1 else 0
-
-@OptIn(ExperimentalNativeApi::class)
-@CName("kanama_ios_runtime_script_instance_call_long")
-fun kanamaIosRuntimeScriptInstanceCallLong(
-    instanceHandle: Long,
-    methodIndex: Int,
-    value: Long,
-): Int =
-    if (KanamaIosRuntime.callScriptInstanceLong(instanceHandle, methodIndex, value)) 1 else 0
-
-@OptIn(ExperimentalNativeApi::class)
 @CName("kanama_ios_runtime_script_instance_set_property")
 fun kanamaIosRuntimeScriptInstanceSetProperty(
     instanceHandle: Long,
@@ -729,12 +588,52 @@ fun kanamaIosRuntimeScriptInstanceSetPropertyArray(
     return if (KanamaIosRuntime.setScriptInstancePropertyArray(instanceHandle, propertyIndex, values)) 1 else 0
 }
 
-// PT_* tags — must match the KANAMA_IOS_PT_* enum in kanama_ios_shim.c. NODE_PATH ships utf8
-// path bytes; Vector2/3/Color ship contiguous float32 components.
+// PT_* tags — must match the KANAMA_IOS_PT_* enum in kanama_ios_shim.c. NODE_PATH/STRING ship a
+// null-terminated utf8 cstring; Vector2/3/Color ship contiguous float32, Vector2i contiguous
+// int32; INT64/BOOL/FLOAT64/OBJECT ship their scalar in the buffer.
+private const val IOS_PT_BOOL = 1
+private const val IOS_PT_INT64 = 3
+private const val IOS_PT_FLOAT64 = 5
 private const val IOS_PT_VECTOR2 = 6
+private const val IOS_PT_VECTOR2I = 7
 private const val IOS_PT_VECTOR3 = 8
 private const val IOS_PT_COLOR = 11
+private const val IOS_PT_OBJECT = 13
+private const val IOS_PT_STRING = 16
 private const val IOS_PT_NODE_PATH = 17
+
+// Decodes one PT-tagged inbound call arg (see kanama_ios_script_instance_call). OBJECT yields the
+// raw int64 handle; the generated callV branch wraps it in the declared GodotObject subtype.
+@OptIn(ExperimentalForeignApi::class)
+internal fun decodeIosCallArg(tag: Int, ptr: CPointer<ByteVar>?): Any? {
+    if (ptr == null) {
+        return null
+    }
+    return when (tag) {
+        IOS_PT_INT64, IOS_PT_OBJECT -> ptr.reinterpret<LongVar>()[0]
+        IOS_PT_BOOL -> ptr[0].toInt() != 0
+        IOS_PT_FLOAT64 -> ptr.reinterpret<DoubleVar>()[0]
+        IOS_PT_VECTOR2 -> {
+            val f = ptr.reinterpret<FloatVar>()
+            Vector2(f[0].toDouble(), f[1].toDouble())
+        }
+        IOS_PT_VECTOR2I -> {
+            val n = ptr.reinterpret<IntVar>()
+            Vector2i(n[0], n[1])
+        }
+        IOS_PT_VECTOR3 -> {
+            val f = ptr.reinterpret<FloatVar>()
+            Vector3(f[0].toDouble(), f[1].toDouble(), f[2].toDouble())
+        }
+        IOS_PT_COLOR -> {
+            val f = ptr.reinterpret<FloatVar>()
+            Color(f[0], f[1], f[2], f[3])
+        }
+        IOS_PT_STRING -> ptr.toKString()
+        IOS_PT_NODE_PATH -> NodePath(ptr.toKString())
+        else -> null
+    }
+}
 
 @OptIn(ExperimentalForeignApi::class)
 internal fun decodeIosPropertyValue(ptTag: Int, bytes: CPointer<ByteVar>?, length: Int): Any? {
@@ -770,6 +669,23 @@ fun kanamaIosRuntimeScriptInstanceSetPropertyValue(
 ): Int {
     val value = decodeIosPropertyValue(ptTag, bytes, length) ?: return 0
     return if (KanamaIosRuntime.setScriptInstancePropertyValue(instanceHandle, propertyIndex, value)) 1 else 0
+}
+
+@OptIn(ExperimentalForeignApi::class, ExperimentalNativeApi::class)
+@CName("kanama_ios_runtime_script_instance_call_v")
+fun kanamaIosRuntimeScriptInstanceCallV(
+    instanceHandle: Long,
+    methodIndex: Int,
+    argTags: CPointer<IntVar>?,
+    argPtrs: CPointer<COpaquePointerVar>?,
+    argCount: Int,
+): Int {
+    val args: List<Any?> = if (argCount <= 0 || argTags == null || argPtrs == null) {
+        emptyList()
+    } else {
+        List(argCount) { i -> decodeIosCallArg(argTags[i], argPtrs[i]?.reinterpret()) }
+    }
+    return if (KanamaIosRuntime.callScriptInstanceV(instanceHandle, methodIndex, args)) 1 else 0
 }
 
 @OptIn(ExperimentalNativeApi::class)

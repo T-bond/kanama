@@ -32,6 +32,7 @@ import net.multigesture.kanama.ios.cinterop.kanama_ios_godot_object_call
 import net.multigesture.kanama.ios.cinterop.kanama_ios_godot_ptrcall
 import net.multigesture.kanama.ios.cinterop.kanama_ios_godot_ptrcall_no_args_ret_string
 import net.multigesture.kanama.ios.cinterop.kanama_ios_godot_ptrcall_no_args_ret_string_name
+import net.multigesture.kanama.ios.decodeIosCallArg
 import net.multigesture.kanama.ios.decodeIosPropertyValue
 import net.multigesture.kanama.types.AABB
 import net.multigesture.kanama.types.Basis
@@ -816,6 +817,28 @@ fun kanamaIosRuntimeObjectCallsSelfTest() {
         for (i in pathBytes.indices) pb[i] = pathBytes[i]
         val dnp = decodeIosPropertyValue(17, pb, pathBytes.size) as? NodePath
         check("setprop-decode(NodePath)", dnp != null && dnp.path == path)
+    }
+
+    // Inbound call-arg decode (Phase 3.3): decodeIosCallArg over the scalar/vector2i/string/object
+    // tags — the Kotlin side of the generic method-call path (the C side ships these exact buffers
+    // in kanama_ios_script_instance_call). Tags mirror KANAMA_IOS_PT_* (INT64=3, BOOL=1, FLOAT64=5,
+    // VECTOR2I=7, OBJECT=13, STRING=16).
+    memScoped {
+        val li = alloc<LongVar>(); li.value = 1234567L
+        check("callarg-decode(Long)", decodeIosCallArg(3, li.ptr.reinterpret()) == 1234567L)
+        val bo = alloc<ByteVar>(); bo.value = 1
+        check("callarg-decode(Bool)", decodeIosCallArg(1, bo.ptr.reinterpret()) == true)
+        val db = alloc<DoubleVar>(); db.value = 2.5
+        check("callarg-decode(Double)", decodeIosCallArg(5, db.ptr.reinterpret()) == 2.5)
+        val v2i = allocArray<IntVar>(2); v2i[0] = 3; v2i[1] = 4
+        check("callarg-decode(Vector2i)", decodeIosCallArg(7, v2i.reinterpret()) == Vector2i(3, 4))
+        val ob = alloc<LongVar>(); ob.value = 99L
+        check("callarg-decode(Object handle)", decodeIosCallArg(13, ob.ptr.reinterpret()) == 99L)
+        val sb = "hello".encodeToByteArray()
+        val sp = allocArray<ByteVar>(sb.size + 1)
+        for (i in sb.indices) sp[i] = sb[i]
+        sp[sb.size] = 0
+        check("callarg-decode(String)", decodeIosCallArg(16, sp) == "hello")
     }
 
     println("[kanama][ios][kn] OBJECTCALLS SELFTEST: $pass passed, $fail failed")
