@@ -53,33 +53,15 @@ extern void kanama_ios_runtime_script_resource_signal_name(
 );
 extern int64_t kanama_ios_runtime_script_instance_create(int64_t script_handle, int64_t owner_object);
 extern void kanama_ios_runtime_script_instance_ready(int64_t instance_handle);
-extern int32_t kanama_ios_runtime_script_instance_call(
+// Generic per-signature inbound call: the C callback marshals every Variant arg into a
+// PT-tagged buffer (the inverse of kanama_ios_godot_object_call) and the Kotlin runtime decodes
+// each arg by its tag and dispatches the script method. Replaces the enumerated call_* exports.
+extern int32_t kanama_ios_runtime_script_instance_call_v(
     int64_t instance_handle,
     int32_t method_index,
-    double first_arg
-);
-extern int32_t kanama_ios_runtime_script_instance_call_object(
-    int64_t instance_handle,
-    int32_t method_index,
-    int64_t object_arg
-);
-extern int32_t kanama_ios_runtime_script_instance_call_args(
-    int64_t instance_handle,
-    int32_t method_index,
-    int64_t arg1,
-    int64_t arg2,
-    int64_t arg3
-);
-extern int32_t kanama_ios_runtime_script_instance_call_vector2i(
-    int64_t instance_handle,
-    int32_t method_index,
-    int64_t x,
-    int64_t y
-);
-extern int32_t kanama_ios_runtime_script_instance_call_long(
-    int64_t instance_handle,
-    int32_t method_index,
-    int64_t value
+    const int32_t *arg_tags,
+    const void *const *arg_ptrs,
+    int32_t arg_count
 );
 extern int32_t kanama_ios_runtime_script_instance_set_property(
     int64_t instance_handle,
@@ -4138,57 +4120,132 @@ static void kanama_ios_script_instance_call(
         method_index = kanama_ios_script_method_index(instance->script, (GDExtensionConstStringNamePtr)&g_name__input);
     }
     if (instance != NULL && method_index >= 0) {
-        double first_arg = 0.0;
-        GDExtensionObjectPtr object_arg = NULL;
-        int32_t ok = 0;
-        if (argument_count >= 3 && args != NULL && args[0] != NULL && args[1] != NULL && args[2] != NULL) {
-            GDExtensionObjectPtr arg1 = kanama_ios_variant_to_object(args[0]);
-            GDExtensionObjectPtr arg2 = kanama_ios_variant_to_object(args[1]);
-            int64_t arg3 = kanama_ios_variant_to_int64(args[2]);
-            if (arg1 != NULL && arg2 != NULL) {
-                ok = kanama_ios_runtime_script_instance_call_args(
-                    instance->runtime_handle,
-                    method_index,
-                    (int64_t)(intptr_t)arg1,
-                    (int64_t)(intptr_t)arg2,
-                    arg3
-                );
-            }
-        } else if (argument_count > 0 && args != NULL && args[0] != NULL) {
-            GDExtensionVariantType arg_type = g_variant_get_type != NULL
-                ? g_variant_get_type(args[0])
-                : KANAMA_IOS_VARIANT_TYPE_NIL;
-            if (arg_type == KANAMA_IOS_VARIANT_TYPE_VECTOR2I) {
-                int64_t vx = 0, vy = 0;
-                kanama_ios_variant_to_vector2i(args[0], &vx, &vy);
-                ok = kanama_ios_runtime_script_instance_call_vector2i(
-                    instance->runtime_handle,
-                    method_index,
-                    vx,
-                    vy
-                );
-            } else if (arg_type == KANAMA_IOS_VARIANT_TYPE_INT) {
-                // Single int/long value arg (e.g. a coin-count signal payload).
-                int64_t value = kanama_ios_variant_to_int64(args[0]);
-                ok = kanama_ios_runtime_script_instance_call_long(
-                    instance->runtime_handle,
-                    method_index,
-                    value
-                );
-            } else {
-                object_arg = kanama_ios_variant_to_object(args[0]);
-                first_arg = kanama_ios_variant_to_double(args[0]);
-                ok = object_arg != NULL
-                    ? kanama_ios_runtime_script_instance_call_object(
-                        instance->runtime_handle,
-                        method_index,
-                        (int64_t)(intptr_t)object_arg
-                    )
-                    : kanama_ios_runtime_script_instance_call(instance->runtime_handle, method_index, first_arg);
-            }
-        } else {
-            ok = kanama_ios_runtime_script_instance_call(instance->runtime_handle, method_index, 0.0);
+        int32_t argc = (int32_t)argument_count;
+        if (argc < 0) {
+            argc = 0;
         }
+        if (argc > KANAMA_IOS_PTRCALL_MAX_ARGS) {
+            argc = KANAMA_IOS_PTRCALL_MAX_ARGS;
+        }
+        // Marshal every arg into a PT-tagged buffer (the inverse of kanama_ios_godot_object_call):
+        // POD goes in the i64/f64/fvec/ivec cells; String/NodePath are extracted to a utf8 cell
+        // freed after the call. Unaudited Variant types fall through to PT_VOID (the Kotlin decode
+        // yields null) so an unsupported arg can't silently route to the wrong typed call.
+        int32_t tags[KANAMA_IOS_PTRCALL_MAX_ARGS];
+        const void *ptrs[KANAMA_IOS_PTRCALL_MAX_ARGS];
+        int64_t i64[KANAMA_IOS_PTRCALL_MAX_ARGS];
+        double f64[KANAMA_IOS_PTRCALL_MAX_ARGS];
+        float fvec[KANAMA_IOS_PTRCALL_MAX_ARGS][4];
+        int32_t ivec[KANAMA_IOS_PTRCALL_MAX_ARGS][2];
+        char *strs[KANAMA_IOS_PTRCALL_MAX_ARGS];
+
+        for (int32_t i = 0; i < argc; i++) {
+            tags[i] = KANAMA_IOS_PT_VOID;
+            ptrs[i] = NULL;
+            strs[i] = NULL;
+            GDExtensionConstVariantPtr v = (args != NULL) ? args[i] : NULL;
+            if (v == NULL) {
+                continue;
+            }
+            GDExtensionVariantType vt = g_variant_get_type != NULL
+                ? g_variant_get_type(v)
+                : KANAMA_IOS_VARIANT_TYPE_NIL;
+            switch (vt) {
+                case KANAMA_IOS_VARIANT_TYPE_INT:
+                    i64[i] = kanama_ios_variant_to_int64(v);
+                    tags[i] = KANAMA_IOS_PT_INT64;
+                    ptrs[i] = &i64[i];
+                    break;
+                case KANAMA_IOS_VARIANT_TYPE_BOOL:
+                    if (g_variant_to_bool != NULL) {
+                        uint8_t b = 0;
+                        g_variant_to_bool(&b, (GDExtensionVariantPtr)(intptr_t)v);
+                        i64[i] = (int64_t)b;
+                    } else {
+                        i64[i] = 0;
+                    }
+                    tags[i] = KANAMA_IOS_PT_BOOL;
+                    ptrs[i] = &i64[i];
+                    break;
+                case KANAMA_IOS_VARIANT_TYPE_FLOAT:
+                    f64[i] = kanama_ios_variant_to_double(v);
+                    tags[i] = KANAMA_IOS_PT_FLOAT64;
+                    ptrs[i] = &f64[i];
+                    break;
+                case KANAMA_IOS_VARIANT_TYPE_VECTOR2:
+                    if (g_variant_to_vector2 != NULL) {
+                        g_variant_to_vector2((GDExtensionUninitializedTypePtr)fvec[i], (GDExtensionVariantPtr)(intptr_t)v);
+                        tags[i] = KANAMA_IOS_PT_VECTOR2;
+                        ptrs[i] = fvec[i];
+                    }
+                    break;
+                case KANAMA_IOS_VARIANT_TYPE_VECTOR3:
+                    if (g_variant_to_vector3 != NULL) {
+                        g_variant_to_vector3((GDExtensionUninitializedTypePtr)fvec[i], (GDExtensionVariantPtr)(intptr_t)v);
+                        tags[i] = KANAMA_IOS_PT_VECTOR3;
+                        ptrs[i] = fvec[i];
+                    }
+                    break;
+                case KANAMA_IOS_VARIANT_TYPE_COLOR:
+                    if (g_variant_to_color != NULL) {
+                        g_variant_to_color((GDExtensionUninitializedTypePtr)fvec[i], (GDExtensionVariantPtr)(intptr_t)v);
+                        tags[i] = KANAMA_IOS_PT_COLOR;
+                        ptrs[i] = fvec[i];
+                    }
+                    break;
+                case KANAMA_IOS_VARIANT_TYPE_VECTOR2I: {
+                    int64_t vx = 0, vy = 0;
+                    kanama_ios_variant_to_vector2i(v, &vx, &vy);
+                    ivec[i][0] = (int32_t)vx;
+                    ivec[i][1] = (int32_t)vy;
+                    tags[i] = KANAMA_IOS_PT_VECTOR2I;
+                    ptrs[i] = ivec[i];
+                    break;
+                }
+                case KANAMA_IOS_VARIANT_TYPE_STRING:
+                    if (g_variant_to_string != NULL) {
+                        uint64_t raw_str = 0;
+                        g_variant_to_string(&raw_str, (GDExtensionVariantPtr)(intptr_t)v);
+                        strs[i] = kanama_ios_string_to_utf8_dup((GDExtensionConstStringPtr)&raw_str);
+                        if (g_string_destructor != NULL) {
+                            g_string_destructor((GDExtensionStringPtr)&raw_str);
+                        }
+                        tags[i] = KANAMA_IOS_PT_STRING;
+                        ptrs[i] = (strs[i] != NULL) ? strs[i] : "";
+                    }
+                    break;
+                case KANAMA_IOS_VARIANT_TYPE_NODE_PATH:
+                    if (g_variant_to_node_path != NULL && g_string_from_node_path_constructor != NULL) {
+                        uint64_t raw_np = 0;
+                        g_variant_to_node_path((GDExtensionUninitializedTypePtr)&raw_np, (GDExtensionVariantPtr)(intptr_t)v);
+                        uint64_t raw_str = 0;
+                        const GDExtensionConstTypePtr np_args[1] = { (GDExtensionConstTypePtr)&raw_np };
+                        g_string_from_node_path_constructor((GDExtensionUninitializedTypePtr)&raw_str, np_args);
+                        strs[i] = kanama_ios_string_to_utf8_dup((GDExtensionConstStringPtr)&raw_str);
+                        kanama_ios_destroy_string(&raw_str);
+                        kanama_ios_destroy_node_path(&raw_np);
+                        tags[i] = KANAMA_IOS_PT_NODE_PATH;
+                        ptrs[i] = (strs[i] != NULL) ? strs[i] : "";
+                    }
+                    break;
+                case KANAMA_IOS_VARIANT_TYPE_OBJECT:
+                    i64[i] = (int64_t)(intptr_t)kanama_ios_variant_to_object(v);
+                    tags[i] = KANAMA_IOS_PT_OBJECT;
+                    ptrs[i] = &i64[i];
+                    break;
+                default:
+                    // Unaudited arg type — leave PT_VOID; the emitter skip+warns the method.
+                    break;
+            }
+        }
+
+        int32_t ok = kanama_ios_runtime_script_instance_call_v(
+            instance->runtime_handle, method_index, tags, ptrs, argc);
+
+        for (int32_t i = 0; i < argc; i++) {
+            free(strs[i]);
+        }
+
         kanama_ios_script_instance_set_ok(error, ok);
         if (!ok) {
             fprintf(stderr,
