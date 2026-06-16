@@ -23,8 +23,8 @@ Each task carries a **model tag** for implementation sessions:
 | Skips: hand-shaped (GodotObject root, RefCounted lifetime) | 51 (deliberate, stays hand-shaped) |
 | Skips: unsupported helper shapes | ~60 (Array/Variant/Dictionary/RID/Packed* returns, `String+bitfield+int64` args, …) |
 | Skips: Callable args | 6 (ownership-sensitive, needs design) |
-| iOS | Same generator, gated by the **audited type set**; unaudited shapes skipped. 12 STUB / 10 HANDWRITTEN / 5 SUGAR marked sites (`ios-backend-handwritten.md`) |
-| iOS script registration | Hand-rolled regex parser in `ios-runtime/build.gradle.kts` — a parallel, incomplete reimplementation of the KSP model |
+| iOS | Same generator, gated by the **audited type set**; unaudited shapes skipped. 3 STUB / 10 HANDWRITTEN / 1 SUGAR marked sites (`ios-backend-handwritten.md`) — down from 12/10/5 after the Phase 2 audited-set widening |
+| iOS script registration | **Unified on the KSP model (Phase 3 DONE, 2026-06-16).** The regex parser is deleted; the shared processor emits the iOS registry + generic per-signature `callV`; all lifecycle/input virtuals wired. Device-validated on iPhone 12. |
 
 "Full coverage" therefore decomposes into five ordered phases. Phases 1–2
 are independent streams (can interleave); 3 depends on 2; 4 on 3; 5 is the
@@ -64,15 +64,16 @@ width is the whole correctness story. Ordered by demo unblocking value
 | 2.4 ✅ | `PT_STRING` / `PT_NODE_PATH` arg construction in `kanama_ios_shim.c` | **opus** | String/NodePath args generally; removes shim STUB |
 | 2.5 ✅ | `Transform3D` / `Basis` args+returns | **opus** | FPS, third-person, squash-the-creeps demos; widest structs, `real_t`-sensitive |
 | 2.5b ✅ | `RID` / `Quaternion` / `AABB` args+returns | **opus** | Third-person rotation, 3D culling, resource handles |
-| 2.6 | `@ScriptProperty` value types (NodePath/Vector/Color delivery) | **sonnet** | Platformer `view: NodePath`; depends on 2.1–2.5 kinds. **Gated on Phase 3** — extends the regex parser Phase 3 retires |
-| 2.7 | Variant / typed-array / vararg ptrcall on iOS | **opus** | Long tail; mirror Phase 1.2–1.3 desktop semantics |
+| 2.6 ✅ | `@ScriptProperty` value types (NodePath/Vector/Color delivery) | **opus** | Platformer `view: NodePath`; done 2026-06-15 after Phase 3, device-validated end-to-end |
+| 2.7 | Variant / typed-array / vararg ptrcall on iOS | **opus** | Long tail; mirror Phase 1.2–1.3 desktop semantics. **In progress (2026-06-16):** ~86 true shape-gaps over the emitted classes (Transform2D, NodePath/StringName returns, Packed*/Typed* arrays, Variant); Callable + vararg stay deferred like desktop 1.4 |
 
-**Status (2026-06-13):** 2.1–2.5 + RID/Quaternion/AABB all DONE and
-device-validated (iPhone 12, iOS 26.5) — the full POD-passthrough + String/
-StringName/NodePath audited set, with a fail-loud self-test matrix (23 C + 22
-Kotlin rows, all green). `Plane` deferred: no clean arg+return on an emitted
-class to anchor a self-test row. 2.6 is the next numbered item but is a
-sequencing fork (regex parser vs Phase 3 KSP first) — see the tracker.
+**Status (2026-06-16):** 2.1–2.6 all DONE and device-validated (iPhone 12, iOS
+26.5) — the full POD-passthrough + String/StringName/NodePath audited set + the
+`@ScriptProperty` value-type delivery path, with a fail-loud self-test matrix (42 C
++ 53 Kotlin rows, all green). `Plane` deferred: no clean arg+return on an emitted
+class to anchor a self-test row. **2.7 (the long tail) is the only remaining Phase 2
+item — IN PROGRESS;** Callable + vararg stay deferred to match desktop 1.4. See the
+tracker for the live per-task state.
 
 **Done when:** the audited-set skip report for the demo corpus is empty
 for non-virtual methods; self-test matrix green on device.
