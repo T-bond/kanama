@@ -28,23 +28,15 @@ internal data class IosScriptInput(
 
 // ---------- thin per-script models (mirror the old build.gradle.kts data classes) ----------
 
-internal enum class IosScriptBridgeKind {
-    ZERO_ARG,
-    DOUBLE_ARG,
-    OBJECT_ARG,
-    OBJECT_OBJECT_LONG_ARG,
-    VECTOR2I_ARG,
-    LONG_ARG,
-    UNSUPPORTED,
-}
-
 internal data class IosMethod(
     val godotName: String,
     val kotlinName: String,
-    val argumentCount: Int,
-    val bridgeKind: IosScriptBridgeKind,
-    val objectArgType: String = "GodotObject",
-)
+    // Typed parameters (Phase 3.3): the generated `callV` casts/wraps each decoded arg by its
+    // declared type. Replaces the old enumerated IosScriptBridgeKind.
+    val args: List<ArgModel>,
+) {
+    val argumentCount: Int get() = args.size
+}
 
 internal data class IosProperty(
     val godotName: String,
@@ -152,69 +144,17 @@ internal class IosScriptCodeEmitter(
             builder.appendLine(") : KanamaIosScriptBridge {")
             builder.appendLine("    override val scriptInstance: Any get() = script")
             builder.appendLine()
-            builder.appendLine("    override fun call(methodName: String, firstArg: Double): Boolean = when (methodName) {")
+            // Generic per-signature dispatch (Phase 3.3): one branch per method, each decoded arg
+            // cast/wrapped to its declared type. A method with an unaudited arg type is skipped +
+            // warned (no silent "wrong shape" drop).
+            builder.appendLine("    override fun callV(methodName: String, args: List<Any?>): Boolean = when (methodName) {")
             script.methods.forEach { method ->
-                val invocation = when (method.bridgeKind) {
-                    IosScriptBridgeKind.ZERO_ARG -> "script.${method.kotlinName}()"
-                    IosScriptBridgeKind.DOUBLE_ARG -> "script.${method.kotlinName}(firstArg)"
-                    IosScriptBridgeKind.OBJECT_ARG -> null
-                    IosScriptBridgeKind.OBJECT_OBJECT_LONG_ARG -> null
-                    IosScriptBridgeKind.VECTOR2I_ARG -> null
-                    IosScriptBridgeKind.LONG_ARG -> null
-                    IosScriptBridgeKind.UNSUPPORTED -> {
-                        warn("[kanama-ios] ${script.className}.${method.kotlinName} (godot: ${method.godotName}) has ${method.argumentCount} args — no iOS bridge kind, will not be dispatched")
-                        null
-                    }
-                }
-                if (invocation != null) {
+                val exprs = method.args.mapIndexed { i, a -> callArgExpr(i, a) }
+                if (exprs.all { it != null }) {
+                    val invocation = "script.${method.kotlinName}(${exprs.joinToString(", ")})"
                     builder.appendLine("        ${kotlinString(method.godotName)} -> { $invocation; true }")
-                }
-            }
-            builder.appendLine("        else -> false")
-            builder.appendLine("    }")
-            builder.appendLine()
-            builder.appendLine("    override fun callObject(methodName: String, objectArg: Long): Boolean = when (methodName) {")
-            script.methods.forEach { method ->
-                if (method.bridgeKind == IosScriptBridgeKind.OBJECT_ARG) {
-                    val argExpr = if (method.objectArgType == "GodotObject")
-                        "net.multigesture.kanama.api.GodotObject(MemorySegment.ofAddress(objectArg))"
-                    else
-                        "net.multigesture.kanama.api.${method.objectArgType}(MemorySegment.ofAddress(objectArg))"
-                    builder.appendLine(
-                        "        ${kotlinString(method.godotName)} -> { script.${method.kotlinName}($argExpr); true }",
-                    )
-                }
-            }
-            builder.appendLine("        else -> false")
-            builder.appendLine("    }")
-            builder.appendLine()
-            builder.appendLine("    override fun callArgs(methodName: String, arg1: Long, arg2: Long, arg3: Long): Boolean = when (methodName) {")
-            script.methods.forEach { method ->
-                if (method.bridgeKind == IosScriptBridgeKind.OBJECT_OBJECT_LONG_ARG) {
-                    builder.appendLine(
-                        "        ${kotlinString(method.godotName)} -> { script.${method.kotlinName}(net.multigesture.kanama.api.GodotObject(MemorySegment.ofAddress(arg1)), net.multigesture.kanama.api.GodotObject(MemorySegment.ofAddress(arg2)), arg3); true }",
-                    )
-                }
-            }
-            builder.appendLine("        else -> false")
-            builder.appendLine("    }")
-            builder.appendLine()
-            builder.appendLine("    override fun callVector2i(methodName: String, x: Long, y: Long): Boolean = when (methodName) {")
-            script.methods.forEach { method ->
-                if (method.bridgeKind == IosScriptBridgeKind.VECTOR2I_ARG) {
-                    builder.appendLine(
-                        "        ${kotlinString(method.godotName)} -> { script.${method.kotlinName}(net.multigesture.kanama.types.Vector2i(x.toInt(), y.toInt())); true }",
-                    )
-                }
-            }
-            builder.appendLine("        else -> false")
-            builder.appendLine("    }")
-            builder.appendLine()
-            builder.appendLine("    override fun callLong(methodName: String, value: Long): Boolean = when (methodName) {")
-            script.methods.forEach { method ->
-                if (method.bridgeKind == IosScriptBridgeKind.LONG_ARG) {
-                    val arg = if (method.objectArgType == "Int") "value.toInt()" else "value"
-                    builder.appendLine("        ${kotlinString(method.godotName)} -> { script.${method.kotlinName}($arg); true }")
+                } else {
+                    warn("[kanama-ios] ${script.className}.${method.kotlinName} (godot: ${method.godotName}) has an unaudited arg type — not dispatched on iOS")
                 }
             }
             builder.appendLine("        else -> false")
@@ -414,62 +354,43 @@ internal class IosScriptCodeEmitter(
     // Only the lifecycle virtuals the old regex path wired become dispatchable iOS methods.
     // The rest (enter_tree, unhandled_input, shortcut_input, unhandled_key_input) were
     // IOS_UNWIRED_FUNCTION_ANNOTATIONS — a silent no-op that we still warn about.
+    // Only the wired lifecycle virtuals become dispatchable iOS methods; the rest
+    // (enter_tree, unhandled_input, shortcut_input, unhandled_key_input) stay a silent no-op
+    // (warned). `_input_event` is now just a regular multi-arg method via the generic path.
     private fun VirtualModel.toIosMethod(): IosMethod? = when (virtualName) {
-        "_ready", "_exit_tree" ->
-            IosMethod(virtualName, kotlinMethodName, 0, IosScriptBridgeKind.ZERO_ARG)
-        "_process", "_physics_process" ->
-            IosMethod(virtualName, kotlinMethodName, 1, IosScriptBridgeKind.DOUBLE_ARG)
-        "_input" ->
-            IosMethod(virtualName, kotlinMethodName, 1, IosScriptBridgeKind.OBJECT_ARG, objectArgType(args))
+        "_ready", "_exit_tree", "_process", "_physics_process", "_input" ->
+            IosMethod(virtualName, kotlinMethodName, args)
         else -> {
             warn("[kanama-ios] $kotlinMethodName ($virtualName): not wired on iOS (silent no-op)")
             null
         }
     }
 
-    private fun MethodModel.toIosMethod(): IosMethod {
-        val kind = bridgeKindFor(godotName, args)
-        return IosMethod(
-            godotName = godotName,
-            kotlinName = kotlinName,
-            argumentCount = args.size,
-            bridgeKind = kind,
-            objectArgType =
-                if (kind == IosScriptBridgeKind.OBJECT_ARG || kind == IosScriptBridgeKind.LONG_ARG)
-                    objectArgType(args)
-                else "GodotObject",
-        )
-    }
+    private fun MethodModel.toIosMethod(): IosMethod =
+        IosMethod(godotName = godotName, kotlinName = kotlinName, args = args)
 
-    private fun bridgeKindFor(godotName: String, args: List<ArgModel>): IosScriptBridgeKind {
-        if (args.isEmpty()) return IosScriptBridgeKind.ZERO_ARG
-        if (args.size == 1) {
-            val a = args[0]
-            return when {
-                a.objectWrapperFqName != null -> IosScriptBridgeKind.OBJECT_ARG
-                a.type == TypeMapping.VECTOR2I -> IosScriptBridgeKind.VECTOR2I_ARG
-                a.type == TypeMapping.FLOAT -> IosScriptBridgeKind.DOUBLE_ARG
-                a.type == TypeMapping.INT -> IosScriptBridgeKind.LONG_ARG
-                // Any other value type (String/NodePath/Vector/Color/…) has no typed bridge.
-                else -> IosScriptBridgeKind.UNSUPPORTED
+    /** TypeMapping arg types the C inbound marshalling + decode handle (besides OBJECT wrappers). */
+    private val iosCallArgTypes = setOf(
+        TypeMapping.INT, TypeMapping.FLOAT, TypeMapping.BOOL, TypeMapping.STRING,
+        TypeMapping.NODE_PATH, TypeMapping.VECTOR2, TypeMapping.VECTOR2I, TypeMapping.VECTOR3,
+    )
+
+    /**
+     * Kotlin expression for call arg [i] (`args[i]` is the decoded value), cast/wrapped to its
+     * declared type. Null when the arg type isn't marshalled by the iOS inbound path (the method
+     * is then skipped + warned, same boundary as before but keyed on audited type not call shape).
+     */
+    private fun callArgExpr(i: Int, a: ArgModel): String? {
+        val cell = "args[$i]"
+        a.objectWrapperFqName?.let { fq ->
+            val w = "net.multigesture.kanama.api.${fq.substringAfterLast('.')}"
+            return if (a.nullable) {
+                "($cell as Long).let { if (it != 0L) $w(MemorySegment.ofAddress(it)) else null }"
+            } else {
+                "$w(MemorySegment.ofAddress($cell as Long))"
             }
         }
-        if (args.size == 3 && godotName == "_input_event") return IosScriptBridgeKind.OBJECT_OBJECT_LONG_ARG
-        return IosScriptBridgeKind.UNSUPPORTED
-    }
-
-    // The simple Kotlin type name of a single-arg method, mirroring objectArgTypeFor.
-    private fun objectArgType(args: List<ArgModel>): String {
-        if (args.size != 1) return "GodotObject"
-        val a = args[0]
-        a.objectWrapperFqName?.let { return it.substringAfterLast('.') }
-        return when (a.type) {
-            TypeMapping.INT -> "Long"
-            TypeMapping.FLOAT -> "Double"
-            TypeMapping.BOOL -> "Boolean"
-            TypeMapping.STRING -> "String"
-            else -> a.type.kotlinType.substringAfterLast('.')
-        }
+        return if (a.type in iosCallArgTypes) "$cell as ${a.type.kotlinType}" else null
     }
 
     private fun ScriptPropertyModel.toIosProperty(className: String): IosProperty {

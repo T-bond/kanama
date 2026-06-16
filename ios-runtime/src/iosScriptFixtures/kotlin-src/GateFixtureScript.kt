@@ -63,6 +63,33 @@ class GateFixtureScript(godotObject: MemorySegment) : KanamaScript<Label>(godotO
         score = 0L
     }
 
+    // Phase 3.3: arg signatures the old enumerated bridge dropped as UNSUPPORTED. The generated
+    // callV must dispatch each — (Long, Double), String, Vector3, NodePath, (Object, Object).
+    @RegisterFunction
+    fun configure(count: Long, weight: Double) {
+        score += count + weight.toLong()
+    }
+
+    @RegisterFunction
+    fun setLabel(text: String) {
+        title = text
+    }
+
+    @RegisterFunction
+    fun aimAt(target: Vector3) {
+        aim = target
+    }
+
+    @RegisterFunction
+    fun bindView(path: NodePath) {
+        view = path
+    }
+
+    @RegisterFunction
+    fun linkNodes(first: GodotObject, second: GodotObject) {
+        score += 1L
+    }
+
     @Signal
     fun scored() {}
 }
