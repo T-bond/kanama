@@ -411,6 +411,13 @@ script_resource_line=""
 main_script_line=""
 status_script_line=""
 status_extra_props=""
+# Phase 3.4: for the user-script probe, make the scene Controls pass touches through (IGNORE)
+# so a screen tap reaches the Viewport's unhandled-input path and fires _unhandled_input on the
+# script. Default-STOP Controls would absorb the touch as GUI input before it becomes "unhandled".
+probe_mouse_ignore_line=""
+if [[ "$kanama_user_script_probe" -eq 1 ]]; then
+  probe_mouse_ignore_line="mouse_filter = 2"
+fi
 if [[ "$kanama_probe" -eq 1 ]]; then
   status_node_groups=' groups=["kanama_ios_probe"]'
   status_text="Waiting for Kanama iOS frame probe"
@@ -437,8 +444,14 @@ elif [[ "$kanama_user_script_probe" -eq 1 ]]; then
 package net.multigesture.kanama.iossmoke
 
 import java.lang.foreign.MemorySegment
+import net.multigesture.kanama.annotations.OnEnterTree
+import net.multigesture.kanama.annotations.OnExitTree
 import net.multigesture.kanama.annotations.OnProcess
 import net.multigesture.kanama.annotations.OnReady
+import net.multigesture.kanama.annotations.OnShortcutInput
+import net.multigesture.kanama.annotations.OnUnhandledInput
+import net.multigesture.kanama.annotations.OnUnhandledKeyInput
+import net.multigesture.kanama.api.GodotObject
 import net.multigesture.kanama.annotations.ScriptClass
 import net.multigesture.kanama.annotations.ScriptProperty
 import net.multigesture.kanama.api.KanamaScript
@@ -451,6 +464,16 @@ class IosSmokeScript(godotObject: MemorySegment) : KanamaScript<Label>(godotObje
     var view: NodePath = NodePath.EMPTY
 
     private var processedFrames = 0
+    private var sawUnhandledInput = false
+    private var sawShortcutInput = false
+    private var sawUnhandledKeyInput = false
+
+    // Phase 3.4: a tree-lifecycle virtual that arrives via the script-instance notification
+    // callback (not the call callback). Fires when the node enters the scene tree at load.
+    @OnEnterTree
+    fun enterTree() {
+        println("[kanama][ios][kn] project script _enter_tree dispatched")
+    }
 
     @OnReady
     fun ready() {
@@ -467,6 +490,39 @@ class IosSmokeScript(godotObject: MemorySegment) : KanamaScript<Label>(godotObje
         if (processedFrames == 1) {
             println("[kanama][ios][kn] project script _process dispatched argc=1 delta>0=${delta > 0.0}")
         }
+    }
+
+    // Phase 3.4: input virtuals arrive via the generic call callback once the C side enables the
+    // matching Node processing flag (set_process_{unhandled,shortcut,unhandled_key}_input). A
+    // screen touch / key event drives these; each logs once so a tap during the smoke proves
+    // dispatch. (No input ⇒ no log, but the binds are still exercised at enter-tree.)
+    @OnUnhandledInput
+    fun unhandledInput(event: GodotObject) {
+        if (!sawUnhandledInput) {
+            sawUnhandledInput = true
+            println("[kanama][ios][kn] project script _unhandled_input dispatched")
+        }
+    }
+
+    @OnShortcutInput
+    fun shortcutInput(event: GodotObject) {
+        if (!sawShortcutInput) {
+            sawShortcutInput = true
+            println("[kanama][ios][kn] project script _shortcut_input dispatched")
+        }
+    }
+
+    @OnUnhandledKeyInput
+    fun unhandledKeyInput(event: GodotObject) {
+        if (!sawUnhandledKeyInput) {
+            sawUnhandledKeyInput = true
+            println("[kanama][ios][kn] project script _unhandled_key_input dispatched")
+        }
+    }
+
+    @OnExitTree
+    fun exitTree() {
+        println("[kanama][ios][kn] project script _exit_tree dispatched")
     }
 }
 EOF
@@ -1369,6 +1425,7 @@ layout_mode = 3
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
+$probe_mouse_ignore_line
 $main_script_line
 
 [node name="Background" type="ColorRect" parent="."]
@@ -1376,6 +1433,7 @@ layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
 anchor_bottom = 1.0
+$probe_mouse_ignore_line
 color = Color(0.0823529, 0.137255, 0.203922, 1)
 
 [node name="Accent" type="ColorRect" parent="."]
@@ -1383,6 +1441,7 @@ layout_mode = 1
 anchors_preset = 10
 anchor_right = 1.0
 offset_bottom = 160.0
+$probe_mouse_ignore_line
 color = Color(0.0196078, 0.658824, 0.619608, 1)
 
 [node name="Status" type="$status_node_type" parent="."$status_node_groups]
@@ -1400,6 +1459,7 @@ theme_override_font_sizes/font_size = 34
 text = "$status_text"
 horizontal_alignment = 1
 vertical_alignment = 1
+$probe_mouse_ignore_line
 $status_script_line
 $status_extra_props
 EOF
