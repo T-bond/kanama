@@ -437,6 +437,7 @@ elif [[ "$kanama_user_script_probe" -eq 1 ]]; then
 package net.multigesture.kanama.iossmoke
 
 import java.lang.foreign.MemorySegment
+import net.multigesture.kanama.annotations.OnProcess
 import net.multigesture.kanama.annotations.OnReady
 import net.multigesture.kanama.annotations.ScriptClass
 import net.multigesture.kanama.annotations.ScriptProperty
@@ -449,10 +450,23 @@ class IosSmokeScript(godotObject: MemorySegment) : KanamaScript<Label>(godotObje
     @ScriptProperty
     var view: NodePath = NodePath.EMPTY
 
+    private var processedFrames = 0
+
     @OnReady
     fun ready() {
         self.text = "Kanama iOS project script ready"
         println("[kanama][ios][kn] project script value-type property view=${view.path}")
+    }
+
+    // Phase 3.3: a Godot-driven arg-bearing virtual proves the generic callV path end to end —
+    // Godot calls _process(delta), the C marshals the FLOAT arg into a PT-tagged buffer, the
+    // runtime decodes it, and callV invokes process(args[0] as Double).
+    @OnProcess
+    fun process(delta: Double) {
+        processedFrames += 1
+        if (processedFrames == 1) {
+            println("[kanama][ios][kn] project script _process dispatched argc=1 delta>0=${delta > 0.0}")
+        }
     }
 }
 EOF
@@ -1772,6 +1786,13 @@ if [[ "$physical_device" -eq 0 && "$kanama_user_script_probe" -eq 1 ]]; then
     echo "[ios_visual_smoke] project script value-type NodePath property delivered"
   else
     echo "[ios_visual_smoke] project script value-type NodePath property missing" >&2
+    exit 1
+  fi
+  # Phase 3.3: an arg-bearing virtual dispatched through the generic callV path.
+  if rg -q '_process dispatched argc=1 delta>0=true' "$stderr_log" "$stdout_log"; then
+    echo "[ios_visual_smoke] project script arg-bearing callV dispatch confirmed"
+  else
+    echo "[ios_visual_smoke] project script arg-bearing callV dispatch missing" >&2
     exit 1
   fi
 fi
