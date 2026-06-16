@@ -30,6 +30,37 @@ annotation class OnInput
 
 annotation class Input
 
+annotation class OnUnhandledInput
+
+annotation class UnhandledInput
+
+annotation class OnShortcutInput
+
+annotation class ShortcutInput
+
+annotation class OnUnhandledKeyInput
+
+annotation class UnhandledKeyInput
+
+annotation class Rpc(
+    val mode: Int = RpcMode.AUTHORITY,
+    val callLocal: Boolean = false,
+    val transferMode: Int = RpcTransferMode.RELIABLE,
+    val channel: Int = 0,
+)
+
+object RpcMode {
+    const val DISABLED = 0
+    const val ANY_PEER = 1
+    const val AUTHORITY = 2
+}
+
+object RpcTransferMode {
+    const val UNRELIABLE = 0
+    const val UNRELIABLE_ORDERED = 1
+    const val RELIABLE = 2
+}
+
 annotation class ScriptProperty
 
 annotation class Export(

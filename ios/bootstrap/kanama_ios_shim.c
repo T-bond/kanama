@@ -218,6 +218,8 @@ static GDExtensionMethodBindPtr g_node_set_process_bind = NULL;
 static GDExtensionMethodBindPtr g_node_set_physics_process_bind = NULL;
 static GDExtensionMethodBindPtr g_node_set_process_input_bind = NULL;
 static GDExtensionMethodBindPtr g_node_set_process_unhandled_input_bind = NULL;
+static GDExtensionMethodBindPtr g_node_set_process_shortcut_input_bind = NULL;
+static GDExtensionMethodBindPtr g_node_set_process_unhandled_key_input_bind = NULL;
 static GDExtensionMethodBindPtr g_object_is_class_bind = NULL;
 static GDExtensionMethodBindPtr g_node_is_in_group_bind = NULL;
 static GDExtensionMethodBindPtr g_input_event_is_pressed_bind = NULL;
@@ -325,6 +327,10 @@ static uint64_t g_name__process = 0;
 static uint64_t g_name__physics_process = 0;
 static uint64_t g_name__input = 0;
 static uint64_t g_name__unhandled_input = 0;
+static uint64_t g_name__shortcut_input = 0;
+static uint64_t g_name__unhandled_key_input = 0;
+static uint64_t g_name__enter_tree = 0;
+static uint64_t g_name__exit_tree = 0;
 static uint64_t g_name__get_name = 0;
 static uint64_t g_name__get_type = 0;
 static uint64_t g_name__get_extension = 0;
@@ -501,6 +507,7 @@ enum {
     KANAMA_IOS_PACKED_STRING_ARRAY_PUSH_BACK_HASH = 816187996U,
     KANAMA_IOS_NOTIFICATION_POSTINITIALIZE = 0,
     KANAMA_IOS_NOTIFICATION_ENTER_TREE = 10,
+    KANAMA_IOS_NOTIFICATION_EXIT_TREE = 11,
     KANAMA_IOS_NOTIFICATION_READY = 13,
 };
 
@@ -1070,6 +1077,10 @@ static void kanama_ios_cache_names(void) {
     kanama_ios_cache_name(&g_name__physics_process, "_physics_process");
     kanama_ios_cache_name(&g_name__input, "_input");
     kanama_ios_cache_name(&g_name__unhandled_input, "_unhandled_input");
+    kanama_ios_cache_name(&g_name__shortcut_input, "_shortcut_input");
+    kanama_ios_cache_name(&g_name__unhandled_key_input, "_unhandled_key_input");
+    kanama_ios_cache_name(&g_name__enter_tree, "_enter_tree");
+    kanama_ios_cache_name(&g_name__exit_tree, "_exit_tree");
     kanama_ios_cache_name(&g_name__get_name, "_get_name");
     kanama_ios_cache_name(&g_name__get_type, "_get_type");
     kanama_ios_cache_name(&g_name__get_extension, "_get_extension");
@@ -4115,10 +4126,6 @@ static void kanama_ios_script_instance_call(
     }
     KanamaIosScriptInstance *instance = kanama_ios_script_instance_data(data);
     int32_t method_index = kanama_ios_script_method_index(instance != NULL ? instance->script : NULL, method);
-    if (method_index < 0 && instance != NULL && instance->script != NULL &&
-        kanama_ios_string_name_value(method) == kanama_ios_string_name_value((GDExtensionConstStringNamePtr)&g_name__unhandled_input)) {
-        method_index = kanama_ios_script_method_index(instance->script, (GDExtensionConstStringNamePtr)&g_name__input);
-    }
     if (instance != NULL && method_index >= 0) {
         int32_t argc = (int32_t)argument_count;
         if (argc < 0) {
@@ -4291,6 +4298,53 @@ static void kanama_ios_script_instance_configure_lifecycle_processing(KanamaIosS
         );
         kanama_ios_godot_ptrcall_bool_arg(set_process_input, instance->owner_object, 1);
     }
+    // set_process_{shortcut,unhandled,unhandled_key}_input share the void(bool) signature, so
+    // they reuse KANAMA_IOS_NODE_SET_PROCESS_INPUT_HASH (the GDExtension bind hash is the
+    // signature hash, not name-derived — all set_process* binds hash identically).
+    if (kanama_ios_script_method_index(instance->script, (GDExtensionConstStringNamePtr)&g_name__unhandled_input) >= 0) {
+        GDExtensionMethodBindPtr set_process_unhandled_input = kanama_ios_get_method_bind_cached(
+            &g_node_set_process_unhandled_input_bind,
+            "Node",
+            "set_process_unhandled_input",
+            KANAMA_IOS_NODE_SET_PROCESS_INPUT_HASH
+        );
+        kanama_ios_godot_ptrcall_bool_arg(set_process_unhandled_input, instance->owner_object, 1);
+    }
+    if (kanama_ios_script_method_index(instance->script, (GDExtensionConstStringNamePtr)&g_name__shortcut_input) >= 0) {
+        GDExtensionMethodBindPtr set_process_shortcut_input = kanama_ios_get_method_bind_cached(
+            &g_node_set_process_shortcut_input_bind,
+            "Node",
+            "set_process_shortcut_input",
+            KANAMA_IOS_NODE_SET_PROCESS_INPUT_HASH
+        );
+        kanama_ios_godot_ptrcall_bool_arg(set_process_shortcut_input, instance->owner_object, 1);
+    }
+    if (kanama_ios_script_method_index(instance->script, (GDExtensionConstStringNamePtr)&g_name__unhandled_key_input) >= 0) {
+        GDExtensionMethodBindPtr set_process_unhandled_key_input = kanama_ios_get_method_bind_cached(
+            &g_node_set_process_unhandled_key_input_bind,
+            "Node",
+            "set_process_unhandled_key_input",
+            KANAMA_IOS_NODE_SET_PROCESS_INPUT_HASH
+        );
+        kanama_ios_godot_ptrcall_bool_arg(set_process_unhandled_key_input, instance->owner_object, 1);
+    }
+}
+
+// Dispatch a no-arg tree-lifecycle virtual (_enter_tree/_exit_tree) through the generic call_v.
+// Tree virtuals reach the script instance via this notification callback (not the call callback,
+// which Godot uses for the per-frame/input virtuals); when the script declares the method we
+// route it through the same PT-tagged path with zero args.
+static void kanama_ios_script_instance_dispatch_tree_virtual(
+    KanamaIosScriptInstance *instance,
+    GDExtensionConstStringNamePtr virtual_name
+) {
+    if (instance == NULL || instance->script == NULL) {
+        return;
+    }
+    int32_t method_index = kanama_ios_script_method_index(instance->script, virtual_name);
+    if (method_index >= 0) {
+        kanama_ios_runtime_script_instance_call_v(instance->runtime_handle, method_index, NULL, NULL, 0);
+    }
 }
 
 static void kanama_ios_script_instance_notification(
@@ -4302,6 +4356,16 @@ static void kanama_ios_script_instance_notification(
     if (what == KANAMA_IOS_NOTIFICATION_ENTER_TREE || what == KANAMA_IOS_NOTIFICATION_READY) {
         KanamaIosScriptInstance *instance = kanama_ios_script_instance_data(data);
         kanama_ios_script_instance_configure_lifecycle_processing(instance);
+    }
+    if (what == KANAMA_IOS_NOTIFICATION_ENTER_TREE) {
+        KanamaIosScriptInstance *instance = kanama_ios_script_instance_data(data);
+        kanama_ios_script_instance_dispatch_tree_virtual(
+            instance, (GDExtensionConstStringNamePtr)&g_name__enter_tree);
+    }
+    if (what == KANAMA_IOS_NOTIFICATION_EXIT_TREE) {
+        KanamaIosScriptInstance *instance = kanama_ios_script_instance_data(data);
+        kanama_ios_script_instance_dispatch_tree_virtual(
+            instance, (GDExtensionConstStringNamePtr)&g_name__exit_tree);
     }
     if (what == KANAMA_IOS_NOTIFICATION_READY) {
         KanamaIosScriptInstance *instance = kanama_ios_script_instance_data(data);

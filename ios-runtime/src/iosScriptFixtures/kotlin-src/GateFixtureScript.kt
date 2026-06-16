@@ -1,10 +1,16 @@
 package net.multigesture.kanama.iosgatefixture
 
 import java.lang.foreign.MemorySegment
+import net.multigesture.kanama.annotations.OnEnterTree
+import net.multigesture.kanama.annotations.OnExitTree
 import net.multigesture.kanama.annotations.OnInput
 import net.multigesture.kanama.annotations.OnProcess
 import net.multigesture.kanama.annotations.OnReady
+import net.multigesture.kanama.annotations.OnShortcutInput
+import net.multigesture.kanama.annotations.OnUnhandledInput
+import net.multigesture.kanama.annotations.OnUnhandledKeyInput
 import net.multigesture.kanama.annotations.RegisterFunction
+import net.multigesture.kanama.annotations.Rpc
 import net.multigesture.kanama.annotations.ScriptClass
 import net.multigesture.kanama.annotations.ScriptProperty
 import net.multigesture.kanama.annotations.Signal
@@ -53,6 +59,34 @@ class GateFixtureScript(godotObject: MemorySegment) : KanamaScript<Label>(godotO
         score += 1L
     }
 
+    // Phase 3.4: the remaining lifecycle/input virtuals — tree virtuals dispatch via the
+    // notification callback, the input virtuals via the generic call callback once the C side
+    // enables the matching processing flag. All must appear in the emitted iOS method list.
+    @OnEnterTree
+    fun enterTree() {
+        score += 10L
+    }
+
+    @OnExitTree
+    fun exitTree() {
+        score -= 10L
+    }
+
+    @OnUnhandledInput
+    fun unhandledInput(event: GodotObject) {
+        score += 2L
+    }
+
+    @OnShortcutInput
+    fun shortcutInput(event: GodotObject) {
+        score += 3L
+    }
+
+    @OnUnhandledKeyInput
+    fun unhandledKeyInput(event: GodotObject) {
+        score += 4L
+    }
+
     @RegisterFunction("add_points")
     fun addPoints(amount: Long) {
         score += amount
@@ -88,6 +122,15 @@ class GateFixtureScript(godotObject: MemorySegment) : KanamaScript<Label>(godotO
     @RegisterFunction
     fun linkNodes(first: GodotObject, second: GodotObject) {
         score += 1L
+    }
+
+    // Phase 3.4 @Rpc parse-side: @Rpc rides on a @RegisterFunction method; the processor captures
+    // its RpcModel and the method stays dispatchable on iOS via the generic callV (full
+    // _get_rpc_config delivery to Godot multiplayer is a later phase).
+    @Rpc(callLocal = true)
+    @RegisterFunction("net_score")
+    fun netScore(points: Long) {
+        score += points
     }
 
     @Signal

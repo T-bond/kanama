@@ -351,14 +351,16 @@ internal class IosScriptCodeEmitter(
         )
     }
 
-    // Only the lifecycle virtuals the old regex path wired become dispatchable iOS methods.
-    // The rest (enter_tree, unhandled_input, shortcut_input, unhandled_key_input) were
-    // IOS_UNWIRED_FUNCTION_ANNOTATIONS — a silent no-op that we still warn about.
-    // Only the wired lifecycle virtuals become dispatchable iOS methods; the rest
-    // (enter_tree, unhandled_input, shortcut_input, unhandled_key_input) stay a silent no-op
-    // (warned). `_input_event` is now just a regular multi-arg method via the generic path.
+    // All Godot lifecycle/input virtuals become dispatchable iOS methods (Phase 3.4 — the old
+    // IOS_UNWIRED_FUNCTION_ANNOTATIONS set is empty). Tree virtuals (_enter_tree/_exit_tree/_ready)
+    // arrive via the script-instance notification callback; per-frame/input virtuals
+    // (_process/_physics_process/_input/_unhandled_input/_shortcut_input/_unhandled_key_input)
+    // arrive via the generic call callback once the C side enables the matching processing flag.
+    // `_input_event` is just a regular multi-arg method via the generic path.
     private fun VirtualModel.toIosMethod(): IosMethod? = when (virtualName) {
-        "_ready", "_exit_tree", "_process", "_physics_process", "_input" ->
+        "_ready", "_enter_tree", "_exit_tree",
+        "_process", "_physics_process",
+        "_input", "_unhandled_input", "_shortcut_input", "_unhandled_key_input" ->
             IosMethod(virtualName, kotlinMethodName, args)
         else -> {
             warn("[kanama-ios] $kotlinMethodName ($virtualName): not wired on iOS (silent no-op)")
