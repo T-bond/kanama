@@ -182,6 +182,17 @@ int64_t kanama_ios_godot_ptrcall_no_args_ret_packed_string_array(
     int64_t buf_size
 );
 
+/*
+ * Descriptor for a BUILD-tagged Packed*Array argument passed through the generic ptrcall
+ * dispatcher (KANAMA_IOS_PT_PACKED_* tags). `data` is a flat element buffer: float32 pairs
+ * for Vector2 (count*2 floats), float32 quads for Color (count*4 floats). The dispatch
+ * builds the Godot array from it (constructor + push_back) and destroys it after the call.
+ */
+typedef struct {
+    int64_t count;
+    const void *data;
+} KanamaIosPackedArgDesc;
+
 int64_t kanama_ios_godot_construct_object(const char *class_name);
 
 int64_t kanama_ios_godot_get_singleton(const char *name);

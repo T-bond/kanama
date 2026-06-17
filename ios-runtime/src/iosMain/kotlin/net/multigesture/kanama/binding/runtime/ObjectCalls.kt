@@ -29,6 +29,7 @@ import net.multigesture.kanama.ios.cinterop.kanama_ios_godot_construct_object
 import net.multigesture.kanama.ios.cinterop.kanama_ios_godot_get_method_bind
 import net.multigesture.kanama.ios.cinterop.kanama_ios_godot_get_singleton
 import net.multigesture.kanama.ios.cinterop.kanama_ios_godot_object_call
+import net.multigesture.kanama.ios.cinterop.KanamaIosPackedArgDesc
 import net.multigesture.kanama.ios.cinterop.kanama_ios_godot_ptrcall
 import net.multigesture.kanama.ios.cinterop.kanama_ios_godot_ptrcall_no_args_ret_packed_color_array
 import net.multigesture.kanama.ios.cinterop.kanama_ios_godot_ptrcall_no_args_ret_packed_float32_array
@@ -83,6 +84,9 @@ object ObjectCalls {
     private const val PT_OBJECT = 13
     private const val PT_STRING_NAME = 15
     private const val PT_STRING = 16
+    // BUILD-tagged Packed*Array arg tags (the dispatch builds the array from a descriptor).
+    private const val PT_PACKED_VECTOR2_ARRAY = 23
+    private const val PT_PACKED_COLOR_ARRAY = 24
 
     // Godot Variant type tags (returned by kanama_ios_godot_object_call, for decoding
     // a scalar return). Must match the KANAMA_IOS_VARIANT_TYPE_* enum in the C shim.
@@ -324,6 +328,52 @@ object ObjectCalls {
         for (i in 0 until n) buf[i] = values[i]
         kanama_ios_godot_ptrcall_with_packed_float32_arg(
             methodBind.address(), instance.address(), buf, n.toLong())
+        Unit
+    }
+
+    // PackedVector2Array arg via the generic dispatch: pack the List into a flat float buffer
+    // (2 per Vector2), hand a {count,data} descriptor to the dispatch under PT_PACKED_VECTOR2_ARRAY;
+    // the C side builds the Godot array (constructor + push_back) and destroys it after the call.
+    fun ptrcallWithPackedVector2ListArg(
+        methodBind: MemorySegment,
+        instance: MemorySegment,
+        values: List<Vector2>,
+    ) = memScoped {
+        val n = values.size
+        val floats = allocArray<FloatVar>(if (n > 0) n * 2 else 1)
+        for (i in 0 until n) {
+            floats[i * 2] = values[i].x.toFloat()
+            floats[i * 2 + 1] = values[i].y.toFloat()
+        }
+        val desc = alloc<KanamaIosPackedArgDesc>()
+        desc.count = n.toLong()
+        desc.data = floats.reinterpret()
+        val types = allocArray<IntVar>(1); types[0] = PT_PACKED_VECTOR2_ARRAY
+        val ptrs = allocArray<COpaquePointerVar>(1); ptrs[0] = desc.ptr.reinterpret<CPointed>()
+        kanama_ios_godot_ptrcall(methodBind.address(), instance.address(), types, ptrs, 1, PT_VOID, null)
+        Unit
+    }
+
+    // PackedColorArray arg via the generic dispatch (4 floats per Color element).
+    fun ptrcallWithPackedColorListArg(
+        methodBind: MemorySegment,
+        instance: MemorySegment,
+        values: List<Color>,
+    ) = memScoped {
+        val n = values.size
+        val floats = allocArray<FloatVar>(if (n > 0) n * 4 else 1)
+        for (i in 0 until n) {
+            floats[i * 4] = values[i].r
+            floats[i * 4 + 1] = values[i].g
+            floats[i * 4 + 2] = values[i].b
+            floats[i * 4 + 3] = values[i].a
+        }
+        val desc = alloc<KanamaIosPackedArgDesc>()
+        desc.count = n.toLong()
+        desc.data = floats.reinterpret()
+        val types = allocArray<IntVar>(1); types[0] = PT_PACKED_COLOR_ARRAY
+        val ptrs = allocArray<COpaquePointerVar>(1); ptrs[0] = desc.ptr.reinterpret<CPointed>()
+        kanama_ios_godot_ptrcall(methodBind.address(), instance.address(), types, ptrs, 1, PT_VOID, null)
         Unit
     }
 
@@ -820,6 +870,28 @@ fun kanamaIosRuntimeObjectCallsSelfTest() {
         ObjectCalls.getMethodBind("Translation", "get_message_list", 1139954409L), translation)
     check("packed-string-ret(get_message_list has hello+bye)",
         messages.size == 2 && messages.toSet() == setOf("hello", "bye"))
+
+    // PackedVector2Array-arg via the generic dispatch (Line2D.set_points): build from List<Vector2>,
+    // read back. Validates the inline packed-arg build path the draw_* methods use. Phase 2.7c-6a.
+    val line2dArg = ObjectCalls.constructObject("Line2D")
+    ObjectCalls.ptrcallWithPackedVector2ListArg(
+        ObjectCalls.getMethodBind("Line2D", "set_points", 1509147220L), line2dArg,
+        listOf(Vector2(1.5, 2.5), Vector2(3.5, 4.5)))
+    val pointsArg = ObjectCalls.ptrcallNoArgsRetPackedVector2List(
+        ObjectCalls.getMethodBind("Line2D", "get_points", 2961356807L), line2dArg)
+    check("packed-vector2-arg(set/get_points)",
+        pointsArg == listOf(Vector2(1.5, 2.5), Vector2(3.5, 4.5)))
+
+    // PackedColorArray-arg via the generic dispatch (Gradient.set_colors): a fresh Gradient has
+    // 2 points, so set 2 colors. Phase 2.7c-6a.
+    val gradientArg = ObjectCalls.constructObject("Gradient")
+    ObjectCalls.ptrcallWithPackedColorListArg(
+        ObjectCalls.getMethodBind("Gradient", "set_colors", 3546319833L), gradientArg,
+        listOf(Color(1.0f, 0.0f, 0.0f, 1.0f), Color(0.0f, 1.0f, 0.0f, 1.0f)))
+    val colorsArg = ObjectCalls.ptrcallNoArgsRetPackedColorList(
+        ObjectCalls.getMethodBind("Gradient", "get_colors", 1392750486L), gradientArg)
+    check("packed-color-arg(set/get_colors)",
+        colorsArg == listOf(Color(1.0f, 0.0f, 0.0f, 1.0f), Color(0.0f, 1.0f, 0.0f, 1.0f)))
 
     // Transform3D arg+return (Node3D.set_transform -> get_transform): 12x float32
     // (9 column-major basis + 3 origin) round-trip through the generated helpers. Pure-
