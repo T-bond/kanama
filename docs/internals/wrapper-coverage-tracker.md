@@ -35,7 +35,7 @@ Commits go straight to `main`, attributed `Co-Authored-By: Claude Fable 5`.
 | 2.4 PT_STRING / PT_NODE_PATH args | opus | done | 2026-06-13: String/NodePath args; Label.text full; device-validated (item 4) |
 | 2.5 Transform3D / Basis | opus | done | 2026-06-13: POD float32 kinds (+RID/Quaternion/AABB, item 6); device-validated (item 5) |
 | 2.6 @ScriptProperty value types | opus | done | 2026-06-15: value-type set-property DONE + device-validated end-to-end — scene `view: NodePath` reaches the Kotlin field on iPhone 12 (NodePath/Vector2/Vector3 C extraction + Kotlin decode + emitter; matrix C42/K47). Earlier "blocked on subsystem" was an export-drop confound (iOS-only probe not desktop-registered), not an iOS bug — see RESUME HERE |
-| 2.7 Variant / typed-array / vararg | opus | in-progress | 2026-06-16: full value order. **2.7a Transform2D DONE + device-validated** (PTRCALL 43 / OBJECTCALLS 54, +20 wrapper methods). Remaining: NodePath/StringName/String returns, Packed*/Typed* arrays, Variant. Callable+vararg deferred (parity w/ desktop 1.4). See RESUME HERE |
+| 2.7 Variant / typed-array / vararg | opus | in-progress | 2026-06-16: full value order. **2.7a Transform2D + 2.7b NodePath no-arg returns DONE + device-validated** (PTRCALL 44 / OBJECTCALLS 55, +30 wrapper methods). Remaining: 2.7c Packed*Array, 2.7d Typed arrays, 2.7e Variant, 2.7f arg-bearing string-family returns. Callable+vararg deferred (parity w/ desktop 1.4). See RESUME HERE |
 
 ## Phase 3 — KSP model unification
 
@@ -344,7 +344,20 @@ needs a decision (see the numbered items below + the roadmap backlog):
     methods (CanvasItem/CollisionObject2D/GPUParticles2D/Node2D/Viewport). Self-test rows:
     Node2D.set_transform → CanvasItem.get_transform round-trip (Node2D overrides get_transform to
     the local one). **PTRCALL 43/0 + OBJECTCALLS 54/0** on device. Commit `feat: iOS Transform2D
-    arg+return audited type (Phase 2.7a)`. **NEXT: 2.7b NodePath/StringName/String returns.**
+    arg+return audited type (Phase 2.7a)`.
+  - **2.7b NodePath no-arg returns DONE + DEVICE-VALIDATED (iPhone 12, 2026-06-16).** Mirrors
+    2.3a/2.3b: a dedicated C helper `kanama_ios_godot_ptrcall_no_args_ret_node_path` does the
+    two-call length protocol (ptrcall → `String(from: NodePath)` ctor → `string_to_utf8_chars` →
+    destruct; no GDExtension NodePath→utf8 exists), Kotlin `ptrcallNoArgsRetNodePath` wraps it back
+    to NodePath. Generator: NodePath in IOS_RET_KOTLIN + IOS_HANDWRITTEN_HELPERS, gated to the
+    no-arg getter only. +10 getters (AnimationMixer×2/AnimationPlayer/Area3D/Control×2/
+    GPUParticles2D/3D/Node/Node3D; Node SUGAR re-applied). Self-test: GPUParticles2D.set_sub_emitter
+    → get_sub_emitter. **PTRCALL 44/0 + OBJECTCALLS 55/0** on device. Commit `feat: iOS NodePath
+    no-arg return audited type (Phase 2.7b)`. **Build gotcha:** changing `kanama_ios.h` invalidates
+    the cinterop cache → `:ios-runtime:cinteropKanama_iosIosArm64` needs full Xcode; run gradle with
+    `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer` (command-line-tools alone fails).
+    **NEXT: 2.7c Packed*Array** (then 2.7d Typed arrays, 2.7e Variant, 2.7f arg-bearing string-family
+    returns — the generic variable-length-return path).
 - Cleanly self-test-validatable items: ~~Variant `Object.call` dispatch~~ DONE
   (item 8); ~~value-type BuiltinTypes on iOS~~ DONE (items 9–11): no-arg + args
   shapes across Transform3D/Basis/Vector2/Vector3/Quaternion + scalar float/bool/int
