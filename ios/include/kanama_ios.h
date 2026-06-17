@@ -169,6 +169,19 @@ void kanama_ios_godot_ptrcall_with_packed_float32_arg(
     int64_t count
 );
 
+/*
+ * No-arg ptrcall returning a Godot PackedStringArray, serialized into out_buf as a length-
+ * prefixed blob: [count:int32][len0:int32][utf8_0][len1:int32][utf8_1]...  Two-call protocol:
+ * pass out_buf=NULL to learn the total byte size, then call again with a buffer of that size.
+ * Returns the FULL byte size (negative on resolution failure).
+ */
+int64_t kanama_ios_godot_ptrcall_no_args_ret_packed_string_array(
+    int64_t method_bind,
+    int64_t instance,
+    char *out_buf,
+    int64_t buf_size
+);
+
 int64_t kanama_ios_godot_construct_object(const char *class_name);
 
 int64_t kanama_ios_godot_get_singleton(const char *name);

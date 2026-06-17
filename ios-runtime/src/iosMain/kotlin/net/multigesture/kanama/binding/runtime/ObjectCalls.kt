@@ -33,6 +33,7 @@ import net.multigesture.kanama.ios.cinterop.kanama_ios_godot_ptrcall
 import net.multigesture.kanama.ios.cinterop.kanama_ios_godot_ptrcall_no_args_ret_packed_color_array
 import net.multigesture.kanama.ios.cinterop.kanama_ios_godot_ptrcall_no_args_ret_packed_float32_array
 import net.multigesture.kanama.ios.cinterop.kanama_ios_godot_ptrcall_no_args_ret_packed_int32_array
+import net.multigesture.kanama.ios.cinterop.kanama_ios_godot_ptrcall_no_args_ret_packed_string_array
 import net.multigesture.kanama.ios.cinterop.kanama_ios_godot_ptrcall_no_args_ret_packed_vector2_array
 import net.multigesture.kanama.ios.cinterop.kanama_ios_godot_ptrcall_with_packed_float32_arg
 import net.multigesture.kanama.ios.cinterop.kanama_ios_godot_ptrcall_no_args_ret_string
@@ -262,6 +263,36 @@ object ObjectCalls {
                 kanama_ios_godot_ptrcall_no_args_ret_packed_int32_array(
                     methodBind.address(), instance.address(), buf, count)
                 List(count.toInt()) { buf[it] }
+            }
+        }
+
+    // PackedStringArray return: VARIABLE-LENGTH elements. The C helper serializes the strings
+    // into a length-prefixed blob [count:int32][len0:int32][utf8_0][len1:int32][utf8_1]...; we
+    // measure the total byte size, allocate, fill, then decode (all little-endian on arm64).
+    fun ptrcallNoArgsRetPackedStringList(methodBind: MemorySegment, instance: MemorySegment): List<String> =
+        memScoped {
+            val total = kanama_ios_godot_ptrcall_no_args_ret_packed_string_array(
+                methodBind.address(), instance.address(), null, 0L)
+            if (total < 4L) {
+                emptyList()
+            } else {
+                val buf = allocArray<ByteVar>(total)
+                kanama_ios_godot_ptrcall_no_args_ret_packed_string_array(
+                    methodBind.address(), instance.address(), buf, total)
+                val bytes = buf.readBytes(total.toInt())
+                fun int32(off: Int): Int =
+                    (bytes[off].toInt() and 0xFF) or
+                        ((bytes[off + 1].toInt() and 0xFF) shl 8) or
+                        ((bytes[off + 2].toInt() and 0xFF) shl 16) or
+                        ((bytes[off + 3].toInt() and 0xFF) shl 24)
+                val count = int32(0)
+                var off = 4
+                val out = ArrayList<String>(if (count > 0) count else 0)
+                repeat(count) {
+                    val len = int32(off); off += 4
+                    out.add(bytes.decodeToString(off, off + len)); off += len
+                }
+                out
             }
         }
 
@@ -776,6 +807,19 @@ fun kanamaIosRuntimeObjectCallsSelfTest() {
         ObjectCalls.getMethodBind("Gradient", "get_colors", 1392750486L), gradientC)
     check("packed-color-ret(get_colors==[black,white])",
         colors == listOf(Color(0.0f, 0.0f, 0.0f, 1.0f), Color(1.0f, 1.0f, 1.0f, 1.0f)))
+
+    // PackedStringArray-return (Translation.get_message_list): add two messages via the Variant
+    // call path, then read the source keys back through ptrcallNoArgsRetPackedStringList (the
+    // variable-length blob decode). Order-independent (map iteration order isn't guaranteed).
+    // Translation is a plain Resource, safe at init. Phase 2.7c-5.
+    val translation = ObjectCalls.constructObject("Translation")
+    val translationCallBind = ObjectCalls.getMethodBind("Object", "call", 3400424181L)
+    ObjectCalls.callWithVariantArgs(translationCallBind, translation, listOf("add_message", "hello", "bonjour", ""))
+    ObjectCalls.callWithVariantArgs(translationCallBind, translation, listOf("add_message", "bye", "au revoir", ""))
+    val messages = ObjectCalls.ptrcallNoArgsRetPackedStringList(
+        ObjectCalls.getMethodBind("Translation", "get_message_list", 1139954409L), translation)
+    check("packed-string-ret(get_message_list has hello+bye)",
+        messages.size == 2 && messages.toSet() == setOf("hello", "bye"))
 
     // Transform3D arg+return (Node3D.set_transform -> get_transform): 12x float32
     // (9 column-major basis + 3 origin) round-trip through the generated helpers. Pure-

@@ -276,6 +276,11 @@ static GDExtensionPtrConstructor g_array_constructor = NULL;
 static GDExtensionPtrConstructor g_dictionary_constructor = NULL;
 static GDExtensionPtrDestructor g_node_path_destructor = NULL;
 static GDExtensionPtrBuiltInMethod g_packed_string_array_push_back = NULL;
+// PackedStringArray read-back (ptrcall return -> List<String>): variable-length elements.
+static GDExtensionPtrDestructor g_packed_string_array_destructor = NULL;
+static GDExtensionPtrBuiltInMethod g_packed_string_array_size_method = NULL;
+static GDExtensionInterfacePackedStringArrayOperatorIndexConst
+    g_packed_string_array_operator_index_const = NULL;
 static GDExtensionTypeFromVariantConstructorFunc g_variant_to_bool = NULL;
 static GDExtensionTypeFromVariantConstructorFunc g_variant_to_string = NULL;
 static GDExtensionTypeFromVariantConstructorFunc g_variant_to_float = NULL;
@@ -552,6 +557,7 @@ enum {
     KANAMA_IOS_PROPERTY_TWEENER_SET_EASE_HASH = 1080455622U,
     KANAMA_IOS_VIEWPORT_GET_VISIBLE_RECT_HASH = 1639390495U,
     KANAMA_IOS_PACKED_STRING_ARRAY_PUSH_BACK_HASH = 816187996U,
+    KANAMA_IOS_PACKED_STRING_ARRAY_SIZE_HASH = 3173160232U,
     // No-arg "size" builtin method hash; signature-derived so it matches Array.size.
     KANAMA_IOS_PACKED_INT32_ARRAY_SIZE_HASH = 3173160232U,
     KANAMA_IOS_PACKED_FLOAT32_ARRAY_SIZE_HASH = 3173160232U,
@@ -1898,6 +1904,102 @@ int64_t kanama_ios_godot_ptrcall_no_args_ret_packed_color_array(
         g_packed_color_array_destructor(array_storage);
     }
     return count;
+}
+
+// Lazily resolve the PackedStringArray read-back trio (destructor + size + operator_index_const).
+static void kanama_ios_cache_packed_string_methods(void) {
+    if (g_packed_string_array_destructor == NULL && g_variant_get_ptr_destructor != NULL) {
+        g_packed_string_array_destructor =
+            g_variant_get_ptr_destructor(KANAMA_IOS_VARIANT_TYPE_PACKED_STRING_ARRAY);
+    }
+    if (g_packed_string_array_size_method == NULL && g_variant_get_ptr_builtin_method != NULL) {
+        uint64_t name_storage = 0;
+        kanama_ios_init_string_name(&name_storage, "size");
+        g_packed_string_array_size_method = g_variant_get_ptr_builtin_method(
+            KANAMA_IOS_VARIANT_TYPE_PACKED_STRING_ARRAY,
+            (GDExtensionConstStringNamePtr)&name_storage,
+            (GDExtensionInt)KANAMA_IOS_PACKED_STRING_ARRAY_SIZE_HASH
+        );
+        kanama_ios_destroy_string_name(&name_storage);
+    }
+    if (g_packed_string_array_operator_index_const == NULL) {
+        g_packed_string_array_operator_index_const =
+            (GDExtensionInterfacePackedStringArrayOperatorIndexConst)kanama_ios_lookup(
+                "packed_string_array_operator_index_const");
+    }
+}
+
+// PackedStringArray no-arg getter return — VARIABLE-LENGTH elements (each is a Godot String).
+// Unlike the fixed-width packed types, the result is serialized into out_buf as a length-
+// prefixed blob: [count:int32][len0:int32][utf8_0 bytes][len1:int32][utf8_1]...  Two-call
+// protocol: Kotlin calls once with out_buf=NULL to learn the total byte size, allocates, then
+// calls again to fill. Returns the FULL byte size (negative on resolution failure). Per element
+// operator_index_const yields the String ptr, then string_to_utf8_chars encodes it.
+int64_t kanama_ios_godot_ptrcall_no_args_ret_packed_string_array(
+    int64_t method_bind,
+    int64_t instance,
+    char *out_buf,
+    int64_t buf_size
+) {
+    if (!kanama_ios_resolve_godot_api() || method_bind == 0 || instance == 0) {
+        return -1;
+    }
+    if (g_object_method_bind_ptrcall == NULL || g_string_to_utf8_chars == NULL) {
+        return -1;
+    }
+    kanama_ios_cache_packed_string_methods();
+    if (g_packed_string_array_size_method == NULL ||
+        g_packed_string_array_operator_index_const == NULL) {
+        return -1;
+    }
+
+    KANAMA_IOS_PACKED_ARRAY_STORAGE(array_storage);
+    g_object_method_bind_ptrcall(
+        (GDExtensionMethodBindPtr)(intptr_t)method_bind,
+        (GDExtensionObjectPtr)(intptr_t)instance,
+        NULL,
+        array_storage
+    );
+
+    int64_t count = 0;
+    g_packed_string_array_size_method(array_storage, NULL, &count, 0);
+    if (count < 0) {
+        count = 0;
+    }
+
+    int can_write = (out_buf != NULL && buf_size >= 4);
+    if (can_write) {
+        int32_t count32 = (int32_t)count;
+        memcpy(out_buf, &count32, 4);
+    }
+    int64_t total = 4;  // leading count header
+
+    for (int64_t i = 0; i < count; i++) {
+        GDExtensionStringPtr str =
+            g_packed_string_array_operator_index_const(array_storage, (GDExtensionInt)i);
+        int64_t len = (str != NULL)
+            ? (int64_t)g_string_to_utf8_chars((GDExtensionConstStringPtr)str, NULL, 0)
+            : 0;
+        if (len < 0) {
+            len = 0;
+        }
+        // Write [len][utf8] only when the whole record fits; otherwise just keep tallying so
+        // the first (measuring) call still returns the correct total.
+        if (can_write && buf_size >= total + 4 + len) {
+            int32_t len32 = (int32_t)len;
+            memcpy(out_buf + total, &len32, 4);
+            if (len > 0) {
+                g_string_to_utf8_chars(
+                    (GDExtensionConstStringPtr)str, out_buf + total + 4, len);
+            }
+        }
+        total += 4 + len;
+    }
+
+    if (g_packed_string_array_destructor != NULL) {
+        g_packed_string_array_destructor(array_storage);
+    }
+    return total;
 }
 
 static GDExtensionMethodBindPtr kanama_ios_get_method_bind_cached(
@@ -5720,6 +5822,51 @@ static void kanama_ios_ptrcall_selftest(void) {
             col_count == 2 &&
             cols[0] == 0.0f && cols[1] == 0.0f && cols[2] == 0.0f && cols[3] == 1.0f &&
             cols[4] == 1.0f && cols[5] == 1.0f && cols[6] == 1.0f && cols[7] == 1.0f);
+    }
+
+    // PackedStringArray-return: Translation.add_message("hello"/"bye") -> get_message_list()
+    // returns the source keys. Exercises the VARIABLE-LENGTH string read-back (per-element
+    // operator_index_const String ptr -> utf8, length-prefixed blob). Translation is a plain
+    // Resource — safe at init. Order-independent: decode the blob and check both keys present
+    // (the message map iteration order isn't guaranteed). Phase 2.7c-5.
+    {
+        int64_t tr = kanama_ios_godot_construct_object("Translation");
+        int64_t bind_add = kanama_ios_godot_get_method_bind("Translation", "add_message", 3898530326);
+        const char *empty = "";
+        int32_t mt[3] = { KANAMA_IOS_PT_STRING_NAME, KANAMA_IOS_PT_STRING_NAME, KANAMA_IOS_PT_STRING_NAME };
+        const char *hello = "hello";
+        const void *ma0[3] = { hello, "bonjour", empty };
+        kanama_ios_godot_ptrcall(bind_add, tr, mt, ma0, 3, KANAMA_IOS_PT_VOID, NULL);
+        const char *bye = "bye";
+        const void *ma1[3] = { bye, "au revoir", empty };
+        kanama_ios_godot_ptrcall(bind_add, tr, mt, ma1, 3, KANAMA_IOS_PT_VOID, NULL);
+
+        char blob[256];
+        int64_t total = kanama_ios_godot_ptrcall_no_args_ret_packed_string_array(
+            kanama_ios_godot_get_method_bind("Translation", "get_message_list", 1139954409),
+            tr, blob, (int64_t)sizeof(blob));
+        // Decode [count][len0][utf8_0][len1][utf8_1]... and check both keys are present.
+        int found_hello = 0;
+        int found_bye = 0;
+        int32_t msg_count = 0;
+        if (total >= 4) {
+            memcpy(&msg_count, blob, 4);
+            int64_t off = 4;
+            for (int32_t i = 0; i < msg_count && off + 4 <= total; i++) {
+                int32_t len = 0;
+                memcpy(&len, blob + off, 4);
+                off += 4;
+                if (len == 5 && off + 5 <= total && memcmp(blob + off, "hello", 5) == 0) {
+                    found_hello = 1;
+                }
+                if (len == 3 && off + 3 <= total && memcmp(blob + off, "bye", 3) == 0) {
+                    found_bye = 1;
+                }
+                off += len;
+            }
+        }
+        KANAMA_IOS_ST_CHECK("packed-string-ret get_message_list has hello+bye",
+            msg_count == 2 && found_hello && found_bye);
     }
 
     // String arg: Node.set_scene_file_path("HelloKanama") -> get_scene_file_path()
