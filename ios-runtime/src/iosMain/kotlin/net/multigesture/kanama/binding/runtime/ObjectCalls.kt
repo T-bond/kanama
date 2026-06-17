@@ -30,6 +30,7 @@ import net.multigesture.kanama.ios.cinterop.kanama_ios_godot_get_method_bind
 import net.multigesture.kanama.ios.cinterop.kanama_ios_godot_get_singleton
 import net.multigesture.kanama.ios.cinterop.kanama_ios_godot_object_call
 import net.multigesture.kanama.ios.cinterop.kanama_ios_godot_ptrcall
+import net.multigesture.kanama.ios.cinterop.kanama_ios_godot_ptrcall_no_args_ret_packed_float32_array
 import net.multigesture.kanama.ios.cinterop.kanama_ios_godot_ptrcall_no_args_ret_packed_int32_array
 import net.multigesture.kanama.ios.cinterop.kanama_ios_godot_ptrcall_no_args_ret_string
 import net.multigesture.kanama.ios.cinterop.kanama_ios_godot_ptrcall_no_args_ret_node_path
@@ -256,6 +257,22 @@ object ObjectCalls {
             } else {
                 val buf = allocArray<IntVar>(count)
                 kanama_ios_godot_ptrcall_no_args_ret_packed_int32_array(
+                    methodBind.address(), instance.address(), buf, count)
+                List(count.toInt()) { buf[it] }
+            }
+        }
+
+    // PackedFloat32Array return: float32 element variant of ptrcallNoArgsRetPackedInt32List
+    // (same size + operator_index_const + two-call length protocol; 16-byte storage C-side).
+    fun ptrcallNoArgsRetPackedFloat32List(methodBind: MemorySegment, instance: MemorySegment): List<Float> =
+        memScoped {
+            val count = kanama_ios_godot_ptrcall_no_args_ret_packed_float32_array(
+                methodBind.address(), instance.address(), null, 0L)
+            if (count <= 0L) {
+                emptyList()
+            } else {
+                val buf = allocArray<FloatVar>(count)
+                kanama_ios_godot_ptrcall_no_args_ret_packed_float32_array(
                     methodBind.address(), instance.address(), buf, count)
                 List(count.toInt()) { buf[it] }
             }
@@ -670,6 +687,15 @@ fun kanamaIosRuntimeObjectCallsSelfTest() {
     val itemList = ObjectCalls.ptrcallNoArgsRetPackedInt32List(
         ObjectCalls.getMethodBind("MeshLibrary", "get_item_list", 1930428628L), meshLib)
     check("packed-int32-ret(get_item_list==[7,11])", itemList == listOf(7, 11))
+
+    // PackedFloat32Array-return (Gradient.get_offsets): a fresh Gradient seeds two default
+    // points at offsets 0.0 and 1.0, so get_offsets() == [0.0, 1.0] — read back through
+    // ptrcallNoArgsRetPackedFloat32List (float32 element variant). Gradient is a plain
+    // Resource, safe to construct at init. Phase 2.7c-2.
+    val gradient = ObjectCalls.constructObject("Gradient")
+    val offsets = ObjectCalls.ptrcallNoArgsRetPackedFloat32List(
+        ObjectCalls.getMethodBind("Gradient", "get_offsets", 675695659L), gradient)
+    check("packed-float32-ret(get_offsets==[0,1])", offsets == listOf(0.0f, 1.0f))
 
     // Transform3D arg+return (Node3D.set_transform -> get_transform): 12x float32
     // (9 column-major basis + 3 origin) round-trip through the generated helpers. Pure-

@@ -208,7 +208,7 @@ IOS_ARG_KINDS = {
 # Return shapes the iOS helpers can read back (keyed by CallShape.kotlin_return, the
 # stable per-helper return-type token). StringName/String/RID/List/Map returns
 # are intentionally absent until their read-back is wired + validated.
-IOS_RET_KOTLIN = {"Unit", "Boolean", "Int", "Long", "Double", "Vector2", "Vector2i", "Vector3", "Vector3i", "Color", "Rect2", "MemorySegment", "String", "NodePath", "Basis", "Transform2D", "Transform3D", "RID", "Quaternion", "AABB", "List<Int>"}
+IOS_RET_KOTLIN = {"Unit", "Boolean", "Int", "Long", "Double", "Vector2", "Vector2i", "Vector3", "Vector3i", "Color", "Rect2", "MemorySegment", "String", "NodePath", "Basis", "Transform2D", "Transform3D", "RID", "Quaternion", "AABB", "List<Int>", "List<Float>"}
 
 # Helpers already hand-written in ios-runtime ObjectCalls.kt (the reference template +
 # override set). The generator must NOT re-emit these (they'd clash with the members).
@@ -241,6 +241,7 @@ IOS_HANDWRITTEN_HELPERS = {
     "ptrcallNoArgsRetStringName",
     "ptrcallNoArgsRetNodePath",
     "ptrcallNoArgsRetPackedInt32List",
+    "ptrcallNoArgsRetPackedFloat32List",
 }
 PARAMETER_NAME_OVERRIDES = {
     ("Time", "get_datetime_dict_from_unix_time", "unix_time_val"): "unixTime",
@@ -879,6 +880,9 @@ def ios_method_supported(method: ApiMethod, object_types: set[str]) -> bool:
     # helper, two-call length protocol). Other shapes share the "List<Int>" return token
     # (arg-bearing PackedInt32 returns) but route through helpers not audited yet.
     if shape.kotlin_return == "List<Int>" and shape.function != "ptrcallNoArgsRetPackedInt32List":
+        return False
+    # PackedFloat32Array read-back: same gate, only the no-arg getter is wired.
+    if shape.kotlin_return == "List<Float>" and shape.function != "ptrcallNoArgsRetPackedFloat32List":
         return False
     logical_args = method.logical_arg_kinds(object_types)
     if not all(kind in IOS_ARG_KINDS for kind in logical_args):

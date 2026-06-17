@@ -76,6 +76,10 @@ class Label(handle: MemorySegment) : Control(handle) {
         @JvmName("setUppercaseProperty")
         set(value) = setUppercase(value)
 
+    val tabStops: List<Float>
+        @JvmName("tabStopsProperty")
+        get() = getTabStops()
+
     var linesSkipped: Int
         @JvmName("linesSkippedProperty")
         get() = getLinesSkipped()
@@ -202,6 +206,10 @@ class Label(handle: MemorySegment) : Control(handle) {
 
     fun isClippingText(): Boolean {
         return ObjectCalls.ptrcallNoArgsRetBool(isClippingTextBind, handle)
+    }
+
+    fun getTabStops(): List<Float> {
+        return ObjectCalls.ptrcallNoArgsRetPackedFloat32List(getTabStopsBind, handle)
     }
 
     fun setTextOverrunBehavior(overrunBehavior: Long) {
@@ -401,6 +409,11 @@ class Label(handle: MemorySegment) : Control(handle) {
         private const val IS_CLIPPING_TEXT_HASH = 36873697L
         private val isClippingTextBind by lazy {
             ObjectCalls.getMethodBind("Label", "is_clipping_text", IS_CLIPPING_TEXT_HASH)
+        }
+
+        private const val GET_TAB_STOPS_HASH = 675695659L
+        private val getTabStopsBind by lazy {
+            ObjectCalls.getMethodBind("Label", "get_tab_stops", GET_TAB_STOPS_HASH)
         }
 
         private const val SET_TEXT_OVERRUN_BEHAVIOR_HASH = 1008890932L

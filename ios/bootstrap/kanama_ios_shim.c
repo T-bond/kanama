@@ -297,6 +297,11 @@ static GDExtensionPtrDestructor g_packed_int32_array_destructor = NULL;
 static GDExtensionPtrBuiltInMethod g_packed_int32_array_size_method = NULL;
 static GDExtensionInterfacePackedInt32ArrayOperatorIndexConst
     g_packed_int32_array_operator_index_const = NULL;
+// PackedFloat32Array read-back (ptrcall return -> List<Float>), same shape as int32.
+static GDExtensionPtrDestructor g_packed_float32_array_destructor = NULL;
+static GDExtensionPtrBuiltInMethod g_packed_float32_array_size_method = NULL;
+static GDExtensionInterfacePackedFloat32ArrayOperatorIndexConst
+    g_packed_float32_array_operator_index_const = NULL;
 static GDExtensionVariantFromTypeConstructorFunc g_variant_from_vector2i = NULL;
 static GDExtensionPtrConstructor g_callable_object_method_constructor = NULL;
 static GDExtensionVariantFromTypeConstructorFunc g_variant_from_callable = NULL;
@@ -462,6 +467,7 @@ enum {
     KANAMA_IOS_VARIANT_TYPE_DICTIONARY = 27,
     KANAMA_IOS_VARIANT_TYPE_ARRAY = 28,
     KANAMA_IOS_VARIANT_TYPE_PACKED_INT32_ARRAY = 30,
+    KANAMA_IOS_VARIANT_TYPE_PACKED_FLOAT32_ARRAY = 32,
     KANAMA_IOS_VARIANT_TYPE_PACKED_STRING_ARRAY = 34,
     KANAMA_IOS_OBJECT_NOTIFICATION_HASH = 4023243586U,
     KANAMA_IOS_ENGINE_GET_MAIN_LOOP_HASH = 1016888095U,
@@ -533,6 +539,7 @@ enum {
     KANAMA_IOS_PACKED_STRING_ARRAY_PUSH_BACK_HASH = 816187996U,
     // No-arg "size" builtin method hash; signature-derived so it matches Array.size.
     KANAMA_IOS_PACKED_INT32_ARRAY_SIZE_HASH = 3173160232U,
+    KANAMA_IOS_PACKED_FLOAT32_ARRAY_SIZE_HASH = 3173160232U,
     KANAMA_IOS_NOTIFICATION_POSTINITIALIZE = 0,
     KANAMA_IOS_NOTIFICATION_ENTER_TREE = 10,
     KANAMA_IOS_NOTIFICATION_EXIT_TREE = 11,
@@ -1595,6 +1602,76 @@ int64_t kanama_ios_godot_ptrcall_no_args_ret_packed_int32_array(
 
     if (g_packed_int32_array_destructor != NULL) {
         g_packed_int32_array_destructor(array_storage);
+    }
+    return count;
+}
+
+// Lazily resolve the PackedFloat32Array read-back trio. Mirror of the int32 variant.
+static void kanama_ios_cache_packed_float32_methods(void) {
+    if (g_packed_float32_array_destructor == NULL && g_variant_get_ptr_destructor != NULL) {
+        g_packed_float32_array_destructor =
+            g_variant_get_ptr_destructor(KANAMA_IOS_VARIANT_TYPE_PACKED_FLOAT32_ARRAY);
+    }
+    if (g_packed_float32_array_size_method == NULL && g_variant_get_ptr_builtin_method != NULL) {
+        uint64_t name_storage = 0;
+        kanama_ios_init_string_name(&name_storage, "size");
+        g_packed_float32_array_size_method = g_variant_get_ptr_builtin_method(
+            KANAMA_IOS_VARIANT_TYPE_PACKED_FLOAT32_ARRAY,
+            (GDExtensionConstStringNamePtr)&name_storage,
+            (GDExtensionInt)KANAMA_IOS_PACKED_FLOAT32_ARRAY_SIZE_HASH
+        );
+        kanama_ios_destroy_string_name(&name_storage);
+    }
+    if (g_packed_float32_array_operator_index_const == NULL) {
+        g_packed_float32_array_operator_index_const =
+            (GDExtensionInterfacePackedFloat32ArrayOperatorIndexConst)kanama_ios_lookup(
+                "packed_float32_array_operator_index_const");
+    }
+}
+
+// PackedFloat32Array no-arg getter return — element type float32. Same protocol and 16-byte
+// storage as the int32 variant (Packed*Array opaque size is 16 on 64-bit). Returns the FULL
+// element count (negative on resolution failure).
+int64_t kanama_ios_godot_ptrcall_no_args_ret_packed_float32_array(
+    int64_t method_bind,
+    int64_t instance,
+    float *out_buf,
+    int64_t buf_cap
+) {
+    if (!kanama_ios_resolve_godot_api() || method_bind == 0 || instance == 0) {
+        return -1;
+    }
+    if (g_object_method_bind_ptrcall == NULL) {
+        return -1;
+    }
+    kanama_ios_cache_packed_float32_methods();
+    if (g_packed_float32_array_size_method == NULL ||
+        g_packed_float32_array_operator_index_const == NULL) {
+        return -1;
+    }
+
+    KANAMA_IOS_PACKED_ARRAY_STORAGE(array_storage);
+    g_object_method_bind_ptrcall(
+        (GDExtensionMethodBindPtr)(intptr_t)method_bind,
+        (GDExtensionObjectPtr)(intptr_t)instance,
+        NULL,
+        array_storage
+    );
+
+    int64_t count = 0;
+    g_packed_float32_array_size_method(array_storage, NULL, &count, 0);
+
+    if (out_buf != NULL && buf_cap > 0 && count > 0) {
+        int64_t n = (count < buf_cap) ? count : buf_cap;
+        for (int64_t i = 0; i < n; i++) {
+            const float *elem =
+                g_packed_float32_array_operator_index_const(array_storage, (GDExtensionInt)i);
+            out_buf[i] = (elem != NULL) ? *elem : 0.0f;
+        }
+    }
+
+    if (g_packed_float32_array_destructor != NULL) {
+        g_packed_float32_array_destructor(array_storage);
     }
     return count;
 }
@@ -5346,6 +5423,22 @@ static void kanama_ios_ptrcall_selftest(void) {
             ml, items, 8);
         KANAMA_IOS_ST_CHECK("packed-int32-ret get_item_list==[7,11]",
             item_count == 2 && items[0] == 7 && items[1] == 11);
+    }
+
+    // PackedFloat32Array-return: a freshly constructed Gradient seeds two default color
+    // points at offsets 0.0 and 1.0 (set in the C++ constructor), so get_offsets() == [0.0,
+    // 1.0]. Exercises the float32 read-back (size builtin + packed_float32 operator_index_const
+    // + 16-byte storage). Gradient is a plain Resource — safe to construct at init. The 1.0 is
+    // a real non-zero float read; -1 sentinel prefill proves the writes. Phase 2.7c-2.
+    {
+        int64_t grad = kanama_ios_godot_construct_object("Gradient");
+        float offsets[8];
+        for (int i = 0; i < 8; i++) { offsets[i] = -1.0f; }
+        int64_t off_count = kanama_ios_godot_ptrcall_no_args_ret_packed_float32_array(
+            kanama_ios_godot_get_method_bind("Gradient", "get_offsets", 675695659),
+            grad, offsets, 8);
+        KANAMA_IOS_ST_CHECK("packed-float32-ret get_offsets==[0,1]",
+            off_count == 2 && offsets[0] == 0.0f && offsets[1] == 1.0f);
     }
 
     // String arg: Node.set_scene_file_path("HelloKanama") -> get_scene_file_path()

@@ -128,6 +128,18 @@ int64_t kanama_ios_godot_ptrcall_no_args_ret_packed_int32_array(
     int64_t buf_cap
 );
 
+/*
+ * No-arg ptrcall returning a Godot PackedFloat32Array, read into float32 elements.
+ * Same buffer/length contract as the PackedInt32Array variant (buf_cap is an ELEMENT
+ * count); element type is float32.
+ */
+int64_t kanama_ios_godot_ptrcall_no_args_ret_packed_float32_array(
+    int64_t method_bind,
+    int64_t instance,
+    float *out_buf,
+    int64_t buf_cap
+);
+
 int64_t kanama_ios_godot_construct_object(const char *class_name);
 
 int64_t kanama_ios_godot_get_singleton(const char *name);
