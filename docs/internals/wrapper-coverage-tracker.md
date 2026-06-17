@@ -35,7 +35,7 @@ Commits go straight to `main`, attributed `Co-Authored-By: Claude Fable 5`.
 | 2.4 PT_STRING / PT_NODE_PATH args | opus | done | 2026-06-13: String/NodePath args; Label.text full; device-validated (item 4) |
 | 2.5 Transform3D / Basis | opus | done | 2026-06-13: POD float32 kinds (+RID/Quaternion/AABB, item 6); device-validated (item 5) |
 | 2.6 @ScriptProperty value types | opus | done | 2026-06-15: value-type set-property DONE + device-validated end-to-end — scene `view: NodePath` reaches the Kotlin field on iPhone 12 (NodePath/Vector2/Vector3 C extraction + Kotlin decode + emitter; matrix C42/K47). Earlier "blocked on subsystem" was an export-drop confound (iOS-only probe not desktop-registered), not an iOS bug — see RESUME HERE |
-| 2.7 Variant / typed-array / vararg | opus | in-progress | 2026-06-17: full value order. **2.7a Transform2D + 2.7b NodePath + 2.7c-1/2/3 Packed Int32/Float32/Vector2/Color returns + 2.7c-4 PackedFloat32 ARG DONE + device-validated** (PTRCALL 49 / OBJECTCALLS 60, +34 wrapper methods incl. Label.setTabStops). 2.7c ABI gotchas (both now static gates / memories): Packed*Array slots are 16 bytes on 64-bit; builtin scalar-float push_back arg is 8-byte double. Remaining: PackedVector2/Color + PackedInt32/String ARGS, PackedString return, 2.7d Typed arrays, 2.7e Variant, 2.7f arg-bearing string-family returns. Callable+vararg deferred (parity w/ desktop 1.4). See RESUME HERE |
+| 2.7 Variant / typed-array / vararg | opus | in-progress | 2026-06-17: full value order. **2.7a Transform2D + 2.7b NodePath + 2.7c-1..5 Packed returns (Int32/Float32/Vector2/Color/String) + Float32 ARG DONE + device-validated** (PTRCALL 50 / OBJECTCALLS 61, +35 wrapper methods incl. Label.setTabStops, AnimationMixer.getAnimationList). 2.7c ABI gotchas (static gates / memories): Packed*Array slots 16 bytes on 64-bit; builtin scalar-float push_back arg is 8-byte double. Packed RETURN family COMPLETE. Remaining 2.7c: the CanvasItem.draw_* multi-arg packed dispatcher (8 methods, the real coverage). Then 2.7d Typed arrays, 2.7e Variant, 2.7f arg-bearing string-family returns. Callable+vararg deferred. See RESUME HERE |
 
 ## Phase 3 — KSP model unification
 
@@ -331,8 +331,8 @@ needs a decision (see the numbered items below + the roadmap backlog):
   shape" skips, but 75 are *peer-class* gaps (audited Object shape, concrete class not emitted —
   a Phase-4 breadth axis, NOT 2.7) and ~86 are true shape-gaps. Sub-features in value order:
   **(a) Transform2D** [DONE], (b) NodePath/StringName/String returns (~22) [2.7b NodePath DONE],
-  (c) Packed*Array (~19) [2.7c-1/2/3 Int32+Float32+Vector2+Color returns + 2.7c-4 Float32 ARG DONE;
-  more args next], (d) Typed object arrays (~20), (e) Variant (~10). **Callable (3) + vararg (4) stay
+  (c) Packed*Array (~19) [returns COMPLETE (Int32/Float32/Vector2/Color/String) + Float32 ARG DONE;
+  remaining = CanvasItem.draw_* multi-arg dispatcher], (d) Typed object arrays (~20), (e) Variant (~10). **Callable (3) + vararg (4) stay
   DEFERRED to match desktop 1.4** (cross-platform policy, not an iOS gap). Method to add a value
   type: Kotlin `types/X.kt` + `IOS_ARG_KINDS`/`IOS_RET_KOTLIN` + `IOS_PT_TAG_VALUES` + a
   `ios_arg/ret_layout` case (POD passthrough → no per-type C code; the ptrcall `default` ships
@@ -428,12 +428,27 @@ needs a decision (see the numbered items below + the roadmap backlog):
     (`…_packed_*_arg`) are covered; verified it catches an injected 8-byte regression in the arg
     helper. **PTRCALL 48→49 + OBJECTCALLS 59→60** on device. Commit `feat: iOS PackedFloat32Array arg
     build-from-list path (Phase 2.7c-4)`.
-    **NEXT: widen the ARG path** — PackedInt32 (int element = 8-byte int64 arg), PackedVector2 (Vector2
-    element = 2×float32), PackedColor (Color element = 4×float32) args; each closes more emitted-class
-    gaps (CanvasItem.draw_*, etc.). Then PackedString return (variable-length). Then the multi-arg
-    generic dispatcher for methods mixing packed + scalar args (draw_polyline = PackedVector2+Color+
-    float+bool). Then 2.7d Typed arrays, 2.7e Variant, 2.7f arg-bearing string-family returns. NOTE:
-    the no-arg packed RETURNS (2.7c-1/2/3) add capability; the ARG paths move emitted-class coverage.
+  - **2.7c-5 PackedStringArray RETURN DONE + DEVICE-VALIDATED (iPhone 12, 2026-06-17).** The
+    variable-length packed read-back — each element is a Godot String, not fixed-width. C helper
+    serializes into a length-prefixed blob `[count:int32][len:int32][utf8]...` (per element:
+    `packed_string_array_operator_index_const` → String ptr → `string_to_utf8_chars`); two-call on
+    total byte size. Kotlin `ptrcallNoArgsRetPackedStringList` decodes the blob (LE int32s) →
+    List<String>. **Closes emitted AnimationMixer.getAnimationList. Packed RETURN family now COMPLETE**
+    (Int32/Float32/Vector2/Color/String). Self-test: Translation.add_message×2 → get_message_list
+    (order-independent set check). **PTRCALL 49→50 + OBJECTCALLS 60→61.** Commit `feat: iOS
+    PackedStringArray no-arg return (Phase 2.7c-5)`.
+    **NEXT — the real remaining 2.7c coverage: the CanvasItem.draw_* multi-arg dispatcher (8 methods).**
+    Scan finding: single-arg packed *setters* (Line2D.set_points, Gradient.set_colors, …) are all on
+    NON-emitted classes, so single-arg arg helpers for Int32/Vector2/Color would emit 0 wrappers —
+    SKIP them. The emitted-class packed gaps are all CanvasItem.draw_polyline/draw_polyline_colors/
+    draw_multiline/draw_multiline_colors/draw_polygon/draw_colored_polygon/draw_primitive (PackedVector2Array
+    + PackedColorArray + Color/float/bool/Texture2D args). This needs the GENERIC ptrcall dispatcher
+    extended to BUILD packed args inline (constructor + push_back into a 16-byte cell, mixed with the
+    existing POD/value/object args; new PT_PACKED_* tags + a side-channel for {count,data} per packed
+    arg + 16-byte packed cells separate from the 8-byte builtin_cells). Reuse the push_back machinery
+    from 2.7c-4 (Vector2 element = 2×float32, Color = 4×float32 — value types, NOT the scalar-double
+    quirk; PackedInt32 element = int64). Then 2.7d Typed arrays, 2.7e Variant, 2.7f arg-bearing
+    string-family returns. (no-arg packed RETURNS add capability; the draw_* dispatcher moves coverage.)
 - Cleanly self-test-validatable items: ~~Variant `Object.call` dispatch~~ DONE
   (item 8); ~~value-type BuiltinTypes on iOS~~ DONE (items 9–11): no-arg + args
   shapes across Transform3D/Basis/Vector2/Vector3/Quaternion + scalar float/bool/int
