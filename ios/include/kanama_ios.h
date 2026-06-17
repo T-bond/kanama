@@ -193,6 +193,24 @@ typedef struct {
     const void *data;
 } KanamaIosPackedArgDesc;
 
+/*
+ * Typed-object-array (Array[Object]) ptrcall return -> object handles. Drives the call through
+ * the generic dispatcher (arg_types/arg_ptrs/arg_count laid out as for kanama_ios_godot_ptrcall),
+ * returning an Array whose elements' object pointers are written into out_handles. Two-call length
+ * protocol: pass out_handles=NULL to learn the count, then call again with a buffer of that
+ * capacity (cap is an ELEMENT count). Returns the FULL element count (negative on resolution
+ * failure). Non-Object elements yield a 0 handle.
+ */
+int64_t kanama_ios_godot_ptrcall_ret_object_array(
+    int64_t method_bind,
+    int64_t instance,
+    const int32_t *arg_types,
+    const void *const *arg_ptrs,
+    int32_t arg_count,
+    int64_t *out_handles,
+    int64_t cap
+);
+
 int64_t kanama_ios_godot_construct_object(const char *class_name);
 
 int64_t kanama_ios_godot_get_singleton(const char *name);

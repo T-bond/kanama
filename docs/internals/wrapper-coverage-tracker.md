@@ -35,7 +35,7 @@ Commits go straight to `main`, attributed `Co-Authored-By: Claude Fable 5`.
 | 2.4 PT_STRING / PT_NODE_PATH args | opus | done | 2026-06-13: String/NodePath args; Label.text full; device-validated (item 4) |
 | 2.5 Transform3D / Basis | opus | done | 2026-06-13: POD float32 kinds (+RID/Quaternion/AABB, item 6); device-validated (item 5) |
 | 2.6 @ScriptProperty value types | opus | done | 2026-06-15: value-type set-property DONE + device-validated end-to-end — scene `view: NodePath` reaches the Kotlin field on iPhone 12 (NodePath/Vector2/Vector3 C extraction + Kotlin decode + emitter; matrix C42/K47). Earlier "blocked on subsystem" was an export-drop confound (iOS-only probe not desktop-registered), not an iOS bug — see RESUME HERE |
-| 2.7 Variant / typed-array / vararg | opus | in-progress | 2026-06-17: full value order. **2.7a Transform2D + 2.7b NodePath + 2.7c Packed* COMPLETE (returns Int32/Float32/Vector2/Color/String + Float32/Vector2/Color ARGS + all 7 CanvasItem.draw_*) DONE + device-validated** (PTRCALL 52 / OBJECTCALLS 63, +42 wrapper methods). 2.7c ABI gotchas (static gates / memories): Packed*Array slots 16 bytes on 64-bit; builtin scalar-float push_back arg is 8-byte double. **Remaining 2.7: 2.7d Typed object arrays (~24, next big self-testable subsystem), 2.7e Variant (~10), 2.7f arg-bearing string-family returns (~23).** Callable+vararg deferred. See RESUME HERE |
+| 2.7 Variant / typed-array / vararg | opus | in-progress | 2026-06-17: full value order. **2.7a Transform2D + 2.7b NodePath + 2.7c Packed* COMPLETE (returns Int32/Float32/Vector2/Color/String + Float32/Vector2/Color ARGS + all 7 CanvasItem.draw_*) DONE + device-validated** (PTRCALL 52 / OBJECTCALLS 63, +42 wrapper methods). 2.7c ABI gotchas (static gates / memories): Packed*Array slots 16 bytes on 64-bit; builtin scalar-float push_back arg is 8-byte double. **2.7d-1 Typed-object-array return (bool arg → Node.getChildren:List<Node>) DONE + device-validated (PTRCALL 53 / OBJECTCALLS 64).** Generator subsystem: typed-object-array detection now element-keyed (`typed_object_array_element_any` covers the dedicated `TypedNodeArray`-family kinds, not just `TypedObjectArray::X`); iOS remaps DIRECT List<Node> helpers → generic fromHandle helpers in `candidate_for`. **Remaining 2.7: 2.7d widen (no-arg + String-arg shapes), 2.7e Variant (~10), 2.7f arg-bearing string-family returns (~23).** Callable+vararg deferred. See RESUME HERE |
 
 ## Phase 3 — KSP model unification
 
@@ -469,34 +469,47 @@ needs a decision (see the numbered items below + the roadmap backlog):
     a LongVar cell under PT_OBJECT. +3 emitted wrappers. **Only remaining emitted-class Packed skip is
     PackedScene.get_state()→SceneState (an OBJECT return, Phase-4 gap, not packed).** Matrix unchanged
     52/63. Commit `feat: iOS CanvasItem.draw_* Texture2D-arg shapes (Phase 2.7c-6c) — 2.7c COMPLETE`.
-    **NEXT: 2.7d Typed object arrays** (~24 methods, self-testable, but a GENERATOR subsystem — bigger
-    than the packed helpers). Emitted-class targets: Node.get_children(bool), Node.find_children(String,
-    String,bool,bool), Area2D/Area3D.get_overlapping_bodies/areas (no-arg), Node3D.get_gizmos,
-    Viewport.get_embedded_subwindows, PhysicsBody3D.get_collision_exceptions. **Flagship self-test:
-    Node.get_children(bool) → List<Node>** (construct parent, add_child×2, get_children(false) round-trip).
-    **PLAN (precisely scoped):**
-    (1) C helper `kanama_ios_godot_ptrcall_ret_object_array(bind,inst,arg_types,arg_ptrs,argc,int64_t*
-    out_handles,cap)`: call the generic `kanama_ios_godot_ptrcall` internally with ret_out=&array_storage
-    (Array opaque size = 8 bytes, NOT 16 — Array is in OPAQUE_8_BYTE_TYPES), then read back via the
-    EXISTING `g_array_size_method`/`g_array_get_method` (+ a new `g_array_destructor` = variant_get_ptr_
-    destructor(ARRAY=28)) + `g_variant_to_object`/`g_variant_get_type`/`g_variant_destroy` (the exact
-    pattern already in `kanama_ios_script_instance_set_property`'s ARRAY case, ~line 4565). Returns count;
-    fills int64 object handles. Two-call protocol (re-ptrcall each call). (2) Kotlin GENERIC helpers per
-    arg-shape, returning List<T> via a `fromHandle: (MemorySegment)->T?` param — e.g.
-    `fun <T> ptrcallWithBoolArgRetTypedObjectList(bind,inst,value,fromHandle):List<T>`: lay out the bool arg,
-    call C twice (count, fill int64[]), map each handle → MemorySegment → fromHandle, filter nulls. (3)
-    GENERATOR: iOS must use the GENERIC fromHandle helpers, NOT the direct named ones (DIRECT helpers like
-    ptrcallWithBoolArgRetTypedNodeList return List<Node> directly → would need api.Node imported into the
-    runtime pkg = dependency inversion). So REMAP at generate_api_wrapper.py:1521 (the only `shape =
-    candidate_for` site for emission): for iOS, when return is a typed-object-array, swap shape.function to
-    the generic `ptrcall{ArgShape}RetTypedObjectList` (keyed by arg-shape; the generic CallShapes already
-    exist at api_wrapper_candidates ~539-561 with kotlin_return "List"). render_method:1100-1105 ALREADY
-    appends `{wrapper}::fromHandle` when shape NOT in DIRECT_TYPED_OBJECT_LIST_HELPERS — so the remapped
-    generic shape gets fromHandle for free. NOTE: iOS `Node.fromHandle(MemorySegment): Node?` exists (Node.kt
-    :577) — takes MemorySegment, so the Kotlin helper's fromHandle type is `(MemorySegment)->T?`. Set the
-    generic CallShape's kotlin_return to "List<Element>" for the iOS wrapper signature (or override in the
-    remap). Add the generic helper names to IOS_HANDWRITTEN_HELPERS + a gate. (4) Self-test: Node.get_children
-    round-trip. Start with just Node.get_children (bool shape), then widen to the no-arg / String-arg shapes.
+  - **2.7d-1 Typed-object-array return (bool arg) DONE + DEVICE-VALIDATED (iPhone 12, 2026-06-17).**
+    **PTRCALL 52→53 + OBJECTCALLS 63→64, 0 failed.** nm confirms `T kanama_ios_godot_ptrcall_ret_object_array`
+    defined in the deployed device xcframework `.a` + the cinterop wrapper bound. First typed-object-array return:
+    the GENERATOR subsystem the rest of 2.7d builds on. Flagship emitted-class gain: **Node.getChildren(bool)
+    → List<Node>**. C helper `kanama_ios_godot_ptrcall_ret_object_array(bind,inst,arg_types,arg_ptrs,argc,
+    int64_t* out_handles,cap)` drives the call through the generic `kanama_ios_godot_ptrcall` with ret_out =
+    an **8-byte** Array opaque slot (`uint64_t`, NOT the 16-byte Packed*Array storage — Array is an
+    OPAQUE_8_BYTE_TYPE), then reads each element via the existing `g_array_size_method`/`g_array_get_method`
+    + new `g_array_destructor` (= `variant_get_ptr_destructor(ARRAY=28)`, resolved in
+    `kanama_ios_cache_array_methods`) + `g_variant_to_object`/`g_variant_get_type`/`g_variant_destroy` —
+    the read-back pattern mirrors `kanama_ios_script_instance_set_property`'s ARRAY case (~line 5194, NOT
+    4565). Two-call length protocol (re-ptrcall each call); non-Object elements → 0 handle. Kotlin GENERIC
+    helper `fun <T> ptrcallWithBoolArgRetTypedObjectList(bind,inst,value,fromHandle:(MemorySegment)->T?)
+    :List<T>` (+ a no-arg variant, dead until the no-arg gate opens) via a private `retTypedObjectList`
+    core: lay out the bool arg, call C twice, `MemorySegment.ofAddress(handle)` → `fromHandle`, filter nulls.
+    Both in IOS_HANDWRITTEN_HELPERS. Self-tests (C + Kotlin): parent Node + add_child×2 → get_children(false)
+    == [c0,c1] (plain Node safe at init; identity fromHandle in the Kotlin one to compare addresses without
+    importing api). **★ GENERATOR GOTCHA (the crux, cost the most time): typed-object-array returns come in
+    TWO logical-kind families.** Node-family elements (Node/Node2D/Node3D/Material/Area2D/Area3D/BaseButton/
+    PhysicsBody3D) get DEDICATED logical kinds (`TypedNodeArray`, …) whose CALL_SHAPES entry already has a
+    CONCRETE `kotlin_return="List<Node>"` + a DIRECT helper (`ptrcallWithBoolArgRetTypedNodeList`); only OTHER
+    object elements use the generic `TypedObjectArray::X` form with `kotlin_return="List"`. So `typed_object_
+    array_element` (prefix-only) MISSES Node — added `typed_object_array_element_any` (NAMED_TYPED_OBJECT_
+    ARRAY_KINDS map ∪ the prefix form) and key the gate/remap/fromHandle-append on the ELEMENT, not a "List"
+    token. The remap lives in `candidate_for` (a thin wrapper over `_candidate_for_impl`) under IOS_AUDIT_ONLY
+    — a SINGLE seam so the gate (`ios_method_supported`) and emission (line ~1521) stay consistent; it swaps
+    the DIRECT helper → generic via `IOS_DIRECT_TO_GENERIC_TYPED_OBJECT_LIST`. Gate admits a typed-object-array
+    return only when (remapped) `shape.function ∈ IOS_WIRED_TYPED_OBJECT_LIST_HELPERS` (currently just the
+    bool-arg one) AND the element wrapper ∈ IOS_EMIT_CLASSES. `render_method` (~1100) appends `{wrapper}::
+    fromHandle` for any non-DIRECT shape (now via `_any`) — so the remapped generic shape gets `Node::fromHandle`
+    free; desktop/Android keep the direct List<Node> helpers (IOS_AUDIT_ONLY guards the remap). Regen touched
+    ONLY Node.kt (+getChildren, additive; SUGAR re-applied by hand-editing the 2 hunks, never overwriting).
+    ObjectCallsGenerated unchanged (helpers hand-written). Gates GREEN: clang -fsyntax-only, audit_builtin_
+    storage_sizes (helper is non-packed → uses an 8-byte slot, audit not tripped), check_ios_no_silent_stubs,
+    check_wrapper_generator, compileKotlinIosArm64 (cinterop regen — header changed → DEVELOPER_DIR=full Xcode).
+    Build-shell gotcha: the env shell is zsh → `for c in $CLASSES` does NOT word-split; run the per-class regen
+    loop via `bash -c '…'` (a single unsplit arg becomes one bogus `--ios-emit-class` and dies "not found").
+    **NEXT (this sub-feature): device-validate (PTRCALL 52→53, OBJECTCALLS 63→64 expected, 0 failed) + nm the
+    .a for `kanama_ios_godot_ptrcall_ret_object_array`, then commit; then widen 2.7d to the no-arg shapes
+    (Area2D/Area3D.get_overlapping_bodies/areas — physics bodies, emit-only/compile-validated, segfault at
+    init; add `ptrcallNoArgsRetTypedObjectList` to IOS_WIRED) and Node.find_children(String,String,bool,bool).**
     Then 2.7e Variant (~10), 2.7f arg-bearing string-family returns (~23). Callable+vararg deferred.
 - Cleanly self-test-validatable items: ~~Variant `Object.call` dispatch~~ DONE
   (item 8); ~~value-type BuiltinTypes on iOS~~ DONE (items 9–11): no-arg + args

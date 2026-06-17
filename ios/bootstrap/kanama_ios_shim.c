@@ -296,6 +296,9 @@ static GDExtensionTypeFromVariantConstructorFunc g_variant_to_node_path = NULL;
 static GDExtensionPtrConstructor g_string_from_node_path_constructor = NULL;
 static GDExtensionPtrBuiltInMethod g_array_size_method = NULL;
 static GDExtensionPtrBuiltInMethod g_array_get_method = NULL;
+// Array destructor (variant_get_ptr_destructor(ARRAY)) — frees the Array opaque produced by a
+// typed-object-array ptrcall return before the helper unwinds.
+static GDExtensionPtrDestructor g_array_destructor = NULL;
 // PackedInt32Array read-back (ptrcall return -> List<Int>). size is the no-arg
 // "size" builtin method; operator_index_const yields a pointer to element i.
 static GDExtensionPtrDestructor g_packed_int32_array_destructor = NULL;
@@ -5116,6 +5119,9 @@ static void kanama_ios_script_instance_free(GDExtensionScriptInstanceDataPtr dat
 }
 
 static void kanama_ios_cache_array_methods(void) {
+    if (g_array_destructor == NULL && g_variant_get_ptr_destructor != NULL) {
+        g_array_destructor = g_variant_get_ptr_destructor(KANAMA_IOS_VARIANT_TYPE_ARRAY);
+    }
     if (g_array_size_method != NULL && g_array_get_method != NULL) {
         return;
     }
@@ -5142,6 +5148,70 @@ static void kanama_ios_cache_array_methods(void) {
         );
         kanama_ios_destroy_string_name(&name_storage);
     }
+}
+
+// Typed-object-array (Array[Object]) ptrcall return -> object handles. Drives the call through
+// the generic dispatcher (so arg-shapes like a single bool are constructed the same way as any
+// ptrcall) with ret_out = an 8-byte Array opaque slot (Array is an OPAQUE_8_BYTE_TYPE — NOT 16
+// like Packed*Array), then reads each element back via the Array size/get builtins +
+// variant_to_object. Element handles are written into out_handles (caller-owned). Two-call length
+// protocol like the Packed*Array helpers: pass out_handles=NULL to learn the count, then call
+// again with a buffer of that capacity (the ptrcall re-runs each call). Returns the FULL element
+// count (negative on resolution failure). cap is an ELEMENT count.
+int64_t kanama_ios_godot_ptrcall_ret_object_array(
+    int64_t method_bind,
+    int64_t instance,
+    const int32_t *arg_types,
+    const void *const *arg_ptrs,
+    int32_t arg_count,
+    int64_t *out_handles,
+    int64_t cap
+) {
+    if (!kanama_ios_resolve_godot_api() || method_bind == 0 || instance == 0) {
+        return -1;
+    }
+    kanama_ios_cache_array_methods();
+    if (g_array_size_method == NULL || g_array_get_method == NULL || g_variant_to_object == NULL) {
+        return -1;
+    }
+
+    // Array opaque size is 8 bytes on 64-bit (OPAQUE_8_BYTE_TYPES) — a single uint64_t slot, NOT
+    // the 16-byte Packed*Array storage. The generic dispatcher writes the Array opaque into it.
+    uint64_t array_storage = 0;
+    kanama_ios_godot_ptrcall(
+        method_bind, instance, arg_types, arg_ptrs, arg_count,
+        KANAMA_IOS_PT_OBJECT /* any non-void ret tag → ret_out is used */, &array_storage);
+
+    int64_t size = 0;
+    g_array_size_method(&array_storage, NULL, &size, 0);
+
+    if (out_handles != NULL && cap > 0 && size > 0) {
+        int64_t n = (size < cap) ? size : cap;
+        for (int64_t i = 0; i < n; i++) {
+            // Array.get(i) returns a Variant; read its object pointer (0 for non-Object elements).
+            uint8_t ret_variant[24] = {0};
+            const GDExtensionConstTypePtr args[1] = { (GDExtensionConstTypePtr)&i };
+            g_array_get_method(&array_storage, args, ret_variant, 1);
+            int64_t handle = 0;
+            GDExtensionVariantType elem_type = g_variant_get_type != NULL
+                ? g_variant_get_type((GDExtensionConstVariantPtr)ret_variant)
+                : KANAMA_IOS_VARIANT_TYPE_NIL;
+            if (elem_type == KANAMA_IOS_VARIANT_TYPE_OBJECT) {
+                GDExtensionObjectPtr obj_ptr = NULL;
+                g_variant_to_object(&obj_ptr, (GDExtensionVariantPtr)ret_variant);
+                handle = (int64_t)(intptr_t)obj_ptr;
+            }
+            if (g_variant_destroy != NULL) {
+                g_variant_destroy((GDExtensionVariantPtr)ret_variant);
+            }
+            out_handles[i] = handle;
+        }
+    }
+
+    if (g_array_destructor != NULL) {
+        g_array_destructor((GDExtensionTypePtr)&array_storage);
+    }
+    return size;
 }
 
 static GDExtensionBool kanama_ios_script_instance_set_property(
@@ -5871,6 +5941,40 @@ static void kanama_ios_ptrcall_selftest(void) {
             ml, items, 8);
         KANAMA_IOS_ST_CHECK("packed-int32-ret get_item_list==[7,11]",
             item_count == 2 && items[0] == 7 && items[1] == 11);
+    }
+
+    // Typed-object-array return: a fresh parent Node with two child Nodes -> get_children(false)
+    // returns [child0, child1] in add order. Exercises the Array[Object] ptrcall return end-to-end
+    // (8-byte Array opaque + size/get builtins + variant_to_object, two-call length protocol)
+    // driven through the generic dispatcher's bool arg. Plain Node is safe to construct at
+    // extension-init time (no tree/server dependency), unlike the physics-body get_overlapping_*
+    // getters whose instances segfault this early. The buffer is prefilled with a -1 sentinel so
+    // real handle writes are distinguishable from an untouched slot. Phase 2.7d.
+    {
+        int64_t parent = kanama_ios_godot_construct_object("Node");
+        int64_t child0 = kanama_ios_godot_construct_object("Node");
+        int64_t child1 = kanama_ios_godot_construct_object("Node");
+        int64_t bind_add = kanama_ios_godot_get_method_bind("Node", "add_child", 3863233950);
+        uint8_t force_readable = 0;
+        int64_t internal_mode = 0; // enum arg — scalar int, 8 bytes at ptrcall
+        int32_t act[3] = { KANAMA_IOS_PT_OBJECT, KANAMA_IOS_PT_BOOL, KANAMA_IOS_PT_INT64 };
+        int64_t c0 = child0;
+        const void *a0[3] = { &c0, &force_readable, &internal_mode };
+        kanama_ios_godot_ptrcall(bind_add, parent, act, a0, 3, KANAMA_IOS_PT_VOID, NULL);
+        int64_t c1 = child1;
+        const void *a1[3] = { &c1, &force_readable, &internal_mode };
+        kanama_ios_godot_ptrcall(bind_add, parent, act, a1, 3, KANAMA_IOS_PT_VOID, NULL);
+
+        uint8_t include_internal = 0;
+        int32_t gct[1] = { KANAMA_IOS_PT_BOOL };
+        const void *gca[1] = { &include_internal };
+        int64_t kids[8];
+        for (int i = 0; i < 8; i++) { kids[i] = -1; }
+        int64_t kid_count = kanama_ios_godot_ptrcall_ret_object_array(
+            kanama_ios_godot_get_method_bind("Node", "get_children", 873284517),
+            parent, gct, gca, 1, kids, 8);
+        KANAMA_IOS_ST_CHECK("typed-object-array-ret get_children==[c0,c1]",
+            kid_count == 2 && kids[0] == child0 && kids[1] == child1);
     }
 
     // PackedFloat32Array-return: a freshly constructed Gradient seeds two default color

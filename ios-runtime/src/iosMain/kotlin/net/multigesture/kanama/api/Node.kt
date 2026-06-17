@@ -115,6 +115,10 @@ open class Node(handle: MemorySegment) : GodotObject(handle) {
         return ObjectCalls.ptrcallWithBoolArgRetInt(getChildCountBind, handle, includeInternal)
     }
 
+    fun getChildren(includeInternal: Boolean = false): List<Node> {
+        return ObjectCalls.ptrcallWithBoolArgRetTypedObjectList(getChildrenBind, handle, includeInternal, Node::fromHandle)
+    }
+
     fun getChild(idx: Int, includeInternal: Boolean = false): Node? {
         return Node.wrap(ObjectCalls.ptrcallWithIntAndBoolArgsRetObject(getChildBind, handle, idx, includeInternal))
     }
@@ -618,6 +622,11 @@ open class Node(handle: MemorySegment) : GodotObject(handle) {
         private const val GET_CHILD_COUNT_HASH = 894402480L
         private val getChildCountBind by lazy {
             ObjectCalls.getMethodBind("Node", "get_child_count", GET_CHILD_COUNT_HASH)
+        }
+
+        private const val GET_CHILDREN_HASH = 873284517L
+        private val getChildrenBind by lazy {
+            ObjectCalls.getMethodBind("Node", "get_children", GET_CHILDREN_HASH)
         }
 
         private const val GET_CHILD_HASH = 541253412L

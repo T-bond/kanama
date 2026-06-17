@@ -33,6 +33,7 @@ import net.multigesture.kanama.ios.cinterop.kanama_ios_godot_get_singleton
 import net.multigesture.kanama.ios.cinterop.kanama_ios_godot_object_call
 import net.multigesture.kanama.ios.cinterop.KanamaIosPackedArgDesc
 import net.multigesture.kanama.ios.cinterop.kanama_ios_godot_ptrcall
+import net.multigesture.kanama.ios.cinterop.kanama_ios_godot_ptrcall_ret_object_array
 import net.multigesture.kanama.ios.cinterop.kanama_ios_godot_ptrcall_no_args_ret_packed_color_array
 import net.multigesture.kanama.ios.cinterop.kanama_ios_godot_ptrcall_no_args_ret_packed_float32_array
 import net.multigesture.kanama.ios.cinterop.kanama_ios_godot_ptrcall_no_args_ret_packed_int32_array
@@ -545,6 +546,62 @@ object ObjectCalls {
             }
         }
 
+    // ---- typed-object-array (Array[Object]) returns -> List<T> ----
+    // GENERIC over the element wrapper via a `fromHandle: (MemorySegment) -> T?` factory passed by
+    // the api-layer caller (e.g. Node::fromHandle). Keeping the wrapper type out of the helper
+    // signature avoids inverting the binding.runtime -> api dependency: the generated wrapper owns
+    // its concrete List<Node> return type, the runtime only maps raw handles. The C helper drives a
+    // ptrcall whose return is a Godot Array (8-byte opaque), reads each element's object handle via
+    // the Array size/get builtins, and fills an int64 buffer (two-call length protocol: measure the
+    // count, allocate, fill). Each handle -> MemorySegment -> fromHandle; nulls (non-Object or freed)
+    // are dropped.
+    private inline fun <T> retTypedObjectList(
+        methodBind: MemorySegment,
+        instance: MemorySegment,
+        fromHandle: (MemorySegment) -> T?,
+        layoutArgs: MemScope.() -> Triple<CPointer<IntVar>?, CPointer<COpaquePointerVar>?, Int>,
+    ): List<T> =
+        memScoped {
+            val (types, ptrs, argc) = layoutArgs()
+            val count = kanama_ios_godot_ptrcall_ret_object_array(
+                methodBind.address(), instance.address(), types, ptrs, argc, null, 0L)
+            if (count <= 0L) {
+                emptyList()
+            } else {
+                val buf = allocArray<LongVar>(count)
+                kanama_ios_godot_ptrcall_ret_object_array(
+                    methodBind.address(), instance.address(), types, ptrs, argc, buf, count)
+                val out = ArrayList<T>(count.toInt())
+                for (i in 0 until count.toInt()) {
+                    val obj = fromHandle(MemorySegment.ofAddress(buf[i]))
+                    if (obj != null) out.add(obj)
+                }
+                out
+            }
+        }
+
+    fun <T> ptrcallNoArgsRetTypedObjectList(
+        methodBind: MemorySegment,
+        instance: MemorySegment,
+        fromHandle: (MemorySegment) -> T?,
+    ): List<T> =
+        retTypedObjectList(methodBind, instance, fromHandle) {
+            Triple(null, null, 0)
+        }
+
+    fun <T> ptrcallWithBoolArgRetTypedObjectList(
+        methodBind: MemorySegment,
+        instance: MemorySegment,
+        value: Boolean,
+        fromHandle: (MemorySegment) -> T?,
+    ): List<T> =
+        retTypedObjectList(methodBind, instance, fromHandle) {
+            val cell = alloc<ByteVar>(); cell.value = if (value) 1 else 0
+            val types = allocArray<IntVar>(1); types[0] = PT_BOOL
+            val ptrs = allocArray<COpaquePointerVar>(1); ptrs[0] = cell.ptr.reinterpret<CPointed>()
+            Triple<CPointer<IntVar>?, CPointer<COpaquePointerVar>?, Int>(types, ptrs, 1)
+        }
+
     // ---- single arg, void return ----
     fun ptrcallWithBoolArg(methodBind: MemorySegment, instance: MemorySegment, value: Boolean) =
         memScoped {
@@ -954,6 +1011,27 @@ fun kanamaIosRuntimeObjectCallsSelfTest() {
     val itemList = ObjectCalls.ptrcallNoArgsRetPackedInt32List(
         ObjectCalls.getMethodBind("MeshLibrary", "get_item_list", 1930428628L), meshLib)
     check("packed-int32-ret(get_item_list==[7,11])", itemList == listOf(7, 11))
+
+    // Typed-object-array-return (Node.get_children): a fresh parent Node with two child Nodes ->
+    // get_children(false) returns [child0, child1] in add order. Exercises the Kotlin generic helper
+    // ptrcallWithBoolArgRetTypedObjectList end to end (C Array read-back + handle -> MemorySegment ->
+    // fromHandle, two-call length protocol). The self-test fromHandle is identity (handle passthrough,
+    // null-filtered) so we can compare raw addresses without importing the api layer. Plain Node is
+    // safe to construct at init time. Phase 2.7d.
+    val gcAddChildBind = ObjectCalls.getMethodBind("Node", "add_child", 3863233950L)
+    val gcParent = ObjectCalls.constructObject("Node")
+    val gcChild0 = ObjectCalls.constructObject("Node")
+    val gcChild1 = ObjectCalls.constructObject("Node")
+    ObjectCalls.ptrcallWithObjectBoolLongArgs(gcAddChildBind, gcParent, gcChild0, false, 0L)
+    ObjectCalls.ptrcallWithObjectBoolLongArgs(gcAddChildBind, gcParent, gcChild1, false, 0L)
+    val gcKids = ObjectCalls.ptrcallWithBoolArgRetTypedObjectList(
+        ObjectCalls.getMethodBind("Node", "get_children", 873284517L), gcParent, false) {
+        if (it.address() == 0L) null else it
+    }
+    check("typed-object-array-ret(get_children==[c0,c1])",
+        gcKids.size == 2 &&
+            gcKids[0].address() == gcChild0.address() &&
+            gcKids[1].address() == gcChild1.address())
 
     // PackedFloat32Array-return (Gradient.get_offsets): a fresh Gradient seeds two default
     // points at offsets 0.0 and 1.0, so get_offsets() == [0.0, 1.0] — read back through

@@ -253,6 +253,8 @@ IOS_HANDWRITTEN_HELPERS = {
     "ptrcallWithPackedVector2ListPackedColorListDoubleAndBoolArgs",
     "ptrcallWithPackedVector2ListPackedColorListPackedVector2ListAndObjectArgs",
     "ptrcallWithPackedVector2ListColorPackedVector2ListAndObjectArgs",
+    "ptrcallNoArgsRetTypedObjectList",
+    "ptrcallWithBoolArgRetTypedObjectList",
 }
 PARAMETER_NAME_OVERRIDES = {
     ("Time", "get_datetime_dict_from_unix_time", "unix_time_val"): "unixTime",
@@ -447,6 +449,30 @@ def typed_object_array_element(logical_type: str) -> str | None:
     return logical_type.removeprefix(prefix) if logical_type.startswith(prefix) else None
 
 
+# typedarray::Node-family element types get a dedicated logical kind (e.g. "TypedNodeArray")
+# instead of the generic "TypedObjectArray::Node" form, so typed_object_array_element misses them.
+# This maps each named kind back to its element wrapper for the iOS typed-object-array plumbing.
+NAMED_TYPED_OBJECT_ARRAY_KINDS = {
+    "TypedNodeArray": "Node",
+    "TypedNode2DArray": "Node2D",
+    "TypedNode3DArray": "Node3D",
+    "TypedMaterialArray": "Material",
+    "TypedArea2DArray": "Area2D",
+    "TypedArea3DArray": "Area3D",
+    "TypedBaseButtonArray": "BaseButton",
+    "TypedPhysicsBody3DArray": "PhysicsBody3D",
+}
+
+
+def typed_object_array_element_any(logical_type: str) -> str | None:
+    """Element wrapper for ANY typed-object-array return kind — both the dedicated named kinds
+    (TypedNodeArray, ...) and the generic TypedObjectArray::X form."""
+    named = NAMED_TYPED_OBJECT_ARRAY_KINDS.get(logical_type)
+    if named is not None:
+        return named
+    return typed_object_array_element(logical_type)
+
+
 DIRECT_TYPED_OBJECT_LIST_HELPERS = {
     "ptrcallNoArgsRetTypedNodeList",
     "ptrcallNoArgsRetTypedNode2DList",
@@ -470,6 +496,35 @@ NO_ARG_TYPED_OBJECT_LIST_HELPERS = {
     "Area3D": "ptrcallNoArgsRetTypedArea3DList",
     "BaseButton": "ptrcallNoArgsRetTypedBaseButtonList",
     "PhysicsBody3D": "ptrcallNoArgsRetTypedPhysicsBody3DList",
+}
+
+
+# iOS marshals typed-object-array returns through GENERIC helpers that take a
+# `fromHandle: (MemorySegment) -> T?` factory supplied by the api-layer caller (e.g.
+# Node::fromHandle). The DIRECT desktop/Android helpers (ptrcall*RetTypedNodeList etc.) return
+# List<Node> by referencing api.Node from binding.runtime — a dependency inversion the iOS island
+# can't take. So under IOS_AUDIT_ONLY, candidate_for remaps each direct helper to its arg-shape's
+# generic equivalent (render_method then appends `{wrapper}::fromHandle` automatically, since the
+# generic name is not in DIRECT_TYPED_OBJECT_LIST_HELPERS).
+IOS_DIRECT_TO_GENERIC_TYPED_OBJECT_LIST = {
+    "ptrcallNoArgsRetTypedNodeList": "ptrcallNoArgsRetTypedObjectList",
+    "ptrcallNoArgsRetTypedNode2DList": "ptrcallNoArgsRetTypedObjectList",
+    "ptrcallNoArgsRetTypedNode3DList": "ptrcallNoArgsRetTypedObjectList",
+    "ptrcallNoArgsRetTypedMaterialList": "ptrcallNoArgsRetTypedObjectList",
+    "ptrcallNoArgsRetTypedArea2DList": "ptrcallNoArgsRetTypedObjectList",
+    "ptrcallNoArgsRetTypedArea3DList": "ptrcallNoArgsRetTypedObjectList",
+    "ptrcallNoArgsRetTypedBaseButtonList": "ptrcallNoArgsRetTypedObjectList",
+    "ptrcallNoArgsRetTypedPhysicsBody3DList": "ptrcallNoArgsRetTypedObjectList",
+    "ptrcallWithBoolArgRetTypedNodeList": "ptrcallWithBoolArgRetTypedObjectList",
+    "ptrcallWithStringNameArgRetTypedNodeList": "ptrcallWithStringNameArgRetTypedObjectList",
+}
+
+# The generic typed-object-array-return helpers actually hand-written + audited in ios-runtime
+# ObjectCalls.kt. The iOS gate admits a typed-object-array return only when its (remapped) shape is
+# one of these — mirrors the per-helper Packed*Array gates. Grow this as each arg-shape's helper
+# lands (2.7d widens to the no-arg and String-arg shapes).
+IOS_WIRED_TYPED_OBJECT_LIST_HELPERS = {
+    "ptrcallWithBoolArgRetTypedObjectList",
 }
 
 
@@ -527,7 +582,7 @@ def kotlin_default_expression(default_value: str | None, logical_kind: str) -> s
     return None
 
 
-def candidate_for(method: ApiMethod, object_types: set[str]) -> CallShape | None:
+def _candidate_for_impl(method: ApiMethod, object_types: set[str]) -> CallShape | None:
     logical_args = method.logical_arg_kinds(object_types)
     logical_return = method.logical_return_kind(object_types)
     return_array_element = typed_object_array_element(logical_return)
@@ -850,6 +905,18 @@ def candidate_for(method: ApiMethod, object_types: set[str]) -> CallShape | None
     return CALL_SHAPES.get((logical_args, logical_return))
 
 
+def candidate_for(method: ApiMethod, object_types: set[str]) -> CallShape | None:
+    shape = _candidate_for_impl(method, object_types)
+    # iOS remap: typed-object-array returns use the GENERIC fromHandle helpers, not the DIRECT
+    # List<Node> ones (dependency inversion — see IOS_DIRECT_TO_GENERIC_TYPED_OBJECT_LIST). Keep
+    # desktop/Android (IOS_AUDIT_ONLY == False) on the direct helpers.
+    if shape is not None and IOS_AUDIT_ONLY and typed_object_array_element_any(method.logical_return_kind(object_types)):
+        generic = IOS_DIRECT_TO_GENERIC_TYPED_OBJECT_LIST.get(shape.function, shape.function)
+        if generic != shape.function:
+            shape = CallShape(generic, shape.kotlin_return, shape.fallback)
+    return shape
+
+
 def is_supported_vararg_method(method: ApiMethod, object_types: set[str]) -> bool:
     if not method.is_vararg:
         return False
@@ -869,7 +936,21 @@ def ios_method_supported(method: ApiMethod, object_types: set[str]) -> bool:
     if method.is_vararg:
         return False
     shape = candidate_for(method, object_types)
-    if shape is None or shape.kotlin_return not in IOS_RET_KOTLIN:
+    if shape is None:
+        return False
+    # Typed-object-array returns: candidate_for has already remapped the DIRECT List<Node> helper
+    # to its generic fromHandle equivalent on iOS. Admit only the arg-shapes whose generic helper is
+    # hand-written + audited, and only when the element wrapper is itself emitted on iOS (else
+    # `{Element}::fromHandle` wouldn't compile). Detected by element (covers both the dedicated named
+    # kinds and the generic TypedObjectArray::X form), not by the kotlin_return token. Mirrors the
+    # per-helper Packed*Array gates.
+    typed_array_element = typed_object_array_element_any(method.logical_return_kind(object_types))
+    if typed_array_element is not None:
+        if shape.function not in IOS_WIRED_TYPED_OBJECT_LIST_HELPERS:
+            return False
+        if IOS_EMIT_CLASSES is not None and typed_array_element != "Object" and typed_array_element not in IOS_EMIT_CLASSES:
+            return False
+    elif shape.kotlin_return not in IOS_RET_KOTLIN:
         return False
     # iOS String read-back is wired for the two no-arg getters: ptrcallNoArgsRetString
     # (String return) and ptrcallNoArgsRetStringName (StringName return → String via the
@@ -1097,7 +1178,7 @@ def render_method(
         )
     params = ", ".join(param_texts)
     call_args = call_argument_expressions(method, object_types, api_classes, param_names)
-    return_array_element = typed_object_array_element(method.logical_return_kind(object_types))
+    return_array_element = typed_object_array_element_any(method.logical_return_kind(object_types))
     if return_array_element and shape.function not in DIRECT_TYPED_OBJECT_LIST_HELPERS:
         return_wrapper = api_object_wrapper_type(return_array_element, wrapper_classes)
         if return_wrapper is None:
