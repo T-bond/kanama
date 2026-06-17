@@ -204,6 +204,7 @@ IOS_ARG_KINDS = {
     "RID",
     "Quaternion",
     "AABB",
+    "PackedFloat32Array",
 }
 # Return shapes the iOS helpers can read back (keyed by CallShape.kotlin_return, the
 # stable per-helper return-type token). StringName/String/RID/List/Map returns
@@ -244,6 +245,7 @@ IOS_HANDWRITTEN_HELPERS = {
     "ptrcallNoArgsRetPackedFloat32List",
     "ptrcallNoArgsRetPackedVector2List",
     "ptrcallNoArgsRetPackedColorList",
+    "ptrcallWithPackedFloat32ListArg",
 }
 PARAMETER_NAME_OVERRIDES = {
     ("Time", "get_datetime_dict_from_unix_time", "unix_time_val"): "unixTime",
@@ -893,6 +895,10 @@ def ios_method_supported(method: ApiMethod, object_types: set[str]) -> bool:
         return False
     logical_args = method.logical_arg_kinds(object_types)
     if not all(kind in IOS_ARG_KINDS for kind in logical_args):
+        return False
+    # PackedFloat32Array arg (build-from-list): only the single-arg void shape is wired.
+    # Multi-arg shapes (e.g. CanvasItem.draw_*) share the kind but route through unbuilt helpers.
+    if "PackedFloat32Array" in logical_args and shape.function != "ptrcallWithPackedFloat32ListArg":
         return False
     # Every referenced object wrapper type must also be emitted on iOS (or be the root
     # Object -> GodotObject). Keeps the generated island self-contained / compilable.

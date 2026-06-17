@@ -158,6 +158,17 @@ int64_t kanama_ios_godot_ptrcall_no_args_ret_packed_color_array(
     int64_t buf_cap
 );
 
+/*
+ * Single-arg, void-return ptrcall taking a Godot PackedFloat32Array built from the caller's
+ * flat float buffer (the inverse of the read-back: constructor + push_back per element).
+ */
+void kanama_ios_godot_ptrcall_with_packed_float32_arg(
+    int64_t method_bind,
+    int64_t instance,
+    const float *elems,
+    int64_t count
+);
+
 int64_t kanama_ios_godot_construct_object(const char *class_name);
 
 int64_t kanama_ios_godot_get_singleton(const char *name);

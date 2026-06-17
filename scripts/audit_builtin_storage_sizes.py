@@ -29,9 +29,11 @@ IOS_SHIM = ROOT / "ios/bootstrap/kanama_ios_shim.c"
 IOS_PACKED_SIZE_MACRO = "KANAMA_IOS_PACKED_ARRAY_OPAQUE_SIZE"
 IOS_PACKED_STORAGE_MACRO = "KANAMA_IOS_PACKED_ARRAY_STORAGE"
 # A Packed*Array marshalling helper definition at column 0 (lowercase C function name
-# containing 'packed'...'array'; the uppercase macros and indented call sites don't match).
+# containing 'packed'; the uppercase macros and indented call sites don't match). Covers
+# both return helpers (..._ret_packed_*_array) and arg helpers (..._with_packed_*_arg); the
+# g_object_method_bind_ptrcall filter below excludes pass-by-pointer/cache helpers.
 IOS_PACKED_FUN_RE = re.compile(
-    r"^[A-Za-z_][\w ]*\*?\s*\b(kanama_ios_[a-z0-9_]*packed[a-z0-9_]*array)\s*\(", re.M
+    r"^[A-Za-z_][\w ]*\*?\s*\b(kanama_ios_[a-z0-9_]*packed[a-z0-9_]*)\s*\(", re.M
 )
 IOS_PACKED_SIZE_DEF_RE = re.compile(
     rf"#define\s+{IOS_PACKED_SIZE_MACRO}\s+(\d+)"

@@ -34,6 +34,7 @@ import net.multigesture.kanama.ios.cinterop.kanama_ios_godot_ptrcall_no_args_ret
 import net.multigesture.kanama.ios.cinterop.kanama_ios_godot_ptrcall_no_args_ret_packed_float32_array
 import net.multigesture.kanama.ios.cinterop.kanama_ios_godot_ptrcall_no_args_ret_packed_int32_array
 import net.multigesture.kanama.ios.cinterop.kanama_ios_godot_ptrcall_no_args_ret_packed_vector2_array
+import net.multigesture.kanama.ios.cinterop.kanama_ios_godot_ptrcall_with_packed_float32_arg
 import net.multigesture.kanama.ios.cinterop.kanama_ios_godot_ptrcall_no_args_ret_string
 import net.multigesture.kanama.ios.cinterop.kanama_ios_godot_ptrcall_no_args_ret_node_path
 import net.multigesture.kanama.ios.cinterop.kanama_ios_godot_ptrcall_no_args_ret_string_name
@@ -279,6 +280,21 @@ object ObjectCalls {
                 List(count.toInt()) { buf[it] }
             }
         }
+
+    // PackedFloat32Array arg (build-from-list): copy the List into a flat float buffer; the C
+    // helper builds the array (constructor + push_back) and ptrcalls the single-arg void method.
+    fun ptrcallWithPackedFloat32ListArg(
+        methodBind: MemorySegment,
+        instance: MemorySegment,
+        values: List<Float>,
+    ) = memScoped {
+        val n = values.size
+        val buf = allocArray<FloatVar>(if (n > 0) n else 1)
+        for (i in 0 until n) buf[i] = values[i]
+        kanama_ios_godot_ptrcall_with_packed_float32_arg(
+            methodBind.address(), instance.address(), buf, n.toLong())
+        Unit
+    }
 
     // PackedVector2Array return: each element is 2 float32; the C helper fills count*2 floats.
     fun ptrcallNoArgsRetPackedVector2List(methodBind: MemorySegment, instance: MemorySegment): List<Vector2> =
@@ -728,6 +744,17 @@ fun kanamaIosRuntimeObjectCallsSelfTest() {
     val offsets = ObjectCalls.ptrcallNoArgsRetPackedFloat32List(
         ObjectCalls.getMethodBind("Gradient", "get_offsets", 675695659L), gradient)
     check("packed-float32-ret(get_offsets==[0,1])", offsets == listOf(0.0f, 1.0f))
+
+    // PackedFloat32Array-arg (Gradient.set_offsets): build a list C-side and set it, then read
+    // it back. Exercises the build-from-list arg path end to end. Phase 2.7c-4.
+    val gradientA = ObjectCalls.constructObject("Gradient")
+    ObjectCalls.ptrcallWithPackedFloat32ListArg(
+        ObjectCalls.getMethodBind("Gradient", "set_offsets", 2899603908L), gradientA,
+        listOf(0.25f, 0.5f, 0.75f))
+    val offsetsBack = ObjectCalls.ptrcallNoArgsRetPackedFloat32List(
+        ObjectCalls.getMethodBind("Gradient", "get_offsets", 675695659L), gradientA)
+    check("packed-float32-arg(set/get_offsets==[0.25,0.5,0.75])",
+        offsetsBack == listOf(0.25f, 0.5f, 0.75f))
 
     // PackedVector2Array-return (Line2D.get_points): add two points via the Vector2 arg path,
     // then read them back through ptrcallNoArgsRetPackedVector2List (2 float32 per element).

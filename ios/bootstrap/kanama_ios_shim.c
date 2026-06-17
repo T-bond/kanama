@@ -302,6 +302,9 @@ static GDExtensionPtrDestructor g_packed_float32_array_destructor = NULL;
 static GDExtensionPtrBuiltInMethod g_packed_float32_array_size_method = NULL;
 static GDExtensionInterfacePackedFloat32ArrayOperatorIndexConst
     g_packed_float32_array_operator_index_const = NULL;
+// PackedFloat32Array build path (List<Float> -> ptrcall arg): default constructor + push_back.
+static GDExtensionPtrConstructor g_packed_float32_array_constructor = NULL;
+static GDExtensionPtrBuiltInMethod g_packed_float32_array_push_back = NULL;
 // PackedVector2Array / PackedColorArray read-back. operator_index_const yields a pointer
 // to the element (Vector2 = 2 float32, Color = 4 float32 on iOS real_t=float32).
 static GDExtensionPtrDestructor g_packed_vector2_array_destructor = NULL;
@@ -552,6 +555,7 @@ enum {
     // No-arg "size" builtin method hash; signature-derived so it matches Array.size.
     KANAMA_IOS_PACKED_INT32_ARRAY_SIZE_HASH = 3173160232U,
     KANAMA_IOS_PACKED_FLOAT32_ARRAY_SIZE_HASH = 3173160232U,
+    KANAMA_IOS_PACKED_FLOAT32_ARRAY_PUSH_BACK_HASH = 4094791666U,
     KANAMA_IOS_PACKED_VECTOR2_ARRAY_SIZE_HASH = 3173160232U,
     KANAMA_IOS_PACKED_COLOR_ARRAY_SIZE_HASH = 3173160232U,
     KANAMA_IOS_NOTIFICATION_POSTINITIALIZE = 0,
@@ -1641,6 +1645,21 @@ static void kanama_ios_cache_packed_float32_methods(void) {
             (GDExtensionInterfacePackedFloat32ArrayOperatorIndexConst)kanama_ios_lookup(
                 "packed_float32_array_operator_index_const");
     }
+    // Build path (List<Float> -> ptrcall arg): default constructor + push_back.
+    if (g_packed_float32_array_constructor == NULL && g_variant_get_ptr_constructor != NULL) {
+        g_packed_float32_array_constructor =
+            g_variant_get_ptr_constructor(KANAMA_IOS_VARIANT_TYPE_PACKED_FLOAT32_ARRAY, 0);
+    }
+    if (g_packed_float32_array_push_back == NULL && g_variant_get_ptr_builtin_method != NULL) {
+        uint64_t name_storage = 0;
+        kanama_ios_init_string_name(&name_storage, "push_back");
+        g_packed_float32_array_push_back = g_variant_get_ptr_builtin_method(
+            KANAMA_IOS_VARIANT_TYPE_PACKED_FLOAT32_ARRAY,
+            (GDExtensionConstStringNamePtr)&name_storage,
+            (GDExtensionInt)KANAMA_IOS_PACKED_FLOAT32_ARRAY_PUSH_BACK_HASH
+        );
+        kanama_ios_destroy_string_name(&name_storage);
+    }
 }
 
 // PackedFloat32Array no-arg getter return — element type float32. Same protocol and 16-byte
@@ -1688,6 +1707,54 @@ int64_t kanama_ios_godot_ptrcall_no_args_ret_packed_float32_array(
         g_packed_float32_array_destructor(array_storage);
     }
     return count;
+}
+
+// PackedFloat32Array ARG (build-from-list): construct an empty array, push_back each element
+// from the caller's flat float buffer, ptrcall the (single-arg, void) method with it, then
+// destruct. 16-byte storage (Packed*Array opaque size). This is the inverse of the read-back.
+void kanama_ios_godot_ptrcall_with_packed_float32_arg(
+    int64_t method_bind,
+    int64_t instance,
+    const float *elems,
+    int64_t count
+) {
+    if (!kanama_ios_resolve_godot_api() || method_bind == 0 || instance == 0) {
+        return;
+    }
+    if (g_object_method_bind_ptrcall == NULL) {
+        return;
+    }
+    kanama_ios_cache_packed_float32_methods();
+    if (g_packed_float32_array_constructor == NULL || g_packed_float32_array_push_back == NULL) {
+        return;
+    }
+
+    KANAMA_IOS_PACKED_ARRAY_STORAGE(array_storage);
+    g_packed_float32_array_constructor((GDExtensionUninitializedTypePtr)array_storage, NULL);
+
+    if (count < 0) {
+        count = 0;
+    }
+    for (int64_t i = 0; i < count; i++) {
+        // push_back(value: float) takes the scalar as an 8-byte DOUBLE in the ptr-ABI (Godot's
+        // script float is double), even though the array stores float32. Passing a 4-byte float
+        // makes push_back read 8 bytes of garbage. Same quirk as scalar-float ptrcall returns.
+        double value = (elems != NULL) ? (double)elems[i] : 0.0;
+        const GDExtensionConstTypePtr pb_args[1] = { (GDExtensionConstTypePtr)&value };
+        uint8_t pb_ret = 0;
+        g_packed_float32_array_push_back(array_storage, pb_args, &pb_ret, 1);
+    }
+
+    const void *args[1] = { array_storage };
+    g_object_method_bind_ptrcall(
+        (GDExtensionMethodBindPtr)(intptr_t)method_bind,
+        (GDExtensionObjectPtr)(intptr_t)instance,
+        (const GDExtensionConstTypePtr *)args,
+        NULL);
+
+    if (g_packed_float32_array_destructor != NULL) {
+        g_packed_float32_array_destructor(array_storage);
+    }
 }
 
 // Lazily resolve the PackedVector2Array read-back trio.
@@ -5596,6 +5663,25 @@ static void kanama_ios_ptrcall_selftest(void) {
             grad, offsets, 8);
         KANAMA_IOS_ST_CHECK("packed-float32-ret get_offsets==[0,1]",
             off_count == 2 && offsets[0] == 0.0f && offsets[1] == 1.0f);
+    }
+
+    // PackedFloat32Array-ARG: Gradient.set_offsets([0.25,0.5,0.75]) built from a flat float
+    // buffer (constructor + push_back per element), then get_offsets() reads them back.
+    // Exercises the build-from-list arg path end to end on a safe Resource (the emitted target
+    // Label.set_tab_stops can't anchor — treeless Control segfault). Phase 2.7c-4.
+    {
+        int64_t grad_a = kanama_ios_godot_construct_object("Gradient");
+        float in_offsets[3] = { 0.25f, 0.5f, 0.75f };
+        kanama_ios_godot_ptrcall_with_packed_float32_arg(
+            kanama_ios_godot_get_method_bind("Gradient", "set_offsets", 2899603908),
+            grad_a, in_offsets, 3);
+        float back[8];
+        for (int i = 0; i < 8; i++) { back[i] = -1.0f; }
+        int64_t back_count = kanama_ios_godot_ptrcall_no_args_ret_packed_float32_array(
+            kanama_ios_godot_get_method_bind("Gradient", "get_offsets", 675695659),
+            grad_a, back, 8);
+        KANAMA_IOS_ST_CHECK("packed-float32-arg set/get_offsets==[0.25,0.5,0.75]",
+            back_count == 3 && back[0] == 0.25f && back[1] == 0.5f && back[2] == 0.75f);
     }
 
     // PackedVector2Array-return: Line2D.add_point((1.5,2.5))/add_point((3.5,4.5)) ->

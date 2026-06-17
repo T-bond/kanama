@@ -76,9 +76,11 @@ class Label(handle: MemorySegment) : Control(handle) {
         @JvmName("setUppercaseProperty")
         set(value) = setUppercase(value)
 
-    val tabStops: List<Float>
+    var tabStops: List<Float>
         @JvmName("tabStopsProperty")
         get() = getTabStops()
+        @JvmName("setTabStopsProperty")
+        set(value) = setTabStops(value)
 
     var linesSkipped: Int
         @JvmName("linesSkippedProperty")
@@ -206,6 +208,10 @@ class Label(handle: MemorySegment) : Control(handle) {
 
     fun isClippingText(): Boolean {
         return ObjectCalls.ptrcallNoArgsRetBool(isClippingTextBind, handle)
+    }
+
+    fun setTabStops(tabStops: List<Float>) {
+        ObjectCalls.ptrcallWithPackedFloat32ListArg(setTabStopsBind, handle, tabStops)
     }
 
     fun getTabStops(): List<Float> {
@@ -409,6 +415,11 @@ class Label(handle: MemorySegment) : Control(handle) {
         private const val IS_CLIPPING_TEXT_HASH = 36873697L
         private val isClippingTextBind by lazy {
             ObjectCalls.getMethodBind("Label", "is_clipping_text", IS_CLIPPING_TEXT_HASH)
+        }
+
+        private const val SET_TAB_STOPS_HASH = 2899603908L
+        private val setTabStopsBind by lazy {
+            ObjectCalls.getMethodBind("Label", "set_tab_stops", SET_TAB_STOPS_HASH)
         }
 
         private const val GET_TAB_STOPS_HASH = 675695659L
