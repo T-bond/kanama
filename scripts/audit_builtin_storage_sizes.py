@@ -23,6 +23,24 @@ RUNTIME_FILES = [
     ROOT / "src/main/kotlin/binding/runtime/ObjectCalls.kt",
 ]
 BUILTIN_TYPES = ROOT / "src/main/kotlin/binding/runtime/BuiltinTypes.kt"
+# iOS GDExtension shim: hand-written C marshalling. Packed*Array ptrcall storage there is
+# a raw stack slot, not a sized Kotlin allocation — so it needs its own size guardrail.
+IOS_SHIM = ROOT / "ios/bootstrap/kanama_ios_shim.c"
+IOS_PACKED_SIZE_MACRO = "KANAMA_IOS_PACKED_ARRAY_OPAQUE_SIZE"
+IOS_PACKED_STORAGE_MACRO = "KANAMA_IOS_PACKED_ARRAY_STORAGE"
+# A Packed*Array marshalling helper definition at column 0 (lowercase C function name
+# containing 'packed'...'array'; the uppercase macros and indented call sites don't match).
+IOS_PACKED_FUN_RE = re.compile(
+    r"^[A-Za-z_][\w ]*\*?\s*\b(kanama_ios_[a-z0-9_]*packed[a-z0-9_]*array)\s*\(", re.M
+)
+IOS_PACKED_SIZE_DEF_RE = re.compile(
+    rf"#define\s+{IOS_PACKED_SIZE_MACRO}\s+(\d+)"
+)
+C_COMMENT_RE = re.compile(r"/\*.*?\*/|//[^\n]*", re.S)
+
+
+def strip_c_comments(text: str) -> str:
+    return C_COMMENT_RE.sub(" ", text)
 
 PACKED_TYPES = {
     "PackedByteArray",
@@ -183,11 +201,53 @@ def audit_builtin_types_specifics() -> list[str]:
     return errors
 
 
+def audit_ios_shim() -> list[str]:
+    """Guard the iOS C shim: every Packed*Array ptrcall storage slot must be sized by
+    KANAMA_IOS_PACKED_ARRAY_OPAQUE_SIZE (16 on 64-bit), not a bare 8-byte cell. A too-small
+    slot overflows the ptrcall return-encode and crashes reading CowData metadata on device."""
+    if not IOS_SHIM.exists():
+        return []
+    content = IOS_SHIM.read_text(encoding="utf-8")
+    errors: list[str] = []
+    rel = IOS_SHIM.relative_to(ROOT)
+
+    packed_abi = float64_builtin_sizes().get("PackedInt32Array")
+    size_def = IOS_PACKED_SIZE_DEF_RE.search(content)
+    if size_def is None:
+        errors.append(f"{rel}: #define {IOS_PACKED_SIZE_MACRO} is missing")
+    elif int(size_def.group(1)) != packed_abi:
+        errors.append(
+            f"{rel}: {IOS_PACKED_SIZE_MACRO} is {size_def.group(1)}, expected {packed_abi} "
+            "(float_64 builtin_class_sizes — all Packed*Array are 16 on 64-bit)"
+        )
+    if f"#define {IOS_PACKED_STORAGE_MACRO}(" not in content:
+        errors.append(f"{rel}: {IOS_PACKED_STORAGE_MACRO} storage macro is missing")
+
+    for match in IOS_PACKED_FUN_RE.finditer(content):
+        name = match.group(1)
+        # Strip comments so a comment that merely names the macro can't satisfy the check.
+        body = strip_c_comments(content[match.start() : find_function_end(content, match.end())])
+        # Only ptrcall helpers declare a local Packed*Array storage slot (they invoke
+        # g_object_method_bind_ptrcall). Pass-by-pointer builders (init_*_packed_*, taking a
+        # GDExtensionTypePtr out/ret that Godot already sized) don't, and must not be flagged.
+        if "g_object_method_bind_ptrcall" not in body:
+            continue
+        if f"{IOS_PACKED_STORAGE_MACRO}(" not in body and IOS_PACKED_SIZE_MACRO not in body:
+            line = content.count("\n", 0, match.start()) + 1
+            errors.append(
+                f"{rel}:{line}: {name} ptrcalls a Packed*Array but does not size its storage "
+                f"via {IOS_PACKED_STORAGE_MACRO}/{IOS_PACKED_SIZE_MACRO} — a bare 8-byte slot "
+                "overflows the return-encode (see the macro comment)"
+            )
+    return errors
+
+
 def main() -> int:
     errors = audit_constants()
     for path in RUNTIME_FILES:
         errors.extend(audit_file(path))
     errors.extend(audit_builtin_types_specifics())
+    errors.extend(audit_ios_shim())
 
     if errors:
         print("[builtin_storage_size_audit] FAIL", file=sys.stderr)

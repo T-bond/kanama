@@ -392,6 +392,24 @@ static int g_kanama_log_lifecycle = 0;
 // unchanged, and only CONSTRUCT-tagged types (StringName/String/NodePath) are built
 // C-side. Returns are written raw by ptrcall into a Kotlin-sized buffer.
 #define KANAMA_IOS_PTRCALL_MAX_ARGS 16
+
+// Opaque byte size of a Packed*Array in the 64-bit GDExtension ABI (extension_api.json
+// builtin_class_sizes, float_64/double_64). It is 16, NOT 8 like String/StringName/
+// NodePath — a Packed*Array is a CowData pointer plus a proxy pointer. An 8-byte ptrcall
+// return slot overflows the stack during the return-encode and crashes reading CowData
+// metadata at ptr-16. EVERY Packed*Array ptrcall return/arg storage MUST be sized by this
+// constant (assert with KANAMA_IOS_PACKED_ARRAY_STORAGE). Pointer-width-dependent, not
+// precision-dependent. Enforced by scripts/audit_builtin_storage_sizes.py.
+#define KANAMA_IOS_PACKED_ARRAY_OPAQUE_SIZE 16
+
+// Declare a zero-initialized Packed*Array ptrcall storage slot, statically asserted to be
+// at least the 64-bit ABI opaque size. Use this for every Packed*Array marshalling helper.
+#define KANAMA_IOS_PACKED_ARRAY_STORAGE(name)                                        \
+    uint64_t name[(KANAMA_IOS_PACKED_ARRAY_OPAQUE_SIZE + sizeof(uint64_t) - 1) /     \
+                  sizeof(uint64_t)] = { 0 };                                          \
+    _Static_assert(sizeof(name) >= KANAMA_IOS_PACKED_ARRAY_OPAQUE_SIZE,              \
+        "Packed*Array ptrcall storage must be >= the 16-byte 64-bit ABI opaque size")
+
 enum {
     KANAMA_IOS_PT_VOID = 0,
     KANAMA_IOS_PT_BOOL,        // uint8 (1 byte)
@@ -1552,11 +1570,10 @@ int64_t kanama_ios_godot_ptrcall_no_args_ret_packed_int32_array(
         return -1;
     }
 
-    // PackedInt32Array's opaque size is 16 bytes in the 64-bit GDExtension ABI (per
-    // extension_api.json builtin_class_sizes, float_64/double_64) — NOT 8 like String/
-    // NodePath. The ptrcall return-encode writes the full 16 bytes, so an 8-byte slot
-    // would overflow the stack and leave a malformed CowData. Size generously.
-    uint64_t array_storage[2] = { 0, 0 };
+    // PackedInt32Array's opaque size is 16 bytes in the 64-bit GDExtension ABI — NOT 8 like
+    // String/NodePath. The macro sizes the slot from KANAMA_IOS_PACKED_ARRAY_OPAQUE_SIZE and
+    // static-asserts it, so the ptrcall return-encode can't overflow the stack.
+    KANAMA_IOS_PACKED_ARRAY_STORAGE(array_storage);
     g_object_method_bind_ptrcall(
         (GDExtensionMethodBindPtr)(intptr_t)method_bind,
         (GDExtensionObjectPtr)(intptr_t)instance,
