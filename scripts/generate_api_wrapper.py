@@ -205,6 +205,8 @@ IOS_ARG_KINDS = {
     "Quaternion",
     "AABB",
     "PackedFloat32Array",
+    "PackedVector2Array",
+    "PackedColorArray",
 }
 # Return shapes the iOS helpers can read back (keyed by CallShape.kotlin_return, the
 # stable per-helper return-type token). StringName/String/RID/List/Map returns
@@ -247,6 +249,8 @@ IOS_HANDWRITTEN_HELPERS = {
     "ptrcallNoArgsRetPackedColorList",
     "ptrcallNoArgsRetPackedStringList",
     "ptrcallWithPackedFloat32ListArg",
+    "ptrcallWithPackedVector2ListColorDoubleAndBoolArgs",
+    "ptrcallWithPackedVector2ListPackedColorListDoubleAndBoolArgs",
 }
 PARAMETER_NAME_OVERRIDES = {
     ("Time", "get_datetime_dict_from_unix_time", "unix_time_val"): "unixTime",
@@ -904,6 +908,15 @@ def ios_method_supported(method: ApiMethod, object_types: set[str]) -> bool:
     # PackedFloat32Array arg (build-from-list): only the single-arg void shape is wired.
     # Multi-arg shapes (e.g. CanvasItem.draw_*) share the kind but route through unbuilt helpers.
     if "PackedFloat32Array" in logical_args and shape.function != "ptrcallWithPackedFloat32ListArg":
+        return False
+    # PackedVector2Array / PackedColorArray args are wired only for the two no-Object CanvasItem
+    # draw_* shapes (draw_polyline/draw_multiline and the *_colors variants). Other shapes that use
+    # these kinds (single-arg setters on non-emitted classes, RID-prefixed RenderingServer combos,
+    # the Texture2D-arg polygon/primitive shapes) route through helpers not yet built.
+    if ("PackedVector2Array" in logical_args or "PackedColorArray" in logical_args) and shape.function not in (
+        "ptrcallWithPackedVector2ListColorDoubleAndBoolArgs",
+        "ptrcallWithPackedVector2ListPackedColorListDoubleAndBoolArgs",
+    ):
         return False
     # Every referenced object wrapper type must also be emitted on iOS (or be the root
     # Object -> GodotObject). Keeps the generated island self-contained / compilable.

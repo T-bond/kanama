@@ -208,12 +208,28 @@ open class CanvasItem(handle: MemorySegment) : Node(handle) {
         ObjectCalls.ptrcallWithTwoVector2ColorTwoDoubleTwoBoolArgs(drawDashedLineBind, handle, from, to, color, width, dash, aligned, antialiased)
     }
 
+    fun drawPolyline(points: List<Vector2>, color: Color, width: Double = -1.0, antialiased: Boolean = false) {
+        ObjectCalls.ptrcallWithPackedVector2ListColorDoubleAndBoolArgs(drawPolylineBind, handle, points, color, width, antialiased)
+    }
+
+    fun drawPolylineColors(points: List<Vector2>, colors: List<Color>, width: Double = -1.0, antialiased: Boolean = false) {
+        ObjectCalls.ptrcallWithPackedVector2ListPackedColorListDoubleAndBoolArgs(drawPolylineColorsBind, handle, points, colors, width, antialiased)
+    }
+
     fun drawEllipseArc(center: Vector2, major: Double, minor: Double, startAngle: Double, endAngle: Double, pointCount: Int, color: Color, width: Double = -1.0, antialiased: Boolean = false) {
         ObjectCalls.ptrcallWithVector2FourDoubleIntColorDoubleBoolArgs(drawEllipseArcBind, handle, center, major, minor, startAngle, endAngle, pointCount, color, width, antialiased)
     }
 
     fun drawArc(center: Vector2, radius: Double, startAngle: Double, endAngle: Double, pointCount: Int, color: Color, width: Double = -1.0, antialiased: Boolean = false) {
         ObjectCalls.ptrcallWithVector2ThreeDoubleIntColorDoubleBoolArgs(drawArcBind, handle, center, radius, startAngle, endAngle, pointCount, color, width, antialiased)
+    }
+
+    fun drawMultiline(points: List<Vector2>, color: Color, width: Double = -1.0, antialiased: Boolean = false) {
+        ObjectCalls.ptrcallWithPackedVector2ListColorDoubleAndBoolArgs(drawMultilineBind, handle, points, color, width, antialiased)
+    }
+
+    fun drawMultilineColors(points: List<Vector2>, colors: List<Color>, width: Double = -1.0, antialiased: Boolean = false) {
+        ObjectCalls.ptrcallWithPackedVector2ListPackedColorListDoubleAndBoolArgs(drawMultilineColorsBind, handle, points, colors, width, antialiased)
     }
 
     fun drawRect(rect: Rect2, color: Color, filled: Boolean = true, width: Double = -1.0, antialiased: Boolean = false) {
@@ -557,6 +573,16 @@ open class CanvasItem(handle: MemorySegment) : Node(handle) {
             ObjectCalls.getMethodBind("CanvasItem", "draw_dashed_line", DRAW_DASHED_LINE_HASH)
         }
 
+        private const val DRAW_POLYLINE_HASH = 3797364428L
+        private val drawPolylineBind by lazy {
+            ObjectCalls.getMethodBind("CanvasItem", "draw_polyline", DRAW_POLYLINE_HASH)
+        }
+
+        private const val DRAW_POLYLINE_COLORS_HASH = 2311979562L
+        private val drawPolylineColorsBind by lazy {
+            ObjectCalls.getMethodBind("CanvasItem", "draw_polyline_colors", DRAW_POLYLINE_COLORS_HASH)
+        }
+
         private const val DRAW_ELLIPSE_ARC_HASH = 936174114L
         private val drawEllipseArcBind by lazy {
             ObjectCalls.getMethodBind("CanvasItem", "draw_ellipse_arc", DRAW_ELLIPSE_ARC_HASH)
@@ -565,6 +591,16 @@ open class CanvasItem(handle: MemorySegment) : Node(handle) {
         private const val DRAW_ARC_HASH = 4140652635L
         private val drawArcBind by lazy {
             ObjectCalls.getMethodBind("CanvasItem", "draw_arc", DRAW_ARC_HASH)
+        }
+
+        private const val DRAW_MULTILINE_HASH = 3797364428L
+        private val drawMultilineBind by lazy {
+            ObjectCalls.getMethodBind("CanvasItem", "draw_multiline", DRAW_MULTILINE_HASH)
+        }
+
+        private const val DRAW_MULTILINE_COLORS_HASH = 2311979562L
+        private val drawMultilineColorsBind by lazy {
+            ObjectCalls.getMethodBind("CanvasItem", "draw_multiline_colors", DRAW_MULTILINE_COLORS_HASH)
         }
 
         private const val DRAW_RECT_HASH = 2773573813L

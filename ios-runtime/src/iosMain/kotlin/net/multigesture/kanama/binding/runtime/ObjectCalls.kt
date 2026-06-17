@@ -7,6 +7,8 @@ import kotlin.experimental.ExperimentalNativeApi
 import kotlin.native.CName
 import kotlinx.cinterop.ByteVar
 import kotlinx.cinterop.CPointed
+import kotlinx.cinterop.CPointer
+import kotlinx.cinterop.MemScope
 import kotlinx.cinterop.COpaquePointerVar
 import kotlinx.cinterop.DoubleVar
 import kotlinx.cinterop.ExperimentalForeignApi
@@ -374,6 +376,89 @@ object ObjectCalls {
         val types = allocArray<IntVar>(1); types[0] = PT_PACKED_COLOR_ARRAY
         val ptrs = allocArray<COpaquePointerVar>(1); ptrs[0] = desc.ptr.reinterpret<CPointed>()
         kanama_ios_godot_ptrcall(methodBind.address(), instance.address(), types, ptrs, 1, PT_VOID, null)
+        Unit
+    }
+
+    // Lay a List<Vector2> into a flat float32 buffer + a {count,data} descriptor; returns the
+    // descriptor pointer for use as a PT_PACKED_VECTOR2_ARRAY arg in a multi-arg dispatch.
+    private fun MemScope.packVector2Desc(values: List<Vector2>): CPointer<KanamaIosPackedArgDesc> {
+        val n = values.size
+        val floats = allocArray<FloatVar>(if (n > 0) n * 2 else 1)
+        for (i in 0 until n) {
+            floats[i * 2] = values[i].x.toFloat()
+            floats[i * 2 + 1] = values[i].y.toFloat()
+        }
+        val desc = alloc<KanamaIosPackedArgDesc>()
+        desc.count = n.toLong(); desc.data = floats.reinterpret()
+        return desc.ptr
+    }
+
+    private fun MemScope.packColorDesc(values: List<Color>): CPointer<KanamaIosPackedArgDesc> {
+        val n = values.size
+        val floats = allocArray<FloatVar>(if (n > 0) n * 4 else 1)
+        for (i in 0 until n) {
+            floats[i * 4] = values[i].r; floats[i * 4 + 1] = values[i].g
+            floats[i * 4 + 2] = values[i].b; floats[i * 4 + 3] = values[i].a
+        }
+        val desc = alloc<KanamaIosPackedArgDesc>()
+        desc.count = n.toLong(); desc.data = floats.reinterpret()
+        return desc.ptr
+    }
+
+    private fun MemScope.colorCell(c: Color): CPointer<FloatVar> {
+        val cell = allocArray<FloatVar>(4)
+        cell[0] = c.r; cell[1] = c.g; cell[2] = c.b; cell[3] = c.a
+        return cell
+    }
+
+    // CanvasItem.draw_polyline / draw_multiline: (PackedVector2Array, Color, float, bool) -> void.
+    // Built through the generic dispatch (packed args + Color/double/bool POD cells). Can't be
+    // self-tested (no _draw context); rides on the device-proven 2.7c-6a packed-arg building.
+    fun ptrcallWithPackedVector2ListColorDoubleAndBoolArgs(
+        methodBind: MemorySegment,
+        instance: MemorySegment,
+        points: List<Vector2>,
+        color: Color,
+        width: Double,
+        antialiased: Boolean,
+    ) = memScoped {
+        val pointsDesc = packVector2Desc(points)
+        val colorPtr = colorCell(color)
+        val widthCell = alloc<DoubleVar>(); widthCell.value = width
+        val boolCell = alloc<ByteVar>(); boolCell.value = if (antialiased) 1 else 0
+        val types = allocArray<IntVar>(4)
+        types[0] = PT_PACKED_VECTOR2_ARRAY; types[1] = PT_COLOR; types[2] = PT_FLOAT64; types[3] = PT_BOOL
+        val ptrs = allocArray<COpaquePointerVar>(4)
+        ptrs[0] = pointsDesc.reinterpret<CPointed>()
+        ptrs[1] = colorPtr.reinterpret<CPointed>()
+        ptrs[2] = widthCell.ptr.reinterpret<CPointed>()
+        ptrs[3] = boolCell.ptr.reinterpret<CPointed>()
+        kanama_ios_godot_ptrcall(methodBind.address(), instance.address(), types, ptrs, 4, PT_VOID, null)
+        Unit
+    }
+
+    // CanvasItem.draw_polyline_colors / draw_multiline_colors:
+    // (PackedVector2Array, PackedColorArray, float, bool) -> void.
+    fun ptrcallWithPackedVector2ListPackedColorListDoubleAndBoolArgs(
+        methodBind: MemorySegment,
+        instance: MemorySegment,
+        points: List<Vector2>,
+        colors: List<Color>,
+        width: Double,
+        antialiased: Boolean,
+    ) = memScoped {
+        val pointsDesc = packVector2Desc(points)
+        val colorsDesc = packColorDesc(colors)
+        val widthCell = alloc<DoubleVar>(); widthCell.value = width
+        val boolCell = alloc<ByteVar>(); boolCell.value = if (antialiased) 1 else 0
+        val types = allocArray<IntVar>(4)
+        types[0] = PT_PACKED_VECTOR2_ARRAY; types[1] = PT_PACKED_COLOR_ARRAY; types[2] = PT_FLOAT64; types[3] = PT_BOOL
+        val ptrs = allocArray<COpaquePointerVar>(4)
+        ptrs[0] = pointsDesc.reinterpret<CPointed>()
+        ptrs[1] = colorsDesc.reinterpret<CPointed>()
+        ptrs[2] = widthCell.ptr.reinterpret<CPointed>()
+        ptrs[3] = boolCell.ptr.reinterpret<CPointed>()
+        kanama_ios_godot_ptrcall(methodBind.address(), instance.address(), types, ptrs, 4, PT_VOID, null)
         Unit
     }
 
