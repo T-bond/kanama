@@ -140,6 +140,24 @@ int64_t kanama_ios_godot_ptrcall_no_args_ret_packed_float32_array(
     int64_t buf_cap
 );
 
+/*
+ * No-arg ptrcall returning a Godot PackedVector2Array / PackedColorArray, read into a flat
+ * float32 buffer. buf_cap is an ELEMENT count; out_buf receives buf_cap*2 (Vector2) or
+ * buf_cap*4 (Color) floats. Element components are float32 on iOS (real_t single precision).
+ */
+int64_t kanama_ios_godot_ptrcall_no_args_ret_packed_vector2_array(
+    int64_t method_bind,
+    int64_t instance,
+    float *out_buf,
+    int64_t buf_cap
+);
+int64_t kanama_ios_godot_ptrcall_no_args_ret_packed_color_array(
+    int64_t method_bind,
+    int64_t instance,
+    float *out_buf,
+    int64_t buf_cap
+);
+
 int64_t kanama_ios_godot_construct_object(const char *class_name);
 
 int64_t kanama_ios_godot_get_singleton(const char *name);

@@ -30,8 +30,10 @@ import net.multigesture.kanama.ios.cinterop.kanama_ios_godot_get_method_bind
 import net.multigesture.kanama.ios.cinterop.kanama_ios_godot_get_singleton
 import net.multigesture.kanama.ios.cinterop.kanama_ios_godot_object_call
 import net.multigesture.kanama.ios.cinterop.kanama_ios_godot_ptrcall
+import net.multigesture.kanama.ios.cinterop.kanama_ios_godot_ptrcall_no_args_ret_packed_color_array
 import net.multigesture.kanama.ios.cinterop.kanama_ios_godot_ptrcall_no_args_ret_packed_float32_array
 import net.multigesture.kanama.ios.cinterop.kanama_ios_godot_ptrcall_no_args_ret_packed_int32_array
+import net.multigesture.kanama.ios.cinterop.kanama_ios_godot_ptrcall_no_args_ret_packed_vector2_array
 import net.multigesture.kanama.ios.cinterop.kanama_ios_godot_ptrcall_no_args_ret_string
 import net.multigesture.kanama.ios.cinterop.kanama_ios_godot_ptrcall_no_args_ret_node_path
 import net.multigesture.kanama.ios.cinterop.kanama_ios_godot_ptrcall_no_args_ret_string_name
@@ -275,6 +277,36 @@ object ObjectCalls {
                 kanama_ios_godot_ptrcall_no_args_ret_packed_float32_array(
                     methodBind.address(), instance.address(), buf, count)
                 List(count.toInt()) { buf[it] }
+            }
+        }
+
+    // PackedVector2Array return: each element is 2 float32; the C helper fills count*2 floats.
+    fun ptrcallNoArgsRetPackedVector2List(methodBind: MemorySegment, instance: MemorySegment): List<Vector2> =
+        memScoped {
+            val count = kanama_ios_godot_ptrcall_no_args_ret_packed_vector2_array(
+                methodBind.address(), instance.address(), null, 0L)
+            if (count <= 0L) {
+                emptyList()
+            } else {
+                val buf = allocArray<FloatVar>(count * 2)
+                kanama_ios_godot_ptrcall_no_args_ret_packed_vector2_array(
+                    methodBind.address(), instance.address(), buf, count)
+                List(count.toInt()) { Vector2(buf[it * 2], buf[it * 2 + 1]) }
+            }
+        }
+
+    // PackedColorArray return: each element is 4 float32 (RGBA); the C helper fills count*4 floats.
+    fun ptrcallNoArgsRetPackedColorList(methodBind: MemorySegment, instance: MemorySegment): List<Color> =
+        memScoped {
+            val count = kanama_ios_godot_ptrcall_no_args_ret_packed_color_array(
+                methodBind.address(), instance.address(), null, 0L)
+            if (count <= 0L) {
+                emptyList()
+            } else {
+                val buf = allocArray<FloatVar>(count * 4)
+                kanama_ios_godot_ptrcall_no_args_ret_packed_color_array(
+                    methodBind.address(), instance.address(), buf, count)
+                List(count.toInt()) { Color(buf[it * 4], buf[it * 4 + 1], buf[it * 4 + 2], buf[it * 4 + 3]) }
             }
         }
 
@@ -696,6 +728,27 @@ fun kanamaIosRuntimeObjectCallsSelfTest() {
     val offsets = ObjectCalls.ptrcallNoArgsRetPackedFloat32List(
         ObjectCalls.getMethodBind("Gradient", "get_offsets", 675695659L), gradient)
     check("packed-float32-ret(get_offsets==[0,1])", offsets == listOf(0.0f, 1.0f))
+
+    // PackedVector2Array-return (Line2D.get_points): add two points via the Vector2 arg path,
+    // then read them back through ptrcallNoArgsRetPackedVector2List (2 float32 per element).
+    // Line2D is a Node2D, safe at init. Phase 2.7c-3.
+    val line2d = ObjectCalls.constructObject("Line2D")
+    val line2dCallBind = ObjectCalls.getMethodBind("Object", "call", 3400424181L)
+    ObjectCalls.callWithVariantArgs(line2dCallBind, line2d, listOf("add_point", Vector2(1.5, 2.5), -1L))
+    ObjectCalls.callWithVariantArgs(line2dCallBind, line2d, listOf("add_point", Vector2(3.5, 4.5), -1L))
+    val points = ObjectCalls.ptrcallNoArgsRetPackedVector2List(
+        ObjectCalls.getMethodBind("Line2D", "get_points", 2961356807L), line2d)
+    check("packed-vector2-ret(get_points==[(1.5,2.5),(3.5,4.5)])",
+        points == listOf(Vector2(1.5, 2.5), Vector2(3.5, 4.5)))
+
+    // PackedColorArray-return (Gradient.get_colors): a fresh Gradient seeds default colors
+    // black and white -> read back through ptrcallNoArgsRetPackedColorList (4 float32 per
+    // element). Phase 2.7c-3.
+    val gradientC = ObjectCalls.constructObject("Gradient")
+    val colors = ObjectCalls.ptrcallNoArgsRetPackedColorList(
+        ObjectCalls.getMethodBind("Gradient", "get_colors", 1392750486L), gradientC)
+    check("packed-color-ret(get_colors==[black,white])",
+        colors == listOf(Color(0.0f, 0.0f, 0.0f, 1.0f), Color(1.0f, 1.0f, 1.0f, 1.0f)))
 
     // Transform3D arg+return (Node3D.set_transform -> get_transform): 12x float32
     // (9 column-major basis + 3 origin) round-trip through the generated helpers. Pure-

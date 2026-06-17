@@ -302,6 +302,16 @@ static GDExtensionPtrDestructor g_packed_float32_array_destructor = NULL;
 static GDExtensionPtrBuiltInMethod g_packed_float32_array_size_method = NULL;
 static GDExtensionInterfacePackedFloat32ArrayOperatorIndexConst
     g_packed_float32_array_operator_index_const = NULL;
+// PackedVector2Array / PackedColorArray read-back. operator_index_const yields a pointer
+// to the element (Vector2 = 2 float32, Color = 4 float32 on iOS real_t=float32).
+static GDExtensionPtrDestructor g_packed_vector2_array_destructor = NULL;
+static GDExtensionPtrBuiltInMethod g_packed_vector2_array_size_method = NULL;
+static GDExtensionInterfacePackedVector2ArrayOperatorIndexConst
+    g_packed_vector2_array_operator_index_const = NULL;
+static GDExtensionPtrDestructor g_packed_color_array_destructor = NULL;
+static GDExtensionPtrBuiltInMethod g_packed_color_array_size_method = NULL;
+static GDExtensionInterfacePackedColorArrayOperatorIndexConst
+    g_packed_color_array_operator_index_const = NULL;
 static GDExtensionVariantFromTypeConstructorFunc g_variant_from_vector2i = NULL;
 static GDExtensionPtrConstructor g_callable_object_method_constructor = NULL;
 static GDExtensionVariantFromTypeConstructorFunc g_variant_from_callable = NULL;
@@ -469,6 +479,8 @@ enum {
     KANAMA_IOS_VARIANT_TYPE_PACKED_INT32_ARRAY = 30,
     KANAMA_IOS_VARIANT_TYPE_PACKED_FLOAT32_ARRAY = 32,
     KANAMA_IOS_VARIANT_TYPE_PACKED_STRING_ARRAY = 34,
+    KANAMA_IOS_VARIANT_TYPE_PACKED_VECTOR2_ARRAY = 35,
+    KANAMA_IOS_VARIANT_TYPE_PACKED_COLOR_ARRAY = 37,
     KANAMA_IOS_OBJECT_NOTIFICATION_HASH = 4023243586U,
     KANAMA_IOS_ENGINE_GET_MAIN_LOOP_HASH = 1016888095U,
     KANAMA_IOS_ENGINE_REGISTER_SCRIPT_LANGUAGE_HASH = 1850254898U,
@@ -540,6 +552,8 @@ enum {
     // No-arg "size" builtin method hash; signature-derived so it matches Array.size.
     KANAMA_IOS_PACKED_INT32_ARRAY_SIZE_HASH = 3173160232U,
     KANAMA_IOS_PACKED_FLOAT32_ARRAY_SIZE_HASH = 3173160232U,
+    KANAMA_IOS_PACKED_VECTOR2_ARRAY_SIZE_HASH = 3173160232U,
+    KANAMA_IOS_PACKED_COLOR_ARRAY_SIZE_HASH = 3173160232U,
     KANAMA_IOS_NOTIFICATION_POSTINITIALIZE = 0,
     KANAMA_IOS_NOTIFICATION_ENTER_TREE = 10,
     KANAMA_IOS_NOTIFICATION_EXIT_TREE = 11,
@@ -1672,6 +1686,149 @@ int64_t kanama_ios_godot_ptrcall_no_args_ret_packed_float32_array(
 
     if (g_packed_float32_array_destructor != NULL) {
         g_packed_float32_array_destructor(array_storage);
+    }
+    return count;
+}
+
+// Lazily resolve the PackedVector2Array read-back trio.
+static void kanama_ios_cache_packed_vector2_methods(void) {
+    if (g_packed_vector2_array_destructor == NULL && g_variant_get_ptr_destructor != NULL) {
+        g_packed_vector2_array_destructor =
+            g_variant_get_ptr_destructor(KANAMA_IOS_VARIANT_TYPE_PACKED_VECTOR2_ARRAY);
+    }
+    if (g_packed_vector2_array_size_method == NULL && g_variant_get_ptr_builtin_method != NULL) {
+        uint64_t name_storage = 0;
+        kanama_ios_init_string_name(&name_storage, "size");
+        g_packed_vector2_array_size_method = g_variant_get_ptr_builtin_method(
+            KANAMA_IOS_VARIANT_TYPE_PACKED_VECTOR2_ARRAY,
+            (GDExtensionConstStringNamePtr)&name_storage,
+            (GDExtensionInt)KANAMA_IOS_PACKED_VECTOR2_ARRAY_SIZE_HASH
+        );
+        kanama_ios_destroy_string_name(&name_storage);
+    }
+    if (g_packed_vector2_array_operator_index_const == NULL) {
+        g_packed_vector2_array_operator_index_const =
+            (GDExtensionInterfacePackedVector2ArrayOperatorIndexConst)kanama_ios_lookup(
+                "packed_vector2_array_operator_index_const");
+    }
+}
+
+// PackedVector2Array no-arg getter return. Each element is a Vector2 (2 float32 on iOS);
+// out_buf receives count*2 floats (buf_cap is an ELEMENT count). 16-byte storage. Returns
+// the FULL element count (negative on resolution failure).
+int64_t kanama_ios_godot_ptrcall_no_args_ret_packed_vector2_array(
+    int64_t method_bind,
+    int64_t instance,
+    float *out_buf,
+    int64_t buf_cap
+) {
+    if (!kanama_ios_resolve_godot_api() || method_bind == 0 || instance == 0) {
+        return -1;
+    }
+    if (g_object_method_bind_ptrcall == NULL) {
+        return -1;
+    }
+    kanama_ios_cache_packed_vector2_methods();
+    if (g_packed_vector2_array_size_method == NULL ||
+        g_packed_vector2_array_operator_index_const == NULL) {
+        return -1;
+    }
+
+    KANAMA_IOS_PACKED_ARRAY_STORAGE(array_storage);
+    g_object_method_bind_ptrcall(
+        (GDExtensionMethodBindPtr)(intptr_t)method_bind,
+        (GDExtensionObjectPtr)(intptr_t)instance,
+        NULL,
+        array_storage
+    );
+
+    int64_t count = 0;
+    g_packed_vector2_array_size_method(array_storage, NULL, &count, 0);
+
+    if (out_buf != NULL && buf_cap > 0 && count > 0) {
+        int64_t n = (count < buf_cap) ? count : buf_cap;
+        for (int64_t i = 0; i < n; i++) {
+            const float *elem = (const float *)g_packed_vector2_array_operator_index_const(
+                array_storage, (GDExtensionInt)i);
+            out_buf[i * 2] = (elem != NULL) ? elem[0] : 0.0f;
+            out_buf[i * 2 + 1] = (elem != NULL) ? elem[1] : 0.0f;
+        }
+    }
+
+    if (g_packed_vector2_array_destructor != NULL) {
+        g_packed_vector2_array_destructor(array_storage);
+    }
+    return count;
+}
+
+// Lazily resolve the PackedColorArray read-back trio.
+static void kanama_ios_cache_packed_color_methods(void) {
+    if (g_packed_color_array_destructor == NULL && g_variant_get_ptr_destructor != NULL) {
+        g_packed_color_array_destructor =
+            g_variant_get_ptr_destructor(KANAMA_IOS_VARIANT_TYPE_PACKED_COLOR_ARRAY);
+    }
+    if (g_packed_color_array_size_method == NULL && g_variant_get_ptr_builtin_method != NULL) {
+        uint64_t name_storage = 0;
+        kanama_ios_init_string_name(&name_storage, "size");
+        g_packed_color_array_size_method = g_variant_get_ptr_builtin_method(
+            KANAMA_IOS_VARIANT_TYPE_PACKED_COLOR_ARRAY,
+            (GDExtensionConstStringNamePtr)&name_storage,
+            (GDExtensionInt)KANAMA_IOS_PACKED_COLOR_ARRAY_SIZE_HASH
+        );
+        kanama_ios_destroy_string_name(&name_storage);
+    }
+    if (g_packed_color_array_operator_index_const == NULL) {
+        g_packed_color_array_operator_index_const =
+            (GDExtensionInterfacePackedColorArrayOperatorIndexConst)kanama_ios_lookup(
+                "packed_color_array_operator_index_const");
+    }
+}
+
+// PackedColorArray no-arg getter return. Each element is a Color (4 float32 RGBA); out_buf
+// receives count*4 floats (buf_cap is an ELEMENT count). 16-byte storage. Returns the FULL
+// element count (negative on resolution failure).
+int64_t kanama_ios_godot_ptrcall_no_args_ret_packed_color_array(
+    int64_t method_bind,
+    int64_t instance,
+    float *out_buf,
+    int64_t buf_cap
+) {
+    if (!kanama_ios_resolve_godot_api() || method_bind == 0 || instance == 0) {
+        return -1;
+    }
+    if (g_object_method_bind_ptrcall == NULL) {
+        return -1;
+    }
+    kanama_ios_cache_packed_color_methods();
+    if (g_packed_color_array_size_method == NULL ||
+        g_packed_color_array_operator_index_const == NULL) {
+        return -1;
+    }
+
+    KANAMA_IOS_PACKED_ARRAY_STORAGE(array_storage);
+    g_object_method_bind_ptrcall(
+        (GDExtensionMethodBindPtr)(intptr_t)method_bind,
+        (GDExtensionObjectPtr)(intptr_t)instance,
+        NULL,
+        array_storage
+    );
+
+    int64_t count = 0;
+    g_packed_color_array_size_method(array_storage, NULL, &count, 0);
+
+    if (out_buf != NULL && buf_cap > 0 && count > 0) {
+        int64_t n = (count < buf_cap) ? count : buf_cap;
+        for (int64_t i = 0; i < n; i++) {
+            const float *elem = (const float *)g_packed_color_array_operator_index_const(
+                array_storage, (GDExtensionInt)i);
+            for (int c = 0; c < 4; c++) {
+                out_buf[i * 4 + c] = (elem != NULL) ? elem[c] : 0.0f;
+            }
+        }
+    }
+
+    if (g_packed_color_array_destructor != NULL) {
+        g_packed_color_array_destructor(array_storage);
     }
     return count;
 }
@@ -5439,6 +5596,44 @@ static void kanama_ios_ptrcall_selftest(void) {
             grad, offsets, 8);
         KANAMA_IOS_ST_CHECK("packed-float32-ret get_offsets==[0,1]",
             off_count == 2 && offsets[0] == 0.0f && offsets[1] == 1.0f);
+    }
+
+    // PackedVector2Array-return: Line2D.add_point((1.5,2.5))/add_point((3.5,4.5)) ->
+    // get_points() == [(1.5,2.5),(3.5,4.5)]. Exercises the Vector2 element read-back (2
+    // float32 per element via packed_vector2 operator_index_const). Line2D is a Node2D —
+    // safe to construct at init (CanvasItem, like the other Node2D rows). Phase 2.7c-3.
+    {
+        int64_t line = kanama_ios_godot_construct_object("Line2D");
+        int64_t bind_add = kanama_ios_godot_get_method_bind("Line2D", "add_point", 2654014372);
+        float p0[2] = { 1.5f, 2.5f };
+        float p1[2] = { 3.5f, 4.5f };
+        int64_t at_end = -1;
+        int32_t at[2] = { KANAMA_IOS_PT_VECTOR2, KANAMA_IOS_PT_INT64 };
+        const void *a0[2] = { p0, &at_end };
+        kanama_ios_godot_ptrcall(bind_add, line, at, a0, 2, KANAMA_IOS_PT_VOID, NULL);
+        const void *a1[2] = { p1, &at_end };
+        kanama_ios_godot_ptrcall(bind_add, line, at, a1, 2, KANAMA_IOS_PT_VOID, NULL);
+        float pts[16];
+        for (int i = 0; i < 16; i++) { pts[i] = -1.0f; }
+        int64_t pt_count = kanama_ios_godot_ptrcall_no_args_ret_packed_vector2_array(
+            kanama_ios_godot_get_method_bind("Line2D", "get_points", 2961356807), line, pts, 8);
+        KANAMA_IOS_ST_CHECK("packed-vector2-ret get_points==[(1.5,2.5),(3.5,4.5)]",
+            pt_count == 2 && pts[0] == 1.5f && pts[1] == 2.5f && pts[2] == 3.5f && pts[3] == 4.5f);
+    }
+
+    // PackedColorArray-return: a fresh Gradient seeds default colors black (0,0,0,1) and
+    // white (1,1,1,1), so get_colors() == [black, white]. Exercises the Color element
+    // read-back (4 float32 per element via packed_color operator_index_const). Phase 2.7c-3.
+    {
+        int64_t grad_c = kanama_ios_godot_construct_object("Gradient");
+        float cols[16];
+        for (int i = 0; i < 16; i++) { cols[i] = -1.0f; }
+        int64_t col_count = kanama_ios_godot_ptrcall_no_args_ret_packed_color_array(
+            kanama_ios_godot_get_method_bind("Gradient", "get_colors", 1392750486), grad_c, cols, 4);
+        KANAMA_IOS_ST_CHECK("packed-color-ret get_colors==[black,white]",
+            col_count == 2 &&
+            cols[0] == 0.0f && cols[1] == 0.0f && cols[2] == 0.0f && cols[3] == 1.0f &&
+            cols[4] == 1.0f && cols[5] == 1.0f && cols[6] == 1.0f && cols[7] == 1.0f);
     }
 
     // String arg: Node.set_scene_file_path("HelloKanama") -> get_scene_file_path()
