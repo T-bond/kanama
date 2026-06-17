@@ -282,6 +282,10 @@ class AnimationPlayer(handle: MemorySegment) : AnimationMixer(handle) {
         ObjectCalls.ptrcallWithNodePathArg(setRootBind, handle, path)
     }
 
+    fun getRoot(): NodePath {
+        return ObjectCalls.ptrcallNoArgsRetNodePath(getRootBind, handle)
+    }
+
     object Signals {
         const val currentAnimationChanged: String = "current_animation_changed"
         const val animationChanged: String = "animation_changed"
@@ -553,6 +557,11 @@ class AnimationPlayer(handle: MemorySegment) : AnimationMixer(handle) {
         private const val SET_ROOT_HASH = 1348162250L
         private val setRootBind by lazy {
             ObjectCalls.getMethodBind("AnimationPlayer", "set_root", SET_ROOT_HASH)
+        }
+
+        private const val GET_ROOT_HASH = 4075236667L
+        private val getRootBind by lazy {
+            ObjectCalls.getMethodBind("AnimationPlayer", "get_root", GET_ROOT_HASH)
         }
     }
 }

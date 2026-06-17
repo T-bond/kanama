@@ -101,6 +101,12 @@ class Area3D(handle: MemorySegment) : CollisionObject3D(handle) {
         @JvmName("setWindAttenuationFactorProperty")
         set(value) = setWindAttenuationFactor(value)
 
+    var windSourcePath: NodePath
+        @JvmName("windSourcePathProperty")
+        get() = getWindSourcePath()
+        @JvmName("setWindSourcePathProperty")
+        set(value) = setWindSourcePath(value)
+
     var audioBusOverride: Boolean
         @JvmName("audioBusOverrideProperty")
         get() = isOverridingAudioBus()
@@ -243,6 +249,10 @@ class Area3D(handle: MemorySegment) : CollisionObject3D(handle) {
 
     fun setWindSourcePath(windSourcePath: NodePath) {
         ObjectCalls.ptrcallWithNodePathArg(setWindSourcePathBind, handle, windSourcePath)
+    }
+
+    fun getWindSourcePath(): NodePath {
+        return ObjectCalls.ptrcallNoArgsRetNodePath(getWindSourcePathBind, handle)
     }
 
     fun setMonitorable(enable: Boolean) {
@@ -482,6 +492,11 @@ class Area3D(handle: MemorySegment) : CollisionObject3D(handle) {
         private const val SET_WIND_SOURCE_PATH_HASH = 1348162250L
         private val setWindSourcePathBind by lazy {
             ObjectCalls.getMethodBind("Area3D", "set_wind_source_path", SET_WIND_SOURCE_PATH_HASH)
+        }
+
+        private const val GET_WIND_SOURCE_PATH_HASH = 4075236667L
+        private val getWindSourcePathBind by lazy {
+            ObjectCalls.getMethodBind("Area3D", "get_wind_source_path", GET_WIND_SOURCE_PATH_HASH)
         }
 
         private const val SET_MONITORABLE_HASH = 2586408642L

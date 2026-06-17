@@ -1,5 +1,4 @@
 Node3D: World3D get_world_3d() hash=317588385: iOS: un-audited helper shape args=() return=Object (conservative iOS guardrail — only audited ptrcall widths are emitted)
-Node3D: NodePath get_visibility_parent() hash=4075236667: iOS: un-audited helper shape args=() return=NodePath (conservative iOS guardrail — only audited ptrcall widths are emitted)
 Node3D: void add_gizmo(Node3DGizmo) hash=1544533845: iOS: un-audited helper shape args=('Object',) return=void (conservative iOS guardrail — only audited ptrcall widths are emitted)
 Node3D: typedarray::Node3DGizmo get_gizmos() hash=3995934104: iOS: un-audited helper shape args=() return=TypedObjectArray::Node3DGizmo (conservative iOS guardrail — only audited ptrcall widths are emitted)
 Node3D: void set_subgizmo_selection(Node3DGizmo, int[int32], Transform3D) hash=3317607635: iOS: un-audited helper shape args=('Object', 'int32', 'Transform3D') return=void (conservative iOS guardrail — only audited ptrcall widths are emitted)

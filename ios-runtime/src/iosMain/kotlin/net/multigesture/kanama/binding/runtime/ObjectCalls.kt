@@ -31,6 +31,7 @@ import net.multigesture.kanama.ios.cinterop.kanama_ios_godot_get_singleton
 import net.multigesture.kanama.ios.cinterop.kanama_ios_godot_object_call
 import net.multigesture.kanama.ios.cinterop.kanama_ios_godot_ptrcall
 import net.multigesture.kanama.ios.cinterop.kanama_ios_godot_ptrcall_no_args_ret_string
+import net.multigesture.kanama.ios.cinterop.kanama_ios_godot_ptrcall_no_args_ret_node_path
 import net.multigesture.kanama.ios.cinterop.kanama_ios_godot_ptrcall_no_args_ret_string_name
 import net.multigesture.kanama.ios.decodeIosCallArg
 import net.multigesture.kanama.ios.decodeIosPropertyValue
@@ -221,6 +222,23 @@ object ObjectCalls {
                 kanama_ios_godot_ptrcall_no_args_ret_string_name(
                     methodBind.address(), instance.address(), buf, len)
                 buf.readBytes(len.toInt()).decodeToString()
+            }
+        }
+
+    // NodePath return: GDExtension has no NodePath->utf8, so the dedicated C helper converts
+    // the returned NodePath to a String (String(from: NodePath) ctor) and UTF-8 encodes it,
+    // then we wrap it back into a NodePath. Same two-call length protocol as the String helper.
+    fun ptrcallNoArgsRetNodePath(methodBind: MemorySegment, instance: MemorySegment): NodePath =
+        memScoped {
+            val len = kanama_ios_godot_ptrcall_no_args_ret_node_path(
+                methodBind.address(), instance.address(), null, 0L)
+            if (len <= 0L) {
+                NodePath("")
+            } else {
+                val buf = allocArray<ByteVar>(len)
+                kanama_ios_godot_ptrcall_no_args_ret_node_path(
+                    methodBind.address(), instance.address(), buf, len)
+                NodePath(buf.readBytes(len.toInt()).decodeToString())
             }
         }
 
@@ -608,6 +626,16 @@ fun kanamaIosRuntimeObjectCallsSelfTest() {
     val gotNode = ObjectCalls.ptrcallWithNodePathArgRetObject(
         ObjectCalls.getMethodBind("Node", "get_node_or_null", 2734337346L), npParent, NodePath("KPChild"))
     check("nodepath-arg(get_node_or_null==child)", gotNode.address() == npChild.address())
+
+    // NodePath-return (GPUParticles2D.set_sub_emitter -> get_sub_emitter): set a known path
+    // (NodePath arg) then read it back through ptrcallNoArgsRetNodePath — exercises the
+    // NodePath->String ctor hop end to end, wrapped back into a NodePath. Phase 2.7b.
+    val gpNp = ObjectCalls.constructObject("GPUParticles2D")
+    ObjectCalls.ptrcallWithNodePathArg(
+        ObjectCalls.getMethodBind("GPUParticles2D", "set_sub_emitter", 1348162250L), gpNp, NodePath("../Emitter"))
+    val subEmitter = ObjectCalls.ptrcallNoArgsRetNodePath(
+        ObjectCalls.getMethodBind("GPUParticles2D", "get_sub_emitter", 4075236667L), gpNp)
+    check("nodepath-ret(set/get_sub_emitter==../Emitter)", subEmitter == NodePath("../Emitter"))
 
     // Transform3D arg+return (Node3D.set_transform -> get_transform): 12x float32
     // (9 column-major basis + 3 origin) round-trip through the generated helpers. Pure-

@@ -98,6 +98,20 @@ int64_t kanama_ios_godot_ptrcall_no_args_ret_string_name(
     int64_t buf_size
 );
 
+/*
+ * No-arg ptrcall returning a Godot NodePath, marshalled to UTF-8.
+ *
+ * GDExtension has no NodePath->utf8, so the returned NodePath is converted to a String
+ * via the String(from: NodePath) constructor and UTF-8 encoded from there. Same
+ * buffer/length contract as kanama_ios_godot_ptrcall_no_args_ret_string.
+ */
+int64_t kanama_ios_godot_ptrcall_no_args_ret_node_path(
+    int64_t method_bind,
+    int64_t instance,
+    char *out_buf,
+    int64_t buf_size
+);
+
 int64_t kanama_ios_godot_construct_object(const char *class_name);
 
 int64_t kanama_ios_godot_get_singleton(const char *name);

@@ -30,6 +30,18 @@ open class AnimationMixer(handle: MemorySegment) : Node(handle) {
         @JvmName("setResetOnSaveProperty")
         set(value) = setResetOnSaveEnabled(value)
 
+    var rootNode: NodePath
+        @JvmName("rootNodeProperty")
+        get() = getRootNode()
+        @JvmName("setRootNodeProperty")
+        set(value) = setRootNode(value)
+
+    var rootMotionTrack: NodePath
+        @JvmName("rootMotionTrackProperty")
+        get() = getRootMotionTrack()
+        @JvmName("setRootMotionTrackProperty")
+        set(value) = setRootMotionTrack(value)
+
     var rootMotionLocal: Boolean
         @JvmName("rootMotionLocalProperty")
         get() = isRootMotionLocal()
@@ -96,6 +108,10 @@ open class AnimationMixer(handle: MemorySegment) : Node(handle) {
         ObjectCalls.ptrcallWithNodePathArg(setRootNodeBind, handle, path)
     }
 
+    fun getRootNode(): NodePath {
+        return ObjectCalls.ptrcallNoArgsRetNodePath(getRootNodeBind, handle)
+    }
+
     fun setCallbackModeProcess(mode: Long) {
         ObjectCalls.ptrcallWithLongArg(setCallbackModeProcessBind, handle, mode)
     }
@@ -130,6 +146,10 @@ open class AnimationMixer(handle: MemorySegment) : Node(handle) {
 
     fun setRootMotionTrack(path: NodePath) {
         ObjectCalls.ptrcallWithNodePathArg(setRootMotionTrackBind, handle, path)
+    }
+
+    fun getRootMotionTrack(): NodePath {
+        return ObjectCalls.ptrcallNoArgsRetNodePath(getRootMotionTrackBind, handle)
     }
 
     fun setRootMotionLocal(enabled: Boolean) {
@@ -255,6 +275,11 @@ open class AnimationMixer(handle: MemorySegment) : Node(handle) {
             ObjectCalls.getMethodBind("AnimationMixer", "set_root_node", SET_ROOT_NODE_HASH)
         }
 
+        private const val GET_ROOT_NODE_HASH = 4075236667L
+        private val getRootNodeBind by lazy {
+            ObjectCalls.getMethodBind("AnimationMixer", "get_root_node", GET_ROOT_NODE_HASH)
+        }
+
         private const val SET_CALLBACK_MODE_PROCESS_HASH = 2153733086L
         private val setCallbackModeProcessBind by lazy {
             ObjectCalls.getMethodBind("AnimationMixer", "set_callback_mode_process", SET_CALLBACK_MODE_PROCESS_HASH)
@@ -298,6 +323,11 @@ open class AnimationMixer(handle: MemorySegment) : Node(handle) {
         private const val SET_ROOT_MOTION_TRACK_HASH = 1348162250L
         private val setRootMotionTrackBind by lazy {
             ObjectCalls.getMethodBind("AnimationMixer", "set_root_motion_track", SET_ROOT_MOTION_TRACK_HASH)
+        }
+
+        private const val GET_ROOT_MOTION_TRACK_HASH = 4075236667L
+        private val getRootMotionTrackBind by lazy {
+            ObjectCalls.getMethodBind("AnimationMixer", "get_root_motion_track", GET_ROOT_MOTION_TRACK_HASH)
         }
 
         private const val SET_ROOT_MOTION_LOCAL_HASH = 2586408642L

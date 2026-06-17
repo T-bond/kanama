@@ -199,6 +199,18 @@ open class Control(handle: MemorySegment) : CanvasItem(handle) {
         @JvmName("setTooltipAutoTranslateModeProperty")
         set(value) = setTooltipAutoTranslateMode(value)
 
+    var focusNext: NodePath
+        @JvmName("focusNextProperty")
+        get() = getFocusNext()
+        @JvmName("setFocusNextProperty")
+        set(value) = setFocusNext(value)
+
+    var focusPrevious: NodePath
+        @JvmName("focusPreviousProperty")
+        get() = getFocusPrevious()
+        @JvmName("setFocusPreviousProperty")
+        set(value) = setFocusPrevious(value)
+
     var focusMode: Long
         @JvmName("focusModeProperty")
         get() = getFocusMode()
@@ -771,8 +783,16 @@ open class Control(handle: MemorySegment) : CanvasItem(handle) {
         ObjectCalls.ptrcallWithNodePathArg(setFocusNextBind, handle, next)
     }
 
+    fun getFocusNext(): NodePath {
+        return ObjectCalls.ptrcallNoArgsRetNodePath(getFocusNextBind, handle)
+    }
+
     fun setFocusPrevious(previous: NodePath) {
         ObjectCalls.ptrcallWithNodePathArg(setFocusPreviousBind, handle, previous)
+    }
+
+    fun getFocusPrevious(): NodePath {
+        return ObjectCalls.ptrcallNoArgsRetNodePath(getFocusPreviousBind, handle)
     }
 
     fun accessibilityDrag() {
@@ -1642,9 +1662,19 @@ open class Control(handle: MemorySegment) : CanvasItem(handle) {
             ObjectCalls.getMethodBind("Control", "set_focus_next", SET_FOCUS_NEXT_HASH)
         }
 
+        private const val GET_FOCUS_NEXT_HASH = 4075236667L
+        private val getFocusNextBind by lazy {
+            ObjectCalls.getMethodBind("Control", "get_focus_next", GET_FOCUS_NEXT_HASH)
+        }
+
         private const val SET_FOCUS_PREVIOUS_HASH = 1348162250L
         private val setFocusPreviousBind by lazy {
             ObjectCalls.getMethodBind("Control", "set_focus_previous", SET_FOCUS_PREVIOUS_HASH)
+        }
+
+        private const val GET_FOCUS_PREVIOUS_HASH = 4075236667L
+        private val getFocusPreviousBind by lazy {
+            ObjectCalls.getMethodBind("Control", "get_focus_previous", GET_FOCUS_PREVIOUS_HASH)
         }
 
         private const val ACCESSIBILITY_DRAG_HASH = 3218959716L

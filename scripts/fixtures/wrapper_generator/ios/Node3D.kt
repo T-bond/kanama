@@ -110,6 +110,12 @@ open class Node3D(handle: MemorySegment) : Node(handle) {
         @JvmName("setVisibleProperty")
         set(value) = setVisible(value)
 
+    var visibilityParent: NodePath
+        @JvmName("visibilityParentProperty")
+        get() = getVisibilityParent()
+        @JvmName("setVisibilityParentProperty")
+        set(value) = setVisibilityParent(value)
+
     fun setTransform(local: Transform3D) {
         ObjectCalls.ptrcallWithTransform3DArg(setTransformBind, handle, local)
     }
@@ -256,6 +262,10 @@ open class Node3D(handle: MemorySegment) : Node(handle) {
 
     fun setVisibilityParent(path: NodePath) {
         ObjectCalls.ptrcallWithNodePathArg(setVisibilityParentBind, handle, path)
+    }
+
+    fun getVisibilityParent(): NodePath {
+        return ObjectCalls.ptrcallNoArgsRetNodePath(getVisibilityParentBind, handle)
     }
 
     fun updateGizmos() {
@@ -577,6 +587,11 @@ open class Node3D(handle: MemorySegment) : Node(handle) {
         private const val SET_VISIBILITY_PARENT_HASH = 1348162250L
         private val setVisibilityParentBind by lazy {
             ObjectCalls.getMethodBind("Node3D", "set_visibility_parent", SET_VISIBILITY_PARENT_HASH)
+        }
+
+        private const val GET_VISIBILITY_PARENT_HASH = 4075236667L
+        private val getVisibilityParentBind by lazy {
+            ObjectCalls.getMethodBind("Node3D", "get_visibility_parent", GET_VISIBILITY_PARENT_HASH)
         }
 
         private const val UPDATE_GIZMOS_HASH = 3218959716L

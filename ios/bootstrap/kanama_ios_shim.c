@@ -1452,6 +1452,49 @@ int64_t kanama_ios_godot_ptrcall_no_args_ret_string_name(
     return length;
 }
 
+int64_t kanama_ios_godot_ptrcall_no_args_ret_node_path(
+    int64_t method_bind,
+    int64_t instance,
+    char *out_buf,
+    int64_t buf_size
+) {
+    if (!kanama_ios_resolve_godot_api() || method_bind == 0 || instance == 0) {
+        return -1;
+    }
+    if (g_string_to_utf8_chars == NULL || g_object_method_bind_ptrcall == NULL ||
+        g_string_from_node_path_constructor == NULL) {
+        return -1;
+    }
+
+    // ptrcall writes the returned Godot NodePath (an 8-byte CowData pointer) here.
+    uint64_t node_path_storage = 0;
+    g_object_method_bind_ptrcall(
+        (GDExtensionMethodBindPtr)(intptr_t)method_bind,
+        (GDExtensionObjectPtr)(intptr_t)instance,
+        NULL,
+        &node_path_storage
+    );
+
+    // No GDExtension NodePath->utf8 exists, so build a String(from: NodePath) and UTF-8
+    // encode that (same path as the StringName-return helper).
+    uint64_t string_storage = 0;
+    const GDExtensionConstTypePtr ctor_args[1] = {
+        (GDExtensionConstTypePtr)&node_path_storage,
+    };
+    g_string_from_node_path_constructor(
+        (GDExtensionUninitializedTypePtr)&string_storage, ctor_args);
+
+    int64_t length = (int64_t)g_string_to_utf8_chars(
+        (GDExtensionConstStringPtr)&string_storage,
+        (out_buf != NULL && buf_size > 0) ? out_buf : NULL,
+        (out_buf != NULL && buf_size > 0) ? buf_size : 0
+    );
+
+    kanama_ios_destroy_string(&string_storage);
+    kanama_ios_destroy_node_path(&node_path_storage);
+    return length;
+}
+
 static GDExtensionMethodBindPtr kanama_ios_get_method_bind_cached(
     GDExtensionMethodBindPtr *cache,
     const char *class_name,
@@ -5153,6 +5196,24 @@ static void kanama_ios_ptrcall_selftest(void) {
             node_sn, name_buf, (int64_t)sizeof(name_buf));
         KANAMA_IOS_ST_CHECK("string-name-ret get_name==KanamaSN",
             name_len == 8 && strncmp(name_buf, "KanamaSN", 8) == 0);
+    }
+
+    // NodePath-return: GPUParticles2D.set_sub_emitter("../Emitter") -> get_sub_emitter().
+    // Exercises the NodePath ptrcall return plus the NodePath->String constructor hop (the
+    // PT_NODE_PATH arg path constructs the NodePath C-side from the C string). Phase 2.7b.
+    {
+        int64_t gp_np = kanama_ios_godot_construct_object("GPUParticles2D");
+        const char *np_path = "../Emitter";
+        const void *npa[1] = { np_path };
+        int32_t npt[1] = { KANAMA_IOS_PT_NODE_PATH };
+        kanama_ios_godot_ptrcall(kanama_ios_godot_get_method_bind("GPUParticles2D", "set_sub_emitter", 1348162250),
+            gp_np, npt, npa, 1, KANAMA_IOS_PT_VOID, NULL);
+        char np_buf[64];
+        int64_t np_len = kanama_ios_godot_ptrcall_no_args_ret_node_path(
+            kanama_ios_godot_get_method_bind("GPUParticles2D", "get_sub_emitter", 4075236667),
+            gp_np, np_buf, (int64_t)sizeof(np_buf));
+        KANAMA_IOS_ST_CHECK("node-path-ret get_sub_emitter==../Emitter",
+            np_len == 10 && strncmp(np_buf, "../Emitter", 10) == 0);
     }
 
     // String arg: Node.set_scene_file_path("HelloKanama") -> get_scene_file_path()

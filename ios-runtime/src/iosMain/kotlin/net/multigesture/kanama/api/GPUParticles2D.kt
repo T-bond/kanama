@@ -32,6 +32,12 @@ class GPUParticles2D(handle: MemorySegment) : Node2D(handle) {
         @JvmName("setAmountRatioProperty")
         set(value) = setAmountRatio(value)
 
+    var subEmitter: NodePath
+        @JvmName("subEmitterProperty")
+        get() = getSubEmitter()
+        @JvmName("setSubEmitterProperty")
+        set(value) = setSubEmitter(value)
+
     var texture: Texture2D?
         @JvmName("textureProperty")
         get() = getTexture()
@@ -310,6 +316,10 @@ class GPUParticles2D(handle: MemorySegment) : Node2D(handle) {
         ObjectCalls.ptrcallWithNodePathArg(setSubEmitterBind, handle, path)
     }
 
+    fun getSubEmitter(): NodePath {
+        return ObjectCalls.ptrcallNoArgsRetNodePath(getSubEmitterBind, handle)
+    }
+
     fun emitParticle(xform: Transform2D, velocity: Vector2, color: Color, custom: Color, flags: Long) {
         ObjectCalls.ptrcallWithTransform2DVector2TwoColorUInt32Args(emitParticleBind, handle, xform, velocity, color, custom, flags)
     }
@@ -582,6 +592,11 @@ class GPUParticles2D(handle: MemorySegment) : Node2D(handle) {
         private const val SET_SUB_EMITTER_HASH = 1348162250L
         private val setSubEmitterBind by lazy {
             ObjectCalls.getMethodBind("GPUParticles2D", "set_sub_emitter", SET_SUB_EMITTER_HASH)
+        }
+
+        private const val GET_SUB_EMITTER_HASH = 4075236667L
+        private val getSubEmitterBind by lazy {
+            ObjectCalls.getMethodBind("GPUParticles2D", "get_sub_emitter", GET_SUB_EMITTER_HASH)
         }
 
         private const val EMIT_PARTICLE_HASH = 2179202058L

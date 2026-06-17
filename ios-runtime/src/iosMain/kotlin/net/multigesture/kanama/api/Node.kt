@@ -163,6 +163,10 @@ open class Node(handle: MemorySegment) : GodotObject(handle) {
         return ObjectCalls.ptrcallWithObjectArgRetBool(isGreaterThanBind, handle, node.handle)
     }
 
+    fun getPath(): NodePath {
+        return ObjectCalls.ptrcallNoArgsRetNodePath(getPathBind, handle)
+    }
+
     fun addToGroup(group: String, persistent: Boolean = false) {
         ObjectCalls.ptrcallWithStringNameAndBoolArg(addToGroupBind, handle, group, persistent)
     }
@@ -674,6 +678,11 @@ open class Node(handle: MemorySegment) : GodotObject(handle) {
         private const val IS_GREATER_THAN_HASH = 3093956946L
         private val isGreaterThanBind by lazy {
             ObjectCalls.getMethodBind("Node", "is_greater_than", IS_GREATER_THAN_HASH)
+        }
+
+        private const val GET_PATH_HASH = 4075236667L
+        private val getPathBind by lazy {
+            ObjectCalls.getMethodBind("Node", "get_path", GET_PATH_HASH)
         }
 
         private const val ADD_TO_GROUP_HASH = 3683006648L
