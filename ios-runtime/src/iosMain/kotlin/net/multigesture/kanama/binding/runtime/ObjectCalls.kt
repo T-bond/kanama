@@ -462,6 +462,59 @@ object ObjectCalls {
         Unit
     }
 
+    // CanvasItem.draw_polygon / draw_primitive:
+    // (PackedVector2Array, PackedColorArray, PackedVector2Array, Texture2D) -> void.
+    // The Object (Texture2D) arg arrives as a MemorySegment handle (NULL/address 0 for null).
+    fun ptrcallWithPackedVector2ListPackedColorListPackedVector2ListAndObjectArgs(
+        methodBind: MemorySegment,
+        instance: MemorySegment,
+        points: List<Vector2>,
+        colors: List<Color>,
+        uvs: List<Vector2>,
+        objectArg: MemorySegment,
+    ) = memScoped {
+        val pointsDesc = packVector2Desc(points)
+        val colorsDesc = packColorDesc(colors)
+        val uvsDesc = packVector2Desc(uvs)
+        val objCell = alloc<LongVar>(); objCell.value = objectArg.address()
+        val types = allocArray<IntVar>(4)
+        types[0] = PT_PACKED_VECTOR2_ARRAY; types[1] = PT_PACKED_COLOR_ARRAY
+        types[2] = PT_PACKED_VECTOR2_ARRAY; types[3] = PT_OBJECT
+        val ptrs = allocArray<COpaquePointerVar>(4)
+        ptrs[0] = pointsDesc.reinterpret<CPointed>()
+        ptrs[1] = colorsDesc.reinterpret<CPointed>()
+        ptrs[2] = uvsDesc.reinterpret<CPointed>()
+        ptrs[3] = objCell.ptr.reinterpret<CPointed>()
+        kanama_ios_godot_ptrcall(methodBind.address(), instance.address(), types, ptrs, 4, PT_VOID, null)
+        Unit
+    }
+
+    // CanvasItem.draw_colored_polygon:
+    // (PackedVector2Array, Color, PackedVector2Array, Texture2D) -> void.
+    fun ptrcallWithPackedVector2ListColorPackedVector2ListAndObjectArgs(
+        methodBind: MemorySegment,
+        instance: MemorySegment,
+        points: List<Vector2>,
+        color: Color,
+        uvs: List<Vector2>,
+        objectArg: MemorySegment,
+    ) = memScoped {
+        val pointsDesc = packVector2Desc(points)
+        val colorPtr = colorCell(color)
+        val uvsDesc = packVector2Desc(uvs)
+        val objCell = alloc<LongVar>(); objCell.value = objectArg.address()
+        val types = allocArray<IntVar>(4)
+        types[0] = PT_PACKED_VECTOR2_ARRAY; types[1] = PT_COLOR
+        types[2] = PT_PACKED_VECTOR2_ARRAY; types[3] = PT_OBJECT
+        val ptrs = allocArray<COpaquePointerVar>(4)
+        ptrs[0] = pointsDesc.reinterpret<CPointed>()
+        ptrs[1] = colorPtr.reinterpret<CPointed>()
+        ptrs[2] = uvsDesc.reinterpret<CPointed>()
+        ptrs[3] = objCell.ptr.reinterpret<CPointed>()
+        kanama_ios_godot_ptrcall(methodBind.address(), instance.address(), types, ptrs, 4, PT_VOID, null)
+        Unit
+    }
+
     // PackedVector2Array return: each element is 2 float32; the C helper fills count*2 floats.
     fun ptrcallNoArgsRetPackedVector2List(methodBind: MemorySegment, instance: MemorySegment): List<Vector2> =
         memScoped {

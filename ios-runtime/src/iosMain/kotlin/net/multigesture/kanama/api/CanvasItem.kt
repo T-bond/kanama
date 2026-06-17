@@ -264,6 +264,18 @@ open class CanvasItem(handle: MemorySegment) : Node(handle) {
         ObjectCalls.ptrcallWithObjectTwoRect2AndColorArgs(drawLcdTextureRectRegionBind, handle, texture?.requireOpenHandle() ?: MemorySegment.NULL, rect, srcRect, modulate)
     }
 
+    fun drawPrimitive(points: List<Vector2>, colors: List<Color>, uvs: List<Vector2>, texture: Texture2D?) {
+        ObjectCalls.ptrcallWithPackedVector2ListPackedColorListPackedVector2ListAndObjectArgs(drawPrimitiveBind, handle, points, colors, uvs, texture?.requireOpenHandle() ?: MemorySegment.NULL)
+    }
+
+    fun drawPolygon(points: List<Vector2>, colors: List<Color>, uvs: List<Vector2>, texture: Texture2D?) {
+        ObjectCalls.ptrcallWithPackedVector2ListPackedColorListPackedVector2ListAndObjectArgs(drawPolygonBind, handle, points, colors, uvs, texture?.requireOpenHandle() ?: MemorySegment.NULL)
+    }
+
+    fun drawColoredPolygon(points: List<Vector2>, color: Color, uvs: List<Vector2>, texture: Texture2D?) {
+        ObjectCalls.ptrcallWithPackedVector2ListColorPackedVector2ListAndObjectArgs(drawColoredPolygonBind, handle, points, color, uvs, texture?.requireOpenHandle() ?: MemorySegment.NULL)
+    }
+
     fun drawSetTransform(position: Vector2, rotation: Double = 0.0, scale: Vector2) {
         ObjectCalls.ptrcallWithVector2DoubleVector2Args(drawSetTransformBind, handle, position, rotation, scale)
     }
@@ -641,6 +653,21 @@ open class CanvasItem(handle: MemorySegment) : Node(handle) {
         private const val DRAW_LCD_TEXTURE_RECT_REGION_HASH = 3212350954L
         private val drawLcdTextureRectRegionBind by lazy {
             ObjectCalls.getMethodBind("CanvasItem", "draw_lcd_texture_rect_region", DRAW_LCD_TEXTURE_RECT_REGION_HASH)
+        }
+
+        private const val DRAW_PRIMITIVE_HASH = 3288481815L
+        private val drawPrimitiveBind by lazy {
+            ObjectCalls.getMethodBind("CanvasItem", "draw_primitive", DRAW_PRIMITIVE_HASH)
+        }
+
+        private const val DRAW_POLYGON_HASH = 974537912L
+        private val drawPolygonBind by lazy {
+            ObjectCalls.getMethodBind("CanvasItem", "draw_polygon", DRAW_POLYGON_HASH)
+        }
+
+        private const val DRAW_COLORED_POLYGON_HASH = 15245644L
+        private val drawColoredPolygonBind by lazy {
+            ObjectCalls.getMethodBind("CanvasItem", "draw_colored_polygon", DRAW_COLORED_POLYGON_HASH)
         }
 
         private const val DRAW_SET_TRANSFORM_HASH = 288975085L

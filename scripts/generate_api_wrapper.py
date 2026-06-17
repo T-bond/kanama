@@ -251,6 +251,8 @@ IOS_HANDWRITTEN_HELPERS = {
     "ptrcallWithPackedFloat32ListArg",
     "ptrcallWithPackedVector2ListColorDoubleAndBoolArgs",
     "ptrcallWithPackedVector2ListPackedColorListDoubleAndBoolArgs",
+    "ptrcallWithPackedVector2ListPackedColorListPackedVector2ListAndObjectArgs",
+    "ptrcallWithPackedVector2ListColorPackedVector2ListAndObjectArgs",
 }
 PARAMETER_NAME_OVERRIDES = {
     ("Time", "get_datetime_dict_from_unix_time", "unix_time_val"): "unixTime",
@@ -916,6 +918,8 @@ def ios_method_supported(method: ApiMethod, object_types: set[str]) -> bool:
     if ("PackedVector2Array" in logical_args or "PackedColorArray" in logical_args) and shape.function not in (
         "ptrcallWithPackedVector2ListColorDoubleAndBoolArgs",
         "ptrcallWithPackedVector2ListPackedColorListDoubleAndBoolArgs",
+        "ptrcallWithPackedVector2ListPackedColorListPackedVector2ListAndObjectArgs",
+        "ptrcallWithPackedVector2ListColorPackedVector2ListAndObjectArgs",
     ):
         return False
     # Every referenced object wrapper type must also be emitted on iOS (or be the root
