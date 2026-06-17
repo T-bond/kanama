@@ -469,12 +469,35 @@ needs a decision (see the numbered items below + the roadmap backlog):
     a LongVar cell under PT_OBJECT. +3 emitted wrappers. **Only remaining emitted-class Packed skip is
     PackedScene.get_state()→SceneState (an OBJECT return, Phase-4 gap, not packed).** Matrix unchanged
     52/63. Commit `feat: iOS CanvasItem.draw_* Texture2D-arg shapes (Phase 2.7c-6c) — 2.7c COMPLETE`.
-    **NEXT: 2.7d Typed object arrays** (~24 methods, the next big SELF-TESTABLE subsystem — e.g.
-    Node.get_children() → Array<Node>; construct parent, add_child×2, get_children round-trip). The
-    marshalling: a Godot Array of Object handles; read via array size + get (g_array_size_method/
-    g_array_get_method already exist for the @ScriptProperty array path) → List<wrapper>. Then 2.7e Variant
-    (~10), 2.7f arg-bearing string-family returns (~23 — String/StringName/NodePath returns from methods
-    that also take args; needs a generated read-back, not just the no-arg helpers). Callable+vararg deferred.
+    **NEXT: 2.7d Typed object arrays** (~24 methods, self-testable, but a GENERATOR subsystem — bigger
+    than the packed helpers). Emitted-class targets: Node.get_children(bool), Node.find_children(String,
+    String,bool,bool), Area2D/Area3D.get_overlapping_bodies/areas (no-arg), Node3D.get_gizmos,
+    Viewport.get_embedded_subwindows, PhysicsBody3D.get_collision_exceptions. **Flagship self-test:
+    Node.get_children(bool) → List<Node>** (construct parent, add_child×2, get_children(false) round-trip).
+    **PLAN (precisely scoped):**
+    (1) C helper `kanama_ios_godot_ptrcall_ret_object_array(bind,inst,arg_types,arg_ptrs,argc,int64_t*
+    out_handles,cap)`: call the generic `kanama_ios_godot_ptrcall` internally with ret_out=&array_storage
+    (Array opaque size = 8 bytes, NOT 16 — Array is in OPAQUE_8_BYTE_TYPES), then read back via the
+    EXISTING `g_array_size_method`/`g_array_get_method` (+ a new `g_array_destructor` = variant_get_ptr_
+    destructor(ARRAY=28)) + `g_variant_to_object`/`g_variant_get_type`/`g_variant_destroy` (the exact
+    pattern already in `kanama_ios_script_instance_set_property`'s ARRAY case, ~line 4565). Returns count;
+    fills int64 object handles. Two-call protocol (re-ptrcall each call). (2) Kotlin GENERIC helpers per
+    arg-shape, returning List<T> via a `fromHandle: (MemorySegment)->T?` param — e.g.
+    `fun <T> ptrcallWithBoolArgRetTypedObjectList(bind,inst,value,fromHandle):List<T>`: lay out the bool arg,
+    call C twice (count, fill int64[]), map each handle → MemorySegment → fromHandle, filter nulls. (3)
+    GENERATOR: iOS must use the GENERIC fromHandle helpers, NOT the direct named ones (DIRECT helpers like
+    ptrcallWithBoolArgRetTypedNodeList return List<Node> directly → would need api.Node imported into the
+    runtime pkg = dependency inversion). So REMAP at generate_api_wrapper.py:1521 (the only `shape =
+    candidate_for` site for emission): for iOS, when return is a typed-object-array, swap shape.function to
+    the generic `ptrcall{ArgShape}RetTypedObjectList` (keyed by arg-shape; the generic CallShapes already
+    exist at api_wrapper_candidates ~539-561 with kotlin_return "List"). render_method:1100-1105 ALREADY
+    appends `{wrapper}::fromHandle` when shape NOT in DIRECT_TYPED_OBJECT_LIST_HELPERS — so the remapped
+    generic shape gets fromHandle for free. NOTE: iOS `Node.fromHandle(MemorySegment): Node?` exists (Node.kt
+    :577) — takes MemorySegment, so the Kotlin helper's fromHandle type is `(MemorySegment)->T?`. Set the
+    generic CallShape's kotlin_return to "List<Element>" for the iOS wrapper signature (or override in the
+    remap). Add the generic helper names to IOS_HANDWRITTEN_HELPERS + a gate. (4) Self-test: Node.get_children
+    round-trip. Start with just Node.get_children (bool shape), then widen to the no-arg / String-arg shapes.
+    Then 2.7e Variant (~10), 2.7f arg-bearing string-family returns (~23). Callable+vararg deferred.
 - Cleanly self-test-validatable items: ~~Variant `Object.call` dispatch~~ DONE
   (item 8); ~~value-type BuiltinTypes on iOS~~ DONE (items 9–11): no-arg + args
   shapes across Transform3D/Basis/Vector2/Vector3/Quaternion + scalar float/bool/int
