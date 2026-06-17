@@ -291,6 +291,12 @@ static GDExtensionTypeFromVariantConstructorFunc g_variant_to_node_path = NULL;
 static GDExtensionPtrConstructor g_string_from_node_path_constructor = NULL;
 static GDExtensionPtrBuiltInMethod g_array_size_method = NULL;
 static GDExtensionPtrBuiltInMethod g_array_get_method = NULL;
+// PackedInt32Array read-back (ptrcall return -> List<Int>). size is the no-arg
+// "size" builtin method; operator_index_const yields a pointer to element i.
+static GDExtensionPtrDestructor g_packed_int32_array_destructor = NULL;
+static GDExtensionPtrBuiltInMethod g_packed_int32_array_size_method = NULL;
+static GDExtensionInterfacePackedInt32ArrayOperatorIndexConst
+    g_packed_int32_array_operator_index_const = NULL;
 static GDExtensionVariantFromTypeConstructorFunc g_variant_from_vector2i = NULL;
 static GDExtensionPtrConstructor g_callable_object_method_constructor = NULL;
 static GDExtensionVariantFromTypeConstructorFunc g_variant_from_callable = NULL;
@@ -437,6 +443,7 @@ enum {
     KANAMA_IOS_VARIANT_TYPE_CALLABLE = 25,
     KANAMA_IOS_VARIANT_TYPE_DICTIONARY = 27,
     KANAMA_IOS_VARIANT_TYPE_ARRAY = 28,
+    KANAMA_IOS_VARIANT_TYPE_PACKED_INT32_ARRAY = 30,
     KANAMA_IOS_VARIANT_TYPE_PACKED_STRING_ARRAY = 34,
     KANAMA_IOS_OBJECT_NOTIFICATION_HASH = 4023243586U,
     KANAMA_IOS_ENGINE_GET_MAIN_LOOP_HASH = 1016888095U,
@@ -506,6 +513,8 @@ enum {
     KANAMA_IOS_PROPERTY_TWEENER_SET_EASE_HASH = 1080455622U,
     KANAMA_IOS_VIEWPORT_GET_VISIBLE_RECT_HASH = 1639390495U,
     KANAMA_IOS_PACKED_STRING_ARRAY_PUSH_BACK_HASH = 816187996U,
+    // No-arg "size" builtin method hash; signature-derived so it matches Array.size.
+    KANAMA_IOS_PACKED_INT32_ARRAY_SIZE_HASH = 3173160232U,
     KANAMA_IOS_NOTIFICATION_POSTINITIALIZE = 0,
     KANAMA_IOS_NOTIFICATION_ENTER_TREE = 10,
     KANAMA_IOS_NOTIFICATION_EXIT_TREE = 11,
@@ -1493,6 +1502,84 @@ int64_t kanama_ios_godot_ptrcall_no_args_ret_node_path(
     kanama_ios_destroy_string(&string_storage);
     kanama_ios_destroy_node_path(&node_path_storage);
     return length;
+}
+
+// Lazily resolve the PackedInt32Array read-back trio (destructor + "size" builtin
+// method + operator_index_const). Must be called after kanama_ios_resolve_godot_api().
+static void kanama_ios_cache_packed_int32_methods(void) {
+    if (g_packed_int32_array_destructor == NULL && g_variant_get_ptr_destructor != NULL) {
+        g_packed_int32_array_destructor =
+            g_variant_get_ptr_destructor(KANAMA_IOS_VARIANT_TYPE_PACKED_INT32_ARRAY);
+    }
+    if (g_packed_int32_array_size_method == NULL && g_variant_get_ptr_builtin_method != NULL) {
+        uint64_t name_storage = 0;
+        kanama_ios_init_string_name(&name_storage, "size");
+        g_packed_int32_array_size_method = g_variant_get_ptr_builtin_method(
+            KANAMA_IOS_VARIANT_TYPE_PACKED_INT32_ARRAY,
+            (GDExtensionConstStringNamePtr)&name_storage,
+            (GDExtensionInt)KANAMA_IOS_PACKED_INT32_ARRAY_SIZE_HASH
+        );
+        kanama_ios_destroy_string_name(&name_storage);
+    }
+    if (g_packed_int32_array_operator_index_const == NULL) {
+        g_packed_int32_array_operator_index_const =
+            (GDExtensionInterfacePackedInt32ArrayOperatorIndexConst)kanama_ios_lookup(
+                "packed_int32_array_operator_index_const");
+    }
+}
+
+// PackedInt32Array no-arg getter return. ptrcall writes the returned array (an 8-byte
+// CowData pointer) into a cell; we read its element count via the "size" builtin method,
+// then copy up to buf_cap int32 elements out through operator_index_const. Two-call
+// length protocol like the String/NodePath helpers: Kotlin calls once with out_buf=NULL
+// to learn the count, allocates, then calls again to fill. Returns the FULL element count
+// (negative on resolution failure).
+int64_t kanama_ios_godot_ptrcall_no_args_ret_packed_int32_array(
+    int64_t method_bind,
+    int64_t instance,
+    int32_t *out_buf,
+    int64_t buf_cap
+) {
+    if (!kanama_ios_resolve_godot_api() || method_bind == 0 || instance == 0) {
+        return -1;
+    }
+    if (g_object_method_bind_ptrcall == NULL) {
+        return -1;
+    }
+    kanama_ios_cache_packed_int32_methods();
+    if (g_packed_int32_array_size_method == NULL ||
+        g_packed_int32_array_operator_index_const == NULL) {
+        return -1;
+    }
+
+    // PackedInt32Array's opaque size is 16 bytes in the 64-bit GDExtension ABI (per
+    // extension_api.json builtin_class_sizes, float_64/double_64) — NOT 8 like String/
+    // NodePath. The ptrcall return-encode writes the full 16 bytes, so an 8-byte slot
+    // would overflow the stack and leave a malformed CowData. Size generously.
+    uint64_t array_storage[2] = { 0, 0 };
+    g_object_method_bind_ptrcall(
+        (GDExtensionMethodBindPtr)(intptr_t)method_bind,
+        (GDExtensionObjectPtr)(intptr_t)instance,
+        NULL,
+        array_storage
+    );
+
+    int64_t count = 0;
+    g_packed_int32_array_size_method(array_storage, NULL, &count, 0);
+
+    if (out_buf != NULL && buf_cap > 0 && count > 0) {
+        int64_t n = (count < buf_cap) ? count : buf_cap;
+        for (int64_t i = 0; i < n; i++) {
+            const int32_t *elem =
+                g_packed_int32_array_operator_index_const(array_storage, (GDExtensionInt)i);
+            out_buf[i] = (elem != NULL) ? *elem : 0;
+        }
+    }
+
+    if (g_packed_int32_array_destructor != NULL) {
+        g_packed_int32_array_destructor(array_storage);
+    }
+    return count;
 }
 
 static GDExtensionMethodBindPtr kanama_ios_get_method_bind_cached(
@@ -5214,6 +5301,34 @@ static void kanama_ios_ptrcall_selftest(void) {
             gp_np, np_buf, (int64_t)sizeof(np_buf));
         KANAMA_IOS_ST_CHECK("node-path-ret get_sub_emitter==../Emitter",
             np_len == 10 && strncmp(np_buf, "../Emitter", 10) == 0);
+    }
+
+    // PackedInt32Array-return: MeshLibrary.create_item(7)/create_item(11) -> get_item_list()
+    // returns [7, 11] (the item-id map is sorted ascending). Exercises the PackedInt32Array
+    // ptrcall return end-to-end (size builtin + operator_index_const + destructor, two-call
+    // length protocol) with known, distinct, non-zero element values. MeshLibrary is a plain
+    // Resource — safe to construct at extension-init time (no server/tree dependency), unlike
+    // the only EMITTED PackedInt32Array getter (CollisionObject2D/3D.get_shape_owners), whose
+    // physics-body instance segfaults in its PhysicsServer-touching constructor this early.
+    // The buffer is prefilled with a -1 sentinel so real element writes are distinguishable
+    // from an untouched buffer. Phase 2.7c.
+    {
+        int64_t ml = kanama_ios_godot_construct_object("MeshLibrary");
+        int64_t bind_create = kanama_ios_godot_get_method_bind("MeshLibrary", "create_item", 1286410249);
+        int64_t id7 = 7;
+        int64_t id11 = 11;
+        int32_t it[1] = { KANAMA_IOS_PT_INT64 };
+        const void *a7[1] = { &id7 };
+        kanama_ios_godot_ptrcall(bind_create, ml, it, a7, 1, KANAMA_IOS_PT_VOID, NULL);
+        const void *a11[1] = { &id11 };
+        kanama_ios_godot_ptrcall(bind_create, ml, it, a11, 1, KANAMA_IOS_PT_VOID, NULL);
+        int32_t items[8];
+        for (int i = 0; i < 8; i++) { items[i] = -1; }
+        int64_t item_count = kanama_ios_godot_ptrcall_no_args_ret_packed_int32_array(
+            kanama_ios_godot_get_method_bind("MeshLibrary", "get_item_list", 1930428628),
+            ml, items, 8);
+        KANAMA_IOS_ST_CHECK("packed-int32-ret get_item_list==[7,11]",
+            item_count == 2 && items[0] == 7 && items[1] == 11);
     }
 
     // String arg: Node.set_scene_file_path("HelloKanama") -> get_scene_file_path()

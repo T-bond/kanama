@@ -112,6 +112,22 @@ int64_t kanama_ios_godot_ptrcall_no_args_ret_node_path(
     int64_t buf_size
 );
 
+/*
+ * No-arg ptrcall returning a Godot PackedInt32Array, read back into int32 elements.
+ *
+ * ptrcall writes the returned array; its element count comes from the "size" builtin
+ * method and each element from operator_index_const. Two-call length protocol like the
+ * String/NodePath helpers: pass out_buf=NULL to learn the count, then call again with a
+ * buffer of that capacity. Writes up to buf_cap elements; returns the FULL element count
+ * (negative on resolution failure). buf_cap is an ELEMENT count, not a byte size.
+ */
+int64_t kanama_ios_godot_ptrcall_no_args_ret_packed_int32_array(
+    int64_t method_bind,
+    int64_t instance,
+    int32_t *out_buf,
+    int64_t buf_cap
+);
+
 int64_t kanama_ios_godot_construct_object(const char *class_name);
 
 int64_t kanama_ios_godot_get_singleton(const char *name);

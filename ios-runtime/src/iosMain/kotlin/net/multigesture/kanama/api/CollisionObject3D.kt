@@ -123,6 +123,10 @@ open class CollisionObject3D(handle: MemorySegment) : Node3D(handle) {
         ObjectCalls.ptrcallWithUInt32Arg(removeShapeOwnerBind, handle, ownerId)
     }
 
+    fun getShapeOwners(): List<Int> {
+        return ObjectCalls.ptrcallNoArgsRetPackedInt32List(getShapeOwnersBind, handle)
+    }
+
     fun shapeOwnerSetTransform(ownerId: Long, transform: Transform3D) {
         ObjectCalls.ptrcallWithUInt32AndTransform3DArg(shapeOwnerSetTransformBind, handle, ownerId, transform)
     }
@@ -273,6 +277,11 @@ open class CollisionObject3D(handle: MemorySegment) : Node3D(handle) {
         private const val REMOVE_SHAPE_OWNER_HASH = 1286410249L
         private val removeShapeOwnerBind by lazy {
             ObjectCalls.getMethodBind("CollisionObject3D", "remove_shape_owner", REMOVE_SHAPE_OWNER_HASH)
+        }
+
+        private const val GET_SHAPE_OWNERS_HASH = 969006518L
+        private val getShapeOwnersBind by lazy {
+            ObjectCalls.getMethodBind("CollisionObject3D", "get_shape_owners", GET_SHAPE_OWNERS_HASH)
         }
 
         private const val SHAPE_OWNER_SET_TRANSFORM_HASH = 3616898986L

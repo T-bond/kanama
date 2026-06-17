@@ -30,6 +30,7 @@ import net.multigesture.kanama.ios.cinterop.kanama_ios_godot_get_method_bind
 import net.multigesture.kanama.ios.cinterop.kanama_ios_godot_get_singleton
 import net.multigesture.kanama.ios.cinterop.kanama_ios_godot_object_call
 import net.multigesture.kanama.ios.cinterop.kanama_ios_godot_ptrcall
+import net.multigesture.kanama.ios.cinterop.kanama_ios_godot_ptrcall_no_args_ret_packed_int32_array
 import net.multigesture.kanama.ios.cinterop.kanama_ios_godot_ptrcall_no_args_ret_string
 import net.multigesture.kanama.ios.cinterop.kanama_ios_godot_ptrcall_no_args_ret_node_path
 import net.multigesture.kanama.ios.cinterop.kanama_ios_godot_ptrcall_no_args_ret_string_name
@@ -239,6 +240,24 @@ object ObjectCalls {
                 kanama_ios_godot_ptrcall_no_args_ret_node_path(
                     methodBind.address(), instance.address(), buf, len)
                 NodePath(buf.readBytes(len.toInt()).decodeToString())
+            }
+        }
+
+    // PackedInt32Array return: the C helper reads the array's element count (size builtin)
+    // and copies int32 elements out via operator_index_const. Two-call length protocol like
+    // the String/NodePath helpers — measure the count first, allocate, then fill. The count
+    // is an element count, not a byte size.
+    fun ptrcallNoArgsRetPackedInt32List(methodBind: MemorySegment, instance: MemorySegment): List<Int> =
+        memScoped {
+            val count = kanama_ios_godot_ptrcall_no_args_ret_packed_int32_array(
+                methodBind.address(), instance.address(), null, 0L)
+            if (count <= 0L) {
+                emptyList()
+            } else {
+                val buf = allocArray<IntVar>(count)
+                kanama_ios_godot_ptrcall_no_args_ret_packed_int32_array(
+                    methodBind.address(), instance.address(), buf, count)
+                List(count.toInt()) { buf[it] }
             }
         }
 
@@ -636,6 +655,21 @@ fun kanamaIosRuntimeObjectCallsSelfTest() {
     val subEmitter = ObjectCalls.ptrcallNoArgsRetNodePath(
         ObjectCalls.getMethodBind("GPUParticles2D", "get_sub_emitter", 4075236667L), gpNp)
     check("nodepath-ret(set/get_sub_emitter==../Emitter)", subEmitter == NodePath("../Emitter"))
+
+    // PackedInt32Array-return (MeshLibrary.get_item_list): create two items (via the Variant
+    // call path — ids 7 and 11), then read the id list back through ptrcallNoArgsRetPackedInt32List
+    // (size + operator_index_const, two-call length protocol). The item-id map is sorted, so the
+    // result is [7, 11] — known, distinct, non-zero values. MeshLibrary is a plain Resource, safe
+    // to construct at init time — unlike a physics body (the only emitted PackedInt32Array getter,
+    // CollisionObject2D/3D.get_shape_owners) which segfaults in its constructor this early. Proves
+    // the Kotlin -> C -> ptrcall -> read-back path end to end. Phase 2.7c.
+    val meshLib = ObjectCalls.constructObject("MeshLibrary")
+    val meshLibCallBind = ObjectCalls.getMethodBind("Object", "call", 3400424181L)
+    ObjectCalls.callWithVariantArgs(meshLibCallBind, meshLib, listOf("create_item", 7L))
+    ObjectCalls.callWithVariantArgs(meshLibCallBind, meshLib, listOf("create_item", 11L))
+    val itemList = ObjectCalls.ptrcallNoArgsRetPackedInt32List(
+        ObjectCalls.getMethodBind("MeshLibrary", "get_item_list", 1930428628L), meshLib)
+    check("packed-int32-ret(get_item_list==[7,11])", itemList == listOf(7, 11))
 
     // Transform3D arg+return (Node3D.set_transform -> get_transform): 12x float32
     // (9 column-major basis + 3 origin) round-trip through the generated helpers. Pure-
