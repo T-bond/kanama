@@ -35,7 +35,7 @@ Commits go straight to `main`, attributed `Co-Authored-By: Claude Fable 5`.
 | 2.4 PT_STRING / PT_NODE_PATH args | opus | done | 2026-06-13: String/NodePath args; Label.text full; device-validated (item 4) |
 | 2.5 Transform3D / Basis | opus | done | 2026-06-13: POD float32 kinds (+RID/Quaternion/AABB, item 6); device-validated (item 5) |
 | 2.6 @ScriptProperty value types | opus | done | 2026-06-15: value-type set-property DONE + device-validated end-to-end — scene `view: NodePath` reaches the Kotlin field on iPhone 12 (NodePath/Vector2/Vector3 C extraction + Kotlin decode + emitter; matrix C42/K47). Earlier "blocked on subsystem" was an export-drop confound (iOS-only probe not desktop-registered), not an iOS bug — see RESUME HERE |
-| 2.7 Variant / typed-array / vararg | opus | in-progress | 2026-06-17: full value order. **2.7a Transform2D + 2.7b NodePath + 2.7c Packed* (returns Int32/Float32/Vector2/Color/String + Float32 ARG + 6a generic Vector2/Color ARG build + 6b 4 CanvasItem.draw_*) DONE + device-validated** (PTRCALL 52 / OBJECTCALLS 63, +39 wrapper methods). 2.7c ABI gotchas (static gates / memories): Packed*Array slots 16 bytes on 64-bit; builtin scalar-float push_back arg is 8-byte double. Remaining 2.7c: 6c the 3 Texture2D-arg draw_* (draw_polygon/draw_primitive/draw_colored_polygon). Then 2.7d Typed arrays, 2.7e Variant, 2.7f arg-bearing string-family returns. Callable+vararg deferred. See RESUME HERE |
+| 2.7 Variant / typed-array / vararg | opus | in-progress | 2026-06-17: full value order. **2.7a Transform2D + 2.7b NodePath + 2.7c Packed* COMPLETE (returns Int32/Float32/Vector2/Color/String + Float32/Vector2/Color ARGS + all 7 CanvasItem.draw_*) DONE + device-validated** (PTRCALL 52 / OBJECTCALLS 63, +42 wrapper methods). 2.7c ABI gotchas (static gates / memories): Packed*Array slots 16 bytes on 64-bit; builtin scalar-float push_back arg is 8-byte double. **Remaining 2.7: 2.7d Typed object arrays (~24, next big self-testable subsystem), 2.7e Variant (~10), 2.7f arg-bearing string-family returns (~23).** Callable+vararg deferred. See RESUME HERE |
 
 ## Phase 3 — KSP model unification
 
@@ -331,8 +331,8 @@ needs a decision (see the numbered items below + the roadmap backlog):
   shape" skips, but 75 are *peer-class* gaps (audited Object shape, concrete class not emitted —
   a Phase-4 breadth axis, NOT 2.7) and ~86 are true shape-gaps. Sub-features in value order:
   **(a) Transform2D** [DONE], (b) NodePath/StringName/String returns (~22) [2.7b NodePath DONE],
-  (c) Packed*Array (~19) [returns COMPLETE + Float32/Vector2/Color ARGS + 4 CanvasItem.draw_* DONE;
-  remaining = 3 Texture2D-arg draw_*], (d) Typed object arrays (~20), (e) Variant (~10). **Callable (3) + vararg (4) stay
+  (c) Packed*Array COMPLETE [returns + Float32/Vector2/Color ARGS + all 7 CanvasItem.draw_*],
+  (d) Typed object arrays (~24, NEXT), (e) Variant (~10), (f) arg-bearing string-family returns (~23). **Callable (3) + vararg (4) stay
   DEFERRED to match desktop 1.4** (cross-platform policy, not an iOS gap). Method to add a value
   type: Kotlin `types/X.kt` + `IOS_ARG_KINDS`/`IOS_RET_KOTLIN` + `IOS_PT_TAG_VALUES` + a
   `ios_arg/ret_layout` case (POD passthrough → no per-type C code; the ptrcall `default` ships
@@ -463,12 +463,18 @@ needs a decision (see the numbered items below + the roadmap backlog):
     (no _draw context / no return) → compile+link-validated, ride on 6a's device-proven building. Matrix
     unchanged 52/63, 0 failed (regression check). Commit `feat: iOS CanvasItem.draw_* (no-Object shapes)
     via packed-arg dispatch (Phase 2.7c-6b)`.
-    **NEXT 2.7c-6c: the 3 Texture2D-arg draw_* shapes** — C (Vec2,ColorArr,Vec2,Texture2D = draw_polygon/
-    draw_primitive) + D (Vec2,Color,Vec2,Texture2D = draw_colored_polygon). Texture2D IS emitted, so they
-    can emit; the new bit is the nullable Object/Texture2D arg (default null) in the multi-arg helper —
-    pass PT_OBJECT handle (0 for null). Then **2.7c is DONE**; move to 2.7d Typed object arrays (~24, the
-    next big self-testable subsystem: get_children-style Array<Node> round-trips), 2.7e Variant, 2.7f
-    arg-bearing string-family returns.
+  - **2.7c-6c Texture2D-arg draw_* shapes DONE — 2.7c COMPLETE (iPhone 12 regression-clean, 2026-06-17).**
+    Wired C (Vec2,ColorArr,Vec2,Texture2D → draw_polygon/draw_primitive) + D (Vec2,Color,Vec2,Texture2D →
+    draw_colored_polygon); the Object arg arrives as a MemorySegment handle (0 for null Texture2D), laid in
+    a LongVar cell under PT_OBJECT. +3 emitted wrappers. **Only remaining emitted-class Packed skip is
+    PackedScene.get_state()→SceneState (an OBJECT return, Phase-4 gap, not packed).** Matrix unchanged
+    52/63. Commit `feat: iOS CanvasItem.draw_* Texture2D-arg shapes (Phase 2.7c-6c) — 2.7c COMPLETE`.
+    **NEXT: 2.7d Typed object arrays** (~24 methods, the next big SELF-TESTABLE subsystem — e.g.
+    Node.get_children() → Array<Node>; construct parent, add_child×2, get_children round-trip). The
+    marshalling: a Godot Array of Object handles; read via array size + get (g_array_size_method/
+    g_array_get_method already exist for the @ScriptProperty array path) → List<wrapper>. Then 2.7e Variant
+    (~10), 2.7f arg-bearing string-family returns (~23 — String/StringName/NodePath returns from methods
+    that also take args; needs a generated read-back, not just the no-arg helpers). Callable+vararg deferred.
 - Cleanly self-test-validatable items: ~~Variant `Object.call` dispatch~~ DONE
   (item 8); ~~value-type BuiltinTypes on iOS~~ DONE (items 9–11): no-arg + args
   shapes across Transform3D/Basis/Vector2/Vector3/Quaternion + scalar float/bool/int
