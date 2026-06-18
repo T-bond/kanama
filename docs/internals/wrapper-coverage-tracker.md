@@ -69,6 +69,7 @@ Gated on Phase 4 exit. Not started by decision.
 | Single Godot version pin (review F4) | sonnet | todo |
 | R8-minified APK smoke gate (review F2) | opus | todo |
 | AVAudioSession workaround | sonnet | todo |
+| Desktop wrapper drift: `src/main/.../Node.kt:145` `findChildren` calls `ptrcallWithTwoStringAndTwoBoolArgsRetObjectList` but `CALL_SHAPES` now names `...RetTypedNodeList` — pre-existing desktop staleness (noticed during 2.7d-3). Regenerate/reconcile desktop wrappers + sweep for other drifted typed-object-array shapes. **Sequenced after Phase 4** | sonnet | todo |
 
 ## RESUME HERE (updated 2026-06-15 — resume in Opus)
 
