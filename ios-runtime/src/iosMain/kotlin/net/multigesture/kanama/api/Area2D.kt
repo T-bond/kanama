@@ -204,6 +204,14 @@ class Area2D(handle: MemorySegment) : CollisionObject2D(handle) {
         return ObjectCalls.ptrcallNoArgsRetBool(isMonitorableBind, handle)
     }
 
+    fun getOverlappingBodies(): List<Node2D> {
+        return ObjectCalls.ptrcallNoArgsRetTypedObjectList(getOverlappingBodiesBind, handle, Node2D::fromHandle)
+    }
+
+    fun getOverlappingAreas(): List<Area2D> {
+        return ObjectCalls.ptrcallNoArgsRetTypedObjectList(getOverlappingAreasBind, handle, Area2D::fromHandle)
+    }
+
     fun hasOverlappingBodies(): Boolean {
         return ObjectCalls.ptrcallNoArgsRetBool(hasOverlappingBodiesBind, handle)
     }
@@ -388,6 +396,16 @@ class Area2D(handle: MemorySegment) : CollisionObject2D(handle) {
         private const val IS_MONITORABLE_HASH = 36873697L
         private val isMonitorableBind by lazy {
             ObjectCalls.getMethodBind("Area2D", "is_monitorable", IS_MONITORABLE_HASH)
+        }
+
+        private const val GET_OVERLAPPING_BODIES_HASH = 3995934104L
+        private val getOverlappingBodiesBind by lazy {
+            ObjectCalls.getMethodBind("Area2D", "get_overlapping_bodies", GET_OVERLAPPING_BODIES_HASH)
+        }
+
+        private const val GET_OVERLAPPING_AREAS_HASH = 3995934104L
+        private val getOverlappingAreasBind by lazy {
+            ObjectCalls.getMethodBind("Area2D", "get_overlapping_areas", GET_OVERLAPPING_AREAS_HASH)
         }
 
         private const val HAS_OVERLAPPING_BODIES_HASH = 36873697L

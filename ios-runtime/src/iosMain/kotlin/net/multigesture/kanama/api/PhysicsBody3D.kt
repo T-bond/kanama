@@ -21,6 +21,10 @@ open class PhysicsBody3D(handle: MemorySegment) : CollisionObject3D(handle) {
         return ObjectCalls.ptrcallWithLongArgRetBool(getAxisLockBind, handle, axis)
     }
 
+    fun getCollisionExceptions(): List<PhysicsBody3D> {
+        return ObjectCalls.ptrcallNoArgsRetTypedObjectList(getCollisionExceptionsBind, handle, PhysicsBody3D::fromHandle)
+    }
+
     fun addCollisionExceptionWith(body: Node) {
         ObjectCalls.ptrcallWithObjectArgs(addCollisionExceptionWithBind, handle, listOf(body.handle))
     }
@@ -49,6 +53,11 @@ open class PhysicsBody3D(handle: MemorySegment) : CollisionObject3D(handle) {
         private const val GET_AXIS_LOCK_HASH = 2264617709L
         private val getAxisLockBind by lazy {
             ObjectCalls.getMethodBind("PhysicsBody3D", "get_axis_lock", GET_AXIS_LOCK_HASH)
+        }
+
+        private const val GET_COLLISION_EXCEPTIONS_HASH = 2915620761L
+        private val getCollisionExceptionsBind by lazy {
+            ObjectCalls.getMethodBind("PhysicsBody3D", "get_collision_exceptions", GET_COLLISION_EXCEPTIONS_HASH)
         }
 
         private const val ADD_COLLISION_EXCEPTION_WITH_HASH = 1078189570L

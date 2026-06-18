@@ -271,6 +271,14 @@ class Area3D(handle: MemorySegment) : CollisionObject3D(handle) {
         return ObjectCalls.ptrcallNoArgsRetBool(isMonitoringBind, handle)
     }
 
+    fun getOverlappingBodies(): List<Node3D> {
+        return ObjectCalls.ptrcallNoArgsRetTypedObjectList(getOverlappingBodiesBind, handle, Node3D::fromHandle)
+    }
+
+    fun getOverlappingAreas(): List<Area3D> {
+        return ObjectCalls.ptrcallNoArgsRetTypedObjectList(getOverlappingAreasBind, handle, Area3D::fromHandle)
+    }
+
     fun hasOverlappingBodies(): Boolean {
         return ObjectCalls.ptrcallNoArgsRetBool(hasOverlappingBodiesBind, handle)
     }
@@ -517,6 +525,16 @@ class Area3D(handle: MemorySegment) : CollisionObject3D(handle) {
         private const val IS_MONITORING_HASH = 36873697L
         private val isMonitoringBind by lazy {
             ObjectCalls.getMethodBind("Area3D", "is_monitoring", IS_MONITORING_HASH)
+        }
+
+        private const val GET_OVERLAPPING_BODIES_HASH = 3995934104L
+        private val getOverlappingBodiesBind by lazy {
+            ObjectCalls.getMethodBind("Area3D", "get_overlapping_bodies", GET_OVERLAPPING_BODIES_HASH)
+        }
+
+        private const val GET_OVERLAPPING_AREAS_HASH = 3995934104L
+        private val getOverlappingAreasBind by lazy {
+            ObjectCalls.getMethodBind("Area3D", "get_overlapping_areas", GET_OVERLAPPING_AREAS_HASH)
         }
 
         private const val HAS_OVERLAPPING_BODIES_HASH = 36873697L

@@ -524,6 +524,7 @@ IOS_DIRECT_TO_GENERIC_TYPED_OBJECT_LIST = {
 # one of these — mirrors the per-helper Packed*Array gates. Grow this as each arg-shape's helper
 # lands (2.7d widens to the no-arg and String-arg shapes).
 IOS_WIRED_TYPED_OBJECT_LIST_HELPERS = {
+    "ptrcallNoArgsRetTypedObjectList",
     "ptrcallWithBoolArgRetTypedObjectList",
 }
 

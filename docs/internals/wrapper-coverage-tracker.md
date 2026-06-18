@@ -35,7 +35,7 @@ Commits go straight to `main`, attributed `Co-Authored-By: Claude Fable 5`.
 | 2.4 PT_STRING / PT_NODE_PATH args | opus | done | 2026-06-13: String/NodePath args; Label.text full; device-validated (item 4) |
 | 2.5 Transform3D / Basis | opus | done | 2026-06-13: POD float32 kinds (+RID/Quaternion/AABB, item 6); device-validated (item 5) |
 | 2.6 @ScriptProperty value types | opus | done | 2026-06-15: value-type set-property DONE + device-validated end-to-end — scene `view: NodePath` reaches the Kotlin field on iPhone 12 (NodePath/Vector2/Vector3 C extraction + Kotlin decode + emitter; matrix C42/K47). Earlier "blocked on subsystem" was an export-drop confound (iOS-only probe not desktop-registered), not an iOS bug — see RESUME HERE |
-| 2.7 Variant / typed-array / vararg | opus | in-progress | 2026-06-17: full value order. **2.7a Transform2D + 2.7b NodePath + 2.7c Packed* COMPLETE (returns Int32/Float32/Vector2/Color/String + Float32/Vector2/Color ARGS + all 7 CanvasItem.draw_*) DONE + device-validated** (PTRCALL 52 / OBJECTCALLS 63, +42 wrapper methods). 2.7c ABI gotchas (static gates / memories): Packed*Array slots 16 bytes on 64-bit; builtin scalar-float push_back arg is 8-byte double. **2.7d-1 Typed-object-array return (bool arg → Node.getChildren:List<Node>) DONE + device-validated (PTRCALL 53 / OBJECTCALLS 64).** Generator subsystem: typed-object-array detection now element-keyed (`typed_object_array_element_any` covers the dedicated `TypedNodeArray`-family kinds, not just `TypedObjectArray::X`); iOS remaps DIRECT List<Node> helpers → generic fromHandle helpers in `candidate_for`. **Remaining 2.7: 2.7d widen (no-arg + String-arg shapes), 2.7e Variant (~10), 2.7f arg-bearing string-family returns (~23).** Callable+vararg deferred. See RESUME HERE |
+| 2.7 Variant / typed-array / vararg | opus | in-progress | 2026-06-17: full value order. **2.7a Transform2D + 2.7b NodePath + 2.7c Packed* COMPLETE (returns Int32/Float32/Vector2/Color/String + Float32/Vector2/Color ARGS + all 7 CanvasItem.draw_*) DONE + device-validated** (PTRCALL 52 / OBJECTCALLS 63, +42 wrapper methods). 2.7c ABI gotchas (static gates / memories): Packed*Array slots 16 bytes on 64-bit; builtin scalar-float push_back arg is 8-byte double. **2.7d-1 Typed-object-array return (bool arg → Node.getChildren:List<Node>) DONE + device-validated (PTRCALL 53 / OBJECTCALLS 64).** Generator subsystem: typed-object-array detection now element-keyed (`typed_object_array_element_any` covers the dedicated `TypedNodeArray`-family kinds, not just `TypedObjectArray::X`); iOS remaps DIRECT List<Node> helpers → generic fromHandle helpers in `candidate_for`. **2.7d-2 No-arg shape DONE (emit-only/compile-validated, device regression-clean 53/64): +5 wrappers (Area2D/Area3D.get_overlapping_bodies/areas, PhysicsBody3D.get_collision_exceptions) via the one-line `ptrcallNoArgsRetTypedObjectList`→IOS_WIRED gate; get_gizmos/get_embedded_subwindows correctly stay skipped (elem wrappers not emitted).** **Remaining 2.7: 2.7d-3 find_children (String,String,bool,bool), 2.7e Variant (~10), 2.7f arg-bearing string-family returns (~23).** Callable+vararg deferred. See RESUME HERE |
 
 ## Phase 3 — KSP model unification
 
@@ -506,11 +506,25 @@ needs a decision (see the numbered items below + the roadmap backlog):
     check_wrapper_generator, compileKotlinIosArm64 (cinterop regen — header changed → DEVELOPER_DIR=full Xcode).
     Build-shell gotcha: the env shell is zsh → `for c in $CLASSES` does NOT word-split; run the per-class regen
     loop via `bash -c '…'` (a single unsplit arg becomes one bogus `--ios-emit-class` and dies "not found").
-    **NEXT (this sub-feature): device-validate (PTRCALL 52→53, OBJECTCALLS 63→64 expected, 0 failed) + nm the
-    .a for `kanama_ios_godot_ptrcall_ret_object_array`, then commit; then widen 2.7d to the no-arg shapes
-    (Area2D/Area3D.get_overlapping_bodies/areas — physics bodies, emit-only/compile-validated, segfault at
-    init; add `ptrcallNoArgsRetTypedObjectList` to IOS_WIRED) and Node.find_children(String,String,bool,bool).**
-    Then 2.7e Variant (~10), 2.7f arg-bearing string-family returns (~23). Callable+vararg deferred.
+  - **2.7d-2 No-arg typed-object-array return DONE (emit-only/compile-validated; device regression-clean iPhone 12, 2026-06-17).**
+    One-line wiring: add `ptrcallNoArgsRetTypedObjectList` to `IOS_WIRED_TYPED_OBJECT_LIST_HELPERS` (both the C helper
+    `kanama_ios_godot_ptrcall_ret_object_array` AND the Kotlin generic `ptrcallNoArgsRetTypedObjectList` already existed
+    from 2.7d-1 — the no-arg Kotlin variant was written-but-dead until this gate opened). NO header/C change → cinterop
+    UP-TO-DATE, plain compile. **+5 emitted wrappers / 3 classes**: `Area2D.getOverlappingBodies():List<Node2D>` +
+    `getOverlappingAreas():List<Area2D>`, `Area3D.getOverlappingBodies():List<Node3D>` + `getOverlappingAreas():List<Area3D>`,
+    `PhysicsBody3D.getCollisionExceptions():List<PhysicsBody3D>` — each via `ptrcallNoArgsRetTypedObjectList(…, {Elem}::fromHandle)`.
+    Skip report 180→175 (exactly these 5). **`Node3D.get_gizmos()` (elem Node3DGizmo) + `Viewport.get_embedded_subwindows()`
+    (elem Window) STAY SKIPPED — element wrappers NOT in IOS_EMIT_CLASSES; the gate (`if typed_array_element not in
+    IOS_EMIT_CLASSES`) correctly blocks them.** Emit-only: physics bodies segfault if constructed at init + these getters
+    return empty in a bare self-test, so they can't anchor a row; they ride on 2.7d-1's device-proven C read-back. Regen
+    touched ONLY Area2D/Area3D/PhysicsBody3D (additive, +45 lines; Node.kt unchanged); ObjectCallsGenerated byte-identical.
+    Gates GREEN (clang -fsyntax-only, audit_builtin_storage_sizes, check_ios_no_silent_stubs, check_wrapper_generator,
+    compileKotlinIosArm64). **Device: PTRCALL 53 / OBJECTCALLS 64, 0 failed — regression-clean (matrix unchanged, as expected).**
+    **NEXT: 2.7d-3 — `Node.find_children(String,String,bool,bool)→Array[Node]` (self-testable: build named child tree, find
+    by pattern). New CallShape (("String","String","bool","bool"),→TypedNode*) in api_wrapper_candidates / `_candidate_for_impl`
+    + new generic Kotlin `ptrcallWithStringStringTwoBoolArgsRetTypedObjectList<T>` (PT_STRING×2 + PT_BOOL×2 via retTypedObjectList
+    core) → IOS_HANDWRITTEN_HELPERS + IOS_WIRED + the direct→generic remap. Device 53→54 / 64→65.** Then 2.7e Variant (~10),
+    2.7f arg-bearing string-family returns (~23). Callable+vararg deferred.
 - Cleanly self-test-validatable items: ~~Variant `Object.call` dispatch~~ DONE
   (item 8); ~~value-type BuiltinTypes on iOS~~ DONE (items 9–11): no-arg + args
   shapes across Transform3D/Basis/Vector2/Vector3/Quaternion + scalar float/bool/int
