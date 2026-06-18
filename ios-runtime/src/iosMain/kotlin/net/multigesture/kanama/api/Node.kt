@@ -143,6 +143,10 @@ open class Node(handle: MemorySegment) : GodotObject(handle) {
         return Node.wrap(ObjectCalls.ptrcallWithStringAndTwoBoolArgsRetObject(findChildBind, handle, pattern, recursive, owned))
     }
 
+    fun findChildren(pattern: String, type: String = "", recursive: Boolean = true, owned: Boolean = true): List<Node> {
+        return ObjectCalls.ptrcallWithTwoStringAndTwoBoolArgsRetTypedObjectList(findChildrenBind, handle, pattern, type, recursive, owned, Node::fromHandle)
+    }
+
     fun findParent(pattern: String): Node? {
         return Node.wrap(ObjectCalls.ptrcallWithStringArgRetObject(findParentBind, handle, pattern))
     }
@@ -657,6 +661,11 @@ open class Node(handle: MemorySegment) : GodotObject(handle) {
         private const val FIND_CHILD_HASH = 2008217037L
         private val findChildBind by lazy {
             ObjectCalls.getMethodBind("Node", "find_child", FIND_CHILD_HASH)
+        }
+
+        private const val FIND_CHILDREN_HASH = 2560337219L
+        private val findChildrenBind by lazy {
+            ObjectCalls.getMethodBind("Node", "find_children", FIND_CHILDREN_HASH)
         }
 
         private const val FIND_PARENT_HASH = 1140089439L

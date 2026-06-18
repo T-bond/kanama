@@ -5977,6 +5977,59 @@ static void kanama_ios_ptrcall_selftest(void) {
             kid_count == 2 && kids[0] == child0 && kids[1] == child1);
     }
 
+    // (String,String,bool,bool)->Array[Node] return: a parent with two "Coin*"-named children plus
+    // one "Door" child; find_children("Coin*", "", recursive=true, owned=false) returns the two coins
+    // in tree order. Exercises ret_object_array with a PT_STRING x2 + PT_BOOL x2 arg layout — each
+    // Godot String is built C-side from the cstr (and destroyed) by the generic dispatcher, then the
+    // same Array read-back runs. owned=false so the unowned (no SceneTree owner) children still match;
+    // the "Door" child must be excluded by the name pattern. Plain Node is safe at init. Phase 2.7d-3.
+    {
+        int64_t parent = kanama_ios_godot_construct_object("Node");
+        int64_t bind_add = kanama_ios_godot_get_method_bind("Node", "add_child", 3863233950);
+        int64_t bind_set_name = kanama_ios_godot_get_method_bind("Node", "set_name", 3304788590);
+        uint8_t force_readable = 0;
+        int64_t internal_mode = 0;
+        int32_t act[3] = { KANAMA_IOS_PT_OBJECT, KANAMA_IOS_PT_BOOL, KANAMA_IOS_PT_INT64 };
+        int32_t snt[1] = { KANAMA_IOS_PT_STRING_NAME };
+
+        int64_t coin0 = kanama_ios_godot_construct_object("Node");
+        const char *coin0_name = "Coin0";
+        const void *coin0_na[1] = { coin0_name };
+        kanama_ios_godot_ptrcall(bind_set_name, coin0, snt, coin0_na, 1, KANAMA_IOS_PT_VOID, NULL);
+        int64_t coin1 = kanama_ios_godot_construct_object("Node");
+        const char *coin1_name = "Coin1";
+        const void *coin1_na[1] = { coin1_name };
+        kanama_ios_godot_ptrcall(bind_set_name, coin1, snt, coin1_na, 1, KANAMA_IOS_PT_VOID, NULL);
+        int64_t door = kanama_ios_godot_construct_object("Node");
+        const char *door_name = "Door";
+        const void *door_na[1] = { door_name };
+        kanama_ios_godot_ptrcall(bind_set_name, door, snt, door_na, 1, KANAMA_IOS_PT_VOID, NULL);
+
+        int64_t c0 = coin0;
+        const void *a0[3] = { &c0, &force_readable, &internal_mode };
+        kanama_ios_godot_ptrcall(bind_add, parent, act, a0, 3, KANAMA_IOS_PT_VOID, NULL);
+        int64_t c1 = coin1;
+        const void *a1[3] = { &c1, &force_readable, &internal_mode };
+        kanama_ios_godot_ptrcall(bind_add, parent, act, a1, 3, KANAMA_IOS_PT_VOID, NULL);
+        int64_t d0 = door;
+        const void *ad[3] = { &d0, &force_readable, &internal_mode };
+        kanama_ios_godot_ptrcall(bind_add, parent, act, ad, 3, KANAMA_IOS_PT_VOID, NULL);
+
+        const char *pattern = "Coin*";
+        const char *type_filter = "";
+        uint8_t recursive = 1;
+        uint8_t owned = 0;
+        int32_t fct[4] = { KANAMA_IOS_PT_STRING, KANAMA_IOS_PT_STRING, KANAMA_IOS_PT_BOOL, KANAMA_IOS_PT_BOOL };
+        const void *fca[4] = { pattern, type_filter, &recursive, &owned };
+        int64_t found[8];
+        for (int i = 0; i < 8; i++) { found[i] = -1; }
+        int64_t found_count = kanama_ios_godot_ptrcall_ret_object_array(
+            kanama_ios_godot_get_method_bind("Node", "find_children", 2560337219),
+            parent, fct, fca, 4, found, 8);
+        KANAMA_IOS_ST_CHECK("typed-object-array-ret find_children(Coin*)==[c0,c1]",
+            found_count == 2 && found[0] == coin0 && found[1] == coin1);
+    }
+
     // PackedFloat32Array-return: a freshly constructed Gradient seeds two default color
     // points at offsets 0.0 and 1.0 (set in the C++ constructor), so get_offsets() == [0.0,
     // 1.0]. Exercises the float32 read-back (size builtin + packed_float32 operator_index_const

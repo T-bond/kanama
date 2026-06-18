@@ -255,6 +255,7 @@ IOS_HANDWRITTEN_HELPERS = {
     "ptrcallWithPackedVector2ListColorPackedVector2ListAndObjectArgs",
     "ptrcallNoArgsRetTypedObjectList",
     "ptrcallWithBoolArgRetTypedObjectList",
+    "ptrcallWithTwoStringAndTwoBoolArgsRetTypedObjectList",
 }
 PARAMETER_NAME_OVERRIDES = {
     ("Time", "get_datetime_dict_from_unix_time", "unix_time_val"): "unixTime",
@@ -484,6 +485,7 @@ DIRECT_TYPED_OBJECT_LIST_HELPERS = {
     "ptrcallNoArgsRetTypedPhysicsBody3DList",
     "ptrcallWithBoolArgRetTypedNodeList",
     "ptrcallWithStringNameArgRetTypedNodeList",
+    "ptrcallWithTwoStringAndTwoBoolArgsRetTypedNodeList",
 }
 
 
@@ -517,6 +519,7 @@ IOS_DIRECT_TO_GENERIC_TYPED_OBJECT_LIST = {
     "ptrcallNoArgsRetTypedPhysicsBody3DList": "ptrcallNoArgsRetTypedObjectList",
     "ptrcallWithBoolArgRetTypedNodeList": "ptrcallWithBoolArgRetTypedObjectList",
     "ptrcallWithStringNameArgRetTypedNodeList": "ptrcallWithStringNameArgRetTypedObjectList",
+    "ptrcallWithTwoStringAndTwoBoolArgsRetTypedNodeList": "ptrcallWithTwoStringAndTwoBoolArgsRetTypedObjectList",
 }
 
 # The generic typed-object-array-return helpers actually hand-written + audited in ios-runtime
@@ -526,6 +529,7 @@ IOS_DIRECT_TO_GENERIC_TYPED_OBJECT_LIST = {
 IOS_WIRED_TYPED_OBJECT_LIST_HELPERS = {
     "ptrcallNoArgsRetTypedObjectList",
     "ptrcallWithBoolArgRetTypedObjectList",
+    "ptrcallWithTwoStringAndTwoBoolArgsRetTypedObjectList",
 }
 
 

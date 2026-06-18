@@ -602,6 +602,32 @@ object ObjectCalls {
             Triple<CPointer<IntVar>?, CPointer<COpaquePointerVar>?, Int>(types, ptrs, 1)
         }
 
+    // (String, String, bool, bool) -> Array[Node] — Node.find_children(pattern, type, recursive, owned).
+    // PT_STRING args pass the UTF-8 cstr ptr; the C generic dispatcher constructs (and destroys) the
+    // Godot String from it. PT_BOOL args are uint8 cells. Both string cells stay scope-valid across the
+    // two-call length protocol because layoutArgs runs once inside retTypedObjectList's memScoped block.
+    fun <T> ptrcallWithTwoStringAndTwoBoolArgsRetTypedObjectList(
+        methodBind: MemorySegment,
+        instance: MemorySegment,
+        first: String,
+        second: String,
+        firstBool: Boolean,
+        secondBool: Boolean,
+        fromHandle: (MemorySegment) -> T?,
+    ): List<T> =
+        retTypedObjectList(methodBind, instance, fromHandle) {
+            val b0 = alloc<ByteVar>(); b0.value = if (firstBool) 1 else 0
+            val b1 = alloc<ByteVar>(); b1.value = if (secondBool) 1 else 0
+            val types = allocArray<IntVar>(4)
+            types[0] = PT_STRING; types[1] = PT_STRING; types[2] = PT_BOOL; types[3] = PT_BOOL
+            val ptrs = allocArray<COpaquePointerVar>(4)
+            ptrs[0] = first.cstr.ptr.reinterpret<CPointed>()
+            ptrs[1] = second.cstr.ptr.reinterpret<CPointed>()
+            ptrs[2] = b0.ptr.reinterpret<CPointed>()
+            ptrs[3] = b1.ptr.reinterpret<CPointed>()
+            Triple<CPointer<IntVar>?, CPointer<COpaquePointerVar>?, Int>(types, ptrs, 4)
+        }
+
     // ---- single arg, void return ----
     fun ptrcallWithBoolArg(methodBind: MemorySegment, instance: MemorySegment, value: Boolean) =
         memScoped {
@@ -1032,6 +1058,34 @@ fun kanamaIosRuntimeObjectCallsSelfTest() {
         gcKids.size == 2 &&
             gcKids[0].address() == gcChild0.address() &&
             gcKids[1].address() == gcChild1.address())
+
+    // (String,String,bool,bool)->Array[Node] (Node.find_children): a parent with two "Coin*"-named
+    // children plus one "Door" child; find_children("Coin*", "", recursive=true, owned=false) returns
+    // the two coins in tree order. Exercises ptrcallWithTwoStringAndTwoBoolArgsRetTypedObjectList — the
+    // PT_STRING x2 + PT_BOOL x2 arg layout feeding the same Array read-back. owned=false so the unowned
+    // children still match; the "Door" child is filtered out by the name pattern. Identity fromHandle to
+    // compare addresses without importing the api layer. Plain Node is safe at init. Phase 2.7d-3.
+    val fcAddChildBind = ObjectCalls.getMethodBind("Node", "add_child", 3863233950L)
+    val fcSetNameBind = ObjectCalls.getMethodBind("Node", "set_name", 3304788590L)
+    val fcParent = ObjectCalls.constructObject("Node")
+    val fcCoin0 = ObjectCalls.constructObject("Node")
+    ObjectCalls.ptrcallWithStringNameArg(fcSetNameBind, fcCoin0, "Coin0")
+    val fcCoin1 = ObjectCalls.constructObject("Node")
+    ObjectCalls.ptrcallWithStringNameArg(fcSetNameBind, fcCoin1, "Coin1")
+    val fcDoor = ObjectCalls.constructObject("Node")
+    ObjectCalls.ptrcallWithStringNameArg(fcSetNameBind, fcDoor, "Door")
+    ObjectCalls.ptrcallWithObjectBoolLongArgs(fcAddChildBind, fcParent, fcCoin0, false, 0L)
+    ObjectCalls.ptrcallWithObjectBoolLongArgs(fcAddChildBind, fcParent, fcCoin1, false, 0L)
+    ObjectCalls.ptrcallWithObjectBoolLongArgs(fcAddChildBind, fcParent, fcDoor, false, 0L)
+    val fcFound = ObjectCalls.ptrcallWithTwoStringAndTwoBoolArgsRetTypedObjectList(
+        ObjectCalls.getMethodBind("Node", "find_children", 2560337219L), fcParent,
+        "Coin*", "", true, false) {
+        if (it.address() == 0L) null else it
+    }
+    check("typed-object-array-ret(find_children(Coin*)==[c0,c1])",
+        fcFound.size == 2 &&
+            fcFound[0].address() == fcCoin0.address() &&
+            fcFound[1].address() == fcCoin1.address())
 
     // PackedFloat32Array-return (Gradient.get_offsets): a fresh Gradient seeds two default
     // points at offsets 0.0 and 1.0, so get_offsets() == [0.0, 1.0] — read back through
