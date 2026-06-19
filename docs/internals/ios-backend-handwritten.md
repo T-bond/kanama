@@ -8,7 +8,7 @@ without being listed here, so we don't repeat the deep-dive bugs from unwired
 annotations/signals. `scripts/check_ios_no_silent_stubs.py` fails CI on an
 un-annotated bare-default return.
 
-Totals: **3 STUB** · **10 HANDWRITTEN** · **0 SUGAR** (13 marked sites).
+Totals: **1 STUB** · **10 HANDWRITTEN** · **0 SUGAR** (11 marked sites).
 
 ## STUB
 
@@ -16,8 +16,6 @@ _Silent stubs — should call real Godot but don't yet (follow up to avoid silen
 
 | Location | Note |
 |---|---|
-| `ios-runtime/src/iosMain/kotlin/net/multigesture/kanama/api/IosGodotApi.kt:162` | connectBound needs Callable.bindv(Array) over the boundArgs before |
-| `ios-runtime/src/iosMain/kotlin/net/multigesture/kanama/api/IosGodotApi.kt:172` | disconnectBound needs the same Callable.bindv(boundArgs) to rebuild the |
 | `ios-runtime/src/iosMain/kotlin/net/multigesture/kanama/api/IosGodotApi.kt:262` | close() should disconnect the lambda Callable; needs custom-Callable |
 
 ## HANDWRITTEN

@@ -51,7 +51,7 @@ Commits go straight to `main`, attributed `Co-Authored-By: Claude Fable 5`.
 
 | Task | Model | Status | Notes |
 |---|---|---|---|
-| 4.1 Variant Object dispatch (call/setDeferred/disconnect) | opus | todo | |
+| 4.1 Variant Object dispatch (call/setDeferred/disconnect) | opus | in-progress | 2026-06-18: **connectBound/disconnectBound DONE** (STUB 3→1) via a C bound-Callable path — `kanama_ios_godot_object_connect_bound`/`_disconnect_bound` build `Callable(target,method).bindv(Array of PT-tagged bound args)` then Object.connect/disconnect (new `g_array_push_back`/`g_callable_bindv`; extracted shared `kanama_ios_pt_arg_to_variant` + Kotlin `encodeVariantArgs`). **Device-validated (OBJECTCALLS 72 / PTRCALL 54, bound-arg delivery + disconnect no-op).** Remaining STUB: `SignalConnection.close` (custom-Callable hash/equal). The earlier 5 STUBs (call/set_deferred/disconnect/...) were already done pre-Phase-4 |
 | 4.2 Generator custom-sections (kill SUGAR) | sonnet | done | 2026-06-18: `IOS_CUSTOM_MEMBER_SECTIONS` registry (mirrors desktop `CUSTOM_MEMBER_SECTIONS`, gated to IOS_AUDIT_ONLY) emits the Node sugar (getTree/getNodeOrNull/getAsOrNull/requireAs/createTween) as a stable body custom-section. Node.kt now byte-identical to generator output → **regen is lossless, no more hand-re-apply**. `ios_handwritten_report`: **SUGAR 1→0** (STUB=3, HANDWRITTEN=10). Generator-only/structural (sugar source unchanged) → compile-validated, no device run needed |
 | 4.3 commonMain + expect/actual ObjectCalls | fable | todo | |
 | 4.4 iOS GodotReal centralization | sonnet | todo | low priority |
@@ -595,8 +595,19 @@ needs a decision (see the numbered items below + the roadmap backlog):
   GDExtension Callable with hash/equal to disconnect a lambda — the hardest). **4.3** commonMain `expect/actual ObjectCalls` (ends
   desktop/iOS wrapper drift but touches the Gradle model of all targets — high risk). **4.4** GodotReal centralization (low priority).
   **4.5** shrink IosGodotApi HANDWRITTEN toward ~6 (most of the 10 are platform-inherent: coroutines/main-thread/math/singletons).
-  Phase-4 "done" = 0 STUB / 0 SUGAR → SUGAR done, 4.1's 3 STUBs remain. **NEXT (user decision): 4.1 Callable subsystem, or the ~15
-  true-2.7 tail (2.7g), or Phase 3 odds-and-ends.**
+  Phase-4 "done" = 0 STUB / 0 SUGAR → SUGAR done, 4.1's 3 STUBs remain.
+- **★ 4.1 PARTIAL (2026-06-18): connectBound + disconnectBound DONE (STUB 3→1) + DEVICE-VALIDATED (iPhone 12, OBJECTCALLS 72 / PTRCALL 54, 0 failed).** New C bound-Callable
+  path: `kanama_ios_godot_object_connect_bound`/`_disconnect_bound(object,signal,target,method, arg_tags,arg_ptrs,argc, [flags])`
+  build `Callable(target,method)` then `.bindv(Array)` where the Array is the PT-tagged bound args pushed via `Array.push_back`, then
+  Object.connect/disconnect with the bound Callable Variant. New globals `g_array_push_back` (Array.push_back hash 3316032543) +
+  `g_callable_bindv` (Callable.bindv hash 3564560322), lazily resolved in `kanama_ios_cache_bound_callable_methods`. Refactor: the
+  arg→Variant boxing in object_call extracted into shared `kanama_ios_pt_arg_to_variant`; the Kotlin List<Any?>→PT-tag layout in
+  callWithVariantArgs extracted into shared `ObjectCalls.encodeVariantArgs` — both reused by the bound path. disconnect rebuilds the
+  identical bound Callable (CallableCustomBound hashes base+args, so it matches). **Header changed → cinterop regen (full Xcode).**
+  Self-test (Kotlin, +2 rows, EXPECT OBJECTCALLS 70→72 / PTRCALL 54): emitter.add_user_signal → connectBound to receiver.set_name
+  bound "BoundName" → emit_signal → receiver.get_name()=="BoundName" (proves bound-arg delivery); then disconnectBound → rename
+  receiver "Sentinel" → re-emit is a no-op → name stays "Sentinel". **Remaining STUB: `SignalConnection.close`** (4.1b — needs a custom
+  GDExtension Callable with hash/equal to disconnect a lambda; the hardest, separate). **NEXT: device-validate 4.1a, then 4.1b or stop.**
 - Cleanly self-test-validatable items: ~~Variant `Object.call` dispatch~~ DONE
   (item 8); ~~value-type BuiltinTypes on iOS~~ DONE (items 9–11): no-arg + args
   shapes across Transform3D/Basis/Vector2/Vector3/Quaternion + scalar float/bool/int

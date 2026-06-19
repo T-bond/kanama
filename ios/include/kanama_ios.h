@@ -380,6 +380,33 @@ int32_t kanama_ios_godot_object_disconnect(
     const char *method_name
 );
 
+/*
+ * Object.connect(signal, Callable(target, method).bindv([boundArgs]), flags) — connect with
+ * extra bound args appended to the Callable. boundArgs arrive PT-tagged like object_call.
+ * Returns the Godot Error (0 == OK), or -1 if the call didn't dispatch.
+ */
+int64_t kanama_ios_godot_object_connect_bound(
+    int64_t object,
+    const char *signal_name,
+    int64_t target_object,
+    const char *method_name,
+    const int32_t *arg_tags,
+    const void *const *arg_ptrs,
+    int32_t arg_count,
+    int64_t flags
+);
+
+/* Symmetric teardown: Object.disconnect(signal, Callable(target, method).bindv([boundArgs])). */
+int32_t kanama_ios_godot_object_disconnect_bound(
+    int64_t object,
+    const char *signal_name,
+    int64_t target_object,
+    const char *method_name,
+    const int32_t *arg_tags,
+    const void *const *arg_ptrs,
+    int32_t arg_count
+);
+
 int64_t kanama_ios_godot_tween_tween_property_vector2(
     int64_t tween,
     int64_t target,

@@ -31,6 +31,8 @@ import net.multigesture.kanama.ios.cinterop.kanama_ios_godot_construct_object
 import net.multigesture.kanama.ios.cinterop.kanama_ios_godot_get_method_bind
 import net.multigesture.kanama.ios.cinterop.kanama_ios_godot_get_singleton
 import net.multigesture.kanama.ios.cinterop.kanama_ios_godot_object_call
+import net.multigesture.kanama.ios.cinterop.kanama_ios_godot_object_connect_bound
+import net.multigesture.kanama.ios.cinterop.kanama_ios_godot_object_disconnect_bound
 import net.multigesture.kanama.ios.cinterop.KanamaIosPackedArgDesc
 import net.multigesture.kanama.ios.cinterop.kanama_ios_godot_ptrcall
 import net.multigesture.kanama.ios.cinterop.kanama_ios_godot_ptrcall_ret_object_array
@@ -763,62 +765,101 @@ object ObjectCalls {
     // set_custom_mouse_cursor). Returns the decoded SCALAR result (Boolean/Long/Double/
     // String/object MemorySegment) or null (nil / non-scalar return). String returns over
     // 1 KiB are truncated (the value is captured once — the call is not re-issued).
+    // Lay out a List<Any?> into parallel PT-tag + payload-pointer arrays inside the given MemScope.
+    // Shared by the Variant Object.call dispatch and the bound-Callable connect/disconnect path.
+    private fun MemScope.encodeVariantArgs(
+        args: List<Any?>,
+    ): Triple<CPointer<IntVar>, CPointer<COpaquePointerVar>, Int> {
+        val n = args.size
+        val tags = allocArray<IntVar>(if (n > 0) n else 1)
+        val ptrs = allocArray<COpaquePointerVar>(if (n > 0) n else 1)
+        for (i in 0 until n) {
+            when (val a = args[i]) {
+                null -> { tags[i] = PT_VOID; ptrs[i] = null }
+                is Boolean -> {
+                    val c = alloc<ByteVar>(); c.value = if (a) 1 else 0
+                    tags[i] = PT_BOOL; ptrs[i] = c.ptr.reinterpret<CPointed>()
+                }
+                is Int -> {
+                    val c = alloc<LongVar>(); c.value = a.toLong()
+                    tags[i] = PT_INT64; ptrs[i] = c.ptr.reinterpret<CPointed>()
+                }
+                is Long -> {
+                    val c = alloc<LongVar>(); c.value = a
+                    tags[i] = PT_INT64; ptrs[i] = c.ptr.reinterpret<CPointed>()
+                }
+                is Float -> {
+                    val c = alloc<DoubleVar>(); c.value = a.toDouble()
+                    tags[i] = PT_FLOAT64; ptrs[i] = c.ptr.reinterpret<CPointed>()
+                }
+                is Double -> {
+                    val c = alloc<DoubleVar>(); c.value = a
+                    tags[i] = PT_FLOAT64; ptrs[i] = c.ptr.reinterpret<CPointed>()
+                }
+                is String -> { tags[i] = PT_STRING; ptrs[i] = a.cstr.ptr.reinterpret<CPointed>() }
+                is Vector2 -> {
+                    val c = allocArray<FloatVar>(2); c[0] = a.x.toFloat(); c[1] = a.y.toFloat()
+                    tags[i] = PT_VECTOR2; ptrs[i] = c.reinterpret<CPointed>()
+                }
+                is Vector2i -> {
+                    val c = allocArray<IntVar>(2); c[0] = a.x; c[1] = a.y
+                    tags[i] = PT_VECTOR2I; ptrs[i] = c.reinterpret<CPointed>()
+                }
+                is Color -> {
+                    val c = allocArray<FloatVar>(4); c[0] = a.r; c[1] = a.g; c[2] = a.b; c[3] = a.a
+                    tags[i] = PT_COLOR; ptrs[i] = c.reinterpret<CPointed>()
+                }
+                is GodotObject -> {
+                    val c = alloc<LongVar>(); c.value = a.handle.address()
+                    tags[i] = PT_OBJECT; ptrs[i] = c.ptr.reinterpret<CPointed>()
+                }
+                is MemorySegment -> {
+                    val c = alloc<LongVar>(); c.value = a.address()
+                    tags[i] = PT_OBJECT; ptrs[i] = c.ptr.reinterpret<CPointed>()
+                }
+                else -> error("encodeVariantArgs: unsupported arg type ${a::class.simpleName}")
+            }
+        }
+        return Triple(tags, ptrs, n)
+    }
+
+    // Object.connect(signal, Callable(target, method).bindv([boundArgs]), flags) — the bound-args
+    // counterpart of IosGodot.objectConnect. Returns the Godot Error (0 == OK). Phase 4.1.
+    fun connectBound(
+        sourceObject: MemorySegment,
+        signalName: String,
+        targetObject: MemorySegment,
+        method: String,
+        boundArgs: List<Any?>,
+        flags: Long,
+    ): Long =
+        memScoped {
+            val (tags, ptrs, n) = encodeVariantArgs(boundArgs)
+            kanama_ios_godot_object_connect_bound(
+                sourceObject.address(), signalName, targetObject.address(), method, tags, ptrs, n, flags)
+        }
+
+    // Symmetric teardown — rebuilds the same bound Callable so Object.disconnect matches. Phase 4.1.
+    fun disconnectBound(
+        sourceObject: MemorySegment,
+        signalName: String,
+        targetObject: MemorySegment,
+        method: String,
+        boundArgs: List<Any?>,
+    ): Int =
+        memScoped {
+            val (tags, ptrs, n) = encodeVariantArgs(boundArgs)
+            kanama_ios_godot_object_disconnect_bound(
+                sourceObject.address(), signalName, targetObject.address(), method, tags, ptrs, n)
+        }
+
     fun callWithVariantArgs(
         methodBind: MemorySegment,
         instance: MemorySegment,
         args: List<Any?>,
     ): Any? =
         memScoped {
-            val n = args.size
-            val tags = allocArray<IntVar>(if (n > 0) n else 1)
-            val ptrs = allocArray<COpaquePointerVar>(if (n > 0) n else 1)
-            for (i in 0 until n) {
-                when (val a = args[i]) {
-                    null -> { tags[i] = PT_VOID; ptrs[i] = null }
-                    is Boolean -> {
-                        val c = alloc<ByteVar>(); c.value = if (a) 1 else 0
-                        tags[i] = PT_BOOL; ptrs[i] = c.ptr.reinterpret<CPointed>()
-                    }
-                    is Int -> {
-                        val c = alloc<LongVar>(); c.value = a.toLong()
-                        tags[i] = PT_INT64; ptrs[i] = c.ptr.reinterpret<CPointed>()
-                    }
-                    is Long -> {
-                        val c = alloc<LongVar>(); c.value = a
-                        tags[i] = PT_INT64; ptrs[i] = c.ptr.reinterpret<CPointed>()
-                    }
-                    is Float -> {
-                        val c = alloc<DoubleVar>(); c.value = a.toDouble()
-                        tags[i] = PT_FLOAT64; ptrs[i] = c.ptr.reinterpret<CPointed>()
-                    }
-                    is Double -> {
-                        val c = alloc<DoubleVar>(); c.value = a
-                        tags[i] = PT_FLOAT64; ptrs[i] = c.ptr.reinterpret<CPointed>()
-                    }
-                    is String -> { tags[i] = PT_STRING; ptrs[i] = a.cstr.ptr.reinterpret<CPointed>() }
-                    is Vector2 -> {
-                        val c = allocArray<FloatVar>(2); c[0] = a.x.toFloat(); c[1] = a.y.toFloat()
-                        tags[i] = PT_VECTOR2; ptrs[i] = c.reinterpret<CPointed>()
-                    }
-                    is Vector2i -> {
-                        val c = allocArray<IntVar>(2); c[0] = a.x; c[1] = a.y
-                        tags[i] = PT_VECTOR2I; ptrs[i] = c.reinterpret<CPointed>()
-                    }
-                    is Color -> {
-                        val c = allocArray<FloatVar>(4); c[0] = a.r; c[1] = a.g; c[2] = a.b; c[3] = a.a
-                        tags[i] = PT_COLOR; ptrs[i] = c.reinterpret<CPointed>()
-                    }
-                    is GodotObject -> {
-                        val c = alloc<LongVar>(); c.value = a.handle.address()
-                        tags[i] = PT_OBJECT; ptrs[i] = c.ptr.reinterpret<CPointed>()
-                    }
-                    is MemorySegment -> {
-                        val c = alloc<LongVar>(); c.value = a.address()
-                        tags[i] = PT_OBJECT; ptrs[i] = c.ptr.reinterpret<CPointed>()
-                    }
-                    else -> error("callWithVariantArgs: unsupported arg type ${a::class.simpleName}")
-                }
-            }
+            val (tags, ptrs, n) = encodeVariantArgs(args)
             val outInt = alloc<LongVar>()
             val outDouble = alloc<DoubleVar>()
             val strBufSize = 1024L
@@ -1200,6 +1241,32 @@ fun kanamaIosRuntimeObjectCallsSelfTest() {
     val animNext = ObjectCalls.ptrcallWithStringNameArgRetStringName(
         ObjectCalls.getMethodBind("AnimationPlayer", "animation_get_next", 1965194235L), animPlayer, "none")
     check("stringname-arg-ret(animation_get_next==\"\")", animNext == "")
+
+    // Bound-Callable connect (Phase 4.1). emitter.add_user_signal("kanamaBound"); connectBound it to
+    // receiver.set_name bound with "BoundName"; emit -> the bound Callable runs receiver.set_name(
+    // "BoundName"), so get_name() == "BoundName". Fully self-contained — user signals + synchronous
+    // emit work off-tree. Proves the bound arg is actually delivered (not just that connect returns OK).
+    val cbEmitter = ObjectCalls.constructObject("Node")
+    val cbReceiver = ObjectCalls.constructObject("Node")
+    ObjectCalls.callWithVariantArgs(
+        ObjectCalls.getMethodBind("Object", "add_user_signal", 85656714L), cbEmitter, listOf("kanamaBound"))
+    val cbConnErr = ObjectCalls.connectBound(cbEmitter, "kanamaBound", cbReceiver, "set_name", listOf("BoundName"), 0L)
+    ObjectCalls.callWithVariantArgs(
+        ObjectCalls.getMethodBind("Object", "emit_signal", 4047867050L), cbEmitter, listOf("kanamaBound"))
+    val cbName = ObjectCalls.ptrcallNoArgsRetStringName(
+        ObjectCalls.getMethodBind("Node", "get_name", 2002593661L), cbReceiver)
+    check("connect-bound(emit -> set_name(BoundName))", cbConnErr == 0L && cbName == "BoundName")
+
+    // disconnectBound rebuilds the same bound Callable to remove it; rename the receiver to a sentinel
+    // and re-emit — the disconnected Callable must NOT fire, so the sentinel name survives.
+    ObjectCalls.disconnectBound(cbEmitter, "kanamaBound", cbReceiver, "set_name", listOf("BoundName"))
+    ObjectCalls.ptrcallWithStringNameArg(
+        ObjectCalls.getMethodBind("Node", "set_name", 3304788590L), cbReceiver, "Sentinel")
+    ObjectCalls.callWithVariantArgs(
+        ObjectCalls.getMethodBind("Object", "emit_signal", 4047867050L), cbEmitter, listOf("kanamaBound"))
+    val cbName2 = ObjectCalls.ptrcallNoArgsRetStringName(
+        ObjectCalls.getMethodBind("Node", "get_name", 2002593661L), cbReceiver)
+    check("disconnect-bound(re-emit no-op -> name stays Sentinel)", cbName2 == "Sentinel")
 
     // PackedFloat32Array-return (Gradient.get_offsets): a fresh Gradient seeds two default
     // points at offsets 0.0 and 1.0, so get_offsets() == [0.0, 1.0] — read back through

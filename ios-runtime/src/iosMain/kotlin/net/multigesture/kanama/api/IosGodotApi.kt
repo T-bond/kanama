@@ -159,19 +159,19 @@ open class GodotObject(
         IosGodot.objectDisconnect(handle.address(), signalName, target.handle.address(), method)
     }
 
-    // KANAMA-IOS-STUB: connectBound needs Callable.bindv(Array) over the boundArgs before
-    // Object.connect; deferred with the bound/custom-Callable work (beyond Object.call). Backlog.
+    // Object.connect(signal, Callable(target, method).bindv([boundArgs]), flags). Routes through the
+    // C shim's bound-Callable path (Array of PT-tagged bound args -> Callable.bindv). Phase 4.1.
     fun connectBound(
         signalName: String,
         target: GodotObject,
         method: String,
         boundArgs: List<Any?>,
         flags: Long = CONNECT_DEFAULT,
-    ): Long = 0L
+    ): Long = ObjectCalls.connectBound(handle, signalName, target.handle, method, boundArgs, flags)
 
-    // KANAMA-IOS-STUB: disconnectBound needs the same Callable.bindv(boundArgs) to rebuild the
-    // bound Callable Object.disconnect must match; deferred with connectBound. Backlog.
+    // Symmetric teardown — rebuilds the same bound Callable so Object.disconnect matches. Phase 4.1.
     fun disconnectBound(signalName: String, target: GodotObject, method: String, boundArgs: List<Any?>) {
+        ObjectCalls.disconnectBound(handle, signalName, target.handle, method, boundArgs)
     }
 
     fun emitSignal(signalName: String, value: Int): Int =
