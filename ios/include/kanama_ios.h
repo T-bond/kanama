@@ -349,6 +349,17 @@ int64_t kanama_ios_godot_object_connect_callable(
 );
 
 /*
+ * Object.disconnect(signal, <the lambda Callable for callback_id>) — teardown for a lambda
+ * connected via object_connect_callable. Recreates the identity-equal custom Callable and
+ * disconnects it. Returns 0 on a clean dispatch, -1 otherwise.
+ */
+int32_t kanama_ios_godot_object_disconnect_callable(
+    int64_t object,
+    const char *signal_name,
+    int64_t callback_id
+);
+
+/*
  * Generic Variant Object.call dispatch (the varargs / dynamic path ptrcall can't
  * express). arg_tags[i] is a KANAMA_IOS_PT_* tag and arg_ptrs[i] points to that
  * arg's payload (uint8 bool / int64 / double / C-string for String-family / int64

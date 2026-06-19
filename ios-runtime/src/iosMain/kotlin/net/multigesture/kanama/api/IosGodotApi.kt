@@ -66,6 +66,7 @@ import net.multigesture.kanama.ios.cinterop.kanama_ios_godot_construct_object
 import net.multigesture.kanama.ios.cinterop.kanama_ios_godot_node_set_process_unhandled_input
 import net.multigesture.kanama.ios.cinterop.kanama_ios_godot_object_connect
 import net.multigesture.kanama.ios.cinterop.kanama_ios_godot_object_connect_callable
+import net.multigesture.kanama.ios.cinterop.kanama_ios_godot_object_disconnect_callable
 import net.multigesture.kanama.ios.cinterop.kanama_ios_godot_object_disconnect
 import net.multigesture.kanama.ios.cinterop.kanama_ios_godot_object_emit_signal_int
 import net.multigesture.kanama.ios.cinterop.kanama_ios_godot_object_emit_signal_vector2i
@@ -231,7 +232,7 @@ class GodotSignal internal constructor(
             // but release defensively in case it never reached the trampoline path.
             IosCallableRegistry.release(callbackId)
         }
-        return SignalConnection(result)
+        return SignalConnection(result, owner, name, callbackId)
     }
 
     fun connectObject(
@@ -258,10 +259,23 @@ class GodotSignal internal constructor(
 class SignalConnection internal constructor(
     // Real Object.connect return Error (0 == OK) from the lambda-connect path.
     val error: Long = 0L,
+    private val owner: GodotObject? = null,
+    private val signalName: String = "",
+    private val callbackId: Long = 0L,
 ) : AutoCloseable {
-    // KANAMA-IOS-STUB: close() should disconnect the lambda Callable; needs custom-Callable
-    // identity (hash/equal) + a disconnect-callable C path. Backlog (bound/custom Callables).
+    private var closed = false
+
+    // Disconnect the lambda Callable. The C path recreates the identity-equal custom Callable
+    // (call_func + callback_id) and Object.disconnects it; the connection's free_func then releases
+    // the registry entry. No-op if the connect failed or close() was already called. (A
+    // CONNECT_ONE_SHOT connection auto-disconnects when it fires; calling close() afterwards is a
+    // benign redundant disconnect.) Phase 4.1b.
     override fun close() {
+        if (closed || error != 0L || owner == null || callbackId == 0L) {
+            return
+        }
+        closed = true
+        IosGodot.objectDisconnectCallable(owner.handle.address(), signalName, callbackId)
     }
 }
 
@@ -715,6 +729,9 @@ internal object IosGodot {
 
     fun objectConnectCallable(sourceObject: Long, signalName: String, callbackId: Long, flags: Long): Long =
         kanama_ios_godot_object_connect_callable(sourceObject, signalName, callbackId, flags)
+
+    fun objectDisconnectCallable(sourceObject: Long, signalName: String, callbackId: Long): Int =
+        kanama_ios_godot_object_disconnect_callable(sourceObject, signalName, callbackId)
 
     fun tweenTweenPropertyVector2(tween: Long, target: Long, property: String, x: Double, y: Double, duration: Double): Long =
         kanama_ios_godot_tween_tween_property_vector2(tween, target, property, x, y, duration)

@@ -27,6 +27,8 @@ import kotlinx.cinterop.reinterpret
 import kotlinx.cinterop.set
 import kotlinx.cinterop.value
 import net.multigesture.kanama.api.GodotObject
+import net.multigesture.kanama.api.IosCallableRegistry
+import net.multigesture.kanama.api.IosGodot
 import net.multigesture.kanama.ios.cinterop.kanama_ios_godot_construct_object
 import net.multigesture.kanama.ios.cinterop.kanama_ios_godot_get_method_bind
 import net.multigesture.kanama.ios.cinterop.kanama_ios_godot_get_singleton
@@ -1267,6 +1269,24 @@ fun kanamaIosRuntimeObjectCallsSelfTest() {
     val cbName2 = ObjectCalls.ptrcallNoArgsRetStringName(
         ObjectCalls.getMethodBind("Node", "get_name", 2002593661L), cbReceiver)
     check("disconnect-bound(re-emit no-op -> name stays Sentinel)", cbName2 == "Sentinel")
+
+    // Lambda Callable connect + close/disconnect (Phase 4.1b). Register a Kotlin lambda, connect it
+    // to a user signal as a custom Callable, emit -> the trampoline runs the lambda (counter++).
+    // Then objectDisconnectCallable recreates the identity-equal custom Callable (call_func +
+    // callback_id) and disconnects it; a re-emit must NOT run the lambda. Exercises the close() path.
+    var lamFires = 0
+    val lamId = IosCallableRegistry.register { lamFires++ }
+    val lamEmitter = ObjectCalls.constructObject("Node")
+    ObjectCalls.callWithVariantArgs(
+        ObjectCalls.getMethodBind("Object", "add_user_signal", 85656714L), lamEmitter, listOf("kanamaLambda"))
+    IosGodot.objectConnectCallable(lamEmitter.address(), "kanamaLambda", lamId, 0L)
+    ObjectCalls.callWithVariantArgs(
+        ObjectCalls.getMethodBind("Object", "emit_signal", 4047867050L), lamEmitter, listOf("kanamaLambda"))
+    val lamFiredOnce = lamFires
+    IosGodot.objectDisconnectCallable(lamEmitter.address(), "kanamaLambda", lamId)
+    ObjectCalls.callWithVariantArgs(
+        ObjectCalls.getMethodBind("Object", "emit_signal", 4047867050L), lamEmitter, listOf("kanamaLambda"))
+    check("lambda-callable(connect fires once, disconnect stops it)", lamFiredOnce == 1 && lamFires == 1)
 
     // PackedFloat32Array-return (Gradient.get_offsets): a fresh Gradient seeds two default
     // points at offsets 0.0 and 1.0, so get_offsets() == [0.0, 1.0] — read back through

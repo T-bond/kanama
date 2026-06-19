@@ -51,7 +51,7 @@ Commits go straight to `main`, attributed `Co-Authored-By: Claude Fable 5`.
 
 | Task | Model | Status | Notes |
 |---|---|---|---|
-| 4.1 Variant Object dispatch (call/setDeferred/disconnect) | opus | in-progress | 2026-06-18: **connectBound/disconnectBound DONE** (STUB 3→1) via a C bound-Callable path — `kanama_ios_godot_object_connect_bound`/`_disconnect_bound` build `Callable(target,method).bindv(Array of PT-tagged bound args)` then Object.connect/disconnect (new `g_array_push_back`/`g_callable_bindv`; extracted shared `kanama_ios_pt_arg_to_variant` + Kotlin `encodeVariantArgs`). **Device-validated (OBJECTCALLS 72 / PTRCALL 54, bound-arg delivery + disconnect no-op).** Remaining STUB: `SignalConnection.close` (custom-Callable hash/equal). The earlier 5 STUBs (call/set_deferred/disconnect/...) were already done pre-Phase-4 |
+| 4.1 Variant Object dispatch (call/setDeferred/disconnect) | opus | done | 2026-06-18/19: **all 3 remaining STUBs cleared → STUB 3→0.** connectBound/disconnectBound (device-validated OBJECTCALLS 72) via the C bound-Callable path (`object_connect_bound`/`_disconnect_bound` → `Callable.bindv(Array)`; new `g_array_push_back`/`g_callable_bindv`; shared `kanama_ios_pt_arg_to_variant` + `encodeVariantArgs`). **SignalConnection.close DONE (device-validated OBJECTCALLS 73 / PTRCALL 54)**: `kanama_ios_godot_object_disconnect_callable` recreates the identity-equal custom Callable (no hash/equal funcs needed — Godot uses call_func+userdata as identity) + Object.disconnect; SignalConnection now carries owner/signal/callbackId. The earlier 5 STUBs were done pre-Phase-4. **STUB=0 / SUGAR=0 → Phase 4 exit condition met** |
 | 4.2 Generator custom-sections (kill SUGAR) | sonnet | done | 2026-06-18: `IOS_CUSTOM_MEMBER_SECTIONS` registry (mirrors desktop `CUSTOM_MEMBER_SECTIONS`, gated to IOS_AUDIT_ONLY) emits the Node sugar (getTree/getNodeOrNull/getAsOrNull/requireAs/createTween) as a stable body custom-section. Node.kt now byte-identical to generator output → **regen is lossless, no more hand-re-apply**. `ios_handwritten_report`: **SUGAR 1→0** (STUB=3, HANDWRITTEN=10). Generator-only/structural (sugar source unchanged) → compile-validated, no device run needed |
 | 4.3 commonMain + expect/actual ObjectCalls | fable | todo | |
 | 4.4 iOS GodotReal centralization | sonnet | todo | low priority |
@@ -608,6 +608,18 @@ needs a decision (see the numbered items below + the roadmap backlog):
   bound "BoundName" → emit_signal → receiver.get_name()=="BoundName" (proves bound-arg delivery); then disconnectBound → rename
   receiver "Sentinel" → re-emit is a no-op → name stays "Sentinel". **Remaining STUB: `SignalConnection.close`** (4.1b — needs a custom
   GDExtension Callable with hash/equal to disconnect a lambda; the hardest, separate). **NEXT: device-validate 4.1a, then 4.1b or stop.**
+- **★ 4.1b SignalConnection.close DONE → STUB 3→0 / SUGAR 0 = PHASE 4 "DONE" CONDITION MET (2026-06-19, DEVICE-VALIDATED OBJECTCALLS 73 / PTRCALL 54).**
+  Turned out simpler than feared: GDExtension says when a custom Callable has NO hash/equal funcs, Godot uses (call_func,
+  callable_userdata) as its identity. So `kanama_ios_godot_object_disconnect_callable(object,signal,callback_id)` just recreates a
+  custom Callable with the SAME `kanama_ios_callable_trampoline` + callback_id userdata (identical to connect_callable) and calls
+  Object.disconnect — it compares equal to the connected one, so Godot removes it. No custom hash/equal needed. free_func fires
+  idempotently for both the removed original and the temp (IosCallableRegistry.release = HashMap.remove). `SignalConnection` now
+  carries owner/signalName/callbackId; `close()` is guarded (no-op if connect failed or already closed). Header changed → cinterop
+  regen. Self-test (Kotlin, +1 row, EXPECT OBJECTCALLS 72→73 / PTRCALL 54): register a lambda → connectCallable to a user signal →
+  emit fires it once → objectDisconnectCallable → re-emit does NOT fire (counter stays 1). **`ios_handwritten_report`: STUB=0,
+  HANDWRITTEN=10 (all platform-inherent: coroutines/main-thread/math/singletons), SUGAR=0 → Phase 4 exit condition (0 STUB / 0 SUGAR)
+  MET.** Remaining Phase 4 tasks are quality/structure, not coverage: 4.3 commonMain expect/actual (high risk), 4.4 GodotReal (low
+  priority), 4.5 trim HANDWRITTEN toward ~6. **NEXT: device-validate 4.1b; then Phase 4 structural tasks, the ~15 true-2.7 tail, or Phase 5.**
 - Cleanly self-test-validatable items: ~~Variant `Object.call` dispatch~~ DONE
   (item 8); ~~value-type BuiltinTypes on iOS~~ DONE (items 9–11): no-arg + args
   shapes across Transform3D/Basis/Vector2/Vector3/Quaternion + scalar float/bool/int

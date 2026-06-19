@@ -5052,6 +5052,66 @@ int64_t kanama_ios_godot_object_connect_callable(
     return (call_ok && connect_error == 0) ? 0 : -1;
 }
 
+// Object.disconnect(signal, <the lambda Callable for callback_id>). Recreates a custom Callable with
+// the SAME call_func + callback_id userdata as kanama_ios_godot_object_connect_callable. With no
+// hash/equal funcs, Godot uses (call_func, callable_userdata) as the Callable identity, so the
+// recreated Callable compares equal to the connected one and disconnect removes it. free_func fires
+// (idempotently — IosCallableRegistry.release is a HashMap.remove) for both the removed original and
+// this temp. Returns 0 on a clean dispatch, -1 otherwise.
+int32_t kanama_ios_godot_object_disconnect_callable(
+    int64_t object,
+    const char *signal_name,
+    int64_t callback_id
+) {
+    if (!kanama_ios_resolve_godot_api() || object == 0 || signal_name == NULL ||
+        g_callable_custom_create2 == NULL) {
+        return -1;
+    }
+    GDExtensionMethodBindPtr method_bind = kanama_ios_get_method_bind_cached(
+        &g_object_disconnect_bind, "Object", "disconnect", KANAMA_IOS_OBJECT_DISCONNECT_HASH);
+    if (method_bind == NULL) {
+        return -1;
+    }
+
+    GDExtensionCallableCustomInfo2 info;
+    memset(&info, 0, sizeof(info));
+    info.callable_userdata = (void *)(intptr_t)callback_id;
+    info.token = g_library;
+    info.object_id = 0;
+    info.call_func = kanama_ios_callable_trampoline;
+    info.free_func = kanama_ios_callable_free;
+    uint8_t callable_value[24];
+    memset(callable_value, 0, sizeof(callable_value));
+    g_callable_custom_create2((GDExtensionUninitializedTypePtr)callable_value, &info);
+
+    uint8_t callable_variant[24];
+    uint8_t signal_variant[24];
+    uint8_t ret_variant[24];
+    memset(callable_variant, 0, sizeof(callable_variant));
+    memset(signal_variant, 0, sizeof(signal_variant));
+    memset(ret_variant, 0, sizeof(ret_variant));
+    g_variant_from_callable(callable_variant, callable_value);
+    uint64_t signal_name_storage = 0;
+    kanama_ios_init_string_name(&signal_name_storage, signal_name);
+    g_variant_from_string_name(signal_variant, &signal_name_storage);
+    const GDExtensionConstVariantPtr args[2] = {
+        (GDExtensionConstVariantPtr)signal_variant,
+        (GDExtensionConstVariantPtr)callable_variant,
+    };
+    GDExtensionCallError error;
+    memset(&error, 0, sizeof(error));
+    g_object_method_bind_call(
+        method_bind, (GDExtensionObjectPtr)(intptr_t)object, args, 2, ret_variant, &error);
+    int call_ok = kanama_ios_check_call_error("Object::disconnect(callable)", &error);
+
+    g_variant_destroy(ret_variant);
+    g_variant_destroy(signal_variant);
+    g_variant_destroy(callable_variant);
+    g_callable_destructor(callable_value);
+    kanama_ios_destroy_string_name(&signal_name_storage);
+    return call_ok ? 0 : -1;
+}
+
 static int64_t kanama_ios_variant_to_int64(GDExtensionConstVariantPtr variant) {
     if (variant == NULL || g_variant_to_int == NULL) {
         return 0;
