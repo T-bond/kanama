@@ -332,6 +332,10 @@ open class CanvasItem(handle: MemorySegment) : Node(handle) {
         return ObjectCalls.ptrcallNoArgsRetRID(getCanvasBind, handle)
     }
 
+    fun getInstanceShaderParameter(name: String): Any? {
+        return ObjectCalls.ptrcallWithStringNameArgRetVariantScalar(getInstanceShaderParameterBind, handle, name)
+    }
+
     fun setUseParentMaterial(enable: Boolean) {
         ObjectCalls.ptrcallWithBoolArg(setUseParentMaterialBind, handle, enable)
     }
@@ -738,6 +742,11 @@ open class CanvasItem(handle: MemorySegment) : Node(handle) {
         private const val GET_CANVAS_HASH = 2944877500L
         private val getCanvasBind by lazy {
             ObjectCalls.getMethodBind("CanvasItem", "get_canvas", GET_CANVAS_HASH)
+        }
+
+        private const val GET_INSTANCE_SHADER_PARAMETER_HASH = 2760726917L
+        private val getInstanceShaderParameterBind by lazy {
+            ObjectCalls.getMethodBind("CanvasItem", "get_instance_shader_parameter", GET_INSTANCE_SHADER_PARAMETER_HASH)
         }
 
         private const val SET_USE_PARENT_MATERIAL_HASH = 2586408642L

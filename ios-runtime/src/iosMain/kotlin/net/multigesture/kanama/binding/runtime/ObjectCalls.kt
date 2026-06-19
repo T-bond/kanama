@@ -846,6 +846,21 @@ object ObjectCalls {
                 else -> null
             }
         }
+
+    // Variant (scalar) returns route through the same device-proven Object-call decode as
+    // callWithVariantArgs (kanama_ios_godot_object_call: bool/int/float/String/Object scalars;
+    // complex Variant types surface null, matching desktop ptrcall*RetVariantScalar). Calling the
+    // method's OWN bind with Variant-encoded args is a real method invocation — Godot performs the
+    // arg type coercion (e.g. String -> StringName) the call path needs. Phase 2.7e.
+    fun ptrcallNoArgsRetVariantScalar(methodBind: MemorySegment, instance: MemorySegment): Any? =
+        callWithVariantArgs(methodBind, instance, emptyList())
+
+    fun ptrcallWithStringNameArgRetVariantScalar(
+        methodBind: MemorySegment,
+        instance: MemorySegment,
+        name: String,
+    ): Any? =
+        callWithVariantArgs(methodBind, instance, listOf(name))
 }
 
 // Debug-gated self-test (called from the C scene-init self-test): validates the full
@@ -1086,6 +1101,23 @@ fun kanamaIosRuntimeObjectCallsSelfTest() {
         fcFound.size == 2 &&
             fcFound[0].address() == fcCoin0.address() &&
             fcFound[1].address() == fcCoin1.address())
+
+    // Variant (scalar) return (Phase 2.7e). StringName-arg getter: Object.set_meta("kparam", 1234)
+    // then get_meta("kparam") via ptrcallWithStringNameArgRetVariantScalar — metadata is stored on
+    // the Object directly (no tree/RenderingServer dependency), and the Variant call honours the
+    // default 2nd arg, so a 1-arg invocation round-trips the int. No-arg getter: a plain Node's
+    // get_node_rpc_config() is an empty Dictionary -> scalar decode surfaces null (confirms the
+    // no-arg routing + correct null, no crash). Both ride on the device-proven Object-call decode.
+    val varMetaObj = ObjectCalls.constructObject("Node")
+    ObjectCalls.callWithVariantArgs(
+        ObjectCalls.getMethodBind("Object", "set_meta", 3776071444L), varMetaObj,
+        listOf("kparam", 1234L))
+    val varMeta = ObjectCalls.ptrcallWithStringNameArgRetVariantScalar(
+        ObjectCalls.getMethodBind("Object", "get_meta", 3990617847L), varMetaObj, "kparam")
+    check("variant-scalar-ret(get_meta==1234)", varMeta == 1234L)
+    val varRpcCfg = ObjectCalls.ptrcallNoArgsRetVariantScalar(
+        ObjectCalls.getMethodBind("Node", "get_node_rpc_config", 1214101251L), varMetaObj)
+    check("variant-scalar-ret(get_node_rpc_config==null)", varRpcCfg == null)
 
     // PackedFloat32Array-return (Gradient.get_offsets): a fresh Gradient seeds two default
     // points at offsets 0.0 and 1.0, so get_offsets() == [0.0, 1.0] — read back through

@@ -459,6 +459,10 @@ open class Node(handle: MemorySegment) : GodotObject(handle) {
         return ObjectCalls.ptrcallNoArgsRetBool(isMultiplayerAuthorityBind, handle)
     }
 
+    fun getNodeRpcConfig(): Any? {
+        return ObjectCalls.ptrcallNoArgsRetVariantScalar(getNodeRpcConfigBind, handle)
+    }
+
     fun setEditorDescription(editorDescription: String) {
         ObjectCalls.ptrcallWithStringArg(setEditorDescriptionBind, handle, editorDescription)
     }
@@ -1056,6 +1060,11 @@ open class Node(handle: MemorySegment) : GodotObject(handle) {
         private const val IS_MULTIPLAYER_AUTHORITY_HASH = 36873697L
         private val isMultiplayerAuthorityBind by lazy {
             ObjectCalls.getMethodBind("Node", "is_multiplayer_authority", IS_MULTIPLAYER_AUTHORITY_HASH)
+        }
+
+        private const val GET_NODE_RPC_CONFIG_HASH = 1214101251L
+        private val getNodeRpcConfigBind by lazy {
+            ObjectCalls.getMethodBind("Node", "get_node_rpc_config", GET_NODE_RPC_CONFIG_HASH)
         }
 
         private const val SET_EDITOR_DESCRIPTION_HASH = 83702148L

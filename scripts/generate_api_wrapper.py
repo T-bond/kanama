@@ -211,7 +211,7 @@ IOS_ARG_KINDS = {
 # Return shapes the iOS helpers can read back (keyed by CallShape.kotlin_return, the
 # stable per-helper return-type token). StringName/String/RID/List/Map returns
 # are intentionally absent until their read-back is wired + validated.
-IOS_RET_KOTLIN = {"Unit", "Boolean", "Int", "Long", "Double", "Vector2", "Vector2i", "Vector3", "Vector3i", "Color", "Rect2", "MemorySegment", "String", "NodePath", "Basis", "Transform2D", "Transform3D", "RID", "Quaternion", "AABB", "List<Int>", "List<Float>", "List<Vector2>", "List<Color>", "List<String>"}
+IOS_RET_KOTLIN = {"Unit", "Boolean", "Int", "Long", "Double", "Vector2", "Vector2i", "Vector3", "Vector3i", "Color", "Rect2", "MemorySegment", "String", "NodePath", "Basis", "Transform2D", "Transform3D", "RID", "Quaternion", "AABB", "List<Int>", "List<Float>", "List<Vector2>", "List<Color>", "List<String>", "Any?"}
 
 # Helpers already hand-written in ios-runtime ObjectCalls.kt (the reference template +
 # override set). The generator must NOT re-emit these (they'd clash with the members).
@@ -256,6 +256,8 @@ IOS_HANDWRITTEN_HELPERS = {
     "ptrcallNoArgsRetTypedObjectList",
     "ptrcallWithBoolArgRetTypedObjectList",
     "ptrcallWithTwoStringAndTwoBoolArgsRetTypedObjectList",
+    "ptrcallNoArgsRetVariantScalar",
+    "ptrcallWithStringNameArgRetVariantScalar",
 }
 PARAMETER_NAME_OVERRIDES = {
     ("Time", "get_datetime_dict_from_unix_time", "unix_time_val"): "unixTime",
@@ -965,6 +967,16 @@ def ios_method_supported(method: ApiMethod, object_types: set[str]) -> bool:
     if shape.kotlin_return == "String" and shape.function not in (
         "ptrcallNoArgsRetString",
         "ptrcallNoArgsRetStringName",
+    ):
+        return False
+    # Variant (scalar) return: iOS routes these through the device-proven Object-call decode
+    # (callWithVariantArgs over kanama_ios_godot_object_call — bool/int/float/String/Object
+    # scalars; complex types surface null, matching desktop's RetVariantScalar). Only the no-arg
+    # and StringName-arg getters are wired; other Variant arg-shapes (Dictionary-arg, etc.) share
+    # the "Any?" token but route through helpers not audited on iOS yet — gate on the concrete helper.
+    if shape.kotlin_return == "Any?" and shape.function not in (
+        "ptrcallNoArgsRetVariantScalar",
+        "ptrcallWithStringNameArgRetVariantScalar",
     ):
         return False
     # NodePath read-back is wired only for the no-arg getter (ptrcallNoArgsRetNodePath, the

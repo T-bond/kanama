@@ -158,6 +158,10 @@ open class GeometryInstance3D(handle: MemorySegment) : VisualInstance3D(handle) 
         return ObjectCalls.ptrcallNoArgsRetLong(getVisibilityRangeFadeModeBind, handle)
     }
 
+    fun getInstanceShaderParameter(name: String): Any? {
+        return ObjectCalls.ptrcallWithStringNameArgRetVariantScalar(getInstanceShaderParameterBind, handle, name)
+    }
+
     fun setExtraCullMargin(margin: Double) {
         ObjectCalls.ptrcallWithDoubleArg(setExtraCullMarginBind, handle, margin)
     }
@@ -307,6 +311,11 @@ open class GeometryInstance3D(handle: MemorySegment) : VisualInstance3D(handle) 
         private const val GET_VISIBILITY_RANGE_FADE_MODE_HASH = 2067221882L
         private val getVisibilityRangeFadeModeBind by lazy {
             ObjectCalls.getMethodBind("GeometryInstance3D", "get_visibility_range_fade_mode", GET_VISIBILITY_RANGE_FADE_MODE_HASH)
+        }
+
+        private const val GET_INSTANCE_SHADER_PARAMETER_HASH = 2760726917L
+        private val getInstanceShaderParameterBind by lazy {
+            ObjectCalls.getMethodBind("GeometryInstance3D", "get_instance_shader_parameter", GET_INSTANCE_SHADER_PARAMETER_HASH)
         }
 
         private const val SET_EXTRA_CULL_MARGIN_HASH = 373806689L
