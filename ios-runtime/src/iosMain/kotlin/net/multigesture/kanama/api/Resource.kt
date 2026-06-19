@@ -86,6 +86,10 @@ open class Resource(handle: MemorySegment) : RefCounted(handle) {
         ObjectCalls.ptrcallWithTwoStringArgs(setIdForPathBind, handle, path, id)
     }
 
+    fun getIdForPath(path: String): String {
+        return ObjectCalls.ptrcallWithStringArgRetString(getIdForPathBind, handle, path)
+    }
+
     fun isBuiltIn(): Boolean {
         return ObjectCalls.ptrcallNoArgsRetBool(isBuiltInBind, handle)
     }
@@ -197,6 +201,11 @@ open class Resource(handle: MemorySegment) : RefCounted(handle) {
         private const val SET_ID_FOR_PATH_HASH = 3186203200L
         private val setIdForPathBind by lazy {
             ObjectCalls.getMethodBind("Resource", "set_id_for_path", SET_ID_FOR_PATH_HASH)
+        }
+
+        private const val GET_ID_FOR_PATH_HASH = 3135753539L
+        private val getIdForPathBind by lazy {
+            ObjectCalls.getMethodBind("Resource", "get_id_for_path", GET_ID_FOR_PATH_HASH)
         }
 
         private const val IS_BUILT_IN_HASH = 36873697L

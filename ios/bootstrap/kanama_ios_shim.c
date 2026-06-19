@@ -293,6 +293,7 @@ static GDExtensionTypeFromVariantConstructorFunc g_variant_to_vector2 = NULL;
 static GDExtensionTypeFromVariantConstructorFunc g_variant_to_vector3 = NULL;
 static GDExtensionTypeFromVariantConstructorFunc g_variant_to_color = NULL;
 static GDExtensionTypeFromVariantConstructorFunc g_variant_to_node_path = NULL;
+static GDExtensionTypeFromVariantConstructorFunc g_variant_to_string_name = NULL;
 static GDExtensionPtrConstructor g_string_from_node_path_constructor = NULL;
 static GDExtensionPtrBuiltInMethod g_array_size_method = NULL;
 static GDExtensionPtrBuiltInMethod g_array_get_method = NULL;
@@ -717,6 +718,7 @@ static int kanama_ios_resolve_godot_api(void) {
     g_variant_to_vector3 = g_get_variant_to_type_constructor(KANAMA_IOS_VARIANT_TYPE_VECTOR3);
     g_variant_to_color = g_get_variant_to_type_constructor(KANAMA_IOS_VARIANT_TYPE_COLOR);
     g_variant_to_node_path = g_get_variant_to_type_constructor(KANAMA_IOS_VARIANT_TYPE_NODE_PATH);
+    g_variant_to_string_name = g_get_variant_to_type_constructor(KANAMA_IOS_VARIANT_TYPE_STRING_NAME);
     // String(from: NodePath) — constructor index 3 in extension_api.json. Lets the set-property
     // value path turn a NodePath Variant into utf8 (no GDExtension NodePath->utf8 exists).
     g_string_from_node_path_constructor = g_variant_get_ptr_constructor(KANAMA_IOS_VARIANT_TYPE_STRING, 3);
@@ -3696,6 +3698,46 @@ int32_t kanama_ios_godot_object_call(
                     if (out_str_len != NULL) *out_str_len = len;
                 }
                 kanama_ios_destroy_string(&str_storage);
+                break;
+            }
+            case KANAMA_IOS_VARIANT_TYPE_STRING_NAME: {
+                // No GDExtension StringName->utf8: build String(from: StringName) then encode.
+                // ret_type stays STRING_NAME (21) so Kotlin reads out_str as the decoded String.
+                uint64_t sn_storage = 0;
+                g_variant_to_string_name(&sn_storage, ret_variant);
+                uint64_t str_storage = 0;
+                const GDExtensionConstTypePtr ctor_args[1] = { (GDExtensionConstTypePtr)&sn_storage };
+                g_string_from_string_name_constructor(
+                    (GDExtensionUninitializedTypePtr)&str_storage, ctor_args);
+                if (g_string_to_utf8_chars != NULL) {
+                    int64_t len = (int64_t)g_string_to_utf8_chars(
+                        (GDExtensionConstStringPtr)&str_storage,
+                        (out_str != NULL && out_str_size > 0) ? out_str : NULL,
+                        (out_str != NULL && out_str_size > 0) ? out_str_size : 0);
+                    if (out_str_len != NULL) *out_str_len = len;
+                }
+                kanama_ios_destroy_string(&str_storage);
+                kanama_ios_destroy_string_name(&sn_storage);
+                break;
+            }
+            case KANAMA_IOS_VARIANT_TYPE_NODE_PATH: {
+                // No GDExtension NodePath->utf8: build String(from: NodePath) then encode.
+                // ret_type stays NODE_PATH (22) so Kotlin reads out_str + wraps in NodePath.
+                uint64_t np_storage = 0;
+                g_variant_to_node_path(&np_storage, ret_variant);
+                uint64_t str_storage = 0;
+                const GDExtensionConstTypePtr ctor_args[1] = { (GDExtensionConstTypePtr)&np_storage };
+                g_string_from_node_path_constructor(
+                    (GDExtensionUninitializedTypePtr)&str_storage, ctor_args);
+                if (g_string_to_utf8_chars != NULL) {
+                    int64_t len = (int64_t)g_string_to_utf8_chars(
+                        (GDExtensionConstStringPtr)&str_storage,
+                        (out_str != NULL && out_str_size > 0) ? out_str : NULL,
+                        (out_str != NULL && out_str_size > 0) ? out_str_size : 0);
+                    if (out_str_len != NULL) *out_str_len = len;
+                }
+                kanama_ios_destroy_string(&str_storage);
+                kanama_ios_destroy_node_path(&np_storage);
                 break;
             }
             case KANAMA_IOS_VARIANT_TYPE_OBJECT: {

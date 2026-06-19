@@ -82,6 +82,10 @@ class AnimationPlayer(handle: MemorySegment) : AnimationMixer(handle) {
         ObjectCalls.ptrcallWithTwoStringNameArgs(animationSetNextBind, handle, animationFrom, animationTo)
     }
 
+    fun animationGetNext(animationFrom: String): String {
+        return ObjectCalls.ptrcallWithStringNameArgRetStringName(animationGetNextBind, handle, animationFrom)
+    }
+
     fun setBlendTime(animationFrom: String, animationTo: String, sec: Double) {
         ObjectCalls.ptrcallWithTwoStringNameAndDoubleArg(setBlendTimeBind, handle, animationFrom, animationTo, sec)
     }
@@ -307,6 +311,11 @@ class AnimationPlayer(handle: MemorySegment) : AnimationMixer(handle) {
         private const val ANIMATION_SET_NEXT_HASH = 3740211285L
         private val animationSetNextBind by lazy {
             ObjectCalls.getMethodBind("AnimationPlayer", "animation_set_next", ANIMATION_SET_NEXT_HASH)
+        }
+
+        private const val ANIMATION_GET_NEXT_HASH = 1965194235L
+        private val animationGetNextBind by lazy {
+            ObjectCalls.getMethodBind("AnimationPlayer", "animation_get_next", ANIMATION_GET_NEXT_HASH)
         }
 
         private const val SET_BLEND_TIME_HASH = 3231131886L

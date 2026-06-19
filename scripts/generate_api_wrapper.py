@@ -258,6 +258,13 @@ IOS_HANDWRITTEN_HELPERS = {
     "ptrcallWithTwoStringAndTwoBoolArgsRetTypedObjectList",
     "ptrcallNoArgsRetVariantScalar",
     "ptrcallWithStringNameArgRetVariantScalar",
+    "ptrcallWithVector2ArgRetString",
+    "ptrcallWithStringArgRetString",
+    "ptrcallWithStringAndStringNameArgRetString",
+    "ptrcallWithStringStringNameIntStringNameArgsRetString",
+    "ptrcallWithStringNameArgRetStringName",
+    "ptrcallWithLongArgRetNodePath",
+    "ptrcallWithObjectAndBoolArgRetNodePath",
 }
 PARAMETER_NAME_OVERRIDES = {
     ("Time", "get_datetime_dict_from_unix_time", "unix_time_val"): "unixTime",
@@ -967,6 +974,15 @@ def ios_method_supported(method: ApiMethod, object_types: set[str]) -> bool:
     if shape.kotlin_return == "String" and shape.function not in (
         "ptrcallNoArgsRetString",
         "ptrcallNoArgsRetStringName",
+        # 2.7f-1 arg-bearing String returns — route through the device-proven Object-call STRING
+        # decode (callWithVariantArgs), same as 2.7e Variant. No new C/header.
+        "ptrcallWithVector2ArgRetString",
+        "ptrcallWithStringArgRetString",
+        "ptrcallWithStringAndStringNameArgRetString",
+        "ptrcallWithStringStringNameIntStringNameArgsRetString",
+        # 2.7f-2 arg-bearing StringName returns (kotlin_return "String") — Object-call decode now
+        # converts a STRING_NAME Variant return to utf8.
+        "ptrcallWithStringNameArgRetStringName",
     ):
         return False
     # Variant (scalar) return: iOS routes these through the device-proven Object-call decode
@@ -982,7 +998,13 @@ def ios_method_supported(method: ApiMethod, object_types: set[str]) -> bool:
     # NodePath read-back is wired only for the no-arg getter (ptrcallNoArgsRetNodePath, the
     # hand-written C helper + two-call length protocol). Arg-bearing NodePath returns would
     # need a generated read-back path that doesn't exist yet — keep them skipped.
-    if shape.kotlin_return == "NodePath" and shape.function != "ptrcallNoArgsRetNodePath":
+    if shape.kotlin_return == "NodePath" and shape.function not in (
+        "ptrcallNoArgsRetNodePath",
+        # 2.7f-2 arg-bearing NodePath returns — Object-call decode now converts a NODE_PATH Variant
+        # return to utf8, which the helper re-wraps in NodePath.
+        "ptrcallWithLongArgRetNodePath",
+        "ptrcallWithObjectAndBoolArgRetNodePath",
+    ):
         return False
     # PackedInt32Array read-back is wired only for the no-arg getter
     # (ptrcallNoArgsRetPackedInt32List → List<Int> via the size + operator_index_const C

@@ -755,6 +755,10 @@ open class Control(handle: MemorySegment) : CanvasItem(handle) {
         return ObjectCalls.ptrcallNoArgsRetString(getTooltipTextBind, handle)
     }
 
+    fun getTooltip(atPosition: Vector2): String {
+        return ObjectCalls.ptrcallWithVector2ArgRetString(getTooltipBind, handle, atPosition)
+    }
+
     fun setTranslationContext(context: String) {
         ObjectCalls.ptrcallWithStringNameArg(setTranslationContextBind, handle, context)
     }
@@ -777,6 +781,10 @@ open class Control(handle: MemorySegment) : CanvasItem(handle) {
 
     fun setFocusNeighbor(side: Long, neighbor: NodePath) {
         ObjectCalls.ptrcallWithLongAndNodePathArg(setFocusNeighborBind, handle, side, neighbor)
+    }
+
+    fun getFocusNeighbor(side: Long): NodePath {
+        return ObjectCalls.ptrcallWithLongArgRetNodePath(getFocusNeighborBind, handle, side)
     }
 
     fun setFocusNext(next: NodePath) {
@@ -1627,6 +1635,11 @@ open class Control(handle: MemorySegment) : CanvasItem(handle) {
             ObjectCalls.getMethodBind("Control", "get_tooltip_text", GET_TOOLTIP_TEXT_HASH)
         }
 
+        private const val GET_TOOLTIP_HASH = 2895288280L
+        private val getTooltipBind by lazy {
+            ObjectCalls.getMethodBind("Control", "get_tooltip", GET_TOOLTIP_HASH)
+        }
+
         private const val SET_TRANSLATION_CONTEXT_HASH = 3304788590L
         private val setTranslationContextBind by lazy {
             ObjectCalls.getMethodBind("Control", "set_translation_context", SET_TRANSLATION_CONTEXT_HASH)
@@ -1655,6 +1668,11 @@ open class Control(handle: MemorySegment) : CanvasItem(handle) {
         private const val SET_FOCUS_NEIGHBOR_HASH = 2024461774L
         private val setFocusNeighborBind by lazy {
             ObjectCalls.getMethodBind("Control", "set_focus_neighbor", SET_FOCUS_NEIGHBOR_HASH)
+        }
+
+        private const val GET_FOCUS_NEIGHBOR_HASH = 2757935761L
+        private val getFocusNeighborBind by lazy {
+            ObjectCalls.getMethodBind("Control", "get_focus_neighbor", GET_FOCUS_NEIGHBOR_HASH)
         }
 
         private const val SET_FOCUS_NEXT_HASH = 1348162250L

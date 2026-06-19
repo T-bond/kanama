@@ -175,6 +175,10 @@ open class Node(handle: MemorySegment) : GodotObject(handle) {
         return ObjectCalls.ptrcallNoArgsRetNodePath(getPathBind, handle)
     }
 
+    fun getPathTo(node: Node, useUniquePath: Boolean = false): NodePath {
+        return ObjectCalls.ptrcallWithObjectAndBoolArgRetNodePath(getPathToBind, handle, node.handle, useUniquePath)
+    }
+
     fun addToGroup(group: String, persistent: Boolean = false) {
         ObjectCalls.ptrcallWithStringNameAndBoolArg(addToGroupBind, handle, group, persistent)
     }
@@ -479,6 +483,14 @@ open class Node(handle: MemorySegment) : GodotObject(handle) {
         return ObjectCalls.ptrcallNoArgsRetBool(isUniqueNameInOwnerBind, handle)
     }
 
+    fun atr(message: String, context: String): String {
+        return ObjectCalls.ptrcallWithStringAndStringNameArgRetString(atrBind, handle, message, context)
+    }
+
+    fun atrN(message: String, pluralMessage: String, n: Int, context: String): String {
+        return ObjectCalls.ptrcallWithStringStringNameIntStringNameArgsRetString(atrNBind, handle, message, pluralMessage, n, context)
+    }
+
     fun updateConfigurationWarnings() {
         ObjectCalls.ptrcallNoArgs(updateConfigurationWarningsBind, handle)
     }
@@ -705,6 +717,11 @@ open class Node(handle: MemorySegment) : GodotObject(handle) {
         private const val GET_PATH_HASH = 4075236667L
         private val getPathBind by lazy {
             ObjectCalls.getMethodBind("Node", "get_path", GET_PATH_HASH)
+        }
+
+        private const val GET_PATH_TO_HASH = 498846349L
+        private val getPathToBind by lazy {
+            ObjectCalls.getMethodBind("Node", "get_path_to", GET_PATH_TO_HASH)
         }
 
         private const val ADD_TO_GROUP_HASH = 3683006648L
@@ -1085,6 +1102,16 @@ open class Node(handle: MemorySegment) : GodotObject(handle) {
         private const val IS_UNIQUE_NAME_IN_OWNER_HASH = 36873697L
         private val isUniqueNameInOwnerBind by lazy {
             ObjectCalls.getMethodBind("Node", "is_unique_name_in_owner", IS_UNIQUE_NAME_IN_OWNER_HASH)
+        }
+
+        private const val ATR_HASH = 3344478075L
+        private val atrBind by lazy {
+            ObjectCalls.getMethodBind("Node", "atr", ATR_HASH)
+        }
+
+        private const val ATR_N_HASH = 259354841L
+        private val atrNBind by lazy {
+            ObjectCalls.getMethodBind("Node", "atr_n", ATR_N_HASH)
         }
 
         private const val UPDATE_CONFIGURATION_WARNINGS_HASH = 3218959716L

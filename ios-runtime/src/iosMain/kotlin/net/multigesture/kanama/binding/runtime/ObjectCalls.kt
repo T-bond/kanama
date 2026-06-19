@@ -97,6 +97,8 @@ object ObjectCalls {
     private const val VT_INT = 2
     private const val VT_FLOAT = 3
     private const val VT_STRING = 4
+    private const val VT_STRING_NAME = 21
+    private const val VT_NODE_PATH = 22
     private const val VT_OBJECT = 24
 
     fun constructObject(className: String): MemorySegment =
@@ -838,7 +840,9 @@ object ObjectCalls {
                 VT_BOOL -> outInt.value != 0L
                 VT_INT -> outInt.value
                 VT_FLOAT -> outDouble.value
-                VT_STRING -> {
+                VT_STRING, VT_STRING_NAME, VT_NODE_PATH -> {
+                    // StringName/NodePath decode to utf8 in out_str (the C side builds String(from:…));
+                    // a String surfaces here. NodePath-returning callers re-wrap in NodePath.
                     val len = minOf(outStrLen.value, strBufSize).toInt().coerceAtLeast(0)
                     outStr.readBytes(len).decodeToString()
                 }
@@ -861,6 +865,54 @@ object ObjectCalls {
         name: String,
     ): Any? =
         callWithVariantArgs(methodBind, instance, listOf(name))
+
+    // Arg-bearing String returns (Phase 2.7f-1). The Object-call decode already returns a Kotlin
+    // String for a STRING-typed Variant return, so these route through callWithVariantArgs with the
+    // method's own bind (Variant-encoded args + STRING return decode). No new C/header — same path
+    // as 2.7e. A null/non-String return (shouldn't happen for these typed methods) coerces to "".
+    fun ptrcallWithVector2ArgRetString(methodBind: MemorySegment, instance: MemorySegment, value: Vector2): String =
+        callWithVariantArgs(methodBind, instance, listOf(value)) as? String ?: ""
+
+    fun ptrcallWithStringArgRetString(methodBind: MemorySegment, instance: MemorySegment, value: String): String =
+        callWithVariantArgs(methodBind, instance, listOf(value)) as? String ?: ""
+
+    fun ptrcallWithStringAndStringNameArgRetString(
+        methodBind: MemorySegment,
+        instance: MemorySegment,
+        text: String,
+        name: String,
+    ): String =
+        callWithVariantArgs(methodBind, instance, listOf(text, name)) as? String ?: ""
+
+    fun ptrcallWithStringStringNameIntStringNameArgsRetString(
+        methodBind: MemorySegment,
+        instance: MemorySegment,
+        text: String,
+        firstName: String,
+        index: Int,
+        secondName: String,
+    ): String =
+        callWithVariantArgs(methodBind, instance, listOf(text, firstName, index, secondName)) as? String ?: ""
+
+    // Arg-bearing StringName + NodePath returns (Phase 2.7f-2). The Object-call decode now converts a
+    // STRING_NAME / NODE_PATH Variant return to utf8 (String(from: StringName|NodePath) C-side), so these
+    // route through callWithVariantArgs too. StringName returns surface as Kotlin String; NodePath returns
+    // re-wrap the decoded path String in NodePath. Object args are MemorySegment handles (0 = null).
+    // (ptrcallWithObjectArgRetStringName — find_animation(Animation) — is deferred: Animation isn't an
+    // emitted iOS wrapper yet, so the Object-arg gate blocks it; wire it when Animation lands.)
+    fun ptrcallWithStringNameArgRetStringName(methodBind: MemorySegment, instance: MemorySegment, name: String): String =
+        callWithVariantArgs(methodBind, instance, listOf(name)) as? String ?: ""
+
+    fun ptrcallWithLongArgRetNodePath(methodBind: MemorySegment, instance: MemorySegment, value: Long): NodePath =
+        NodePath(callWithVariantArgs(methodBind, instance, listOf(value)) as? String ?: "")
+
+    fun ptrcallWithObjectAndBoolArgRetNodePath(
+        methodBind: MemorySegment,
+        instance: MemorySegment,
+        objectArg: MemorySegment,
+        boolArg: Boolean,
+    ): NodePath =
+        NodePath(callWithVariantArgs(methodBind, instance, listOf(objectArg, boolArg)) as? String ?: "")
 }
 
 // Debug-gated self-test (called from the C scene-init self-test): validates the full
@@ -1118,6 +1170,36 @@ fun kanamaIosRuntimeObjectCallsSelfTest() {
     val varRpcCfg = ObjectCalls.ptrcallNoArgsRetVariantScalar(
         ObjectCalls.getMethodBind("Node", "get_node_rpc_config", 1214101251L), varMetaObj)
     check("variant-scalar-ret(get_node_rpc_config==null)", varRpcCfg == null)
+
+    // Arg-bearing String return (Phase 2.7f-1). Node.atr(message, context) translates a message;
+    // with no TranslationServer domain set it returns the message unchanged, so atr("KanamaAtr","")
+    // == "KanamaAtr". Exercises ptrcallWithStringAndStringNameArgRetString (String + StringName args
+    // -> STRING return decode) through the same Object-call path. Plain Node, no tree dependency.
+    val atrNode = ObjectCalls.constructObject("Node")
+    val atrBack = ObjectCalls.ptrcallWithStringAndStringNameArgRetString(
+        ObjectCalls.getMethodBind("Node", "atr", 3344478075L), atrNode, "KanamaAtr", "")
+    check("string-arg-ret(atr==KanamaAtr)", atrBack == "KanamaAtr")
+
+    // Arg-bearing NodePath return (Phase 2.7f-2). Build parent + a named child, then
+    // parent.get_path_to(child, false) == NodePath("KPathTarget") — exercises the new NODE_PATH
+    // return decode (Object + bool args -> Object-call -> String(from: NodePath) -> NodePath).
+    val pathParent = ObjectCalls.constructObject("Node")
+    val pathChild = ObjectCalls.constructObject("Node")
+    ObjectCalls.ptrcallWithStringNameArg(
+        ObjectCalls.getMethodBind("Node", "set_name", 3304788590L), pathChild, "KPathTarget")
+    ObjectCalls.ptrcallWithObjectBoolLongArgs(
+        ObjectCalls.getMethodBind("Node", "add_child", 3863233950L), pathParent, pathChild, false, 0L)
+    val pathTo = ObjectCalls.ptrcallWithObjectAndBoolArgRetNodePath(
+        ObjectCalls.getMethodBind("Node", "get_path_to", 498846349L), pathParent, pathChild, false)
+    check("nodepath-arg-ret(get_path_to==KPathTarget)", pathTo == NodePath("KPathTarget"))
+
+    // Arg-bearing StringName return (Phase 2.7f-2). A fresh AnimationPlayer has no next-animation
+    // queued, so animation_get_next("none") == "" — exercises the new STRING_NAME return decode
+    // (StringName arg -> Object-call -> String(from: StringName), empty path) without crashing.
+    val animPlayer = ObjectCalls.constructObject("AnimationPlayer")
+    val animNext = ObjectCalls.ptrcallWithStringNameArgRetStringName(
+        ObjectCalls.getMethodBind("AnimationPlayer", "animation_get_next", 1965194235L), animPlayer, "none")
+    check("stringname-arg-ret(animation_get_next==\"\")", animNext == "")
 
     // PackedFloat32Array-return (Gradient.get_offsets): a fresh Gradient seeds two default
     // points at offsets 0.0 and 1.0, so get_offsets() == [0.0, 1.0] — read back through
