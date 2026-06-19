@@ -269,6 +269,22 @@ open class Control(handle: MemorySegment) : CanvasItem(handle) {
         @JvmName("setAccessibilityLiveProperty")
         set(value) = setAccessibilityLive(value)
 
+    val accessibilityControlsNodes: List<NodePath>
+        @JvmName("accessibilityControlsNodesProperty")
+        get() = getAccessibilityControlsNodes()
+
+    val accessibilityDescribedByNodes: List<NodePath>
+        @JvmName("accessibilityDescribedByNodesProperty")
+        get() = getAccessibilityDescribedByNodes()
+
+    val accessibilityLabeledByNodes: List<NodePath>
+        @JvmName("accessibilityLabeledByNodesProperty")
+        get() = getAccessibilityLabeledByNodes()
+
+    val accessibilityFlowToNodes: List<NodePath>
+        @JvmName("accessibilityFlowToNodesProperty")
+        get() = getAccessibilityFlowToNodes()
+
     var themeTypeVariation: String
         @JvmName("themeTypeVariationProperty")
         get() = getThemeTypeVariation()
@@ -833,6 +849,22 @@ open class Control(handle: MemorySegment) : CanvasItem(handle) {
 
     fun getAccessibilityLive(): Long {
         return ObjectCalls.ptrcallNoArgsRetLong(getAccessibilityLiveBind, handle)
+    }
+
+    fun getAccessibilityControlsNodes(): List<NodePath> {
+        return ObjectCalls.ptrcallNoArgsRetNodePathList(getAccessibilityControlsNodesBind, handle)
+    }
+
+    fun getAccessibilityDescribedByNodes(): List<NodePath> {
+        return ObjectCalls.ptrcallNoArgsRetNodePathList(getAccessibilityDescribedByNodesBind, handle)
+    }
+
+    fun getAccessibilityLabeledByNodes(): List<NodePath> {
+        return ObjectCalls.ptrcallNoArgsRetNodePathList(getAccessibilityLabeledByNodesBind, handle)
+    }
+
+    fun getAccessibilityFlowToNodes(): List<NodePath> {
+        return ObjectCalls.ptrcallNoArgsRetNodePathList(getAccessibilityFlowToNodesBind, handle)
     }
 
     fun setMouseFilter(filter: Long) {
@@ -1733,6 +1765,26 @@ open class Control(handle: MemorySegment) : CanvasItem(handle) {
         private const val GET_ACCESSIBILITY_LIVE_HASH = 2858591811L
         private val getAccessibilityLiveBind by lazy {
             ObjectCalls.getMethodBind("Control", "get_accessibility_live", GET_ACCESSIBILITY_LIVE_HASH)
+        }
+
+        private const val GET_ACCESSIBILITY_CONTROLS_NODES_HASH = 3995934104L
+        private val getAccessibilityControlsNodesBind by lazy {
+            ObjectCalls.getMethodBind("Control", "get_accessibility_controls_nodes", GET_ACCESSIBILITY_CONTROLS_NODES_HASH)
+        }
+
+        private const val GET_ACCESSIBILITY_DESCRIBED_BY_NODES_HASH = 3995934104L
+        private val getAccessibilityDescribedByNodesBind by lazy {
+            ObjectCalls.getMethodBind("Control", "get_accessibility_described_by_nodes", GET_ACCESSIBILITY_DESCRIBED_BY_NODES_HASH)
+        }
+
+        private const val GET_ACCESSIBILITY_LABELED_BY_NODES_HASH = 3995934104L
+        private val getAccessibilityLabeledByNodesBind by lazy {
+            ObjectCalls.getMethodBind("Control", "get_accessibility_labeled_by_nodes", GET_ACCESSIBILITY_LABELED_BY_NODES_HASH)
+        }
+
+        private const val GET_ACCESSIBILITY_FLOW_TO_NODES_HASH = 3995934104L
+        private val getAccessibilityFlowToNodesBind by lazy {
+            ObjectCalls.getMethodBind("Control", "get_accessibility_flow_to_nodes", GET_ACCESSIBILITY_FLOW_TO_NODES_HASH)
         }
 
         private const val SET_MOUSE_FILTER_HASH = 3891156122L

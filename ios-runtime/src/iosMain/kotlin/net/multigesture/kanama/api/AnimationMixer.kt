@@ -84,6 +84,10 @@ open class AnimationMixer(handle: MemorySegment) : Node(handle) {
         return ObjectCalls.ptrcallWithStringNameArgRetBool(hasAnimationLibraryBind, handle, name)
     }
 
+    fun getAnimationLibraryList(): List<String> {
+        return ObjectCalls.ptrcallNoArgsRetStringNameList(getAnimationLibraryListBind, handle)
+    }
+
     fun hasAnimation(name: String): Boolean {
         return ObjectCalls.ptrcallWithStringNameArgRetBool(hasAnimationBind, handle, name)
     }
@@ -247,6 +251,11 @@ open class AnimationMixer(handle: MemorySegment) : Node(handle) {
         private const val HAS_ANIMATION_LIBRARY_HASH = 2619796661L
         private val hasAnimationLibraryBind by lazy {
             ObjectCalls.getMethodBind("AnimationMixer", "has_animation_library", HAS_ANIMATION_LIBRARY_HASH)
+        }
+
+        private const val GET_ANIMATION_LIBRARY_LIST_HASH = 3995934104L
+        private val getAnimationLibraryListBind by lazy {
+            ObjectCalls.getMethodBind("AnimationMixer", "get_animation_library_list", GET_ANIMATION_LIBRARY_LIST_HASH)
         }
 
         private const val HAS_ANIMATION_HASH = 2619796661L

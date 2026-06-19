@@ -195,6 +195,10 @@ open class Node(handle: MemorySegment) : GodotObject(handle) {
         ObjectCalls.ptrcallWithObjectAndIntArg(moveChildBind, handle, childNode.handle, toIndex)
     }
 
+    fun getGroups(): List<String> {
+        return ObjectCalls.ptrcallNoArgsRetStringNameList(getGroupsBind, handle)
+    }
+
     fun setOwner(owner: Node) {
         ObjectCalls.ptrcallWithObjectArgs(setOwnerBind, handle, listOf(owner.handle))
     }
@@ -554,6 +558,10 @@ open class Node(handle: MemorySegment) : GodotObject(handle) {
             ObjectCalls.ptrcallNoArgs(printOrphanNodesBind, MemorySegment.NULL)
         }
 
+        fun getOrphanNodeIds(): List<Long> {
+            return ObjectCalls.ptrcallNoArgsRetLongList(getOrphanNodeIdsBind, MemorySegment.NULL)
+        }
+
         const val NOTIFICATION_ENTER_TREE: Long = 10L
         const val NOTIFICATION_EXIT_TREE: Long = 11L
         const val NOTIFICATION_MOVED_IN_PARENT: Long = 12L
@@ -639,6 +647,11 @@ open class Node(handle: MemorySegment) : GodotObject(handle) {
         private const val PRINT_ORPHAN_NODES_HASH = 3218959716L
         private val printOrphanNodesBind by lazy {
             ObjectCalls.getMethodBind("Node", "print_orphan_nodes", PRINT_ORPHAN_NODES_HASH)
+        }
+
+        private const val GET_ORPHAN_NODE_IDS_HASH = 2915620761L
+        private val getOrphanNodeIdsBind by lazy {
+            ObjectCalls.getMethodBind("Node", "get_orphan_node_ids", GET_ORPHAN_NODE_IDS_HASH)
         }
 
         private const val ADD_SIBLING_HASH = 2570952461L
@@ -774,6 +787,11 @@ open class Node(handle: MemorySegment) : GodotObject(handle) {
         private const val MOVE_CHILD_HASH = 3315886247L
         private val moveChildBind by lazy {
             ObjectCalls.getMethodBind("Node", "move_child", MOVE_CHILD_HASH)
+        }
+
+        private const val GET_GROUPS_HASH = 3995934104L
+        private val getGroupsBind by lazy {
+            ObjectCalls.getMethodBind("Node", "get_groups", GET_GROUPS_HASH)
         }
 
         private const val SET_OWNER_HASH = 1078189570L

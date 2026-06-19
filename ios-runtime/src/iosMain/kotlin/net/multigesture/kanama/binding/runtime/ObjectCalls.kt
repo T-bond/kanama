@@ -38,6 +38,7 @@ import net.multigesture.kanama.ios.cinterop.kanama_ios_godot_object_disconnect_b
 import net.multigesture.kanama.ios.cinterop.KanamaIosPackedArgDesc
 import net.multigesture.kanama.ios.cinterop.kanama_ios_godot_ptrcall
 import net.multigesture.kanama.ios.cinterop.kanama_ios_godot_ptrcall_ret_object_array
+import net.multigesture.kanama.ios.cinterop.kanama_ios_godot_ptrcall_no_args_ret_typed_array_blob
 import net.multigesture.kanama.ios.cinterop.kanama_ios_godot_ptrcall_no_args_ret_packed_color_array
 import net.multigesture.kanama.ios.cinterop.kanama_ios_godot_ptrcall_no_args_ret_packed_float32_array
 import net.multigesture.kanama.ios.cinterop.kanama_ios_godot_ptrcall_no_args_ret_packed_int32_array
@@ -91,6 +92,7 @@ object ObjectCalls {
     private const val PT_OBJECT = 13
     private const val PT_STRING_NAME = 15
     private const val PT_STRING = 16
+    private const val PT_NODE_PATH = 17
     // BUILD-tagged Packed*Array arg tags (the dispatch builds the array from a descriptor).
     private const val PT_PACKED_VECTOR2_ARRAY = 23
     private const val PT_PACKED_COLOR_ARRAY = 24
@@ -339,6 +341,58 @@ object ObjectCalls {
             methodBind.address(), instance.address(), buf, n.toLong())
         Unit
     }
+
+    // Typed builtin Array returns (Phase 2.7g): a no-arg getter returning Array[StringName] /
+    // Array[NodePath] / Array[int] is read back element-by-element through the generic Array
+    // size/get builtins, serialized C-side to a [count]([len][bytes])* blob (two-call length
+    // protocol like the Packed* helpers), then parsed here per element kind.
+    private fun <T> retTypedArrayBlob(
+        methodBind: MemorySegment,
+        instance: MemorySegment,
+        elemKind: Int,
+        parse: (ByteArray, Int, Int) -> T,
+    ): List<T> =
+        memScoped {
+            val total = kanama_ios_godot_ptrcall_no_args_ret_typed_array_blob(
+                methodBind.address(), instance.address(), elemKind, null, 0L)
+            if (total < 4L) {
+                emptyList()
+            } else {
+                val buf = allocArray<ByteVar>(total)
+                kanama_ios_godot_ptrcall_no_args_ret_typed_array_blob(
+                    methodBind.address(), instance.address(), elemKind, buf, total)
+                val bytes = buf.readBytes(total.toInt())
+                fun int32(off: Int): Int =
+                    (bytes[off].toInt() and 0xFF) or
+                        ((bytes[off + 1].toInt() and 0xFF) shl 8) or
+                        ((bytes[off + 2].toInt() and 0xFF) shl 16) or
+                        ((bytes[off + 3].toInt() and 0xFF) shl 24)
+                val count = int32(0)
+                var off = 4
+                val out = ArrayList<T>(if (count > 0) count else 0)
+                repeat(count) {
+                    val len = int32(off); off += 4
+                    out.add(parse(bytes, off, len)); off += len
+                }
+                out
+            }
+        }
+
+    // Array[StringName] -> List<String> (group / animation-library name lists). Phase 2.7g.
+    fun ptrcallNoArgsRetStringNameList(methodBind: MemorySegment, instance: MemorySegment): List<String> =
+        retTypedArrayBlob(methodBind, instance, PT_STRING_NAME) { b, o, l -> b.decodeToString(o, o + l) }
+
+    // Array[NodePath] -> List<NodePath>. Phase 2.7g.
+    fun ptrcallNoArgsRetNodePathList(methodBind: MemorySegment, instance: MemorySegment): List<NodePath> =
+        retTypedArrayBlob(methodBind, instance, PT_NODE_PATH) { b, o, l -> NodePath(b.decodeToString(o, o + l)) }
+
+    // Array[int] -> List<Long> (e.g. get_orphan_node_ids). Each record is an 8-byte int64 LE. Phase 2.7g.
+    fun ptrcallNoArgsRetLongList(methodBind: MemorySegment, instance: MemorySegment): List<Long> =
+        retTypedArrayBlob(methodBind, instance, PT_INT64) { b, o, _ ->
+            var v = 0L
+            for (k in 7 downTo 0) v = (v shl 8) or (b[o + k].toLong() and 0xFF)
+            v
+        }
 
     // PackedVector2Array arg via the generic dispatch: pack the List into a flat float buffer
     // (2 per Vector2), hand a {count,data} descriptor to the dispatch under PT_PACKED_VECTOR2_ARRAY;
@@ -1287,6 +1341,24 @@ fun kanamaIosRuntimeObjectCallsSelfTest() {
     ObjectCalls.callWithVariantArgs(
         ObjectCalls.getMethodBind("Object", "emit_signal", 4047867050L), lamEmitter, listOf("kanamaLambda"))
     check("lambda-callable(connect fires once, disconnect stops it)", lamFiredOnce == 1 && lamFires == 1)
+
+    // Typed Array[StringName] return (Phase 2.7g). add_to_group("kgrp") then get_groups() == ["kgrp"]
+    // — exercises ptrcallNoArgsRetStringNameList (Array size/get + StringName->utf8 blob). Plain Node.
+    val grpNode = ObjectCalls.constructObject("Node")
+    ObjectCalls.callWithVariantArgs(
+        ObjectCalls.getMethodBind("Node", "add_to_group", 3683006648L), grpNode, listOf("kgrp", false))
+    val groups = ObjectCalls.ptrcallNoArgsRetStringNameList(
+        ObjectCalls.getMethodBind("Node", "get_groups", 3995934104L), grpNode)
+    check("typed-array-ret(get_groups==[kgrp])", groups == listOf("kgrp"))
+
+    // Typed Array[int] return (Phase 2.7g). A freshly constructed (treeless) Node is an orphan, so
+    // get_orphan_node_ids() contains its instance id — exercises ptrcallNoArgsRetLongList (int64 blob).
+    val orphan = ObjectCalls.constructObject("Node")
+    val orphanId = ObjectCalls.ptrcallNoArgsRetLong(
+        ObjectCalls.getMethodBind("Object", "get_instance_id", 3905245786L), orphan)
+    val orphanIds = ObjectCalls.ptrcallNoArgsRetLongList(
+        ObjectCalls.getMethodBind("Node", "get_orphan_node_ids", 2915620761L), orphan)
+    check("typed-array-ret(get_orphan_node_ids contains id)", orphanIds.contains(orphanId))
 
     // PackedFloat32Array-return (Gradient.get_offsets): a fresh Gradient seeds two default
     // points at offsets 0.0 and 1.0, so get_offsets() == [0.0, 1.0] — read back through

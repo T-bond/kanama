@@ -211,7 +211,7 @@ IOS_ARG_KINDS = {
 # Return shapes the iOS helpers can read back (keyed by CallShape.kotlin_return, the
 # stable per-helper return-type token). StringName/String/RID/List/Map returns
 # are intentionally absent until their read-back is wired + validated.
-IOS_RET_KOTLIN = {"Unit", "Boolean", "Int", "Long", "Double", "Vector2", "Vector2i", "Vector3", "Vector3i", "Color", "Rect2", "MemorySegment", "String", "NodePath", "Basis", "Transform2D", "Transform3D", "RID", "Quaternion", "AABB", "List<Int>", "List<Float>", "List<Vector2>", "List<Color>", "List<String>", "Any?"}
+IOS_RET_KOTLIN = {"Unit", "Boolean", "Int", "Long", "Double", "Vector2", "Vector2i", "Vector3", "Vector3i", "Color", "Rect2", "MemorySegment", "String", "NodePath", "Basis", "Transform2D", "Transform3D", "RID", "Quaternion", "AABB", "List<Int>", "List<Float>", "List<Vector2>", "List<Color>", "List<String>", "List<NodePath>", "List<Long>", "Any?"}
 
 # Helpers already hand-written in ios-runtime ObjectCalls.kt (the reference template +
 # override set). The generator must NOT re-emit these (they'd clash with the members).
@@ -265,6 +265,9 @@ IOS_HANDWRITTEN_HELPERS = {
     "ptrcallWithStringNameArgRetStringName",
     "ptrcallWithLongArgRetNodePath",
     "ptrcallWithObjectAndBoolArgRetNodePath",
+    "ptrcallNoArgsRetStringNameList",
+    "ptrcallNoArgsRetNodePathList",
+    "ptrcallNoArgsRetLongList",
 }
 PARAMETER_NAME_OVERRIDES = {
     ("Time", "get_datetime_dict_from_unix_time", "unix_time_val"): "unixTime",
@@ -1064,8 +1067,17 @@ def ios_method_supported(method: ApiMethod, object_types: set[str]) -> bool:
     if shape.kotlin_return == "List<Color>" and shape.function != "ptrcallNoArgsRetPackedColorList":
         return False
     # PackedStringArray read-back (variable-length blob): "List<String>" is shared with the typed
-    # string-array shapes, so gate on the concrete no-arg PackedString helper.
-    if shape.kotlin_return == "List<String>" and shape.function != "ptrcallNoArgsRetPackedStringList":
+    # string-array shapes, so gate on the concrete wired helpers — the no-arg PackedString getter and
+    # (2.7g) the typed Array[StringName] getter (both use a blob read-back).
+    if shape.kotlin_return == "List<String>" and shape.function not in (
+        "ptrcallNoArgsRetPackedStringList",
+        "ptrcallNoArgsRetStringNameList",
+    ):
+        return False
+    # Typed Array[NodePath] / Array[int] read-back (2.7g blob helpers) — only the no-arg getters.
+    if shape.kotlin_return == "List<NodePath>" and shape.function != "ptrcallNoArgsRetNodePathList":
+        return False
+    if shape.kotlin_return == "List<Long>" and shape.function != "ptrcallNoArgsRetLongList":
         return False
     logical_args = method.logical_arg_kinds(object_types)
     if not all(kind in IOS_ARG_KINDS for kind in logical_args):

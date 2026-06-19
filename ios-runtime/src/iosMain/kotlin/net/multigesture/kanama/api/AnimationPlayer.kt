@@ -198,6 +198,10 @@ class AnimationPlayer(handle: MemorySegment) : AnimationMixer(handle) {
         ObjectCalls.ptrcallWithStringNameArg(queueBind, handle, name)
     }
 
+    fun getQueue(): List<String> {
+        return ObjectCalls.ptrcallNoArgsRetStringNameList(getQueueBind, handle)
+    }
+
     fun clearQueue() {
         ObjectCalls.ptrcallNoArgs(clearQueueBind, handle)
     }
@@ -456,6 +460,11 @@ class AnimationPlayer(handle: MemorySegment) : AnimationMixer(handle) {
         private const val QUEUE_HASH = 3304788590L
         private val queueBind by lazy {
             ObjectCalls.getMethodBind("AnimationPlayer", "queue", QUEUE_HASH)
+        }
+
+        private const val GET_QUEUE_HASH = 2915620761L
+        private val getQueueBind by lazy {
+            ObjectCalls.getMethodBind("AnimationPlayer", "get_queue", GET_QUEUE_HASH)
         }
 
         private const val CLEAR_QUEUE_HASH = 3218959716L
