@@ -585,9 +585,18 @@ needs a decision (see the numbered items below + the roadmap backlog):
   tail (a potential "2.7g")** — typed-builtin-array returns (`TypedNodePathArray`→List<NodePath>, `TypedStringNameArray`→List<String>,
   `TypedIntArray`→List<Long>, `TypedPlaneArray`→List<Plane>, `Array`→List<Any?> ×2), `Projection` (a POD audited-type addition like
   2.5 Transform3D/Basis), and a couple of misc arg-shape oddments (one `enum`-return, one `bool`-return). Typed-builtin-array returns
-  would need a new variable-length C read-back subsystem (like 2.7c Packed*, header change); Projection is a clean POD add. **NEXT
-  (user decision): (a) close the ~15 true-2.7 tail (2.7g), (b) Phase 4 (retire hand-written surfaces + emit more classes — also
-  drains the ~87 breadth bucket), or (c) Phase 3 odds-and-ends (@Rpc config delivery, method return values, _get_script_property_list).**
+  would need a new variable-length C read-back subsystem (like 2.7c Packed*, header change); Projection is a clean POD add.
+- **★ PHASE 4 STARTED (2026-06-18). 4.2 DONE: SUGAR 1→0.** `IOS_CUSTOM_MEMBER_SECTIONS` registry emits the Node sugar as a stable
+  generator body custom-section (mirrors desktop `CUSTOM_MEMBER_SECTIONS`, gated IOS_AUDIT_ONLY); Node.kt is now byte-identical to
+  generator output (**regen lossless — the recurring hand-re-apply is gone**). Generator-only/structural, compile-validated, no device
+  run. `ios_handwritten_report`: **STUB=3 · HANDWRITTEN=10 · SUGAR=0**. **Phase 4 remaining (all larger/riskier):** **4.1** the 3 STUBs
+  (`IosGodotApi.connectBound`/`disconnectBound` need a `Callable.bindv(Array)` C helper over the bound args + Object.connect/disconnect
+  with the bound Callable — header change, device-testable via a bound-signal round-trip; `SignalConnection.close` needs a custom
+  GDExtension Callable with hash/equal to disconnect a lambda — the hardest). **4.3** commonMain `expect/actual ObjectCalls` (ends
+  desktop/iOS wrapper drift but touches the Gradle model of all targets — high risk). **4.4** GodotReal centralization (low priority).
+  **4.5** shrink IosGodotApi HANDWRITTEN toward ~6 (most of the 10 are platform-inherent: coroutines/main-thread/math/singletons).
+  Phase-4 "done" = 0 STUB / 0 SUGAR → SUGAR done, 4.1's 3 STUBs remain. **NEXT (user decision): 4.1 Callable subsystem, or the ~15
+  true-2.7 tail (2.7g), or Phase 3 odds-and-ends.**
 - Cleanly self-test-validatable items: ~~Variant `Object.call` dispatch~~ DONE
   (item 8); ~~value-type BuiltinTypes on iOS~~ DONE (items 9–11): no-arg + args
   shapes across Transform3D/Basis/Vector2/Vector3/Quaternion + scalar float/bool/int
