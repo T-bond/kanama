@@ -8,7 +8,7 @@ without being listed here, so we don't repeat the deep-dive bugs from unwired
 annotations/signals. `scripts/check_ios_no_silent_stubs.py` fails CI on an
 un-annotated bare-default return.
 
-Totals: **3 STUB** · **10 HANDWRITTEN** · **1 SUGAR** (14 marked sites).
+Totals: **3 STUB** · **10 HANDWRITTEN** · **0 SUGAR** (13 marked sites).
 
 ## STUB
 
@@ -41,7 +41,5 @@ _Intentionally bespoke — not generatable from extension_api.json; correct as-i
 
 _Hand-added inside a GENERATED wrapper file — regeneration overwrites it; re-add after._
 
-| Location | Note |
-|---|---|
-| `ios-runtime/src/iosMain/kotlin/net/multigesture/kanama/api/Node.kt:1070` | hand-added to a generated file; re-add after regeneration. |
+_(none)_
 

@@ -52,7 +52,7 @@ Commits go straight to `main`, attributed `Co-Authored-By: Claude Fable 5`.
 | Task | Model | Status | Notes |
 |---|---|---|---|
 | 4.1 Variant Object dispatch (call/setDeferred/disconnect) | opus | todo | |
-| 4.2 Generator custom-sections (kill SUGAR) | sonnet | todo | |
+| 4.2 Generator custom-sections (kill SUGAR) | sonnet | done | 2026-06-18: `IOS_CUSTOM_MEMBER_SECTIONS` registry (mirrors desktop `CUSTOM_MEMBER_SECTIONS`, gated to IOS_AUDIT_ONLY) emits the Node sugar (getTree/getNodeOrNull/getAsOrNull/requireAs/createTween) as a stable body custom-section. Node.kt now byte-identical to generator output → **regen is lossless, no more hand-re-apply**. `ios_handwritten_report`: **SUGAR 1→0** (STUB=3, HANDWRITTEN=10). Generator-only/structural (sugar source unchanged) → compile-validated, no device run needed |
 | 4.3 commonMain + expect/actual ObjectCalls | fable | todo | |
 | 4.4 iOS GodotReal centralization | sonnet | todo | low priority |
 | 4.5 Shrink IosGodotApi.kt HANDWRITTEN | sonnet | todo | target 0 STUB / 0 SUGAR |

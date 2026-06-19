@@ -434,6 +434,49 @@ CUSTOM_COMPANION_MEMBER_SECTIONS = {
 """.strip("\n"),
 }
 
+# iOS-only hand-written body members emitted into the generated wrapper as a stable
+# custom-section (Phase 4.2). These are Kanama ergonomics that can't come from
+# extension_api.json (SceneTree/Tween/IosGodot facade glue, generic node-cast helpers);
+# they used to live behind a `// KANAMA-IOS-SUGAR` marker that had to be hand-re-added
+# after every regen. Emitting them here makes regeneration lossless. Referenced types
+# (SceneTree, Tween, IosGodot, Node, NodePath) are all in the same package, so no extra
+# imports are needed. Gated to IOS_AUDIT_ONLY in render_wrapper.
+IOS_CUSTOM_MEMBER_SECTIONS = {
+    "Node": """
+    // ── Kanama iOS sugar (generator custom-section, not from Godot docs) ───────
+    // getViewport() is generated above (Rect2 kind widening made Viewport an emitted
+    // return type), so it is intentionally not duplicated here.
+
+    fun getTree(): SceneTree =
+        SceneTree(MemorySegment.ofAddress(IosGodot.nodeGetTree(handle.address())))
+
+    fun getNodeOrNull(path: String): Node? =
+        IosGodot.nodeGetNodeOrNull(handle.address(), path).takeIf { it != 0L }?.let {
+            Node(MemorySegment.ofAddress(it))
+        }
+
+    fun <T : Node> getAsOrNull(path: String, ctor: (MemorySegment) -> T): T? =
+        getNodeOrNull(path)?.let { ctor(it.handle) }
+
+    fun <T : Node> getAsOrNull(path: NodePath, ctor: (MemorySegment) -> T): T? =
+        getAsOrNull(path.path, ctor)
+
+    fun <T : Node> requireAs(path: String, ctor: (MemorySegment) -> T): T =
+        getAsOrNull(path, ctor) ?: error("Required node '$path' was not found")
+
+    fun <T : Node> requireAs(path: NodePath, ctor: (MemorySegment) -> T): T =
+        requireAs(path.path, ctor)
+
+    fun <T : Node> getNodeAsOrNull(path: String, className: String, ctor: (MemorySegment) -> T): T? =
+        getNodeOrNull(path)?.takeIf { it.isClass(className) }?.let { ctor(it.handle) }
+
+    fun createTween(): Tween? =
+        IosGodot.nodeCreateTween(handle.address()).takeIf { it != 0L }?.let {
+            Tween(MemorySegment.ofAddress(it))
+        }
+""".strip("\n"),
+}
+
 
 def wrapper_has_wrap(api_dir: Path, class_name: str) -> bool:
     path = api_dir / f"{class_name}.kt"
@@ -1677,7 +1720,7 @@ def render_draft(
     # (e.g. AnimationMixer.getStateMachinePlayback -> AnimationNodeStateMachinePlayback,
     # getIndexed/setIndexed). They are not part of the conservative iOS surface, so the
     # iOS target omits them; any iOS equivalent lives in the bespoke sugar layer.
-    custom_members = None if IOS_AUDIT_ONLY else CUSTOM_MEMBER_SECTIONS.get(cls.name)
+    custom_members = IOS_CUSTOM_MEMBER_SECTIONS.get(cls.name) if IOS_AUDIT_ONLY else CUSTOM_MEMBER_SECTIONS.get(cls.name)
     if custom_members:
         body_sections.append(custom_members)
     signal_constants = render_signal_constants(cls)

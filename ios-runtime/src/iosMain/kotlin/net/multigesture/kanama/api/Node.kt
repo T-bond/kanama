@@ -503,6 +503,38 @@ open class Node(handle: MemorySegment) : GodotObject(handle) {
         ObjectCalls.ptrcallWithIntArg(notifyThreadSafeBind, handle, what)
     }
 
+    // ── Kanama iOS sugar (generator custom-section, not from Godot docs) ───────
+    // getViewport() is generated above (Rect2 kind widening made Viewport an emitted
+    // return type), so it is intentionally not duplicated here.
+
+    fun getTree(): SceneTree =
+        SceneTree(MemorySegment.ofAddress(IosGodot.nodeGetTree(handle.address())))
+
+    fun getNodeOrNull(path: String): Node? =
+        IosGodot.nodeGetNodeOrNull(handle.address(), path).takeIf { it != 0L }?.let {
+            Node(MemorySegment.ofAddress(it))
+        }
+
+    fun <T : Node> getAsOrNull(path: String, ctor: (MemorySegment) -> T): T? =
+        getNodeOrNull(path)?.let { ctor(it.handle) }
+
+    fun <T : Node> getAsOrNull(path: NodePath, ctor: (MemorySegment) -> T): T? =
+        getAsOrNull(path.path, ctor)
+
+    fun <T : Node> requireAs(path: String, ctor: (MemorySegment) -> T): T =
+        getAsOrNull(path, ctor) ?: error("Required node '$path' was not found")
+
+    fun <T : Node> requireAs(path: NodePath, ctor: (MemorySegment) -> T): T =
+        requireAs(path.path, ctor)
+
+    fun <T : Node> getNodeAsOrNull(path: String, className: String, ctor: (MemorySegment) -> T): T? =
+        getNodeOrNull(path)?.takeIf { it.isClass(className) }?.let { ctor(it.handle) }
+
+    fun createTween(): Tween? =
+        IosGodot.nodeCreateTween(handle.address()).takeIf { it != 0L }?.let {
+            Tween(MemorySegment.ofAddress(it))
+        }
+
     object Signals {
         const val ready: String = "ready"
         const val renamed: String = "renamed"
@@ -1129,37 +1161,4 @@ open class Node(handle: MemorySegment) : GodotObject(handle) {
             ObjectCalls.getMethodBind("Node", "notify_thread_safe", NOTIFY_THREAD_SAFE_HASH)
         }
     }
-
-    // KANAMA-IOS-SUGAR: hand-added to a generated file; re-add after regeneration.
-    // ── Kanama sugar (not generated from Godot docs) ──────────────────────────
-    // Note: getViewport() is NOT re-added here — it is now generated above (Rect2 kind
-    // widening unblocked Viewport as an emitted return type).
-
-    fun getTree(): SceneTree =
-        SceneTree(MemorySegment.ofAddress(IosGodot.nodeGetTree(handle.address())))
-
-    fun getNodeOrNull(path: String): Node? =
-        IosGodot.nodeGetNodeOrNull(handle.address(), path).takeIf { it != 0L }?.let {
-            Node(MemorySegment.ofAddress(it))
-        }
-
-    fun <T : Node> getAsOrNull(path: String, ctor: (MemorySegment) -> T): T? =
-        getNodeOrNull(path)?.let { ctor(it.handle) }
-
-    fun <T : Node> getAsOrNull(path: NodePath, ctor: (MemorySegment) -> T): T? =
-        getAsOrNull(path.path, ctor)
-
-    fun <T : Node> requireAs(path: String, ctor: (MemorySegment) -> T): T =
-        getAsOrNull(path, ctor) ?: error("Required node '$path' was not found")
-
-    fun <T : Node> requireAs(path: NodePath, ctor: (MemorySegment) -> T): T =
-        requireAs(path.path, ctor)
-
-    fun <T : Node> getNodeAsOrNull(path: String, className: String, ctor: (MemorySegment) -> T): T? =
-        getNodeOrNull(path)?.takeIf { it.isClass(className) }?.let { ctor(it.handle) }
-
-    fun createTween(): Tween? =
-        IosGodot.nodeCreateTween(handle.address()).takeIf { it != 0L }?.let {
-            Tween(MemorySegment.ofAddress(it))
-        }
 }
