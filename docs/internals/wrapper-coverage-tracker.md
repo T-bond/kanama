@@ -73,10 +73,10 @@ Gated on Phase 4 exit. Not started by decision.
 
 ## ★ RESUME HERE (updated 2026-06-20 — resume in Opus)
 
-**State: working tree CLEAN, all committed AND pushed to origin/main at `c346e6f` (batch 5).**
-(Pre-existing untracked `.agents/` + `skills-lock.json` are tooling files — do NOT stage them.)
-Device self-test baseline: **PTRCALL 54 / OBJECTCALLS 78, 0 failed** on iPhone 12 (UDID
-`48DF9662-42F3-541F-9F88-7FA2AB870F86`, team `DVZT29Q4QT`) — re-confirmed on batch 5.
+**State: batch-6 code committed + pushed to origin/main; DEVICE REGRESSION RUN PENDING (user must
+unlock iPhone 12 first).** (Pre-existing untracked `.agents/` + `skills-lock.json` are tooling files —
+do NOT stage them.) Device self-test baseline to re-confirm: **PTRCALL 54 / OBJECTCALLS 78, 0 failed**
+on iPhone 12 (UDID `48DF9662-42F3-541F-9F88-7FA2AB870F86`, team `DVZT29Q4QT`) — re-confirmed on batch 5.
 
 **DONE (this session, 2026-06-17→20):**
 - **Phase 2 COMPLETE** — 2.7d (typed-object arrays) → 2.7e (Variant scalars) → 2.7f (arg-bearing
@@ -86,14 +86,20 @@ Device self-test baseline: **PTRCALL 54 / OBJECTCALLS 78, 0 failed** on iPhone 1
 - **Phase 4 exit met (0 STUB / 0 SUGAR)** — 4.1 (connectBound/disconnectBound/SignalConnection.close,
   bound + lambda Callables), 4.2 (SUGAR→generator custom-section, regen now LOSSLESS), 4.5 (HANDWRITTEN
   reviewed — all 10 justified bespoke, category-tagged).
-- **Phase 4 breadth batches 1–5** — emitted iOS classes **27→79** (~1,780+ new wrapper methods). All
+- **Phase 4 breadth batches 1–6** — emitted iOS classes **27→100** (~2,350+ new wrapper methods). All
   emit-only (proven marshalling, no new C, no new self-test rows), each regression-clean on device.
   **Batch 5 (2026-06-20): +14 — Button + 5 BaseButton/Button children (CheckBox/CheckButton/OptionButton/
   MenuButton/ColorPickerButton) + LinkButton/TextureButton (direct BaseButton) + the PhysicsBody2D
   family (PhysicsBody2D/StaticBody2D/RigidBody2D/CharacterBody2D/AnimatableBody2D) + TileMapLayer;
-  +279 wrapper methods; gates + compileKotlinIosArm64 green; DEVICE-VALIDATED (regression-clean
-  54/78).** Skips now 284.
-  Note: regen still emits AudioStreamPlayer.kt + StaticBody3D.kt (hand-written collisions in
+  +279 wrapper methods; DEVICE-VALIDATED (regression-clean 54/78).**
+  **Batch 6 (2026-06-20): +21 — Container family (Container/BoxContainer/HBoxContainer/VBoxContainer/
+  GridContainer/MarginContainer/CenterContainer/PanelContainer/ScrollContainer) + Range family
+  (Range/ProgressBar/ScrollBar/HScrollBar/VScrollBar/Slider/HSlider/VSlider/SpinBox) + RichTextLabel/
+  LineEdit/TextEdit; +575 wrapper methods; gates + compileKotlinIosArm64 green; DEVICE REGRESSION
+  PENDING.** Skips now 324 (rose from 284 — emitting a class surfaces ITS OWN arg/return refs to
+  not-yet-emitted classes, so the skip count is not monotone in breadth mode; net wired-method count
+  still climbs).
+  Note: regen sometimes emits AudioStreamPlayer.kt + StaticBody3D.kt (hand-written collisions in
   IosGodotApi.kt) — these are NOT copied.
 
 **NEXT (pick one):**
