@@ -73,11 +73,11 @@ Gated on Phase 4 exit. Not started by decision.
 
 ## ★ RESUME HERE (updated 2026-06-20 — resume in Opus)
 
-**State: batches 6+7 code committed + pushed to origin/main; ONE COMBINED DEVICE REGRESSION RUN
-PENDING (user must unlock iPhone 12 first).** (Pre-existing untracked `.agents/` + `skills-lock.json`
-are tooling files — do NOT stage them.) Device self-test baseline to re-confirm: **PTRCALL 54 /
-OBJECTCALLS 78, 0 failed** on iPhone 12 (UDID `48DF9662-42F3-541F-9F88-7FA2AB870F86`, team
-`DVZT29Q4QT`) — re-confirmed on batch 5.
+**State: working tree CLEAN, all committed AND pushed to origin/main at `154a8c1` (batches 6+7).**
+(Pre-existing untracked `.agents/` + `skills-lock.json` are tooling files — do NOT stage them.)
+Device self-test baseline: **PTRCALL 54 / OBJECTCALLS 78, 0 failed** on iPhone 12 (UDID
+`48DF9662-42F3-541F-9F88-7FA2AB870F86`, team `DVZT29Q4QT`) — re-confirmed (combined regression run
+covering batches 6+7, 2026-06-20).
 
 **DONE (this session, 2026-06-17→20):**
 - **Phase 2 COMPLETE** — 2.7d (typed-object arrays) → 2.7e (Variant scalars) → 2.7f (arg-bearing
@@ -103,8 +103,8 @@ OBJECTCALLS 78, 0 failed** on iPhone 12 (UDID `48DF9662-42F3-541F-9F88-7FA2AB870
   NoiseTexture2D/PlaceholderTexture2D/AnimatedTexture/CanvasTexture/CurveTexture/CurveXYZTexture) +
   StyleBox subclasses (StyleBoxFlat/StyleBoxTexture/StyleBoxLine/StyleBoxEmpty) + Light2D family
   (Light2D/PointLight2D/DirectionalLight2D) + 2D collision shapes (CollisionShape2D/CollisionPolygon2D);
-  +229 wrapper methods; gates + compileKotlinIosArm64 green.** Skips now 327. **Batches 6+7 share ONE
-  pending device regression run (must stay 54/78).**
+  +229 wrapper methods; gates + compileKotlinIosArm64 green.** Skips now 327. **Batches 6+7
+  DEVICE-VALIDATED together — combined regression run clean (PTRCALL 54 / OBJECTCALLS 78, 0 failed).**
   Note: regen sometimes emits AudioStreamPlayer.kt + StaticBody3D.kt (hand-written collisions in
   IosGodotApi.kt) — these are NOT copied.
 
