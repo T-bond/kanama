@@ -71,6 +71,46 @@ Gated on Phase 4 exit. Not started by decision.
 | AVAudioSession workaround | sonnet | todo |
 | Desktop wrapper drift: `src/main/.../Node.kt:145` `findChildren` calls `ptrcallWithTwoStringAndTwoBoolArgsRetObjectList` but `CALL_SHAPES` now names `...RetTypedNodeList` — pre-existing desktop staleness (noticed during 2.7d-3). Regenerate/reconcile desktop wrappers + sweep for other drifted typed-object-array shapes. **Sequenced after Phase 4** | sonnet | todo |
 
+## ★ RESUME HERE (updated 2026-06-20 — resume in Opus)
+
+**State: working tree CLEAN, all committed AND pushed to origin/main at `92ef115`.** (Pre-existing
+untracked `.agents/` + `skills-lock.json` are tooling files — do NOT stage them.) Device self-test
+baseline: **PTRCALL 54 / OBJECTCALLS 78, 0 failed** on iPhone 12 (UDID
+`48DF9662-42F3-541F-9F88-7FA2AB870F86`, team `DVZT29Q4QT`).
+
+**DONE (this session, 2026-06-17→20):**
+- **Phase 2 COMPLETE** — 2.7d (typed-object arrays) → 2.7e (Variant scalars) → 2.7f (arg-bearing
+  String/StringName/NodePath returns) → 2.7g (typed-builtin arrays List<String>/<NodePath>/<Long>) →
+  2.7h Projection (+Vector4) → 2.7i Plane arrays (+Plane) → 2.7j generic Array→List<Any?>. Every
+  closeable emitted-class skip is wired. New value types: Vector4, Projection, Plane.
+- **Phase 4 exit met (0 STUB / 0 SUGAR)** — 4.1 (connectBound/disconnectBound/SignalConnection.close,
+  bound + lambda Callables), 4.2 (SUGAR→generator custom-section, regen now LOSSLESS), 4.5 (HANDWRITTEN
+  reviewed — all 10 justified bespoke, category-tagged).
+- **Phase 4 breadth batches 1–4** — emitted iOS classes **27→65** (~1,500+ new wrapper methods). All
+  emit-only (proven marshalling, no new C, no new self-test rows), each regression-clean on device.
+
+**NEXT (pick one):**
+1. **More breadth batches** (low-risk, the agreed track) — Button/CheckBox/etc. (BaseButton now emitted),
+   PhysicsBody2D family, TileMapLayer, more Resources/Textures. WORKFLOW: verify candidate parent chains
+   resolve to an emitted class (script in the session log) + that the name doesn't COLLIDE with a
+   hand-written class/object in `IosGodotApi.kt` (SceneTree, Tween(er), PropertyTweener,
+   InputEventMouseButton, **StaticBody3D, AudioStreamPlayer**, Input, Mathf, ResourceLoader, GD,
+   GodotSignal, SignalConnection, KanamaScope) — generating a colliding name is a Kotlin redeclaration
+   error. Then: add to `--ios-emit-class` set, regen to /tmp, copy NEW + CHANGED (additive) wrappers +
+   ObjectCallsGenerated, `compileKotlinIosArm64`, device REGRESSION run (matrix stays 54/78), commit.
+   Node.kt regenerates losslessly now (4.2) — safe to copy wholesale (verify the 4 sugar methods survive).
+2. **4.3 commonMain expect/actual** — BLOCKED(needs-decision): a multi-day cross-target migration
+   (desktop's ~1047 root-module wrappers + iOS `:ios-runtime` KMP module → one jvm()+iosArm64() commonMain
+   reconciling java.lang.foreign vs cinterop). Needs a design pass + explicit go-ahead. High blast radius.
+3. **4.4 GodotReal centralization** — safe but low-value (double-precision future-proofing; single-precision
+   is the target).
+4. **Assess Android parity vs desktop** (parity-first goal 2, still pending from Phase 3).
+
+**Remaining iOS skips** are now mostly: methods on not-yet-emitted concrete classes (more breadth) +
+Callable/vararg (deferred cross-platform, matches desktop 1.4). See the dated bullets below for full detail.
+
+---
+
 ## RESUME HERE (updated 2026-06-15 — resume in Opus)
 
 State: working tree CLEAN. Phase 1 (desktop/Android wrapper gaps) + Phase 2
