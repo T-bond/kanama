@@ -636,7 +636,14 @@ needs a decision (see the numbered items below + the roadmap backlog):
   **Environment (187 methods), Window (127), Animation (75), Theme (59), Image (52), CanvasLayer (23)** — parents Resource/Viewport/Node
   (all emitted). ~523 new emitted methods + newly-lit cross-refs (Viewport, Camera3D, CanvasItem, Texture2D, AnimationMixer, …). Node.kt
   regenerated (lossless via 4.2 — sugar intact). Emit-only (no new C → cinterop UP-TO-DATE); regression check (matrix stays 54/78). Gates
-  GREEN. **NEXT: device-validate batch 2.**
+  GREEN.
+- **★ PHASE 4 BREADTH — BATCH 3 DONE + DEVICE-VALIDATED (iPhone 12, 2026-06-20, regression-clean 54/78).** +12 gameplay classes:
+  **Timer, AudioStreamPlayer2D/3D, MeshInstance3D, RigidBody3D, Curve, Gradient, Light3D, DirectionalLight3D, Marker2D, Marker3D,
+  AnimatedSprite2D** (parents Node/Node2D/Node3D/GeometryInstance3D/PhysicsBody3D/VisualInstance3D/Resource/Light3D — all emitted).
+  **GOTCHA: `AudioStreamPlayer` + `StaticBody3D` were DROPPED from the batch** — they already exist as hand-written classes in
+  IosGodotApi.kt (Kotlin redeclaration error if also generated); kept hand-written. (Future: to generate richer versions, delete the
+  hand-written stubs first.) 12 new wrappers + ObjectCallsGenerated; no existing wrappers changed. Emit-only (no new C); regression
+  check (54/78). Gates GREEN. **NEXT: device-validate batch 3.**
 - **★ PHASE 4 STARTED (2026-06-18). 4.2 DONE: SUGAR 1→0.** `IOS_CUSTOM_MEMBER_SECTIONS` registry emits the Node sugar as a stable
   generator body custom-section (mirrors desktop `CUSTOM_MEMBER_SECTIONS`, gated IOS_AUDIT_ONLY); Node.kt is now byte-identical to
   generator output (**regen lossless — the recurring hand-re-apply is gone**). Generator-only/structural, compile-validated, no device
