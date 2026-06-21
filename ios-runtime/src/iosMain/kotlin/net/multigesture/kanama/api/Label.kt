@@ -130,6 +130,10 @@ class Label(handle: MemorySegment) : Control(handle) {
         @JvmName("setStructuredTextBidiOverrideProperty")
         set(value) = setStructuredTextBidiOverride(value)
 
+    val structuredTextBidiOverrideOptions: List<Any?>
+        @JvmName("structuredTextBidiOverrideOptionsProperty")
+        get() = getStructuredTextBidiOverrideOptions()
+
     fun setHorizontalAlignment(alignment: Long) {
         ObjectCalls.ptrcallWithLongArg(setHorizontalAlignmentBind, handle, alignment)
     }
@@ -304,6 +308,10 @@ class Label(handle: MemorySegment) : Control(handle) {
 
     fun getStructuredTextBidiOverride(): Long {
         return ObjectCalls.ptrcallNoArgsRetLong(getStructuredTextBidiOverrideBind, handle)
+    }
+
+    fun getStructuredTextBidiOverrideOptions(): List<Any?> {
+        return ObjectCalls.ptrcallNoArgsRetArray(getStructuredTextBidiOverrideOptionsBind, handle)
     }
 
     fun getCharacterBounds(pos: Int): Rect2 {
@@ -535,6 +543,11 @@ class Label(handle: MemorySegment) : Control(handle) {
         private const val GET_STRUCTURED_TEXT_BIDI_OVERRIDE_HASH = 3385126229L
         private val getStructuredTextBidiOverrideBind by lazy {
             ObjectCalls.getMethodBind("Label", "get_structured_text_bidi_override", GET_STRUCTURED_TEXT_BIDI_OVERRIDE_HASH)
+        }
+
+        private const val GET_STRUCTURED_TEXT_BIDI_OVERRIDE_OPTIONS_HASH = 3995934104L
+        private val getStructuredTextBidiOverrideOptionsBind by lazy {
+            ObjectCalls.getMethodBind("Label", "get_structured_text_bidi_override_options", GET_STRUCTURED_TEXT_BIDI_OVERRIDE_OPTIONS_HASH)
         }
 
         private const val GET_CHARACTER_BOUNDS_HASH = 3327874267L

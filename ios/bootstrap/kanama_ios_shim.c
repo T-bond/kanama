@@ -2276,6 +2276,144 @@ int64_t kanama_ios_godot_ptrcall_no_args_ret_typed_array_blob(
     return total;
 }
 
+// ptrcall (with args) -> a generic Array, serialized to a SELF-DESCRIBING blob:
+//   [int32 count] ( [int32 variant_type][int32 byteLen][bytes] )*
+// Per-element decode by Variant type: BOOL(1 byte)/INT(8 int64)/FLOAT(8 double)/OBJECT(8 handle)/
+// STRING|STRING_NAME|NODE_PATH(utf8). Non-scalar elements (Dictionary, nested Array, ...) keep their
+// type tag with byteLen 0 so Kotlin surfaces null (the scalar-decode philosophy). Two-call length
+// protocol (out_buf=NULL/buf_size=0 measures). Args are PT-tagged like the other arg-bearing helpers.
+int64_t kanama_ios_godot_ptrcall_ret_variant_array_blob(
+    int64_t method_bind,
+    int64_t instance,
+    const int32_t *arg_types,
+    const void *const *arg_ptrs,
+    int32_t arg_count,
+    char *out_buf,
+    int64_t buf_size
+) {
+    if (!kanama_ios_resolve_godot_api() || method_bind == 0 || instance == 0) {
+        return -1;
+    }
+    kanama_ios_cache_array_methods();
+    if (g_array_size_method == NULL || g_array_get_method == NULL || g_variant_get_type == NULL) {
+        return -1;
+    }
+
+    // Array opaque is 8 bytes; the generic dispatch writes it (and builds any String-family args).
+    uint64_t array_storage = 0;
+    kanama_ios_godot_ptrcall(
+        method_bind, instance, arg_types, arg_ptrs, arg_count,
+        KANAMA_IOS_PT_OBJECT /* any non-void ret tag -> ret_out is used */, &array_storage);
+
+    int64_t count = 0;
+    g_array_size_method(&array_storage, NULL, &count, 0);
+    if (count < 0) {
+        count = 0;
+    }
+
+    int can_write = (out_buf != NULL && buf_size >= 4);
+    if (can_write) {
+        int32_t count32 = (int32_t)count;
+        memcpy(out_buf, &count32, 4);
+    }
+    int64_t total = 4;
+
+    for (int64_t i = 0; i < count; i++) {
+        uint8_t elem_variant[24];
+        memset(elem_variant, 0, sizeof(elem_variant));
+        const GDExtensionConstTypePtr get_args[1] = { (GDExtensionConstTypePtr)&i };
+        g_array_get_method(&array_storage, get_args, elem_variant, 1);
+        int32_t vtype = (int32_t)g_variant_get_type((GDExtensionConstVariantPtr)elem_variant);
+
+        uint8_t scratch[8];
+        const void *payload = NULL;
+        int64_t len = 0;
+        uint64_t string_storage = 0;
+        int have_string = 0;
+        switch (vtype) {
+            case KANAMA_IOS_VARIANT_TYPE_BOOL: {
+                uint8_t b = 0;
+                if (g_variant_to_bool != NULL) g_variant_to_bool(&b, elem_variant);
+                scratch[0] = b; payload = scratch; len = 1;
+                break;
+            }
+            case KANAMA_IOS_VARIANT_TYPE_INT: {
+                int64_t v = 0;
+                if (g_variant_to_int != NULL) g_variant_to_int(&v, elem_variant);
+                memcpy(scratch, &v, 8); payload = scratch; len = 8;
+                break;
+            }
+            case KANAMA_IOS_VARIANT_TYPE_FLOAT: {
+                double v = 0.0;
+                if (g_variant_to_float != NULL) g_variant_to_float(&v, elem_variant);
+                memcpy(scratch, &v, 8); payload = scratch; len = 8;
+                break;
+            }
+            case KANAMA_IOS_VARIANT_TYPE_OBJECT: {
+                GDExtensionObjectPtr o = NULL;
+                if (g_variant_to_object != NULL) g_variant_to_object(&o, elem_variant);
+                int64_t h = (int64_t)(intptr_t)o;
+                memcpy(scratch, &h, 8); payload = scratch; len = 8;
+                break;
+            }
+            case KANAMA_IOS_VARIANT_TYPE_STRING:
+                if (g_variant_to_string != NULL) { g_variant_to_string(&string_storage, elem_variant); have_string = 1; }
+                break;
+            case KANAMA_IOS_VARIANT_TYPE_STRING_NAME:
+                if (g_variant_to_string_name != NULL && g_string_from_string_name_constructor != NULL) {
+                    uint64_t sn = 0;
+                    g_variant_to_string_name(&sn, elem_variant);
+                    const GDExtensionConstTypePtr ca[1] = { (GDExtensionConstTypePtr)&sn };
+                    g_string_from_string_name_constructor((GDExtensionUninitializedTypePtr)&string_storage, ca);
+                    kanama_ios_destroy_string_name(&sn);
+                    have_string = 1;
+                }
+                break;
+            case KANAMA_IOS_VARIANT_TYPE_NODE_PATH:
+                if (g_variant_to_node_path != NULL && g_string_from_node_path_constructor != NULL) {
+                    uint64_t np = 0;
+                    g_variant_to_node_path(&np, elem_variant);
+                    const GDExtensionConstTypePtr ca[1] = { (GDExtensionConstTypePtr)&np };
+                    g_string_from_node_path_constructor((GDExtensionUninitializedTypePtr)&string_storage, ca);
+                    kanama_ios_destroy_node_path(&np);
+                    have_string = 1;
+                }
+                break;
+            default:
+                break;  // non-scalar (Dictionary/Array/...) -> len 0 -> null
+        }
+        if (have_string && g_string_to_utf8_chars != NULL) {
+            len = (int64_t)g_string_to_utf8_chars((GDExtensionConstStringPtr)&string_storage, NULL, 0);
+            if (len < 0) len = 0;
+        }
+        if (can_write && buf_size >= total + 8 + len) {
+            int32_t vt = vtype;
+            int32_t len32 = (int32_t)len;
+            memcpy(out_buf + total, &vt, 4);
+            memcpy(out_buf + total + 4, &len32, 4);
+            if (len > 0) {
+                if (have_string) {
+                    g_string_to_utf8_chars((GDExtensionConstStringPtr)&string_storage, out_buf + total + 8, len);
+                } else if (payload != NULL) {
+                    memcpy(out_buf + total + 8, payload, (size_t)len);
+                }
+            }
+        }
+        if (have_string) {
+            kanama_ios_destroy_string(&string_storage);
+        }
+        if (g_variant_destroy != NULL) {
+            g_variant_destroy((GDExtensionVariantPtr)elem_variant);
+        }
+        total += 8 + len;
+    }
+
+    if (g_array_destructor != NULL) {
+        g_array_destructor(&array_storage);
+    }
+    return total;
+}
+
 static GDExtensionMethodBindPtr kanama_ios_get_method_bind_cached(
     GDExtensionMethodBindPtr *cache,
     const char *class_name,

@@ -155,6 +155,10 @@ open class Node(handle: MemorySegment) : GodotObject(handle) {
         return ObjectCalls.ptrcallWithNodePathArgRetBool(hasNodeAndResourceBind, handle, path)
     }
 
+    fun getNodeAndResource(path: NodePath): List<Any?> {
+        return ObjectCalls.ptrcallWithNodePathArgRetArray(getNodeAndResourceBind, handle, path)
+    }
+
     fun isInsideTree(): Boolean {
         return ObjectCalls.ptrcallNoArgsRetBool(isInsideTreeBind, handle)
     }
@@ -737,6 +741,11 @@ open class Node(handle: MemorySegment) : GodotObject(handle) {
         private const val HAS_NODE_AND_RESOURCE_HASH = 861721659L
         private val hasNodeAndResourceBind by lazy {
             ObjectCalls.getMethodBind("Node", "has_node_and_resource", HAS_NODE_AND_RESOURCE_HASH)
+        }
+
+        private const val GET_NODE_AND_RESOURCE_HASH = 502563882L
+        private val getNodeAndResourceBind by lazy {
+            ObjectCalls.getMethodBind("Node", "get_node_and_resource", GET_NODE_AND_RESOURCE_HASH)
         }
 
         private const val IS_INSIDE_TREE_HASH = 36873697L

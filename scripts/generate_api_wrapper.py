@@ -211,7 +211,7 @@ IOS_ARG_KINDS = {
 # Return shapes the iOS helpers can read back (keyed by CallShape.kotlin_return, the
 # stable per-helper return-type token). StringName/String/RID/List/Map returns
 # are intentionally absent until their read-back is wired + validated.
-IOS_RET_KOTLIN = {"Unit", "Boolean", "Int", "Long", "Double", "Vector2", "Vector2i", "Vector3", "Vector3i", "Color", "Rect2", "MemorySegment", "String", "NodePath", "Basis", "Transform2D", "Transform3D", "Projection", "RID", "Quaternion", "AABB", "List<Int>", "List<Float>", "List<Vector2>", "List<Color>", "List<String>", "List<NodePath>", "List<Long>", "List<Plane>", "Any?"}
+IOS_RET_KOTLIN = {"Unit", "Boolean", "Int", "Long", "Double", "Vector2", "Vector2i", "Vector3", "Vector3i", "Color", "Rect2", "MemorySegment", "String", "NodePath", "Basis", "Transform2D", "Transform3D", "Projection", "RID", "Quaternion", "AABB", "List<Int>", "List<Float>", "List<Vector2>", "List<Color>", "List<String>", "List<NodePath>", "List<Long>", "List<Plane>", "List<Any?>", "Any?"}
 
 # Helpers already hand-written in ios-runtime ObjectCalls.kt (the reference template +
 # override set). The generator must NOT re-emit these (they'd clash with the members).
@@ -269,6 +269,8 @@ IOS_HANDWRITTEN_HELPERS = {
     "ptrcallNoArgsRetNodePathList",
     "ptrcallNoArgsRetLongList",
     "ptrcallNoArgsRetPlaneList",
+    "ptrcallNoArgsRetArray",
+    "ptrcallWithNodePathArgRetArray",
 }
 PARAMETER_NAME_OVERRIDES = {
     ("Time", "get_datetime_dict_from_unix_time", "unix_time_val"): "unixTime",
@@ -1082,6 +1084,12 @@ def ios_method_supported(method: ApiMethod, object_types: set[str]) -> bool:
         return False
     # Typed Array[Plane] read-back (2.7i blob helper, 16-byte float32 records) — no-arg getter only.
     if shape.kotlin_return == "List<Plane>" and shape.function != "ptrcallNoArgsRetPlaneList":
+        return False
+    # Generic Array -> List<Any?> (2.7j variant-array blob): the no-arg getter + the NodePath-arg one.
+    if shape.kotlin_return == "List<Any?>" and shape.function not in (
+        "ptrcallNoArgsRetArray",
+        "ptrcallWithNodePathArgRetArray",
+    ):
         return False
     logical_args = method.logical_arg_kinds(object_types)
     if not all(kind in IOS_ARG_KINDS for kind in logical_args):

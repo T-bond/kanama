@@ -39,6 +39,7 @@ import net.multigesture.kanama.ios.cinterop.KanamaIosPackedArgDesc
 import net.multigesture.kanama.ios.cinterop.kanama_ios_godot_ptrcall
 import net.multigesture.kanama.ios.cinterop.kanama_ios_godot_ptrcall_ret_object_array
 import net.multigesture.kanama.ios.cinterop.kanama_ios_godot_ptrcall_no_args_ret_typed_array_blob
+import net.multigesture.kanama.ios.cinterop.kanama_ios_godot_ptrcall_ret_variant_array_blob
 import net.multigesture.kanama.ios.cinterop.kanama_ios_godot_ptrcall_no_args_ret_packed_color_array
 import net.multigesture.kanama.ios.cinterop.kanama_ios_godot_ptrcall_no_args_ret_packed_float32_array
 import net.multigesture.kanama.ios.cinterop.kanama_ios_godot_ptrcall_no_args_ret_packed_int32_array
@@ -407,6 +408,74 @@ object ObjectCalls {
     fun ptrcallNoArgsRetPlaneList(methodBind: MemorySegment, instance: MemorySegment): List<Plane> =
         retTypedArrayBlob(methodBind, instance, PT_PLANE) { b, o, _ ->
             Plane(Vector3(floatLE(b, o), floatLE(b, o + 4), floatLE(b, o + 8)), floatLE(b, o + 12))
+        }
+
+    // Generic Array -> List<Any?> (Phase 2.7j). The C side serializes each element as a
+    // self-describing [variant_type][len][bytes] record; scalar elements decode to Boolean/Long/
+    // Double/String/NodePath/MemorySegment(handle), non-scalar (Dictionary, nested Array, ...) to
+    // null. Two-call length protocol; args are laid out by the caller's layoutArgs lambda.
+    private fun retVariantArrayBlob(
+        methodBind: MemorySegment,
+        instance: MemorySegment,
+        layoutArgs: MemScope.() -> Triple<CPointer<IntVar>?, CPointer<COpaquePointerVar>?, Int>,
+    ): List<Any?> =
+        memScoped {
+            val (types, ptrs, argc) = layoutArgs()
+            val total = kanama_ios_godot_ptrcall_ret_variant_array_blob(
+                methodBind.address(), instance.address(), types, ptrs, argc, null, 0L)
+            if (total < 4L) {
+                emptyList()
+            } else {
+                val b = allocArray<ByteVar>(total)
+                kanama_ios_godot_ptrcall_ret_variant_array_blob(
+                    methodBind.address(), instance.address(), types, ptrs, argc, b, total)
+                val bytes = b.readBytes(total.toInt())
+                fun i32(o: Int): Int =
+                    (bytes[o].toInt() and 0xFF) or ((bytes[o + 1].toInt() and 0xFF) shl 8) or
+                        ((bytes[o + 2].toInt() and 0xFF) shl 16) or ((bytes[o + 3].toInt() and 0xFF) shl 24)
+                fun i64(o: Int): Long {
+                    var v = 0L
+                    for (k in 7 downTo 0) v = (v shl 8) or (bytes[o + k].toLong() and 0xFF)
+                    return v
+                }
+                val count = i32(0)
+                var off = 4
+                val out = ArrayList<Any?>(if (count > 0) count else 0)
+                repeat(count) {
+                    val vt = i32(off); off += 4
+                    val len = i32(off); off += 4
+                    out.add(
+                        when (vt) {
+                            VT_BOOL -> bytes[off].toInt() != 0
+                            VT_INT -> i64(off)
+                            VT_FLOAT -> Double.fromBits(i64(off))
+                            VT_STRING, VT_STRING_NAME -> bytes.decodeToString(off, off + len)
+                            VT_NODE_PATH -> NodePath(bytes.decodeToString(off, off + len))
+                            VT_OBJECT -> i64(off).let { if (it != 0L) MemorySegment.ofAddress(it) else null }
+                            else -> null
+                        },
+                    )
+                    off += len
+                }
+                out
+            }
+        }
+
+    fun ptrcallNoArgsRetArray(methodBind: MemorySegment, instance: MemorySegment): List<Any?> =
+        retVariantArrayBlob(methodBind, instance) {
+            Triple<CPointer<IntVar>?, CPointer<COpaquePointerVar>?, Int>(null, null, 0)
+        }
+
+    fun ptrcallWithNodePathArgRetArray(
+        methodBind: MemorySegment,
+        instance: MemorySegment,
+        path: NodePath,
+    ): List<Any?> =
+        retVariantArrayBlob(methodBind, instance) {
+            val types = allocArray<IntVar>(1); types[0] = PT_NODE_PATH
+            val ptrs = allocArray<COpaquePointerVar>(1)
+            ptrs[0] = path.path.cstr.ptr.reinterpret<CPointed>()
+            Triple<CPointer<IntVar>?, CPointer<COpaquePointerVar>?, Int>(types, ptrs, 1)
         }
 
     // PackedVector2Array arg via the generic dispatch: pack the List into a flat float buffer
@@ -1394,6 +1463,23 @@ fun kanamaIosRuntimeObjectCallsSelfTest() {
         ObjectCalls.getMethodBind("Camera3D", "get_frustum", 3995934104L), frustumCam)
     check("plane-array-ret(get_frustum finite)",
         frustum.all { it.d.isFinite() && it.normal.x.isFinite() && it.normal.y.isFinite() })
+
+    // Generic Array return (Phase 2.7j). parent + named child; parent.get_node_and_resource("Kid")
+    // returns [node, resource, subpath] == [childHandle, null, NodePath("")]. Exercises the
+    // variant-array blob (mixed Object/null/NodePath element decode) with a NodePath arg.
+    val ndrParent = ObjectCalls.constructObject("Node")
+    val ndrChild = ObjectCalls.constructObject("Node")
+    ObjectCalls.ptrcallWithStringNameArg(
+        ObjectCalls.getMethodBind("Node", "set_name", 3304788590L), ndrChild, "Kid")
+    ObjectCalls.ptrcallWithObjectBoolLongArgs(
+        ObjectCalls.getMethodBind("Node", "add_child", 3863233950L), ndrParent, ndrChild, false, 0L)
+    val ndr = ObjectCalls.ptrcallWithNodePathArgRetArray(
+        ObjectCalls.getMethodBind("Node", "get_node_and_resource", 502563882L), ndrParent, NodePath("Kid"))
+    check("variant-array-ret(get_node_and_resource==[child,null,path])",
+        ndr.size == 3 &&
+            (ndr[0] as? MemorySegment)?.address() == ndrChild.address() &&
+            ndr[1] == null &&
+            ndr[2] is NodePath)
 
     // PackedFloat32Array-return (Gradient.get_offsets): a fresh Gradient seeds two default
     // points at offsets 0.0 and 1.0, so get_offsets() == [0.0, 1.0] — read back through

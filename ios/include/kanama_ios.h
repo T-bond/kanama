@@ -197,6 +197,22 @@ int64_t kanama_ios_godot_ptrcall_no_args_ret_typed_array_blob(
 );
 
 /*
+ * ptrcall (with PT-tagged args) -> a generic Array, serialized to a self-describing blob
+ * [int32 count]([int32 variant_type][int32 byteLen][bytes])*. Scalar elements
+ * (bool/int/float/object-handle/String|StringName|NodePath utf8) are decoded; non-scalar
+ * elements keep their type tag with byteLen 0 (Kotlin surfaces null). Two-call length protocol.
+ */
+int64_t kanama_ios_godot_ptrcall_ret_variant_array_blob(
+    int64_t method_bind,
+    int64_t instance,
+    const int32_t *arg_types,
+    const void *const *arg_ptrs,
+    int32_t arg_count,
+    char *out_buf,
+    int64_t buf_size
+);
+
+/*
  * Descriptor for a BUILD-tagged Packed*Array argument passed through the generic ptrcall
  * dispatcher (KANAMA_IOS_PT_PACKED_* tags). `data` is a flat element buffer: float32 pairs
  * for Vector2 (count*2 floats), float32 quads for Color (count*4 floats). The dispatch
