@@ -4,6 +4,8 @@ import java.lang.foreign.MemorySegment
 import kotlin.jvm.JvmName
 import net.multigesture.kanama.binding.runtime.ObjectCalls
 import net.multigesture.kanama.binding.runtime.*
+import net.multigesture.kanama.types.Plane
+import net.multigesture.kanama.types.Projection
 import net.multigesture.kanama.types.RID
 import net.multigesture.kanama.types.Transform3D
 import net.multigesture.kanama.types.Vector2
@@ -141,6 +143,10 @@ open class Camera3D(handle: MemorySegment) : Node3D(handle) {
         return ObjectCalls.ptrcallNoArgsRetTransform3D(getCameraTransformBind, handle)
     }
 
+    fun getCameraProjection(): Projection {
+        return ObjectCalls.ptrcallNoArgsRetProjection(getCameraProjectionBind, handle)
+    }
+
     fun getFov(): Double {
         return ObjectCalls.ptrcallNoArgsRetDouble(getFovBind, handle)
     }
@@ -227,6 +233,10 @@ open class Camera3D(handle: MemorySegment) : Node3D(handle) {
 
     fun getDopplerTracking(): Long {
         return ObjectCalls.ptrcallNoArgsRetLong(getDopplerTrackingBind, handle)
+    }
+
+    fun getFrustum(): List<Plane> {
+        return ObjectCalls.ptrcallNoArgsRetPlaneList(getFrustumBind, handle)
     }
 
     fun isPositionInFrustum(worldPoint: Vector3): Boolean {
@@ -333,6 +343,11 @@ open class Camera3D(handle: MemorySegment) : Node3D(handle) {
         private const val GET_CAMERA_TRANSFORM_HASH = 3229777777L
         private val getCameraTransformBind by lazy {
             ObjectCalls.getMethodBind("Camera3D", "get_camera_transform", GET_CAMERA_TRANSFORM_HASH)
+        }
+
+        private const val GET_CAMERA_PROJECTION_HASH = 2910717950L
+        private val getCameraProjectionBind by lazy {
+            ObjectCalls.getMethodBind("Camera3D", "get_camera_projection", GET_CAMERA_PROJECTION_HASH)
         }
 
         private const val GET_FOV_HASH = 1740695150L
@@ -443,6 +458,11 @@ open class Camera3D(handle: MemorySegment) : Node3D(handle) {
         private const val GET_DOPPLER_TRACKING_HASH = 1584483649L
         private val getDopplerTrackingBind by lazy {
             ObjectCalls.getMethodBind("Camera3D", "get_doppler_tracking", GET_DOPPLER_TRACKING_HASH)
+        }
+
+        private const val GET_FRUSTUM_HASH = 3995934104L
+        private val getFrustumBind by lazy {
+            ObjectCalls.getMethodBind("Camera3D", "get_frustum", GET_FRUSTUM_HASH)
         }
 
         private const val IS_POSITION_IN_FRUSTUM_HASH = 3108956480L

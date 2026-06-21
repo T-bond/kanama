@@ -294,6 +294,7 @@ static GDExtensionTypeFromVariantConstructorFunc g_variant_to_vector3 = NULL;
 static GDExtensionTypeFromVariantConstructorFunc g_variant_to_color = NULL;
 static GDExtensionTypeFromVariantConstructorFunc g_variant_to_node_path = NULL;
 static GDExtensionTypeFromVariantConstructorFunc g_variant_to_string_name = NULL;
+static GDExtensionTypeFromVariantConstructorFunc g_variant_to_plane = NULL;
 static GDExtensionPtrConstructor g_string_from_node_path_constructor = NULL;
 static GDExtensionPtrBuiltInMethod g_array_size_method = NULL;
 static GDExtensionPtrBuiltInMethod g_array_get_method = NULL;
@@ -478,6 +479,11 @@ enum {
     // destroys it after the call. Vector2 element = 2 float32, Color element = 4 float32.
     KANAMA_IOS_PT_PACKED_VECTOR2_ARRAY,
     KANAMA_IOS_PT_PACKED_COLOR_ARRAY,
+    // POD passthrough return: 16x float32 (4 column-major Vector4 columns x, y, z, w).
+    // Appended at the end so the Packed*Array tag values above are not renumbered.
+    KANAMA_IOS_PT_PROJECTION,
+    // Typed-array element selector (not a ptrcall arg/ret tag): Array[Plane] element = 4 float32.
+    KANAMA_IOS_PT_PLANE,
 };
 
 // Descriptor for a BUILD-tagged Packed*Array arg (mirrors KanamaIosPackedArgDesc in
@@ -500,6 +506,7 @@ enum {
     KANAMA_IOS_VARIANT_TYPE_VECTOR2I = 6,
     KANAMA_IOS_VARIANT_TYPE_RECT2 = 7,
     KANAMA_IOS_VARIANT_TYPE_VECTOR3 = 9,
+    KANAMA_IOS_VARIANT_TYPE_PLANE = 14,
     KANAMA_IOS_VARIANT_TYPE_QUATERNION = 15,
     KANAMA_IOS_VARIANT_TYPE_COLOR = 20,
     KANAMA_IOS_VARIANT_TYPE_STRING_NAME = 21,
@@ -723,6 +730,7 @@ static int kanama_ios_resolve_godot_api(void) {
     g_variant_to_color = g_get_variant_to_type_constructor(KANAMA_IOS_VARIANT_TYPE_COLOR);
     g_variant_to_node_path = g_get_variant_to_type_constructor(KANAMA_IOS_VARIANT_TYPE_NODE_PATH);
     g_variant_to_string_name = g_get_variant_to_type_constructor(KANAMA_IOS_VARIANT_TYPE_STRING_NAME);
+    g_variant_to_plane = g_get_variant_to_type_constructor(KANAMA_IOS_VARIANT_TYPE_PLANE);
     // String(from: NodePath) — constructor index 3 in extension_api.json. Lets the set-property
     // value path turn a NodePath Variant into utf8 (no GDExtension NodePath->utf8 exists).
     g_string_from_node_path_constructor = g_variant_get_ptr_constructor(KANAMA_IOS_VARIANT_TYPE_STRING, 3);
@@ -2199,6 +2207,18 @@ int64_t kanama_ios_godot_ptrcall_no_args_ret_typed_array_blob(
                 int32_t len32 = (int32_t)len;
                 memcpy(out_buf + total, &len32, 4);
                 memcpy(out_buf + total + 4, &v, 8);
+            }
+        } else if (elem_kind == KANAMA_IOS_PT_PLANE) {
+            // Plane = 4x float32 (normal.x, normal.y, normal.z, d) — POD, fixed 16-byte record.
+            float plane[4] = { 0.0f, 0.0f, 0.0f, 0.0f };
+            if (g_variant_to_plane != NULL) {
+                g_variant_to_plane(plane, elem_variant);
+            }
+            len = 16;
+            if (can_write && buf_size >= total + 4 + len) {
+                int32_t len32 = (int32_t)len;
+                memcpy(out_buf + total, &len32, 4);
+                memcpy(out_buf + total + 4, plane, 16);
             }
         } else {
             // STRING_NAME / NODE_PATH / STRING -> Godot String -> utf8.

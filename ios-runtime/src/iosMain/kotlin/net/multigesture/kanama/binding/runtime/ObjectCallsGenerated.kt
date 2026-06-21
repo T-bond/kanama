@@ -25,6 +25,7 @@ import net.multigesture.kanama.types.AABB
 import net.multigesture.kanama.types.Basis
 import net.multigesture.kanama.types.Color
 import net.multigesture.kanama.types.NodePath
+import net.multigesture.kanama.types.Projection
 import net.multigesture.kanama.types.Quaternion
 import net.multigesture.kanama.types.RID
 import net.multigesture.kanama.types.Rect2
@@ -34,6 +35,7 @@ import net.multigesture.kanama.types.Vector2
 import net.multigesture.kanama.types.Vector2i
 import net.multigesture.kanama.types.Vector3
 import net.multigesture.kanama.types.Vector3i
+import net.multigesture.kanama.types.Vector4
 
 /**
  * GENERATED iOS ObjectCalls helper bodies (scripts/generate_api_wrapper.py --ios-*).
@@ -66,6 +68,7 @@ private const val PT_TRANSFORM3D = 19
 private const val PT_QUATERNION = 20
 private const val PT_AABB = 21
 private const val PT_TRANSFORM2D = 22
+private const val PT_PROJECTION = 25
 
 fun ObjectCalls.ptrcallNoArgsRetAABB(methodBind: MemorySegment, instance: MemorySegment): AABB =
     memScoped {
@@ -79,6 +82,13 @@ fun ObjectCalls.ptrcallNoArgsRetBasis(methodBind: MemorySegment, instance: Memor
         val ret = allocArray<FloatVar>(9)
         kanama_ios_godot_ptrcall(methodBind.address(), instance.address(), null, null, 0, PT_BASIS, ret)
         Basis(Vector3(ret[0].toDouble(), ret[3].toDouble(), ret[6].toDouble()), Vector3(ret[1].toDouble(), ret[4].toDouble(), ret[7].toDouble()), Vector3(ret[2].toDouble(), ret[5].toDouble(), ret[8].toDouble()))
+    }
+
+fun ObjectCalls.ptrcallNoArgsRetProjection(methodBind: MemorySegment, instance: MemorySegment): Projection =
+    memScoped {
+        val ret = allocArray<FloatVar>(16)
+        kanama_ios_godot_ptrcall(methodBind.address(), instance.address(), null, null, 0, PT_PROJECTION, ret)
+        Projection(Vector4(ret[0].toDouble(), ret[1].toDouble(), ret[2].toDouble(), ret[3].toDouble()), Vector4(ret[4].toDouble(), ret[5].toDouble(), ret[6].toDouble(), ret[7].toDouble()), Vector4(ret[8].toDouble(), ret[9].toDouble(), ret[10].toDouble(), ret[11].toDouble()), Vector4(ret[12].toDouble(), ret[13].toDouble(), ret[14].toDouble(), ret[15].toDouble()))
     }
 
 fun ObjectCalls.ptrcallNoArgsRetQuaternion(methodBind: MemorySegment, instance: MemorySegment): Quaternion =

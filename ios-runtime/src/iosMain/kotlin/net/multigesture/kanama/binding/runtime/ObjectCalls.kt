@@ -54,6 +54,7 @@ import net.multigesture.kanama.types.AABB
 import net.multigesture.kanama.types.Basis
 import net.multigesture.kanama.types.Color
 import net.multigesture.kanama.types.NodePath
+import net.multigesture.kanama.types.Plane
 import net.multigesture.kanama.types.Quaternion
 import net.multigesture.kanama.types.RID
 import net.multigesture.kanama.types.Rect2
@@ -93,6 +94,7 @@ object ObjectCalls {
     private const val PT_STRING_NAME = 15
     private const val PT_STRING = 16
     private const val PT_NODE_PATH = 17
+    private const val PT_PLANE = 26
     // BUILD-tagged Packed*Array arg tags (the dispatch builds the array from a descriptor).
     private const val PT_PACKED_VECTOR2_ARRAY = 23
     private const val PT_PACKED_COLOR_ARRAY = 24
@@ -392,6 +394,19 @@ object ObjectCalls {
             var v = 0L
             for (k in 7 downTo 0) v = (v shl 8) or (b[o + k].toLong() and 0xFF)
             v
+        }
+
+    private fun floatLE(b: ByteArray, o: Int): Double =
+        Float.fromBits(
+            (b[o].toInt() and 0xFF) or ((b[o + 1].toInt() and 0xFF) shl 8) or
+                ((b[o + 2].toInt() and 0xFF) shl 16) or ((b[o + 3].toInt() and 0xFF) shl 24),
+        ).toDouble()
+
+    // Array[Plane] -> List<Plane> (e.g. Camera3D.get_frustum). Each record is 4 float32 LE
+    // (normal.x, normal.y, normal.z, d). Phase 2.7i.
+    fun ptrcallNoArgsRetPlaneList(methodBind: MemorySegment, instance: MemorySegment): List<Plane> =
+        retTypedArrayBlob(methodBind, instance, PT_PLANE) { b, o, _ ->
+            Plane(Vector3(floatLE(b, o), floatLE(b, o + 4), floatLE(b, o + 8)), floatLE(b, o + 12))
         }
 
     // PackedVector2Array arg via the generic dispatch: pack the List into a flat float buffer
@@ -1359,6 +1374,26 @@ fun kanamaIosRuntimeObjectCallsSelfTest() {
     val orphanIds = ObjectCalls.ptrcallNoArgsRetLongList(
         ObjectCalls.getMethodBind("Node", "get_orphan_node_ids", 2915620761L), orphan)
     check("typed-array-ret(get_orphan_node_ids contains id)", orphanIds.contains(orphanId))
+
+    // Projection POD return (Phase 2.7h). Camera3D.get_camera_projection() — 16 float32 (4 column-major
+    // Vector4 columns), the same POD-return path as the device-proven Transform3D (12 floats). Treeless
+    // camera projection values aren't deterministic (no viewport aspect), so this is a smoke check: the
+    // 64-byte ret buffer reads back 16 finite floats without crashing. Camera3D is a Node3D (safe at init).
+    val projCam = ObjectCalls.constructObject("Camera3D")
+    val proj = ObjectCalls.ptrcallNoArgsRetProjection(
+        ObjectCalls.getMethodBind("Camera3D", "get_camera_projection", 2910717950L), projCam)
+    check("projection-ret(get_camera_projection finite)",
+        proj.x.x.isFinite() && proj.y.y.isFinite() && proj.z.z.isFinite() && proj.w.w.isFinite())
+
+    // Array[Plane] return (Phase 2.7i). Camera3D.get_frustum() — a treeless camera has no viewport so
+    // this is typically empty (exercises the Array size=0 path + the Plane blob record layout); any
+    // returned planes must have finite components. The Plane decode shares the fixed-size-record blob
+    // machinery proven by the List<Long> path. Camera3D is a Node3D (safe at init).
+    val frustumCam = ObjectCalls.constructObject("Camera3D")
+    val frustum = ObjectCalls.ptrcallNoArgsRetPlaneList(
+        ObjectCalls.getMethodBind("Camera3D", "get_frustum", 3995934104L), frustumCam)
+    check("plane-array-ret(get_frustum finite)",
+        frustum.all { it.d.isFinite() && it.normal.x.isFinite() && it.normal.y.isFinite() })
 
     // PackedFloat32Array-return (Gradient.get_offsets): a fresh Gradient seeds two default
     // points at offsets 0.0 and 1.0, so get_offsets() == [0.0, 1.0] — read back through

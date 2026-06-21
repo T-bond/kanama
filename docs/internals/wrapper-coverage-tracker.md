@@ -601,6 +601,18 @@ needs a decision (see the numbered items below + the roadmap backlog):
   wrap). Skip 163→155. **DEFERRED from 2.7g (need new value types / mixed decode): Projection (needs Vector4), TypedPlaneArray (needs
   Plane), generic Array→List<Any?> (×2, mixed-type), + 2 Object-arg-blocked scalar oddments (Phase-4 breadth).** These are the residual
   Phase-2 long tail; the high-value typed-array coverage is now closed.
+- **★ 2.7h Projection + 2.7i Plane-array DONE + DEVICE-VALIDATED (iPhone 12, 2026-06-20).**
+  **OBJECTCALLS 75→77 / PTRCALL 54, 0 failed.** New value types `Vector4` + `Projection` (4 Vector4 columns) + `Plane` (Vector3 normal + d).
+  **2.7h Projection:** POD float32 return (16 floats, column-major) — the same generated POD-return path as Transform3D; new
+  `KANAMA_IOS_PT_PROJECTION` tag appended at 25 (no Packed-tag renumbering), `ios_ret_layout` case, IOS_RET_KOTLIN += Projection,
+  generated `ptrcallNoArgsRetProjection` (ObjectCallsGenerated + the Node3D fixture regenerated). **NO cinterop header change** (uses
+  the existing generic ptrcall). +1 wrapper: `Camera3D.getCameraProjection()`. Self-test: smoke (16 finite floats — treeless camera
+  values aren't deterministic, rides on Transform3D POD proof). **2.7i Plane-array:** extends the 2.7g typed-array blob with a
+  `KANAMA_IOS_PT_PLANE` element branch (Plane = 4 float32 fixed 16-byte record; new `g_variant_to_plane` + `VARIANT_TYPE_PLANE=14`).
+  Kotlin `ptrcallNoArgsRetPlaneList` (floatLE decode). +1 wrapper: `Camera3D.getFrustum():List<Plane>`. Self-test: smoke (treeless
+  frustum is empty → exercises the size-0 path + record layout; Plane decode rides on the proven homogeneous-blob pattern). Skip
+  155→153. **REMAINING Phase-2 tail: generic Array→List<Any?>** (get_node_and_resource, get_structured_text_bidi_override_options —
+  mixed-element decode; Dictionary elements aren't scalar-decodable). **NEXT: device-validate 2.7h+2.7i, then generic Array, then Phase 4.**
 - **★ PHASE 4 STARTED (2026-06-18). 4.2 DONE: SUGAR 1→0.** `IOS_CUSTOM_MEMBER_SECTIONS` registry emits the Node sugar as a stable
   generator body custom-section (mirrors desktop `CUSTOM_MEMBER_SECTIONS`, gated IOS_AUDIT_ONLY); Node.kt is now byte-identical to
   generator output (**regen lossless — the recurring hand-re-apply is gone**). Generator-only/structural, compile-validated, no device

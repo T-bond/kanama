@@ -25,6 +25,7 @@ import net.multigesture.kanama.types.AABB
 import net.multigesture.kanama.types.Basis
 import net.multigesture.kanama.types.Color
 import net.multigesture.kanama.types.NodePath
+import net.multigesture.kanama.types.Projection
 import net.multigesture.kanama.types.Quaternion
 import net.multigesture.kanama.types.RID
 import net.multigesture.kanama.types.Rect2
@@ -34,6 +35,7 @@ import net.multigesture.kanama.types.Vector2
 import net.multigesture.kanama.types.Vector2i
 import net.multigesture.kanama.types.Vector3
 import net.multigesture.kanama.types.Vector3i
+import net.multigesture.kanama.types.Vector4
 
 /**
  * GENERATED iOS ObjectCalls helper bodies (scripts/generate_api_wrapper.py --ios-*).

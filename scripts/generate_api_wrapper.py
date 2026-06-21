@@ -211,7 +211,7 @@ IOS_ARG_KINDS = {
 # Return shapes the iOS helpers can read back (keyed by CallShape.kotlin_return, the
 # stable per-helper return-type token). StringName/String/RID/List/Map returns
 # are intentionally absent until their read-back is wired + validated.
-IOS_RET_KOTLIN = {"Unit", "Boolean", "Int", "Long", "Double", "Vector2", "Vector2i", "Vector3", "Vector3i", "Color", "Rect2", "MemorySegment", "String", "NodePath", "Basis", "Transform2D", "Transform3D", "RID", "Quaternion", "AABB", "List<Int>", "List<Float>", "List<Vector2>", "List<Color>", "List<String>", "List<NodePath>", "List<Long>", "Any?"}
+IOS_RET_KOTLIN = {"Unit", "Boolean", "Int", "Long", "Double", "Vector2", "Vector2i", "Vector3", "Vector3i", "Color", "Rect2", "MemorySegment", "String", "NodePath", "Basis", "Transform2D", "Transform3D", "Projection", "RID", "Quaternion", "AABB", "List<Int>", "List<Float>", "List<Vector2>", "List<Color>", "List<String>", "List<NodePath>", "List<Long>", "List<Plane>", "Any?"}
 
 # Helpers already hand-written in ios-runtime ObjectCalls.kt (the reference template +
 # override set). The generator must NOT re-emit these (they'd clash with the members).
@@ -268,6 +268,7 @@ IOS_HANDWRITTEN_HELPERS = {
     "ptrcallNoArgsRetStringNameList",
     "ptrcallNoArgsRetNodePathList",
     "ptrcallNoArgsRetLongList",
+    "ptrcallNoArgsRetPlaneList",
 }
 PARAMETER_NAME_OVERRIDES = {
     ("Time", "get_datetime_dict_from_unix_time", "unix_time_val"): "unixTime",
@@ -1079,6 +1080,9 @@ def ios_method_supported(method: ApiMethod, object_types: set[str]) -> bool:
         return False
     if shape.kotlin_return == "List<Long>" and shape.function != "ptrcallNoArgsRetLongList":
         return False
+    # Typed Array[Plane] read-back (2.7i blob helper, 16-byte float32 records) — no-arg getter only.
+    if shape.kotlin_return == "List<Plane>" and shape.function != "ptrcallNoArgsRetPlaneList":
+        return False
     logical_args = method.logical_arg_kinds(object_types)
     if not all(kind in IOS_ARG_KINDS for kind in logical_args):
         return False
@@ -1828,6 +1832,7 @@ import net.multigesture.kanama.types.AABB
 import net.multigesture.kanama.types.Basis
 import net.multigesture.kanama.types.Color
 import net.multigesture.kanama.types.NodePath
+import net.multigesture.kanama.types.Projection
 import net.multigesture.kanama.types.Quaternion
 import net.multigesture.kanama.types.RID
 import net.multigesture.kanama.types.Rect2
@@ -1837,6 +1842,7 @@ import net.multigesture.kanama.types.Vector2
 import net.multigesture.kanama.types.Vector2i
 import net.multigesture.kanama.types.Vector3
 import net.multigesture.kanama.types.Vector3i
+import net.multigesture.kanama.types.Vector4
 
 /**
  * GENERATED iOS ObjectCalls helper bodies (scripts/generate_api_wrapper.py --ios-*).
@@ -1877,6 +1883,9 @@ IOS_PT_TAG_VALUES = {
     "PT_AABB": 21,
     "PT_TRANSFORM2D": 22,
     "PT_RID": 14,
+    # 23/24 are the Packed*Array build tags (KanamaIosPackedArgDesc path, not in this scalar
+    # dict). PT_PROJECTION is appended at 25 to match the C enum's end (no renumbering).
+    "PT_PROJECTION": 25,
 }
 
 
@@ -2093,6 +2102,18 @@ def ios_ret_layout(kotlin_return: str) -> tuple[str | None, str, list[str], str,
             "Vector3(ret[1].toDouble(), ret[4].toDouble(), ret[7].toDouble()), "
             "Vector3(ret[2].toDouble(), ret[5].toDouble(), ret[8].toDouble())), "
             "Vector3(ret[9].toDouble(), ret[10].toDouble(), ret[11].toDouble()))",
+        )
+    if kotlin_return == "Projection":
+        # 16x float32, column-major: 4 Vector4 columns (x, y, z, w).
+        return (
+            "Projection",
+            "PT_PROJECTION",
+            ["val ret = allocArray<FloatVar>(16)"],
+            "ret",
+            "Projection(Vector4(ret[0].toDouble(), ret[1].toDouble(), ret[2].toDouble(), ret[3].toDouble()), "
+            "Vector4(ret[4].toDouble(), ret[5].toDouble(), ret[6].toDouble(), ret[7].toDouble()), "
+            "Vector4(ret[8].toDouble(), ret[9].toDouble(), ret[10].toDouble(), ret[11].toDouble()), "
+            "Vector4(ret[12].toDouble(), ret[13].toDouble(), ret[14].toDouble(), ret[15].toDouble()))",
         )
     if kotlin_return == "RID":
         return ("RID", "PT_RID", ["val ret = alloc<LongVar>(); ret.value = 0"], "ret.ptr", "RID(ret.value)")
