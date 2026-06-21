@@ -73,10 +73,10 @@ Gated on Phase 4 exit. Not started by decision.
 
 ## ★ RESUME HERE (updated 2026-06-20 — resume in Opus)
 
-**State: working tree CLEAN, all committed AND pushed to origin/main at `92ef115`.** (Pre-existing
-untracked `.agents/` + `skills-lock.json` are tooling files — do NOT stage them.) Device self-test
-baseline: **PTRCALL 54 / OBJECTCALLS 78, 0 failed** on iPhone 12 (UDID
-`48DF9662-42F3-541F-9F88-7FA2AB870F86`, team `DVZT29Q4QT`).
+**State: batch-5 code committed + pushed to origin/main; DEVICE REGRESSION RUN PENDING (user must
+unlock iPhone 12 first).** (Pre-existing untracked `.agents/` + `skills-lock.json` are tooling files —
+do NOT stage them.) Device self-test baseline to re-confirm: **PTRCALL 54 / OBJECTCALLS 78, 0 failed**
+on iPhone 12 (UDID `48DF9662-42F3-541F-9F88-7FA2AB870F86`, team `DVZT29Q4QT`).
 
 **DONE (this session, 2026-06-17→20):**
 - **Phase 2 COMPLETE** — 2.7d (typed-object arrays) → 2.7e (Variant scalars) → 2.7f (arg-bearing
@@ -86,8 +86,14 @@ baseline: **PTRCALL 54 / OBJECTCALLS 78, 0 failed** on iPhone 12 (UDID
 - **Phase 4 exit met (0 STUB / 0 SUGAR)** — 4.1 (connectBound/disconnectBound/SignalConnection.close,
   bound + lambda Callables), 4.2 (SUGAR→generator custom-section, regen now LOSSLESS), 4.5 (HANDWRITTEN
   reviewed — all 10 justified bespoke, category-tagged).
-- **Phase 4 breadth batches 1–4** — emitted iOS classes **27→65** (~1,500+ new wrapper methods). All
+- **Phase 4 breadth batches 1–5** — emitted iOS classes **27→79** (~1,780+ new wrapper methods). All
   emit-only (proven marshalling, no new C, no new self-test rows), each regression-clean on device.
+  **Batch 5 (2026-06-20): +14 — Button + 5 BaseButton/Button children (CheckBox/CheckButton/OptionButton/
+  MenuButton/ColorPickerButton) + LinkButton/TextureButton (direct BaseButton) + the PhysicsBody2D
+  family (PhysicsBody2D/StaticBody2D/RigidBody2D/CharacterBody2D/AnimatableBody2D) + TileMapLayer;
+  +279 wrapper methods; gates + compileKotlinIosArm64 green; DEVICE REGRESSION PENDING.** Skips now 284.
+  Note: regen still emits AudioStreamPlayer.kt + StaticBody3D.kt (hand-written collisions in
+  IosGodotApi.kt) — these are NOT copied.
 
 **NEXT (pick one):**
 1. **More breadth batches** (low-risk, the agreed track) — Button/CheckBox/etc. (BaseButton now emitted),
