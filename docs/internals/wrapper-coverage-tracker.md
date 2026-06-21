@@ -73,10 +73,10 @@ Gated on Phase 4 exit. Not started by decision.
 
 ## ★ RESUME HERE (updated 2026-06-20 — resume in Opus)
 
-**State: batch-5 code committed + pushed to origin/main; DEVICE REGRESSION RUN PENDING (user must
-unlock iPhone 12 first).** (Pre-existing untracked `.agents/` + `skills-lock.json` are tooling files —
-do NOT stage them.) Device self-test baseline to re-confirm: **PTRCALL 54 / OBJECTCALLS 78, 0 failed**
-on iPhone 12 (UDID `48DF9662-42F3-541F-9F88-7FA2AB870F86`, team `DVZT29Q4QT`).
+**State: working tree CLEAN, all committed AND pushed to origin/main at `c346e6f` (batch 5).**
+(Pre-existing untracked `.agents/` + `skills-lock.json` are tooling files — do NOT stage them.)
+Device self-test baseline: **PTRCALL 54 / OBJECTCALLS 78, 0 failed** on iPhone 12 (UDID
+`48DF9662-42F3-541F-9F88-7FA2AB870F86`, team `DVZT29Q4QT`) — re-confirmed on batch 5.
 
 **DONE (this session, 2026-06-17→20):**
 - **Phase 2 COMPLETE** — 2.7d (typed-object arrays) → 2.7e (Variant scalars) → 2.7f (arg-bearing
@@ -91,7 +91,8 @@ on iPhone 12 (UDID `48DF9662-42F3-541F-9F88-7FA2AB870F86`, team `DVZT29Q4QT`).
   **Batch 5 (2026-06-20): +14 — Button + 5 BaseButton/Button children (CheckBox/CheckButton/OptionButton/
   MenuButton/ColorPickerButton) + LinkButton/TextureButton (direct BaseButton) + the PhysicsBody2D
   family (PhysicsBody2D/StaticBody2D/RigidBody2D/CharacterBody2D/AnimatableBody2D) + TileMapLayer;
-  +279 wrapper methods; gates + compileKotlinIosArm64 green; DEVICE REGRESSION PENDING.** Skips now 284.
+  +279 wrapper methods; gates + compileKotlinIosArm64 green; DEVICE-VALIDATED (regression-clean
+  54/78).** Skips now 284.
   Note: regen still emits AudioStreamPlayer.kt + StaticBody3D.kt (hand-written collisions in
   IosGodotApi.kt) — these are NOT copied.
 
