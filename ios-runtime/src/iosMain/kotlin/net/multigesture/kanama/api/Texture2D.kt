@@ -52,6 +52,10 @@ open class Texture2D(handle: MemorySegment) : Texture(handle) {
         ObjectCalls.ptrcallWithRIDTwoRect2ColorTwoBoolArgs(drawRectRegionBind, handle, canvasItem, rect, srcRect, modulate, transpose, clipUv)
     }
 
+    fun getImage(): Image? {
+        return Image.wrap(ObjectCalls.ptrcallNoArgsRetObject(getImageBind, handle))
+    }
+
     fun createPlaceholder(): Resource? {
         return Resource.wrap(ObjectCalls.ptrcallNoArgsRetObject(createPlaceholderBind, handle))
     }
@@ -111,6 +115,11 @@ open class Texture2D(handle: MemorySegment) : Texture(handle) {
         private const val DRAW_RECT_REGION_HASH = 2963678660L
         private val drawRectRegionBind by lazy {
             ObjectCalls.getMethodBind("Texture2D", "draw_rect_region", DRAW_RECT_REGION_HASH)
+        }
+
+        private const val GET_IMAGE_HASH = 4190603485L
+        private val getImageBind by lazy {
+            ObjectCalls.getMethodBind("Texture2D", "get_image", GET_IMAGE_HASH)
         }
 
         private const val CREATE_PLACEHOLDER_HASH = 121922552L

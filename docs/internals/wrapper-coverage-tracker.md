@@ -631,7 +631,12 @@ needs a decision (see the numbered items below + the roadmap backlog):
   CollisionShape3D/GPUParticles2D +24, GPUParticles3D +42, AnimationMixer/CollisionObject2D/3D +18) + ObjectCallsGenerated (new generated
   helpers for the newly-lit shapes). +8 wrappers (~84 own methods) + the cross-ref methods. Emit-only (proven marshalling, no new C →
   cinterop UP-TO-DATE); device run is a REGRESSION check (matrix stays 54/78). Gates GREEN (audit, no_silent_stubs, check_wrapper_generator,
-  compileKotlinIosArm64). **NEXT: device-validate batch 1; then larger breadth batches (Environment/Window/Animation/Theme/Image/CanvasLayer).**
+  compileKotlinIosArm64).
+- **★ PHASE 4 BREADTH — BATCH 2 DONE + DEVICE-VALIDATED (iPhone 12, 2026-06-20, regression-clean 54/78).** +6 classes:
+  **Environment (187 methods), Window (127), Animation (75), Theme (59), Image (52), CanvasLayer (23)** — parents Resource/Viewport/Node
+  (all emitted). ~523 new emitted methods + newly-lit cross-refs (Viewport, Camera3D, CanvasItem, Texture2D, AnimationMixer, …). Node.kt
+  regenerated (lossless via 4.2 — sugar intact). Emit-only (no new C → cinterop UP-TO-DATE); regression check (matrix stays 54/78). Gates
+  GREEN. **NEXT: device-validate batch 2.**
 - **★ PHASE 4 STARTED (2026-06-18). 4.2 DONE: SUGAR 1→0.** `IOS_CUSTOM_MEMBER_SECTIONS` registry emits the Node sugar as a stable
   generator body custom-section (mirrors desktop `CUSTOM_MEMBER_SECTIONS`, gated IOS_AUDIT_ONLY); Node.kt is now byte-identical to
   generator output (**regen lossless — the recurring hand-re-apply is gone**). Generator-only/structural, compile-validated, no device

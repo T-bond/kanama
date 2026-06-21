@@ -27,6 +27,12 @@ open class Camera3D(handle: MemorySegment) : Node3D(handle) {
         @JvmName("setCullMaskProperty")
         set(value) = setCullMask(value)
 
+    var environment: Environment?
+        @JvmName("environmentProperty")
+        get() = getEnvironment()
+        @JvmName("setEnvironmentProperty")
+        set(value) = setEnvironment(value)
+
     var attributes: CameraAttributes?
         @JvmName("attributesProperty")
         get() = getAttributes()
@@ -223,6 +229,14 @@ open class Camera3D(handle: MemorySegment) : Node3D(handle) {
 
     fun getCullMask(): Long {
         return ObjectCalls.ptrcallNoArgsRetUInt32(getCullMaskBind, handle)
+    }
+
+    fun setEnvironment(env: Environment?) {
+        ObjectCalls.ptrcallWithObjectArgs(setEnvironmentBind, handle, listOf(env?.requireOpenHandle() ?: MemorySegment.NULL))
+    }
+
+    fun getEnvironment(): Environment? {
+        return Environment.wrap(ObjectCalls.ptrcallNoArgsRetObject(getEnvironmentBind, handle))
     }
 
     fun setAttributes(env: CameraAttributes?) {
@@ -452,6 +466,16 @@ open class Camera3D(handle: MemorySegment) : Node3D(handle) {
         private const val GET_CULL_MASK_HASH = 3905245786L
         private val getCullMaskBind by lazy {
             ObjectCalls.getMethodBind("Camera3D", "get_cull_mask", GET_CULL_MASK_HASH)
+        }
+
+        private const val SET_ENVIRONMENT_HASH = 4143518816L
+        private val setEnvironmentBind by lazy {
+            ObjectCalls.getMethodBind("Camera3D", "set_environment", SET_ENVIRONMENT_HASH)
+        }
+
+        private const val GET_ENVIRONMENT_HASH = 3082064660L
+        private val getEnvironmentBind by lazy {
+            ObjectCalls.getMethodBind("Camera3D", "get_environment", GET_ENVIRONMENT_HASH)
         }
 
         private const val SET_ATTRIBUTES_HASH = 2817810567L

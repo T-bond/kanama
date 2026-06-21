@@ -285,6 +285,12 @@ open class Control(handle: MemorySegment) : CanvasItem(handle) {
         @JvmName("accessibilityFlowToNodesProperty")
         get() = getAccessibilityFlowToNodes()
 
+    var theme: Theme?
+        @JvmName("themeProperty")
+        get() = getTheme()
+        @JvmName("setThemeProperty")
+        set(value) = setTheme(value)
+
     var themeTypeVariation: String
         @JvmName("themeTypeVariationProperty")
         get() = getThemeTypeVariation()
@@ -605,6 +611,14 @@ open class Control(handle: MemorySegment) : CanvasItem(handle) {
 
     fun isOffsetTransformVisualOnly(): Boolean {
         return ObjectCalls.ptrcallNoArgsRetBool(isOffsetTransformVisualOnlyBind, handle)
+    }
+
+    fun setTheme(theme: Theme?) {
+        ObjectCalls.ptrcallWithObjectArgs(setThemeBind, handle, listOf(theme?.requireOpenHandle() ?: MemorySegment.NULL))
+    }
+
+    fun getTheme(): Theme? {
+        return Theme.wrap(ObjectCalls.ptrcallNoArgsRetObject(getThemeBind, handle))
     }
 
     fun setThemeTypeVariation(themeType: String) {
@@ -1480,6 +1494,16 @@ open class Control(handle: MemorySegment) : CanvasItem(handle) {
         private const val IS_OFFSET_TRANSFORM_VISUAL_ONLY_HASH = 36873697L
         private val isOffsetTransformVisualOnlyBind by lazy {
             ObjectCalls.getMethodBind("Control", "is_offset_transform_visual_only", IS_OFFSET_TRANSFORM_VISUAL_ONLY_HASH)
+        }
+
+        private const val SET_THEME_HASH = 2326690814L
+        private val setThemeBind by lazy {
+            ObjectCalls.getMethodBind("Control", "set_theme", SET_THEME_HASH)
+        }
+
+        private const val GET_THEME_HASH = 3846893731L
+        private val getThemeBind by lazy {
+            ObjectCalls.getMethodBind("Control", "get_theme", GET_THEME_HASH)
         }
 
         private const val SET_THEME_TYPE_VARIATION_HASH = 3304788590L

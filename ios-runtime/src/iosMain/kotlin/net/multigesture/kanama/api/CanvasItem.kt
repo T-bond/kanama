@@ -370,6 +370,10 @@ open class CanvasItem(handle: MemorySegment) : Node(handle) {
         return ObjectCalls.ptrcallNoArgsRetRID(getCanvasBind, handle)
     }
 
+    fun getCanvasLayerNode(): CanvasLayer? {
+        return CanvasLayer.wrap(ObjectCalls.ptrcallNoArgsRetObject(getCanvasLayerNodeBind, handle))
+    }
+
     fun setMaterial(material: Material?) {
         ObjectCalls.ptrcallWithObjectArgs(setMaterialBind, handle, listOf(material?.requireOpenHandle() ?: MemorySegment.NULL))
     }
@@ -828,6 +832,11 @@ open class CanvasItem(handle: MemorySegment) : Node(handle) {
         private const val GET_CANVAS_HASH = 2944877500L
         private val getCanvasBind by lazy {
             ObjectCalls.getMethodBind("CanvasItem", "get_canvas", GET_CANVAS_HASH)
+        }
+
+        private const val GET_CANVAS_LAYER_NODE_HASH = 2602762519L
+        private val getCanvasLayerNodeBind by lazy {
+            ObjectCalls.getMethodBind("CanvasItem", "get_canvas_layer_node", GET_CANVAS_LAYER_NODE_HASH)
         }
 
         private const val SET_MATERIAL_HASH = 2757459619L

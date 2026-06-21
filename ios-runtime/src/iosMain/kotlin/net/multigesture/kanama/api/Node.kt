@@ -419,6 +419,14 @@ open class Node(handle: MemorySegment) : GodotObject(handle) {
         ObjectCalls.ptrcallNoArgs(setTranslationDomainInheritedBind, handle)
     }
 
+    fun getWindow(): Window? {
+        return Window.wrap(ObjectCalls.ptrcallNoArgsRetObject(getWindowBind, handle))
+    }
+
+    fun getLastExclusiveWindow(): Window? {
+        return Window.wrap(ObjectCalls.ptrcallNoArgsRetObject(getLastExclusiveWindowBind, handle))
+    }
+
     fun duplicate(flags: Int = 15): Node? {
         return Node.wrap(ObjectCalls.ptrcallWithIntArgRetObject(duplicateBind, handle, flags))
     }
@@ -1071,6 +1079,16 @@ open class Node(handle: MemorySegment) : GodotObject(handle) {
         private const val SET_TRANSLATION_DOMAIN_INHERITED_HASH = 3218959716L
         private val setTranslationDomainInheritedBind by lazy {
             ObjectCalls.getMethodBind("Node", "set_translation_domain_inherited", SET_TRANSLATION_DOMAIN_INHERITED_HASH)
+        }
+
+        private const val GET_WINDOW_HASH = 1757182445L
+        private val getWindowBind by lazy {
+            ObjectCalls.getMethodBind("Node", "get_window", GET_WINDOW_HASH)
+        }
+
+        private const val GET_LAST_EXCLUSIVE_WINDOW_HASH = 1757182445L
+        private val getLastExclusiveWindowBind by lazy {
+            ObjectCalls.getMethodBind("Node", "get_last_exclusive_window", GET_LAST_EXCLUSIVE_WINDOW_HASH)
         }
 
         private const val DUPLICATE_HASH = 3511555459L

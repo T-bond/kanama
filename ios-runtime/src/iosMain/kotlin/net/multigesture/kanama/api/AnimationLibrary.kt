@@ -8,6 +8,10 @@ import net.multigesture.kanama.binding.runtime.*
  * Generated from Godot docs: AnimationLibrary
  */
 class AnimationLibrary(handle: MemorySegment) : Resource(handle) {
+    fun addAnimation(name: String, animation: Animation?): Long {
+        return ObjectCalls.ptrcallWithStringNameAndObjectArgRetLong(addAnimationBind, handle, name, animation?.requireOpenHandle() ?: MemorySegment.NULL)
+    }
+
     fun removeAnimation(name: String) {
         ObjectCalls.ptrcallWithStringNameArg(removeAnimationBind, handle, name)
     }
@@ -18,6 +22,10 @@ class AnimationLibrary(handle: MemorySegment) : Resource(handle) {
 
     fun hasAnimation(name: String): Boolean {
         return ObjectCalls.ptrcallWithStringNameArgRetBool(hasAnimationBind, handle, name)
+    }
+
+    fun getAnimation(name: String): Animation? {
+        return Animation.wrap(ObjectCalls.ptrcallWithStringNameArgRetObject(getAnimationBind, handle, name))
     }
 
     fun getAnimationList(): List<String> {
@@ -42,6 +50,11 @@ class AnimationLibrary(handle: MemorySegment) : Resource(handle) {
         internal fun wrap(handle: MemorySegment): AnimationLibrary? =
             if (handle.address() == 0L) null else AnimationLibrary(handle)
 
+        private const val ADD_ANIMATION_HASH = 1811855551L
+        private val addAnimationBind by lazy {
+            ObjectCalls.getMethodBind("AnimationLibrary", "add_animation", ADD_ANIMATION_HASH)
+        }
+
         private const val REMOVE_ANIMATION_HASH = 3304788590L
         private val removeAnimationBind by lazy {
             ObjectCalls.getMethodBind("AnimationLibrary", "remove_animation", REMOVE_ANIMATION_HASH)
@@ -55,6 +68,11 @@ class AnimationLibrary(handle: MemorySegment) : Resource(handle) {
         private const val HAS_ANIMATION_HASH = 2619796661L
         private val hasAnimationBind by lazy {
             ObjectCalls.getMethodBind("AnimationLibrary", "has_animation", HAS_ANIMATION_HASH)
+        }
+
+        private const val GET_ANIMATION_HASH = 2933122410L
+        private val getAnimationBind by lazy {
+            ObjectCalls.getMethodBind("AnimationLibrary", "get_animation", GET_ANIMATION_HASH)
         }
 
         private const val GET_ANIMATION_LIST_HASH = 3995934104L

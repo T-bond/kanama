@@ -581,6 +581,10 @@ open class Viewport(handle: MemorySegment) : Node(handle) {
         return ObjectCalls.ptrcallNoArgsRetBool(isEmbeddingSubwindowsBind, handle)
     }
 
+    fun getEmbeddedSubwindows(): List<Window> {
+        return ObjectCalls.ptrcallNoArgsRetTypedObjectList(getEmbeddedSubwindowsBind, handle, Window::fromHandle)
+    }
+
     fun setDragThreshold(threshold: Int) {
         ObjectCalls.ptrcallWithIntArg(setDragThresholdBind, handle, threshold)
     }
@@ -1231,6 +1235,11 @@ open class Viewport(handle: MemorySegment) : Node(handle) {
         private const val IS_EMBEDDING_SUBWINDOWS_HASH = 36873697L
         private val isEmbeddingSubwindowsBind by lazy {
             ObjectCalls.getMethodBind("Viewport", "is_embedding_subwindows", IS_EMBEDDING_SUBWINDOWS_HASH)
+        }
+
+        private const val GET_EMBEDDED_SUBWINDOWS_HASH = 3995934104L
+        private val getEmbeddedSubwindowsBind by lazy {
+            ObjectCalls.getMethodBind("Viewport", "get_embedded_subwindows", GET_EMBEDDED_SUBWINDOWS_HASH)
         }
 
         private const val SET_DRAG_THRESHOLD_HASH = 1286410249L
