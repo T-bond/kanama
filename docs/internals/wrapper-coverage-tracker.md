@@ -643,7 +643,12 @@ needs a decision (see the numbered items below + the roadmap backlog):
   **GOTCHA: `AudioStreamPlayer` + `StaticBody3D` were DROPPED from the batch** — they already exist as hand-written classes in
   IosGodotApi.kt (Kotlin redeclaration error if also generated); kept hand-written. (Future: to generate richer versions, delete the
   hand-written stubs first.) 12 new wrappers + ObjectCallsGenerated; no existing wrappers changed. Emit-only (no new C); regression
-  check (54/78). Gates GREEN. **NEXT: device-validate batch 3.**
+  check (54/78). Gates GREEN.
+- **★ PHASE 4 BREADTH — BATCH 4 DONE + DEVICE-VALIDATED (iPhone 12, 2026-06-20, regression-clean 54/78).** +12 UI/2D/3D classes:
+  **BaseButton, ColorRect, Panel, TextureRect, Camera2D, Line2D, Polygon2D, Path2D, Path3D, Skeleton3D, ImageTexture,
+  CompressedTexture2D** (parents Control/Node2D/Node3D/Texture2D — all emitted; BaseButton unblocks the Button family later). 12 new
+  wrappers + Viewport cross-ref + ObjectCallsGenerated. Node sugar intact. Emit-only (no new C); regression check (54/78). Gates GREEN.
+  iOS emitted classes 53→65. **NEXT: device-validate batch 4.**
 - **★ PHASE 4 STARTED (2026-06-18). 4.2 DONE: SUGAR 1→0.** `IOS_CUSTOM_MEMBER_SECTIONS` registry emits the Node sugar as a stable
   generator body custom-section (mirrors desktop `CUSTOM_MEMBER_SECTIONS`, gated IOS_AUDIT_ONLY); Node.kt is now byte-identical to
   generator output (**regen lossless — the recurring hand-re-apply is gone**). Generator-only/structural, compile-validated, no device

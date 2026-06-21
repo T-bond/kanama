@@ -649,6 +649,10 @@ open class Viewport(handle: MemorySegment) : Node(handle) {
         return ObjectCalls.ptrcallNoArgsRetBool(isAudioListener2dBind, handle)
     }
 
+    fun getCamera2d(): Camera2D? {
+        return Camera2D.wrap(ObjectCalls.ptrcallNoArgsRetObject(getCamera2dBind, handle))
+    }
+
     fun setUseOwnWorld3d(enable: Boolean) {
         ObjectCalls.ptrcallWithBoolArg(setUseOwnWorld3dBind, handle, enable)
     }
@@ -1320,6 +1324,11 @@ open class Viewport(handle: MemorySegment) : Node(handle) {
         private const val IS_AUDIO_LISTENER_2D_HASH = 36873697L
         private val isAudioListener2dBind by lazy {
             ObjectCalls.getMethodBind("Viewport", "is_audio_listener_2d", IS_AUDIO_LISTENER_2D_HASH)
+        }
+
+        private const val GET_CAMERA_2D_HASH = 3551466917L
+        private val getCamera2dBind by lazy {
+            ObjectCalls.getMethodBind("Viewport", "get_camera_2d", GET_CAMERA_2D_HASH)
         }
 
         private const val SET_USE_OWN_WORLD_3D_HASH = 2586408642L
