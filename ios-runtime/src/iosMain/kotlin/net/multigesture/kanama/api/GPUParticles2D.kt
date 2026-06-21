@@ -164,6 +164,12 @@ class GPUParticles2D(handle: MemorySegment) : Node2D(handle) {
         @JvmName("setTrailSectionSubdivisionsProperty")
         set(value) = setTrailSectionSubdivisions(value)
 
+    var processMaterial: Material?
+        @JvmName("processMaterialProperty")
+        get() = getProcessMaterial()
+        @JvmName("setProcessMaterialProperty")
+        set(value) = setProcessMaterial(value)
+
     fun setEmitting(emitting: Boolean) {
         ObjectCalls.ptrcallWithBoolArg(setEmittingBind, handle, emitting)
     }
@@ -210,6 +216,10 @@ class GPUParticles2D(handle: MemorySegment) : Node2D(handle) {
 
     fun setInterpolate(enable: Boolean) {
         ObjectCalls.ptrcallWithBoolArg(setInterpolateBind, handle, enable)
+    }
+
+    fun setProcessMaterial(material: Material?) {
+        ObjectCalls.ptrcallWithObjectArgs(setProcessMaterialBind, handle, listOf(material?.requireOpenHandle() ?: MemorySegment.NULL))
     }
 
     fun setSpeedScale(scale: Double) {
@@ -274,6 +284,10 @@ class GPUParticles2D(handle: MemorySegment) : Node2D(handle) {
 
     fun getInterpolate(): Boolean {
         return ObjectCalls.ptrcallNoArgsRetBool(getInterpolateBind, handle)
+    }
+
+    fun getProcessMaterial(): Material? {
+        return Material.wrap(ObjectCalls.ptrcallNoArgsRetObject(getProcessMaterialBind, handle))
     }
 
     fun getSpeedScale(): Double {
@@ -464,6 +478,11 @@ class GPUParticles2D(handle: MemorySegment) : Node2D(handle) {
             ObjectCalls.getMethodBind("GPUParticles2D", "set_interpolate", SET_INTERPOLATE_HASH)
         }
 
+        private const val SET_PROCESS_MATERIAL_HASH = 2757459619L
+        private val setProcessMaterialBind by lazy {
+            ObjectCalls.getMethodBind("GPUParticles2D", "set_process_material", SET_PROCESS_MATERIAL_HASH)
+        }
+
         private const val SET_SPEED_SCALE_HASH = 373806689L
         private val setSpeedScaleBind by lazy {
             ObjectCalls.getMethodBind("GPUParticles2D", "set_speed_scale", SET_SPEED_SCALE_HASH)
@@ -542,6 +561,11 @@ class GPUParticles2D(handle: MemorySegment) : Node2D(handle) {
         private const val GET_INTERPOLATE_HASH = 36873697L
         private val getInterpolateBind by lazy {
             ObjectCalls.getMethodBind("GPUParticles2D", "get_interpolate", GET_INTERPOLATE_HASH)
+        }
+
+        private const val GET_PROCESS_MATERIAL_HASH = 5934680L
+        private val getProcessMaterialBind by lazy {
+            ObjectCalls.getMethodBind("GPUParticles2D", "get_process_material", GET_PROCESS_MATERIAL_HASH)
         }
 
         private const val GET_SPEED_SCALE_HASH = 1740695150L

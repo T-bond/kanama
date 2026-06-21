@@ -164,6 +164,12 @@ class GPUParticles3D(handle: MemorySegment) : GeometryInstance3D(handle) {
         @JvmName("setTrailLifetimeProperty")
         set(value) = setTrailLifetime(value)
 
+    var processMaterial: Material?
+        @JvmName("processMaterialProperty")
+        get() = getProcessMaterial()
+        @JvmName("setProcessMaterialProperty")
+        set(value) = setProcessMaterial(value)
+
     var drawPasses: Int
         @JvmName("drawPassesProperty")
         get() = getDrawPasses()
@@ -216,6 +222,10 @@ class GPUParticles3D(handle: MemorySegment) : GeometryInstance3D(handle) {
 
     fun setInterpolate(enable: Boolean) {
         ObjectCalls.ptrcallWithBoolArg(setInterpolateBind, handle, enable)
+    }
+
+    fun setProcessMaterial(material: Material?) {
+        ObjectCalls.ptrcallWithObjectArgs(setProcessMaterialBind, handle, listOf(material?.requireOpenHandle() ?: MemorySegment.NULL))
     }
 
     fun setSpeedScale(scale: Double) {
@@ -278,6 +288,10 @@ class GPUParticles3D(handle: MemorySegment) : GeometryInstance3D(handle) {
         return ObjectCalls.ptrcallNoArgsRetBool(getInterpolateBind, handle)
     }
 
+    fun getProcessMaterial(): Material? {
+        return Material.wrap(ObjectCalls.ptrcallNoArgsRetObject(getProcessMaterialBind, handle))
+    }
+
     fun getSpeedScale(): Double {
         return ObjectCalls.ptrcallNoArgsRetDouble(getSpeedScaleBind, handle)
     }
@@ -318,8 +332,16 @@ class GPUParticles3D(handle: MemorySegment) : GeometryInstance3D(handle) {
         ObjectCalls.ptrcallWithIntArg(setDrawPassesBind, handle, passes)
     }
 
+    fun setDrawPassMesh(pass: Int, mesh: Mesh?) {
+        ObjectCalls.ptrcallWithIntAndObjectArg(setDrawPassMeshBind, handle, pass, mesh?.requireOpenHandle() ?: MemorySegment.NULL)
+    }
+
     fun getDrawPasses(): Int {
         return ObjectCalls.ptrcallNoArgsRetInt(getDrawPassesBind, handle)
+    }
+
+    fun getDrawPassMesh(pass: Int): Mesh? {
+        return Mesh.wrap(ObjectCalls.ptrcallWithIntArgRetObject(getDrawPassMeshBind, handle, pass))
     }
 
     fun restart(keepSeed: Boolean = false) {
@@ -485,6 +507,11 @@ class GPUParticles3D(handle: MemorySegment) : GeometryInstance3D(handle) {
             ObjectCalls.getMethodBind("GPUParticles3D", "set_interpolate", SET_INTERPOLATE_HASH)
         }
 
+        private const val SET_PROCESS_MATERIAL_HASH = 2757459619L
+        private val setProcessMaterialBind by lazy {
+            ObjectCalls.getMethodBind("GPUParticles3D", "set_process_material", SET_PROCESS_MATERIAL_HASH)
+        }
+
         private const val SET_SPEED_SCALE_HASH = 373806689L
         private val setSpeedScaleBind by lazy {
             ObjectCalls.getMethodBind("GPUParticles3D", "set_speed_scale", SET_SPEED_SCALE_HASH)
@@ -560,6 +587,11 @@ class GPUParticles3D(handle: MemorySegment) : GeometryInstance3D(handle) {
             ObjectCalls.getMethodBind("GPUParticles3D", "get_interpolate", GET_INTERPOLATE_HASH)
         }
 
+        private const val GET_PROCESS_MATERIAL_HASH = 5934680L
+        private val getProcessMaterialBind by lazy {
+            ObjectCalls.getMethodBind("GPUParticles3D", "get_process_material", GET_PROCESS_MATERIAL_HASH)
+        }
+
         private const val GET_SPEED_SCALE_HASH = 1740695150L
         private val getSpeedScaleBind by lazy {
             ObjectCalls.getMethodBind("GPUParticles3D", "get_speed_scale", GET_SPEED_SCALE_HASH)
@@ -610,9 +642,19 @@ class GPUParticles3D(handle: MemorySegment) : GeometryInstance3D(handle) {
             ObjectCalls.getMethodBind("GPUParticles3D", "set_draw_passes", SET_DRAW_PASSES_HASH)
         }
 
+        private const val SET_DRAW_PASS_MESH_HASH = 969122797L
+        private val setDrawPassMeshBind by lazy {
+            ObjectCalls.getMethodBind("GPUParticles3D", "set_draw_pass_mesh", SET_DRAW_PASS_MESH_HASH)
+        }
+
         private const val GET_DRAW_PASSES_HASH = 3905245786L
         private val getDrawPassesBind by lazy {
             ObjectCalls.getMethodBind("GPUParticles3D", "get_draw_passes", GET_DRAW_PASSES_HASH)
+        }
+
+        private const val GET_DRAW_PASS_MESH_HASH = 1576363275L
+        private val getDrawPassMeshBind by lazy {
+            ObjectCalls.getMethodBind("GPUParticles3D", "get_draw_pass_mesh", GET_DRAW_PASS_MESH_HASH)
         }
 
         private const val RESTART_HASH = 107499316L

@@ -158,8 +158,16 @@ open class CollisionObject2D(handle: MemorySegment) : Node2D(handle) {
         ObjectCalls.ptrcallWithUInt32AndVector2Args(shapeOwnerSetOneWayCollisionDirectionBind, handle, ownerId, direction)
     }
 
+    fun shapeOwnerAddShape(ownerId: Long, shape: Shape2D?) {
+        ObjectCalls.ptrcallWithUInt32AndObjectArg(shapeOwnerAddShapeBind, handle, ownerId, shape?.requireOpenHandle() ?: MemorySegment.NULL)
+    }
+
     fun shapeOwnerGetShapeCount(ownerId: Long): Int {
         return ObjectCalls.ptrcallWithUInt32ArgRetInt(shapeOwnerGetShapeCountBind, handle, ownerId)
+    }
+
+    fun shapeOwnerGetShape(ownerId: Long, shapeId: Int): Shape2D? {
+        return Shape2D.wrap(ObjectCalls.ptrcallWithUInt32AndIntArgRetObject(shapeOwnerGetShapeBind, handle, ownerId, shapeId))
     }
 
     fun shapeOwnerGetShapeIndex(ownerId: Long, shapeId: Int): Int {
@@ -342,9 +350,19 @@ open class CollisionObject2D(handle: MemorySegment) : Node2D(handle) {
             ObjectCalls.getMethodBind("CollisionObject2D", "shape_owner_set_one_way_collision_direction", SHAPE_OWNER_SET_ONE_WAY_COLLISION_DIRECTION_HASH)
         }
 
+        private const val SHAPE_OWNER_ADD_SHAPE_HASH = 2077425081L
+        private val shapeOwnerAddShapeBind by lazy {
+            ObjectCalls.getMethodBind("CollisionObject2D", "shape_owner_add_shape", SHAPE_OWNER_ADD_SHAPE_HASH)
+        }
+
         private const val SHAPE_OWNER_GET_SHAPE_COUNT_HASH = 923996154L
         private val shapeOwnerGetShapeCountBind by lazy {
             ObjectCalls.getMethodBind("CollisionObject2D", "shape_owner_get_shape_count", SHAPE_OWNER_GET_SHAPE_COUNT_HASH)
+        }
+
+        private const val SHAPE_OWNER_GET_SHAPE_HASH = 3106725749L
+        private val shapeOwnerGetShapeBind by lazy {
+            ObjectCalls.getMethodBind("CollisionObject2D", "shape_owner_get_shape", SHAPE_OWNER_GET_SHAPE_HASH)
         }
 
         private const val SHAPE_OWNER_GET_SHAPE_INDEX_HASH = 3175239445L

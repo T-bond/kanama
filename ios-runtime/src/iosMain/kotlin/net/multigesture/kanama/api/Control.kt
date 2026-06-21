@@ -627,6 +627,14 @@ open class Control(handle: MemorySegment) : CanvasItem(handle) {
         ObjectCalls.ptrcallWithStringNameAndObjectArg(addThemeIconOverrideBind, handle, name, texture?.requireOpenHandle() ?: MemorySegment.NULL)
     }
 
+    fun addThemeStyleboxOverride(name: String, stylebox: StyleBox?) {
+        ObjectCalls.ptrcallWithStringNameAndObjectArg(addThemeStyleboxOverrideBind, handle, name, stylebox?.requireOpenHandle() ?: MemorySegment.NULL)
+    }
+
+    fun addThemeFontOverride(name: String, font: Font?) {
+        ObjectCalls.ptrcallWithStringNameAndObjectArg(addThemeFontOverrideBind, handle, name, font?.requireOpenHandle() ?: MemorySegment.NULL)
+    }
+
     fun addThemeFontSizeOverride(name: String, fontSize: Int) {
         ObjectCalls.ptrcallWithStringNameAndIntArg(addThemeFontSizeOverrideBind, handle, name, fontSize)
     }
@@ -665,6 +673,14 @@ open class Control(handle: MemorySegment) : CanvasItem(handle) {
 
     fun getThemeIcon(name: String, themeType: String): Texture2D? {
         return Texture2D.wrap(ObjectCalls.ptrcallWithTwoStringNameArgsRetObject(getThemeIconBind, handle, name, themeType))
+    }
+
+    fun getThemeStylebox(name: String, themeType: String): StyleBox? {
+        return StyleBox.wrap(ObjectCalls.ptrcallWithTwoStringNameArgsRetObject(getThemeStyleboxBind, handle, name, themeType))
+    }
+
+    fun getThemeFont(name: String, themeType: String): Font? {
+        return Font.wrap(ObjectCalls.ptrcallWithTwoStringNameArgsRetObject(getThemeFontBind, handle, name, themeType))
     }
 
     fun getThemeFontSize(name: String, themeType: String): Int {
@@ -729,6 +745,10 @@ open class Control(handle: MemorySegment) : CanvasItem(handle) {
 
     fun getThemeDefaultBaseScale(): Double {
         return ObjectCalls.ptrcallNoArgsRetDouble(getThemeDefaultBaseScaleBind, handle)
+    }
+
+    fun getThemeDefaultFont(): Font? {
+        return Font.wrap(ObjectCalls.ptrcallNoArgsRetObject(getThemeDefaultFontBind, handle))
     }
 
     fun getThemeDefaultFontSize(): Int {
@@ -1487,6 +1507,16 @@ open class Control(handle: MemorySegment) : CanvasItem(handle) {
             ObjectCalls.getMethodBind("Control", "add_theme_icon_override", ADD_THEME_ICON_OVERRIDE_HASH)
         }
 
+        private const val ADD_THEME_STYLEBOX_OVERRIDE_HASH = 4188838905L
+        private val addThemeStyleboxOverrideBind by lazy {
+            ObjectCalls.getMethodBind("Control", "add_theme_stylebox_override", ADD_THEME_STYLEBOX_OVERRIDE_HASH)
+        }
+
+        private const val ADD_THEME_FONT_OVERRIDE_HASH = 3518018674L
+        private val addThemeFontOverrideBind by lazy {
+            ObjectCalls.getMethodBind("Control", "add_theme_font_override", ADD_THEME_FONT_OVERRIDE_HASH)
+        }
+
         private const val ADD_THEME_FONT_SIZE_OVERRIDE_HASH = 2415702435L
         private val addThemeFontSizeOverrideBind by lazy {
             ObjectCalls.getMethodBind("Control", "add_theme_font_size_override", ADD_THEME_FONT_SIZE_OVERRIDE_HASH)
@@ -1535,6 +1565,16 @@ open class Control(handle: MemorySegment) : CanvasItem(handle) {
         private const val GET_THEME_ICON_HASH = 3163973443L
         private val getThemeIconBind by lazy {
             ObjectCalls.getMethodBind("Control", "get_theme_icon", GET_THEME_ICON_HASH)
+        }
+
+        private const val GET_THEME_STYLEBOX_HASH = 604739069L
+        private val getThemeStyleboxBind by lazy {
+            ObjectCalls.getMethodBind("Control", "get_theme_stylebox", GET_THEME_STYLEBOX_HASH)
+        }
+
+        private const val GET_THEME_FONT_HASH = 2826986490L
+        private val getThemeFontBind by lazy {
+            ObjectCalls.getMethodBind("Control", "get_theme_font", GET_THEME_FONT_HASH)
         }
 
         private const val GET_THEME_FONT_SIZE_HASH = 1327056374L
@@ -1615,6 +1655,11 @@ open class Control(handle: MemorySegment) : CanvasItem(handle) {
         private const val GET_THEME_DEFAULT_BASE_SCALE_HASH = 1740695150L
         private val getThemeDefaultBaseScaleBind by lazy {
             ObjectCalls.getMethodBind("Control", "get_theme_default_base_scale", GET_THEME_DEFAULT_BASE_SCALE_HASH)
+        }
+
+        private const val GET_THEME_DEFAULT_FONT_HASH = 3229501585L
+        private val getThemeDefaultFontBind by lazy {
+            ObjectCalls.getMethodBind("Control", "get_theme_default_font", GET_THEME_DEFAULT_FONT_HASH)
         }
 
         private const val GET_THEME_DEFAULT_FONT_SIZE_HASH = 3905245786L

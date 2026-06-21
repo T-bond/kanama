@@ -10,6 +10,12 @@ import net.multigesture.kanama.types.Color
  * Generated from Godot docs: CollisionShape3D
  */
 class CollisionShape3D(handle: MemorySegment) : Node3D(handle) {
+    var shape: Shape3D?
+        @JvmName("shapeProperty")
+        get() = getShape()
+        @JvmName("setShapeProperty")
+        set(value) = setShape(value)
+
     var disabled: Boolean
         @JvmName("disabledProperty")
         get() = isDisabled()
@@ -30,6 +36,14 @@ class CollisionShape3D(handle: MemorySegment) : Node3D(handle) {
 
     fun resourceChanged(resource: Resource?) {
         ObjectCalls.ptrcallWithObjectArgs(resourceChangedBind, handle, listOf(resource?.requireOpenHandle() ?: MemorySegment.NULL))
+    }
+
+    fun setShape(shape: Shape3D?) {
+        ObjectCalls.ptrcallWithObjectArgs(setShapeBind, handle, listOf(shape?.requireOpenHandle() ?: MemorySegment.NULL))
+    }
+
+    fun getShape(): Shape3D? {
+        return Shape3D.wrap(ObjectCalls.ptrcallNoArgsRetObject(getShapeBind, handle))
     }
 
     fun setDisabled(enable: Boolean) {
@@ -70,6 +84,16 @@ class CollisionShape3D(handle: MemorySegment) : Node3D(handle) {
         private const val RESOURCE_CHANGED_HASH = 968641751L
         private val resourceChangedBind by lazy {
             ObjectCalls.getMethodBind("CollisionShape3D", "resource_changed", RESOURCE_CHANGED_HASH)
+        }
+
+        private const val SET_SHAPE_HASH = 1549710052L
+        private val setShapeBind by lazy {
+            ObjectCalls.getMethodBind("CollisionShape3D", "set_shape", SET_SHAPE_HASH)
+        }
+
+        private const val GET_SHAPE_HASH = 3214262478L
+        private val getShapeBind by lazy {
+            ObjectCalls.getMethodBind("CollisionShape3D", "get_shape", GET_SHAPE_HASH)
         }
 
         private const val SET_DISABLED_HASH = 2586408642L

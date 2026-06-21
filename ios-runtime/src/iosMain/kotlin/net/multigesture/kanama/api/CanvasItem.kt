@@ -98,6 +98,12 @@ open class CanvasItem(handle: MemorySegment) : Node(handle) {
         @JvmName("setTextureRepeatProperty")
         set(value) = setTextureRepeat(value)
 
+    var material: Material?
+        @JvmName("materialProperty")
+        get() = getMaterial()
+        @JvmName("setMaterialProperty")
+        set(value) = setMaterial(value)
+
     var useParentMaterial: Boolean
         @JvmName("useParentMaterialProperty")
         get() = getUseParentMaterial()
@@ -264,6 +270,10 @@ open class CanvasItem(handle: MemorySegment) : Node(handle) {
         ObjectCalls.ptrcallWithObjectTwoRect2AndColorArgs(drawLcdTextureRectRegionBind, handle, texture?.requireOpenHandle() ?: MemorySegment.NULL, rect, srcRect, modulate)
     }
 
+    fun drawStyleBox(styleBox: StyleBox?, rect: Rect2) {
+        ObjectCalls.ptrcallWithObjectAndRect2Arg(drawStyleBoxBind, handle, styleBox?.requireOpenHandle() ?: MemorySegment.NULL, rect)
+    }
+
     fun drawPrimitive(points: List<Vector2>, colors: List<Color>, uvs: List<Vector2>, texture: Texture2D?) {
         ObjectCalls.ptrcallWithPackedVector2ListPackedColorListPackedVector2ListAndObjectArgs(drawPrimitiveBind, handle, points, colors, uvs, texture?.requireOpenHandle() ?: MemorySegment.NULL)
     }
@@ -274,6 +284,34 @@ open class CanvasItem(handle: MemorySegment) : Node(handle) {
 
     fun drawColoredPolygon(points: List<Vector2>, color: Color, uvs: List<Vector2>, texture: Texture2D?) {
         ObjectCalls.ptrcallWithPackedVector2ListColorPackedVector2ListAndObjectArgs(drawColoredPolygonBind, handle, points, color, uvs, texture?.requireOpenHandle() ?: MemorySegment.NULL)
+    }
+
+    fun drawString(font: Font?, pos: Vector2, text: String, alignment: Long = 0L, width: Double = -1.0, fontSize: Int = 16, modulate: Color, justificationFlags: Long = 3L, direction: Long = 0L, orientation: Long = 0L, oversampling: Double = 0.0) {
+        ObjectCalls.ptrcallWithObjectVector2StringLongDoubleIntColorThreeLongDoubleArgs(drawStringBind, handle, font?.requireOpenHandle() ?: MemorySegment.NULL, pos, text, alignment, width, fontSize, modulate, justificationFlags, direction, orientation, oversampling)
+    }
+
+    fun drawMultilineString(font: Font?, pos: Vector2, text: String, alignment: Long = 0L, width: Double = -1.0, fontSize: Int = 16, maxLines: Int = -1, modulate: Color, brkFlags: Long = 3L, justificationFlags: Long = 3L, direction: Long = 0L, orientation: Long = 0L, oversampling: Double = 0.0) {
+        ObjectCalls.ptrcallWithObjectVector2StringLongDoubleTwoIntColorFourLongDoubleArgs(drawMultilineStringBind, handle, font?.requireOpenHandle() ?: MemorySegment.NULL, pos, text, alignment, width, fontSize, maxLines, modulate, brkFlags, justificationFlags, direction, orientation, oversampling)
+    }
+
+    fun drawStringOutline(font: Font?, pos: Vector2, text: String, alignment: Long = 0L, width: Double = -1.0, fontSize: Int = 16, size: Int = 1, modulate: Color, justificationFlags: Long = 3L, direction: Long = 0L, orientation: Long = 0L, oversampling: Double = 0.0) {
+        ObjectCalls.ptrcallWithObjectVector2StringLongDoubleTwoIntColorThreeLongDoubleArgs(drawStringOutlineBind, handle, font?.requireOpenHandle() ?: MemorySegment.NULL, pos, text, alignment, width, fontSize, size, modulate, justificationFlags, direction, orientation, oversampling)
+    }
+
+    fun drawMultilineStringOutline(font: Font?, pos: Vector2, text: String, alignment: Long = 0L, width: Double = -1.0, fontSize: Int = 16, maxLines: Int = -1, size: Int = 1, modulate: Color, brkFlags: Long = 3L, justificationFlags: Long = 3L, direction: Long = 0L, orientation: Long = 0L, oversampling: Double = 0.0) {
+        ObjectCalls.ptrcallWithObjectVector2StringLongDoubleThreeIntColorFourLongDoubleArgs(drawMultilineStringOutlineBind, handle, font?.requireOpenHandle() ?: MemorySegment.NULL, pos, text, alignment, width, fontSize, maxLines, size, modulate, brkFlags, justificationFlags, direction, orientation, oversampling)
+    }
+
+    fun drawChar(font: Font?, pos: Vector2, char: String, fontSize: Int = 16, modulate: Color, oversampling: Double = 0.0) {
+        ObjectCalls.ptrcallWithObjectVector2StringIntColorDoubleArgs(drawCharBind, handle, font?.requireOpenHandle() ?: MemorySegment.NULL, pos, char, fontSize, modulate, oversampling)
+    }
+
+    fun drawCharOutline(font: Font?, pos: Vector2, char: String, fontSize: Int = 16, size: Int = -1, modulate: Color, oversampling: Double = 0.0) {
+        ObjectCalls.ptrcallWithObjectVector2StringTwoIntColorDoubleArgs(drawCharOutlineBind, handle, font?.requireOpenHandle() ?: MemorySegment.NULL, pos, char, fontSize, size, modulate, oversampling)
+    }
+
+    fun drawMesh(mesh: Mesh?, texture: Texture2D?, transform: Transform2D, modulate: Color) {
+        ObjectCalls.ptrcallWithTwoObjectTransform2DColorArgs(drawMeshBind, handle, mesh?.requireOpenHandle() ?: MemorySegment.NULL, texture?.requireOpenHandle() ?: MemorySegment.NULL, transform, modulate)
     }
 
     fun drawSetTransform(position: Vector2, rotation: Double = 0.0, scale: Vector2) {
@@ -330,6 +368,14 @@ open class CanvasItem(handle: MemorySegment) : Node(handle) {
 
     fun getCanvas(): RID {
         return ObjectCalls.ptrcallNoArgsRetRID(getCanvasBind, handle)
+    }
+
+    fun setMaterial(material: Material?) {
+        ObjectCalls.ptrcallWithObjectArgs(setMaterialBind, handle, listOf(material?.requireOpenHandle() ?: MemorySegment.NULL))
+    }
+
+    fun getMaterial(): Material? {
+        return Material.wrap(ObjectCalls.ptrcallNoArgsRetObject(getMaterialBind, handle))
     }
 
     fun getInstanceShaderParameter(name: String): Any? {
@@ -659,6 +705,11 @@ open class CanvasItem(handle: MemorySegment) : Node(handle) {
             ObjectCalls.getMethodBind("CanvasItem", "draw_lcd_texture_rect_region", DRAW_LCD_TEXTURE_RECT_REGION_HASH)
         }
 
+        private const val DRAW_STYLE_BOX_HASH = 388176283L
+        private val drawStyleBoxBind by lazy {
+            ObjectCalls.getMethodBind("CanvasItem", "draw_style_box", DRAW_STYLE_BOX_HASH)
+        }
+
         private const val DRAW_PRIMITIVE_HASH = 3288481815L
         private val drawPrimitiveBind by lazy {
             ObjectCalls.getMethodBind("CanvasItem", "draw_primitive", DRAW_PRIMITIVE_HASH)
@@ -672,6 +723,41 @@ open class CanvasItem(handle: MemorySegment) : Node(handle) {
         private const val DRAW_COLORED_POLYGON_HASH = 15245644L
         private val drawColoredPolygonBind by lazy {
             ObjectCalls.getMethodBind("CanvasItem", "draw_colored_polygon", DRAW_COLORED_POLYGON_HASH)
+        }
+
+        private const val DRAW_STRING_HASH = 719605945L
+        private val drawStringBind by lazy {
+            ObjectCalls.getMethodBind("CanvasItem", "draw_string", DRAW_STRING_HASH)
+        }
+
+        private const val DRAW_MULTILINE_STRING_HASH = 2341488182L
+        private val drawMultilineStringBind by lazy {
+            ObjectCalls.getMethodBind("CanvasItem", "draw_multiline_string", DRAW_MULTILINE_STRING_HASH)
+        }
+
+        private const val DRAW_STRING_OUTLINE_HASH = 707403449L
+        private val drawStringOutlineBind by lazy {
+            ObjectCalls.getMethodBind("CanvasItem", "draw_string_outline", DRAW_STRING_OUTLINE_HASH)
+        }
+
+        private const val DRAW_MULTILINE_STRING_OUTLINE_HASH = 3050414441L
+        private val drawMultilineStringOutlineBind by lazy {
+            ObjectCalls.getMethodBind("CanvasItem", "draw_multiline_string_outline", DRAW_MULTILINE_STRING_OUTLINE_HASH)
+        }
+
+        private const val DRAW_CHAR_HASH = 1336210142L
+        private val drawCharBind by lazy {
+            ObjectCalls.getMethodBind("CanvasItem", "draw_char", DRAW_CHAR_HASH)
+        }
+
+        private const val DRAW_CHAR_OUTLINE_HASH = 1846384149L
+        private val drawCharOutlineBind by lazy {
+            ObjectCalls.getMethodBind("CanvasItem", "draw_char_outline", DRAW_CHAR_OUTLINE_HASH)
+        }
+
+        private const val DRAW_MESH_HASH = 153818295L
+        private val drawMeshBind by lazy {
+            ObjectCalls.getMethodBind("CanvasItem", "draw_mesh", DRAW_MESH_HASH)
         }
 
         private const val DRAW_SET_TRANSFORM_HASH = 288975085L
@@ -742,6 +828,16 @@ open class CanvasItem(handle: MemorySegment) : Node(handle) {
         private const val GET_CANVAS_HASH = 2944877500L
         private val getCanvasBind by lazy {
             ObjectCalls.getMethodBind("CanvasItem", "get_canvas", GET_CANVAS_HASH)
+        }
+
+        private const val SET_MATERIAL_HASH = 2757459619L
+        private val setMaterialBind by lazy {
+            ObjectCalls.getMethodBind("CanvasItem", "set_material", SET_MATERIAL_HASH)
+        }
+
+        private const val GET_MATERIAL_HASH = 5934680L
+        private val getMaterialBind by lazy {
+            ObjectCalls.getMethodBind("CanvasItem", "get_material", GET_MATERIAL_HASH)
         }
 
         private const val GET_INSTANCE_SHADER_PARAMETER_HASH = 2760726917L

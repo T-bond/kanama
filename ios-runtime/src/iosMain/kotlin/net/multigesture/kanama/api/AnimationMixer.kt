@@ -72,6 +72,10 @@ open class AnimationMixer(handle: MemorySegment) : Node(handle) {
         @JvmName("setCallbackModeDiscreteProperty")
         set(value) = setCallbackModeDiscrete(value)
 
+    fun addAnimationLibrary(name: String, library: AnimationLibrary?): Long {
+        return ObjectCalls.ptrcallWithStringNameAndObjectArgRetLong(addAnimationLibraryBind, handle, name, library?.requireOpenHandle() ?: MemorySegment.NULL)
+    }
+
     fun removeAnimationLibrary(name: String) {
         ObjectCalls.ptrcallWithStringNameArg(removeAnimationLibraryBind, handle, name)
     }
@@ -82,6 +86,10 @@ open class AnimationMixer(handle: MemorySegment) : Node(handle) {
 
     fun hasAnimationLibrary(name: String): Boolean {
         return ObjectCalls.ptrcallWithStringNameArgRetBool(hasAnimationLibraryBind, handle, name)
+    }
+
+    fun getAnimationLibrary(name: String): AnimationLibrary? {
+        return AnimationLibrary.wrap(ObjectCalls.ptrcallWithStringNameArgRetObject(getAnimationLibraryBind, handle, name))
     }
 
     fun getAnimationLibraryList(): List<String> {
@@ -238,6 +246,11 @@ open class AnimationMixer(handle: MemorySegment) : Node(handle) {
         internal fun wrap(handle: MemorySegment): AnimationMixer? =
             if (handle.address() == 0L) null else AnimationMixer(handle)
 
+        private const val ADD_ANIMATION_LIBRARY_HASH = 618909818L
+        private val addAnimationLibraryBind by lazy {
+            ObjectCalls.getMethodBind("AnimationMixer", "add_animation_library", ADD_ANIMATION_LIBRARY_HASH)
+        }
+
         private const val REMOVE_ANIMATION_LIBRARY_HASH = 3304788590L
         private val removeAnimationLibraryBind by lazy {
             ObjectCalls.getMethodBind("AnimationMixer", "remove_animation_library", REMOVE_ANIMATION_LIBRARY_HASH)
@@ -251,6 +264,11 @@ open class AnimationMixer(handle: MemorySegment) : Node(handle) {
         private const val HAS_ANIMATION_LIBRARY_HASH = 2619796661L
         private val hasAnimationLibraryBind by lazy {
             ObjectCalls.getMethodBind("AnimationMixer", "has_animation_library", HAS_ANIMATION_LIBRARY_HASH)
+        }
+
+        private const val GET_ANIMATION_LIBRARY_HASH = 147342321L
+        private val getAnimationLibraryBind by lazy {
+            ObjectCalls.getMethodBind("AnimationMixer", "get_animation_library", GET_ANIMATION_LIBRARY_HASH)
         }
 
         private const val GET_ANIMATION_LIBRARY_LIST_HASH = 3995934104L

@@ -10,6 +10,18 @@ import net.multigesture.kanama.types.AABB
  * Generated from Godot docs: GeometryInstance3D
  */
 open class GeometryInstance3D(handle: MemorySegment) : VisualInstance3D(handle) {
+    var materialOverride: Material?
+        @JvmName("materialOverrideProperty")
+        get() = getMaterialOverride()
+        @JvmName("setMaterialOverrideProperty")
+        set(value) = setMaterialOverride(value)
+
+    var materialOverlay: Material?
+        @JvmName("materialOverlayProperty")
+        get() = getMaterialOverlay()
+        @JvmName("setMaterialOverlayProperty")
+        set(value) = setMaterialOverlay(value)
+
     var transparency: Double
         @JvmName("transparencyProperty")
         get() = getTransparency()
@@ -93,6 +105,22 @@ open class GeometryInstance3D(handle: MemorySegment) : VisualInstance3D(handle) 
         get() = getVisibilityRangeFadeMode()
         @JvmName("setVisibilityRangeFadeModeProperty")
         set(value) = setVisibilityRangeFadeMode(value)
+
+    fun setMaterialOverride(material: Material?) {
+        ObjectCalls.ptrcallWithObjectArgs(setMaterialOverrideBind, handle, listOf(material?.requireOpenHandle() ?: MemorySegment.NULL))
+    }
+
+    fun getMaterialOverride(): Material? {
+        return Material.wrap(ObjectCalls.ptrcallNoArgsRetObject(getMaterialOverrideBind, handle))
+    }
+
+    fun setMaterialOverlay(material: Material?) {
+        ObjectCalls.ptrcallWithObjectArgs(setMaterialOverlayBind, handle, listOf(material?.requireOpenHandle() ?: MemorySegment.NULL))
+    }
+
+    fun getMaterialOverlay(): Material? {
+        return Material.wrap(ObjectCalls.ptrcallNoArgsRetObject(getMaterialOverlayBind, handle))
+    }
 
     fun setCastShadowsSetting(shadowCastingSetting: Long) {
         ObjectCalls.ptrcallWithLongArg(setCastShadowsSettingBind, handle, shadowCastingSetting)
@@ -232,6 +260,26 @@ open class GeometryInstance3D(handle: MemorySegment) : VisualInstance3D(handle) 
 
         internal fun wrap(handle: MemorySegment): GeometryInstance3D? =
             if (handle.address() == 0L) null else GeometryInstance3D(handle)
+
+        private const val SET_MATERIAL_OVERRIDE_HASH = 2757459619L
+        private val setMaterialOverrideBind by lazy {
+            ObjectCalls.getMethodBind("GeometryInstance3D", "set_material_override", SET_MATERIAL_OVERRIDE_HASH)
+        }
+
+        private const val GET_MATERIAL_OVERRIDE_HASH = 5934680L
+        private val getMaterialOverrideBind by lazy {
+            ObjectCalls.getMethodBind("GeometryInstance3D", "get_material_override", GET_MATERIAL_OVERRIDE_HASH)
+        }
+
+        private const val SET_MATERIAL_OVERLAY_HASH = 2757459619L
+        private val setMaterialOverlayBind by lazy {
+            ObjectCalls.getMethodBind("GeometryInstance3D", "set_material_overlay", SET_MATERIAL_OVERLAY_HASH)
+        }
+
+        private const val GET_MATERIAL_OVERLAY_HASH = 5934680L
+        private val getMaterialOverlayBind by lazy {
+            ObjectCalls.getMethodBind("GeometryInstance3D", "get_material_overlay", GET_MATERIAL_OVERLAY_HASH)
+        }
 
         private const val SET_CAST_SHADOWS_SETTING_HASH = 856677339L
         private val setCastShadowsSettingBind by lazy {

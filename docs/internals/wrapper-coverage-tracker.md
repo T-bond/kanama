@@ -623,6 +623,15 @@ needs a decision (see the numbered items below + the roadmap backlog):
   Known limit: Dictionary/Array elements (e.g. get_structured_text's options) surface as null (scalar-decode philosophy, matches desktop).
   **★ THIS COMPLETES THE PHASE-2 TAIL.** Remaining iOS skips (~151) are all Phase-4 breadth (Object arg/return concrete classes not
   emitted) + Callable/vararg (deferred cross-platform). **NEXT: device-validate 2.7j → Phase 2 DONE → Phase 4.**
+- **★ PHASE 4 BREADTH — BATCH 1 DONE + DEVICE-VALIDATED (iPhone 12, 2026-06-20, regression-clean 54/78).** Emitting more concrete
+  classes (the ~151 skips are mostly Object args/returns whose concrete class wasn't emitted; the marshalling is already audited, so
+  these light up by EMITTING the class — no new C). Batch 1 = 8 leaf `Resource` subclasses: **Material, Shape3D, Shape2D, Mesh,
+  CameraAttributes, AnimationLibrary, StyleBox, Font** (all parent=Resource, emitted). Method: add to the `--ios-emit-class` set, regen,
+  copy new wrappers + the newly-lit additive methods on existing classes (CanvasItem +96, GeometryInstance3D +48, Control +45, Camera3D/
+  CollisionShape3D/GPUParticles2D +24, GPUParticles3D +42, AnimationMixer/CollisionObject2D/3D +18) + ObjectCallsGenerated (new generated
+  helpers for the newly-lit shapes). +8 wrappers (~84 own methods) + the cross-ref methods. Emit-only (proven marshalling, no new C →
+  cinterop UP-TO-DATE); device run is a REGRESSION check (matrix stays 54/78). Gates GREEN (audit, no_silent_stubs, check_wrapper_generator,
+  compileKotlinIosArm64). **NEXT: device-validate batch 1; then larger breadth batches (Environment/Window/Animation/Theme/Image/CanvasLayer).**
 - **★ PHASE 4 STARTED (2026-06-18). 4.2 DONE: SUGAR 1→0.** `IOS_CUSTOM_MEMBER_SECTIONS` registry emits the Node sugar as a stable
   generator body custom-section (mirrors desktop `CUSTOM_MEMBER_SECTIONS`, gated IOS_AUDIT_ONLY); Node.kt is now byte-identical to
   generator output (**regen lossless — the recurring hand-re-apply is gone**). Generator-only/structural, compile-validated, no device

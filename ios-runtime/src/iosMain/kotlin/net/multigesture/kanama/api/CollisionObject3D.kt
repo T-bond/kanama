@@ -147,8 +147,16 @@ open class CollisionObject3D(handle: MemorySegment) : Node3D(handle) {
         return ObjectCalls.ptrcallWithUInt32ArgRetBool(isShapeOwnerDisabledBind, handle, ownerId)
     }
 
+    fun shapeOwnerAddShape(ownerId: Long, shape: Shape3D?) {
+        ObjectCalls.ptrcallWithUInt32AndObjectArg(shapeOwnerAddShapeBind, handle, ownerId, shape?.requireOpenHandle() ?: MemorySegment.NULL)
+    }
+
     fun shapeOwnerGetShapeCount(ownerId: Long): Int {
         return ObjectCalls.ptrcallWithUInt32ArgRetInt(shapeOwnerGetShapeCountBind, handle, ownerId)
+    }
+
+    fun shapeOwnerGetShape(ownerId: Long, shapeId: Int): Shape3D? {
+        return Shape3D.wrap(ObjectCalls.ptrcallWithUInt32AndIntArgRetObject(shapeOwnerGetShapeBind, handle, ownerId, shapeId))
     }
 
     fun shapeOwnerGetShapeIndex(ownerId: Long, shapeId: Int): Int {
@@ -309,9 +317,19 @@ open class CollisionObject3D(handle: MemorySegment) : Node3D(handle) {
             ObjectCalls.getMethodBind("CollisionObject3D", "is_shape_owner_disabled", IS_SHAPE_OWNER_DISABLED_HASH)
         }
 
+        private const val SHAPE_OWNER_ADD_SHAPE_HASH = 2566676345L
+        private val shapeOwnerAddShapeBind by lazy {
+            ObjectCalls.getMethodBind("CollisionObject3D", "shape_owner_add_shape", SHAPE_OWNER_ADD_SHAPE_HASH)
+        }
+
         private const val SHAPE_OWNER_GET_SHAPE_COUNT_HASH = 923996154L
         private val shapeOwnerGetShapeCountBind by lazy {
             ObjectCalls.getMethodBind("CollisionObject3D", "shape_owner_get_shape_count", SHAPE_OWNER_GET_SHAPE_COUNT_HASH)
+        }
+
+        private const val SHAPE_OWNER_GET_SHAPE_HASH = 4015519174L
+        private val shapeOwnerGetShapeBind by lazy {
+            ObjectCalls.getMethodBind("CollisionObject3D", "shape_owner_get_shape", SHAPE_OWNER_GET_SHAPE_HASH)
         }
 
         private const val SHAPE_OWNER_GET_SHAPE_INDEX_HASH = 3175239445L

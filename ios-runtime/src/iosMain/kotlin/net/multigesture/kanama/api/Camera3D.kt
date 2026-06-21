@@ -27,6 +27,12 @@ open class Camera3D(handle: MemorySegment) : Node3D(handle) {
         @JvmName("setCullMaskProperty")
         set(value) = setCullMask(value)
 
+    var attributes: CameraAttributes?
+        @JvmName("attributesProperty")
+        get() = getAttributes()
+        @JvmName("setAttributesProperty")
+        set(value) = setAttributes(value)
+
     var hOffset: Double
         @JvmName("hOffsetProperty")
         get() = getHOffset()
@@ -217,6 +223,14 @@ open class Camera3D(handle: MemorySegment) : Node3D(handle) {
 
     fun getCullMask(): Long {
         return ObjectCalls.ptrcallNoArgsRetUInt32(getCullMaskBind, handle)
+    }
+
+    fun setAttributes(env: CameraAttributes?) {
+        ObjectCalls.ptrcallWithObjectArgs(setAttributesBind, handle, listOf(env?.requireOpenHandle() ?: MemorySegment.NULL))
+    }
+
+    fun getAttributes(): CameraAttributes? {
+        return CameraAttributes.wrap(ObjectCalls.ptrcallNoArgsRetObject(getAttributesBind, handle))
     }
 
     fun setKeepAspectMode(mode: Long) {
@@ -438,6 +452,16 @@ open class Camera3D(handle: MemorySegment) : Node3D(handle) {
         private const val GET_CULL_MASK_HASH = 3905245786L
         private val getCullMaskBind by lazy {
             ObjectCalls.getMethodBind("Camera3D", "get_cull_mask", GET_CULL_MASK_HASH)
+        }
+
+        private const val SET_ATTRIBUTES_HASH = 2817810567L
+        private val setAttributesBind by lazy {
+            ObjectCalls.getMethodBind("Camera3D", "set_attributes", SET_ATTRIBUTES_HASH)
+        }
+
+        private const val GET_ATTRIBUTES_HASH = 3921283215L
+        private val getAttributesBind by lazy {
+            ObjectCalls.getMethodBind("Camera3D", "get_attributes", GET_ATTRIBUTES_HASH)
         }
 
         private const val SET_KEEP_ASPECT_MODE_HASH = 1740651252L
