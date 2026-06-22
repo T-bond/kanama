@@ -221,6 +221,45 @@ deliberately-unscripted virtuals as gaps.
    `*Extension`/server bases, and refine with a small curated deny-list; this also
    defines the denominator for 5.4 coverage accounting.
 
+## Phase 5.3b — iOS value-returning virtuals (concrete plan, scoped 2026-06-22)
+
+5.3a (committed) wired arbitrary **void** virtuals on iOS by widening the emitter
+— they flow through the proven generic call path. 5.3b adds the one missing
+primitive: a **return slot** so value-returning virtuals (`_get_minimum_size`,
+`_has_point`, …) hand their result back to the engine. The machinery to *build*
+the return Variant already exists on the C side — `kanama_ios_pt_arg_to_variant`
+(`kanama_ios_shim.c:3834`) constructs a Variant from a PT-tagged buffer
+(bool/int/float/string/string-name/node-path/vectors). The change is plumbing a
+PT-tagged return *out* of the Kotlin call:
+
+1. **C export** (`kanama_ios_shim.c:59`): extend
+   `kanama_ios_runtime_script_instance_call_v` with two out-params —
+   `int32_t *ret_tag_out, void *ret_buf_out` (a fixed scratch like the inbound
+   `i64`/`fvec` cells). Kotlin sets `*ret_tag_out` = PT_VOID for void virtuals, or
+   the return's PT tag + writes its bytes into `ret_buf_out`.
+2. **C callback** (`kanama_ios_script_instance_call:5425`): after the call
+   (`:5558`), if `ret != NULL && ret_tag != PT_VOID`, call
+   `kanama_ios_pt_arg_to_variant(ret_tag, ret_buf, ret, &cell, &cell_kind)` to
+   populate the engine return Variant (it already nil-inits `ret` at `:5433`).
+   Free any string cell after, mirroring the inbound `strs[]` cleanup.
+3. **cinterop**: the export signature changed → regen the cinterop header and
+   build with `DEVELOPER_DIR=/Applications/Xcode.app/...` (header touch).
+4. **Kotlin** (`KanamaIosRuntime.callScriptInstanceV` / the `@CName` export +
+   generated `callV`): the per-script `callV` returns the typed result; the runtime
+   encodes it PT-tagged into `ret_buf_out` (reuse the outbound encode path that
+   already turns a Kotlin value into PT-tagged bytes for `object_call`). Start with
+   the scalar/POD returns that `pt_arg_to_variant` already handles (Bool, Int,
+   Float, Vector2/2i/3, String) — covers `_has_point`/`_get_minimum_size`; defer
+   Variant/Packed returns.
+5. **Emitter**: drop the 5.3b skip in `IosScriptCodeEmitter.toIosMethod` for the
+   supported return kinds; generate a `callV` branch that returns the value.
+6. **Device test**: an iOS probe overriding both a void and a value-returning
+   virtual (e.g. on a `Control`), asserting both fire + the return reaches the
+   engine; self-test matrix stays 54/78. (Flag the user — the phone auto-locks.)
+
+Also outstanding: **device validation of 5.3a** (void virtuals) needs an iOS
+script overriding an observable void virtual — fold it into the same device run.
+
 ## Scope note
 
 5.1 is design only. The discovery above establishes that Phase 5 is mostly a
