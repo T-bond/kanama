@@ -51,14 +51,14 @@ Typical validation:
 ```sh
 ./gradlew build
 python3 scripts/validate_godot_api.py --api extension_api.json
-./scripts/local_ci.sh /path/to/godot-4.7-rc2
+./scripts/local_ci.sh /path/to/godot-4.7-stable
 ```
 
 Before release-facing changes, validate from isolated clones instead of your
 development worktree:
 
 ```sh
-./scripts/fresh_clone_smoke.sh /path/to/godot-4.7-rc2
+./scripts/fresh_clone_smoke.sh /path/to/godot-4.7-stable
 ```
 
 For a consumer project:
@@ -148,7 +148,7 @@ The demos repository exposes:
 ## Android Port Notes
 
 Android support is experimental. Kanama runs inside stock Godot Android exports,
-but it is not yet a polished phone-ready target, and Godot 4.7 rc 2 APK/emulator
+but it is not yet a polished phone-ready target, and Godot 4.7 stable APK/emulator
 revalidation is pending before any Android support claim changes.
 
 Known constraints:

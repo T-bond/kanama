@@ -20,8 +20,8 @@ but not yet a supported export) — see [iOS (Experimental)](../exporting/ios.md
 
 Desktop Kanama projects use:
 
-- Godot 4.7 rc 2 from the
-  [Godot 4.7 rc 2 archive](https://godotengine.org/download/archive/4.7-rc2/).
+- Godot 4.7 stable from the
+  [Godot 4.7 stable archive](https://godotengine.org/download/archive/4.7-stable/).
 - JDK 25+ for desktop runtime and Gradle builds.
 - macOS arm64, Windows x64, Linux x64, or Linux ARM64 for the current desktop
   package targets.

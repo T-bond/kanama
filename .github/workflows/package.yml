@@ -14,7 +14,7 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  GODOT_VERSION: 4.7-rc2
+  GODOT_VERSION: 4.7-stable
 
 jobs:
   gdextension-header:

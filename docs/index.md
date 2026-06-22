@@ -7,7 +7,7 @@
 Kanama brings Kotlin scripting to Godot 4 through a GDExtension runtime powered
 by the JVM and the Foreign Function & Memory API.
 
-Kanama is desktop-first and currently targets the Godot 4.7 rc 2 preview API.
+Kanama is desktop-first and currently targets the Godot 4.7 stable preview API.
 If you need a more established Kotlin integration for Godot today, also
 evaluate [Godot Kotlin/JVM](https://godot-kotl.in/en/stable/). Kanama is a
 separate Panama/FFM GDExtension path.
@@ -30,10 +30,10 @@ ownership, signals, and wrapper coverage. For existing GDScript projects, use
 
 | Platform | Status |
 | --- | --- |
-| macOS | Baseline rc 2 preview |
-| Linux | Pending rc 2 revalidation |
-| Windows | Pending rc 2 revalidation |
-| Android | Experimental; rc 2 APK revalidation pending |
+| macOS | Baseline (4.7 stable) |
+| Linux | Pending 4.7 stable revalidation |
+| Windows | Pending 4.7 stable revalidation |
+| Android | Experimental; 4.7 stable APK revalidation pending |
 | iOS | Experimental (Kotlin/Native backend) |
 | Web | Not planned |
 

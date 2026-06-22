@@ -11,7 +11,7 @@
 
 <p align="center">
   <a href="LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/license-MIT-blue.svg"></a>
-  <img alt="Godot 4.7 rc 2" src="https://img.shields.io/badge/Godot-4.7_rc_2-478cbf.svg">
+  <img alt="Godot 4.7 stable" src="https://img.shields.io/badge/Godot-4.7_stable-478cbf.svg">
   <img alt="JDK 25+" src="https://img.shields.io/badge/JDK-25%2B-f89820.svg">
   <img alt="Android: experimental" src="https://img.shields.io/badge/Android-experimental-3ddc84.svg">
   <img alt="Status: experimental" src="https://img.shields.io/badge/status-experimental-yellow.svg">
@@ -33,8 +33,8 @@ separate project with a different runtime and export model.
 ## Status
 
 Kanama is experimental and desktop-first. The `0.2.2` preview baseline is
-Godot 4.7 rc 2. Use the
-[Godot 4.7 rc 2 archive](https://godotengine.org/download/archive/4.7-rc2/)
+Godot 4.7 stable. Use the
+[Godot 4.7 stable archive](https://godotengine.org/download/archive/4.7-stable/)
 for compatible editor/player binaries and Android export templates. Desktop
 release kits and store add-ons are package artifacts that can be built from
 source today and are the intended release path; exported-game packaging remains
@@ -44,7 +44,7 @@ Android support is experimental for the v0.2.2 line: the current workflow builds
 a Godot Android plugin AAR, uses
 [PanamaPort](https://github.com/vova7878/PanamaPort) from Maven Central for the
 Android FFM layer, and keeps APK smoke validation as a separate gate. Godot 4.7
-rc 2 Android export revalidation is pending before updating Android support
+stable Android export revalidation is pending before updating Android support
 claims.
 
 iOS support is an experimental Kotlin/Native backend: a C GDExtension shim plus
@@ -69,15 +69,15 @@ the `0.2.2` public preview criteria.
 - Experimental iOS runtime through a Kotlin/Native `.xcframework` (no on-device JVM)
 - Hot reload and editor build tools for a fast iteration loop
 - Growing Godot API wrapper surface with generated KDoc from Godot docs
-- Desktop-first: macOS arm64 is the primary rc 2 validation path; Windows
+- Desktop-first: macOS arm64 is the primary 4.7 stable validation path; Windows
   x64, Linux x64, and Linux ARM64 remain tracked smoke targets
 
 ## Requirements
 
 Desktop/editor workflow:
 
-- Godot 4.7 rc 2 from the
-  [Godot 4.7 rc 2 archive](https://godotengine.org/download/archive/4.7-rc2/)
+- Godot 4.7 stable from the
+  [Godot 4.7 stable archive](https://godotengine.org/download/archive/4.7-stable/)
 - JDK 25+ (Temurin 25 recommended)
 - CMake 3.22.1+ and a platform C toolchain for source checkout workflows that
   build the desktop native bootstrap locally; release kits already include the
@@ -87,9 +87,9 @@ Desktop/editor workflow:
 
 Experimental Android export workflow:
 
-- Godot 4.7 rc 2 Android export templates from the
-  [Godot 4.7 rc 2 archive](https://godotengine.org/download/archive/4.7-rc2/);
-  Kanama's rc 2 Android APK smoke matrix is pending revalidation
+- Godot 4.7 stable Android export templates from the
+  [Godot 4.7 stable archive](https://godotengine.org/download/archive/4.7-stable/);
+  Kanama's stable Android APK smoke matrix is pending revalidation
 - Android SDK API 36, build-tools 36.1.0, and NDK 29.0.14206865 for Godot export
 - CMake 3.22.1 for the Kanama Android plugin native bootstrap
 - JDK 21 for Android Gradle/export tooling

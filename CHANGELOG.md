@@ -30,6 +30,13 @@ versioning once public releases begin.
 
 ### Changed
 
+- Updated the Kanama preview baseline to Godot 4.7 stable. Re-dumped
+  `extension_api.json` and regenerated Godot API name constants for the stable
+  version metadata; the 4.7 stable `extension_api.json` (excluding the
+  `version_status` header field) and GDExtension interface header are
+  byte-identical to 4.7 rc 2, so generated bindings, wrappers, name constants,
+  and struct layouts are unchanged. Docs, scripts, templates, and the demos
+  README were updated from `4.7 rc 2` to `4.7 stable`.
 - Updated the Kanama preview baseline to Godot 4.7 rc 2. Re-dumped
   `extension_api.json` and regenerated Godot API name constants for the rc 2
   version metadata; the rc 2 GDExtension interface header and API body are
