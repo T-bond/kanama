@@ -73,11 +73,11 @@ Gated on Phase 4 exit. Not started by decision.
 
 ## ★ RESUME HERE (updated 2026-06-20 — resume in Opus)
 
-**State: batches 8+9+10 code committed + pushed to origin/main; ONE COMBINED DEVICE REGRESSION RUN
-PENDING (user must unlock iPhone 12 first).** (Pre-existing untracked `.agents/` + `skills-lock.json` are tooling files —
-do NOT stage them.) Device self-test baseline to re-confirm: **PTRCALL 54 / OBJECTCALLS 78, 0 failed**
-on iPhone 12 (UDID `48DF9662-42F3-541F-9F88-7FA2AB870F86`, team `DVZT29Q4QT`) — last confirmed batches
-6+7 (2026-06-20).
+**State: working tree CLEAN, all committed AND pushed to origin/main at `b6478ec` (batches 8+9+10).**
+(Pre-existing untracked `.agents/` + `skills-lock.json` are tooling files — do NOT stage them.)
+Device self-test baseline: **PTRCALL 54 / OBJECTCALLS 78, 0 failed, 0 crashes** on iPhone 12 (UDID
+`48DF9662-42F3-541F-9F88-7FA2AB870F86`, team `DVZT29Q4QT`) — re-confirmed via combined regression run
+covering batches 8+9+10 (2026-06-21).
 
 **★ SKIP-CLOSURE FIXPOINT REACHED (2026-06-21, batch 10).** The BFS closure over emitted classes'
 Object args/returns/properties now returns **0** not-yet-emitted in-scope classes — the entire
@@ -133,7 +133,8 @@ are the useful ones — move_and_collide returns; SceneTree/Tween are collisions
   hand-written collision InputEventMouseButton is NOT copied) + TileData + the nav/occlusion leaves it
   surfaces (NavigationMesh/NavigationPolygon/OccluderPolygon2D). CLOSES THE NODE|RESOURCE SKIP-CLOSURE:
   BFS reach == 0. Gates + compileKotlinIosArm64 green; skips 350 (residual all out-of-breadth — see
-  RESUME ★).** **Batches 8+9+10 share ONE pending device regression run (must stay 54/78).**
+  RESUME ★).** **Batches 8+9+10 DEVICE-VALIDATED together — combined regression run clean (PTRCALL 54 /
+  OBJECTCALLS 78, 0 failed, 0 crashes) on iPhone 12, 2026-06-21.**
   Note: regen sometimes emits AudioStreamPlayer.kt + StaticBody3D.kt (hand-written collisions in
   IosGodotApi.kt) — these are NOT copied.
 
