@@ -350,21 +350,28 @@ annotation class UnhandledKeyInput
  * Overrides an arbitrary engine virtual method on the script's attach-to class
  * (or any of its ancestors), beyond the fixed lifecycle set.
  *
- * [name] is the Godot virtual's engine name, e.g. `"_draw"`, `"_gui_input"`,
- * `"_get_minimum_size"`. The annotated Kotlin function's parameters and return
- * type must match the engine virtual's signature; the KSP processor validates
- * this against a generated table derived from `extension_api.json` and fails the
- * build on a mismatch (unknown virtual for the attach-to class, wrong arity, or a
- * value returned from a `void` virtual / vice versa).
+ * **The annotated function's name is the Godot virtual's engine name** — write
+ * the underscored virtual directly, exactly as in GDScript: `fun _draw()`,
+ * `fun _gui_input(event: InputEvent)`, `fun _get_minimum_size(): Vector2`. The
+ * function's parameters and return type must match the engine virtual's
+ * signature; the KSP processor validates this against a generated table derived
+ * from `extension_api.json` and fails the build on a mismatch (unknown virtual
+ * for the attach-to class, wrong arity, or a value returned from a `void` virtual
+ * / vice versa).
  *
- * The lifecycle annotations ([OnReady], [OnProcess], [OnInput], …) are
+ * (The virtual name is taken from the function name rather than an annotation
+ * argument because KSP2 over Kotlin/Native does not expose function-annotation
+ * argument values; the function name is available on every target, and this also
+ * matches GDScript's `func _draw()` convention.)
+ *
+ * The lifecycle annotations ([OnReady], [OnProcess], [OnInput], …) remain
  * convenience aliases for the most common virtuals; use `@OverrideVirtual` for
  * everything else (custom drawing via `_draw`, control input via `_gui_input`,
  * editor warnings via `_get_configuration_warnings`, drag-and-drop, …).
  */
 @Target(AnnotationTarget.FUNCTION)
 @Retention(AnnotationRetention.SOURCE)
-annotation class OverrideVirtual(val name: String)
+annotation class OverrideVirtual
 
 /**
  * Marks a Kotlin class as a Godot script that can be attached to an

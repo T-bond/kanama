@@ -56,12 +56,18 @@ extern void kanama_ios_runtime_script_instance_ready(int64_t instance_handle);
 // Generic per-signature inbound call: the C callback marshals every Variant arg into a
 // PT-tagged buffer (the inverse of kanama_ios_godot_object_call) and the Kotlin runtime decodes
 // each arg by its tag and dispatches the script method. Replaces the enumerated call_* exports.
+// ret_tag_out/ret_buf_out (Phase 5.3b): the Kotlin runtime writes the value-returning method's
+// result as PT-tagged bytes (the inverse of the inbound arg marshalling); the C callback then
+// builds the engine return Variant via kanama_ios_pt_arg_to_variant. ret_tag_out is set to
+// KANAMA_IOS_PT_VOID when the method returns nothing marshalled. Pass NULL/NULL to ignore returns.
 extern int32_t kanama_ios_runtime_script_instance_call_v(
     int64_t instance_handle,
     int32_t method_index,
     const int32_t *arg_tags,
     const void *const *arg_ptrs,
-    int32_t arg_count
+    int32_t arg_count,
+    int32_t *ret_tag_out,
+    void *ret_buf_out
 );
 extern int32_t kanama_ios_runtime_script_instance_set_property(
     int64_t instance_handle,
@@ -5555,8 +5561,21 @@ static void kanama_ios_script_instance_call(
             }
         }
 
+        // Phase 5.3b: provide a PT-tagged return scratch. Kotlin sets ret_tag to the return's PT
+        // kind (or PT_VOID) and writes its bytes; we then build the engine return Variant.
+        int32_t ret_tag = KANAMA_IOS_PT_VOID;
+        uint8_t ret_buf[32];
+        memset(ret_buf, 0, sizeof(ret_buf));
         int32_t ok = kanama_ios_runtime_script_instance_call_v(
-            instance->runtime_handle, method_index, tags, ptrs, argc);
+            instance->runtime_handle, method_index, tags, ptrs, argc, &ret_tag, ret_buf);
+
+        if (ret != NULL && ret_tag != KANAMA_IOS_PT_VOID) {
+            uint64_t ret_cell = 0;
+            int ret_cell_kind = 0;
+            kanama_ios_pt_arg_to_variant(ret_tag, ret_buf, (uint8_t *)ret, &ret_cell, &ret_cell_kind);
+            // Supported 5.3b return kinds (Bool/Int/Float/Vector2/Vector2i) are POD — no backing
+            // cell to destroy (ret_cell_kind stays 0). String-family returns are not yet emitted.
+        }
 
         for (int32_t i = 0; i < argc; i++) {
             free(strs[i]);
@@ -5652,7 +5671,8 @@ static void kanama_ios_script_instance_dispatch_tree_virtual(
     }
     int32_t method_index = kanama_ios_script_method_index(instance->script, virtual_name);
     if (method_index >= 0) {
-        kanama_ios_runtime_script_instance_call_v(instance->runtime_handle, method_index, NULL, NULL, 0);
+        // Notification-path virtuals (tree lifecycle) are void — ignore any return.
+        kanama_ios_runtime_script_instance_call_v(instance->runtime_handle, method_index, NULL, NULL, 0, NULL, NULL);
     }
 }
 

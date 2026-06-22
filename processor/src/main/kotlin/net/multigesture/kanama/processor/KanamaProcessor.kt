@@ -329,16 +329,20 @@ class KanamaProcessor(
      */
     private fun buildVirtualOverrideModel(
         fn: KSFunctionDeclaration,
-        ann: com.google.devtools.ksp.symbol.KSAnnotation,
         attachTo: String,
         ownerSimpleName: String,
     ): VirtualModel {
         val kotlinName = fn.simpleName.asString()
-        val virtualName = (ann.arguments.firstOrNull { it.name?.asString() == "name" }?.value as? String)
-            ?.takeIf { it.isNotBlank() }
-            ?: throw IllegalArgumentException(
-                "$ownerSimpleName.$kotlinName: @OverrideVirtual requires a non-empty virtual name",
+        // The function name IS the engine virtual name (GDScript-style `fun _draw()`). KSP2 over
+        // Kotlin/Native does not expose function-annotation argument values, but the function name
+        // is available on every target — so the name comes from the method, not an annotation arg.
+        val virtualName = kotlinName
+        if (!virtualName.startsWith("_")) {
+            throw IllegalArgumentException(
+                "$ownerSimpleName.$kotlinName: @OverrideVirtual function name must be the engine " +
+                    "virtual name (e.g. `fun _draw()`, `fun _get_minimum_size()`).",
             )
+        }
 
         val canonical = VirtualSignatureTable.resolve(attachTo, virtualName)
             ?: throw IllegalArgumentException(
@@ -549,7 +553,7 @@ class KanamaProcessor(
                     "OnUnhandledKeyInput", "UnhandledKeyInput" ->
                                          virtuals += VirtualModel("_unhandled_key_input", kotlinName, kotlinName,
                                              args = listOf(ArgModel("event", TypeMapping.OBJECT, "net.multigesture.kanama.api.GodotObject")))
-                    "OverrideVirtual" -> virtuals += buildVirtualOverrideModel(fn, ann, attachTo, simpleName)
+                    "OverrideVirtual" -> virtuals += buildVirtualOverrideModel(fn, attachTo, simpleName)
                     "RegisterFunction", "Method" -> methods += buildMethodModel(fn, ann, simpleName)
                     "Signal" -> signals += buildSignalModel(fn, ann, simpleName)
                     "ToolButton", "ExportToolButton" -> {

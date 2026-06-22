@@ -50,12 +50,22 @@ internal data class KanamaIosScriptDescriptor(
     val factory: (Long) -> KanamaIosScriptBridge?,
 )
 
+/** Sentinel returned by [KanamaIosScriptBridge.callVReturning] when the method is not a
+ *  value-returning one handled by this bridge (so the void [KanamaIosScriptBridge.callV] path runs). */
+object KanamaIosNoReturn
+
 internal interface KanamaIosScriptBridge {
     // Generic per-signature inbound dispatch (Phase 3.3): [args] are the already-decoded Kotlin
     // values (one per method param, in order); the generated branch casts/wraps each to its
     // declared type and invokes the script method.
     fun callV(methodName: String, args: List<Any?>): Boolean =
         false
+
+    // Phase 5.3b: value-returning methods/virtuals. Returns the typed result (Bool/Long/Double/
+    // Vector2/Vector2i) for the engine return slot, or [KanamaIosNoReturn] if this method has no
+    // marshalled return (the void [callV] path then handles it).
+    fun callVReturning(methodName: String, args: List<Any?>): Any? =
+        KanamaIosNoReturn
 
     fun setProperty(propertyIndex: Int, value: Long): Boolean =
         false
@@ -256,6 +266,14 @@ internal object KanamaIosRuntime {
             return false
         }
         return callScriptInstanceV(handle, method.name, args)
+    }
+
+    // Phase 5.3b: value-returning dispatch. Returns the typed result, or KanamaIosNoReturn if the
+    // method has no marshalled return (caller then runs the void callScriptInstanceV path).
+    fun callScriptInstanceReturning(handle: Long, methodIndex: Int, args: List<Any?>): Any? {
+        val instance = scriptInstances[handle] ?: return KanamaIosNoReturn
+        val method = instance.resource.descriptor?.methods?.getOrNull(methodIndex) ?: return KanamaIosNoReturn
+        return instance.bridge.callVReturning(method.name, args)
     }
 
     fun callScriptInstanceV(handle: Long, methodName: String, args: List<Any?>): Boolean {
@@ -591,6 +609,7 @@ fun kanamaIosRuntimeScriptInstanceSetPropertyArray(
 // PT_* tags — must match the KANAMA_IOS_PT_* enum in kanama_ios_shim.c. NODE_PATH/STRING ship a
 // null-terminated utf8 cstring; Vector2/3/Color ship contiguous float32, Vector2i contiguous
 // int32; INT64/BOOL/FLOAT64/OBJECT ship their scalar in the buffer.
+private const val IOS_PT_VOID = 0
 private const val IOS_PT_BOOL = 1
 private const val IOS_PT_INT64 = 3
 private const val IOS_PT_FLOAT64 = 5
@@ -679,13 +698,47 @@ fun kanamaIosRuntimeScriptInstanceCallV(
     argTags: CPointer<IntVar>?,
     argPtrs: CPointer<COpaquePointerVar>?,
     argCount: Int,
+    // Phase 5.3b return slot: the C callback passes a PT-tag out + a >=16-byte scratch. We set the
+    // tag to a return PT kind and write the value's bytes when the method returns a marshalled
+    // value; otherwise we leave it PT_VOID and the C side keeps the engine return nil.
+    retTag: CPointer<IntVar>?,
+    retBuf: CPointer<ByteVar>?,
 ): Int {
     val args: List<Any?> = if (argCount <= 0 || argTags == null || argPtrs == null) {
         emptyList()
     } else {
         List(argCount) { i -> decodeIosCallArg(argTags[i], argPtrs[i]?.reinterpret()) }
     }
+    retTag?.set(0, IOS_PT_VOID)
+    val rv = KanamaIosRuntime.callScriptInstanceReturning(instanceHandle, methodIndex, args)
+    if (rv !== KanamaIosNoReturn) {
+        encodeIosReturn(rv, retTag, retBuf)
+        return 1
+    }
     return if (KanamaIosRuntime.callScriptInstanceV(instanceHandle, methodIndex, args)) 1 else 0
+}
+
+// Encode a value-returning virtual/method result into the C return scratch as PT-tagged bytes,
+// matching kanama_ios_pt_arg_to_variant's reads (Phase 5.3b). Unsupported/Unit -> PT_VOID.
+@OptIn(ExperimentalForeignApi::class)
+private fun encodeIosReturn(value: Any?, retTag: CPointer<IntVar>?, retBuf: CPointer<ByteVar>?) {
+    if (retTag == null || retBuf == null) return
+    when (value) {
+        is Boolean -> { retBuf[0] = if (value) 1 else 0; retTag[0] = IOS_PT_BOOL }
+        is Long -> { retBuf.reinterpret<LongVar>()[0] = value; retTag[0] = IOS_PT_INT64 }
+        is Int -> { retBuf.reinterpret<LongVar>()[0] = value.toLong(); retTag[0] = IOS_PT_INT64 }
+        is Double -> { retBuf.reinterpret<DoubleVar>()[0] = value; retTag[0] = IOS_PT_FLOAT64 }
+        is Float -> { retBuf.reinterpret<DoubleVar>()[0] = value.toDouble(); retTag[0] = IOS_PT_FLOAT64 }
+        is Vector2 -> {
+            val f = retBuf.reinterpret<FloatVar>()
+            f[0] = value.x.toFloat(); f[1] = value.y.toFloat(); retTag[0] = IOS_PT_VECTOR2
+        }
+        is Vector2i -> {
+            val n = retBuf.reinterpret<IntVar>()
+            n[0] = value.x; n[1] = value.y; retTag[0] = IOS_PT_VECTOR2I
+        }
+        else -> retTag[0] = IOS_PT_VOID
+    }
 }
 
 @OptIn(ExperimentalNativeApi::class)

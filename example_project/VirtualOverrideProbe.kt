@@ -17,9 +17,9 @@ import java.lang.foreign.MemorySegment
 @ScriptClass(attachTo = "Control")
 class VirtualOverrideProbe(godotObject: MemorySegment) : KanamaScript<Control>(godotObject, ::Control) {
 
-    @OverrideVirtual("_get_minimum_size")
-    fun minimumSize(): Vector2 = Vector2(64.0f, 32.0f)
+    @OverrideVirtual
+    fun _get_minimum_size(): Vector2 = Vector2(64.0f, 32.0f)
 
-    @OverrideVirtual("_has_point")
-    fun hasPoint(at: Vector2): Boolean = at.x >= 0.0f && at.y >= 0.0f
+    @OverrideVirtual
+    fun _has_point(at: Vector2): Boolean = at.x >= 0.0f && at.y >= 0.0f
 }

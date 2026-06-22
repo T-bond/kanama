@@ -42,6 +42,12 @@ annotation class OnUnhandledKeyInput
 
 annotation class UnhandledKeyInput
 
+/** Override an arbitrary engine virtual; the function name is the virtual name (e.g. `fun _draw()`).
+ *  iOS shadow of [net.multigesture.kanama.annotations.OverrideVirtual]. */
+@Target(AnnotationTarget.FUNCTION)
+@Retention(AnnotationRetention.SOURCE)
+annotation class OverrideVirtual
+
 annotation class Rpc(
     val mode: Int = RpcMode.AUTHORITY,
     val callLocal: Boolean = false,

@@ -451,12 +451,14 @@ import net.multigesture.kanama.annotations.OnReady
 import net.multigesture.kanama.annotations.OnShortcutInput
 import net.multigesture.kanama.annotations.OnUnhandledInput
 import net.multigesture.kanama.annotations.OnUnhandledKeyInput
+import net.multigesture.kanama.annotations.OverrideVirtual
 import net.multigesture.kanama.api.GodotObject
 import net.multigesture.kanama.annotations.ScriptClass
 import net.multigesture.kanama.annotations.ScriptProperty
 import net.multigesture.kanama.api.KanamaScript
 import net.multigesture.kanama.api.Label
 import net.multigesture.kanama.types.NodePath
+import net.multigesture.kanama.types.Vector2
 
 @ScriptClass(attachTo = "Label")
 class IosSmokeScript(godotObject: MemorySegment) : KanamaScript<Label>(godotObject, ::Label) {
@@ -467,6 +469,26 @@ class IosSmokeScript(godotObject: MemorySegment) : KanamaScript<Label>(godotObje
     private var sawUnhandledInput = false
     private var sawShortcutInput = false
     private var sawUnhandledKeyInput = false
+    private var sawMinSize = false
+
+    // Phase 5.3b: a value-returning @OverrideVirtual on a Control (Label). The engine calls
+    // _get_minimum_size during layout; the iOS callVReturning path runs this and marshals the
+    // Vector2 back into the engine return slot. ready() reads it back via get_combined_minimum_size
+    // to prove the return round-trips through the engine.
+    @OverrideVirtual
+    fun _get_minimum_size(): Vector2 {
+        if (!sawMinSize) {
+            sawMinSize = true
+            println("[kanama][ios][kn] _get_minimum_size override dispatched -> (123,45)")
+        }
+        return Vector2(123.0, 45.0)
+    }
+
+    // Phase 5.3b: a Bool-returning virtual with a Vector2 arg — self.call CAN decode a bool return,
+    // so this proves the value reaches the caller (true only for x>=100, so the two probe calls below
+    // returning different values also proves the Vector2 arg was marshalled in correctly).
+    @OverrideVirtual
+    fun _has_point(at: Vector2): Boolean = at.x >= 100.0
 
     // Phase 3.4: a tree-lifecycle virtual that arrives via the script-instance notification
     // callback (not the call callback). Fires when the node enters the scene tree at load.
@@ -479,6 +501,15 @@ class IosSmokeScript(godotObject: MemorySegment) : KanamaScript<Label>(godotObje
     fun ready() {
         self.text = "Kanama iOS project script ready"
         println("[kanama][ios][kn] project script value-type property view=${view.path}")
+        // Phase 5.3b proof: call the virtual on self through the engine's Variant call path. Godot
+        // routes it to this script instance's _get_minimum_size override (Label's C++ get_minimum_size
+        // would otherwise shadow it), exercising callVReturning + the C return-Variant construction.
+        // If this prints a Vector2 of (123, 45) the value-returning virtual's result reached the engine.
+        val direct = self.call("_get_minimum_size")
+        println("[kanama][ios][kn] _get_minimum_size via self.call -> $direct")
+        val hp150 = self.call("_has_point", Vector2(150.0, 0.0))
+        val hp5 = self.call("_has_point", Vector2(5.0, 0.0))
+        println("[kanama][ios][kn] _has_point via self.call: at150=$hp150 at5=$hp5")
     }
 
     // Phase 3.3: a Godot-driven arg-bearing virtual proves the generic callV path end to end —

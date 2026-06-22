@@ -28,12 +28,28 @@ internal data class IosScriptInput(
 
 // ---------- thin per-script models (mirror the old build.gradle.kts data classes) ----------
 
+private val lifecycleIosVirtuals = setOf(
+    "_ready", "_enter_tree", "_exit_tree",
+    "_process", "_physics_process",
+    "_input", "_unhandled_input", "_shortcut_input", "_unhandled_key_input",
+)
+
+/** Return types the iOS callVReturning encode + C pt_arg_to_variant can marshal (Phase 5.3b). */
+private val iosReturnTypes = setOf(
+    TypeMapping.BOOL, TypeMapping.INT, TypeMapping.FLOAT,
+    TypeMapping.VECTOR2, TypeMapping.VECTOR2I,
+)
+
 internal data class IosMethod(
     val godotName: String,
     val kotlinName: String,
     // Typed parameters (Phase 3.3): the generated `callV` casts/wraps each decoded arg by its
     // declared type. Replaces the old enumerated IosScriptBridgeKind.
     val args: List<ArgModel>,
+    // Phase 5.3b: return type for value-returning methods/virtuals. `null` => void (callV path).
+    // A supported non-null type routes to `callVReturning`, which encodes the result PT-tagged for
+    // the engine. Unsupported return types are skipped + warned (return dropped, as before 5.3b).
+    val returnType: TypeMapping? = null,
 ) {
     val argumentCount: Int get() = args.size
 }
@@ -148,7 +164,7 @@ internal class IosScriptCodeEmitter(
             // cast/wrapped to its declared type. A method with an unaudited arg type is skipped +
             // warned (no silent "wrong shape" drop).
             builder.appendLine("    override fun callV(methodName: String, args: List<Any?>): Boolean = when (methodName) {")
-            script.methods.forEach { method ->
+            script.methods.filter { it.returnType == null }.forEach { method ->
                 val exprs = method.args.mapIndexed { i, a -> callArgExpr(i, a) }
                 if (exprs.all { it != null }) {
                     val invocation = "script.${method.kotlinName}(${exprs.joinToString(", ")})"
@@ -160,6 +176,23 @@ internal class IosScriptCodeEmitter(
             builder.appendLine("        else -> false")
             builder.appendLine("    }")
             builder.appendLine()
+            // Phase 5.3b: value-returning methods/virtuals dispatch here; the result is encoded
+            // PT-tagged for the engine return slot by the @CName export.
+            val valueMethods = script.methods.filter { it.returnType != null }
+            if (valueMethods.isNotEmpty()) {
+                builder.appendLine("    override fun callVReturning(methodName: String, args: List<Any?>): Any? = when (methodName) {")
+                valueMethods.forEach { method ->
+                    val exprs = method.args.mapIndexed { i, a -> callArgExpr(i, a) }
+                    if (exprs.all { it != null }) {
+                        builder.appendLine("        ${kotlinString(method.godotName)} -> script.${method.kotlinName}(${exprs.joinToString(", ")})")
+                    } else {
+                        warn("[kanama-ios] ${script.className}.${method.kotlinName} (godot: ${method.godotName}) has an unaudited arg type — not dispatched on iOS")
+                    }
+                }
+                builder.appendLine("        else -> net.multigesture.kanama.ios.KanamaIosNoReturn")
+                builder.appendLine("    }")
+                builder.appendLine()
+            }
             builder.appendLine("    override fun setProperty(propertyIndex: Int, value: Long): Boolean = when (propertyIndex) {")
             script.properties.forEachIndexed { index, property ->
                 if (property.isObjectType && property.godotClassName.isNotEmpty()) {
@@ -368,21 +401,23 @@ internal class IosScriptCodeEmitter(
             IosMethod(virtualName, kotlinMethodName, args)
         returnType == null ->
             IosMethod(virtualName, kotlinMethodName, args)
+        returnType in iosReturnTypes ->
+            IosMethod(virtualName, kotlinMethodName, args, returnType)
         else -> {
-            warn("[kanama-ios] $kotlinMethodName ($virtualName): value-returning virtual not yet " +
-                "wired on iOS (Phase 5.3b: callV return marshalling) — silent no-op")
+            warn("[kanama-ios] $kotlinMethodName ($virtualName): @OverrideVirtual return type " +
+                "$returnType not yet marshalled on iOS (Phase 5.3b supports Bool/Int/Float/" +
+                "Vector2/Vector2i) — silent no-op")
             null
         }
     }
 
-    private val lifecycleIosVirtuals = setOf(
-        "_ready", "_enter_tree", "_exit_tree",
-        "_process", "_physics_process",
-        "_input", "_unhandled_input", "_shortcut_input", "_unhandled_key_input",
-    )
-
     private fun MethodModel.toIosMethod(): IosMethod =
-        IosMethod(godotName = godotName, kotlinName = kotlinName, args = args)
+        IosMethod(
+            godotName = godotName,
+            kotlinName = kotlinName,
+            args = args,
+            returnType = returnType?.takeIf { it in iosReturnTypes },
+        )
 
     /** TypeMapping arg types the C inbound marshalling + decode handle (besides OBJECT wrappers). */
     private val iosCallArgTypes = setOf(
