@@ -195,23 +195,31 @@ deliberately-unscripted virtuals as gaps.
 4. **5.4:** coverage page reads virtual coverage; roadmap "done when" = skip report
    empty except the ~51 deliberately hand-shaped methods.
 
-## Open decisions (need the user)
+## Decisions (resolved 2026-06-21 — user)
 
-1. **Annotation surface** — A (`@OverrideVirtual`, lifecycle aliases retained) vs
-   A+B (also infer by name). Recommend **A**; B later behind a flag.
-2. **Signature source** — generated virtual-signature table + validate
-   (recommended) vs trust the user's Kotlin signature. Load-bearing for
-   correctness.
-3. **First-cut scope** — ship the *whole* script-overridable set at once, or a
-   curated high-value subset first (`_draw`, `_gui_input`, `_get_configuration_warnings`,
-   `_get_minimum_size`, `_get_drag_data`/`_can_drop_data`/`_drop_data`, `_input_event`)?
-   Recommend a curated subset for 5.2/5.3 to validate the path on a demo, then
-   widen — the model/dispatch is identical either way.
-4. **Overridable-set derivation** — how to compute "script-overridable" from
-   `extension_api.json` (it marks `is_virtual` but not "script-routed"). Options:
-   start from `is_virtual` on `Node`/`CanvasItem`/`Control`/`Resource` subtrees and
-   exclude `*Extension`/server bases; or maintain a small curated allow/deny on top
-   of `is_virtual`. Needs a decision before 5.4 coverage accounting is meaningful.
+1. **Annotation surface → A.** Explicit `@OverrideVirtual("_draw")`; the 12
+   lifecycle annotations (`@OnReady`/`@OnProcess`/…) become **sugar aliases** that
+   desugar to `@OverrideVirtual` with the canonical virtual name. No name-inference
+   (B) in the first cut — can be layered later behind a flag.
+2. **Signature source → generated table + validate, fail-closed.** Build a
+   virtual-signature table from `extension_api.json` (keyed
+   `class → {virtualName → (neutral args, neutral return, script-overridable)}`),
+   bundle it as a processor resource, resolve the attach-to class's virtual by
+   name, and validate the user's Kotlin signature (arity + neutral-type
+   compatibility) against it — feeding the *canonical* engine types into the model.
+   A mismatch fails the build (the 3.1/3.3 fail-closed policy).
+3. **First-cut scope → curated high-value subset.** 5.2/5.3 wire a hand-picked set
+   first to validate the path end-to-end on a demo, then widen. Proposed seed set:
+   `CanvasItem._draw`, `Control._gui_input`, `Control._get_minimum_size`,
+   `Node._get_configuration_warnings`, and the drag-and-drop trio
+   `Control._get_drag_data`/`_can_drop_data`/`_drop_data`. Covers void, value
+   returns (Vector2 / PackedStringArray / bool), an `InputEvent` arg, and a
+   `Variant` return — exercising every marshalling shape the wider set needs.
+4. **Overridable-set derivation → deferred** (the curated subset is hand-listed, so
+   no full derivation is needed until the widening pass). When widening: start from
+   `is_virtual` on the `Node`/`CanvasItem`/`Control`/`Resource` subtrees, exclude
+   `*Extension`/server bases, and refine with a small curated deny-list; this also
+   defines the denominator for 5.4 coverage accounting.
 
 ## Scope note
 
