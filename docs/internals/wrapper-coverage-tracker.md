@@ -57,9 +57,16 @@ Commits go straight to `main`, attributed `Co-Authored-By: Claude Fable 5`.
 | 4.4 iOS GodotReal centralization | sonnet | todo | low priority — pure double-precision future-proofing; single-precision is the target, so no current benefit |
 | 4.5 Shrink IosGodotApi.kt HANDWRITTEN | sonnet | done | 2026-06-19: REVIEWED all 10 HANDWRITTEN — **every one is justified bespoke; 0 are API-coverage gaps** (the roadmap exit intent). Tagged each marker by category in `ios_handwritten_report`: **[platform]×5** (KanamaScope/MainThread/AutoCloseable.close/math/GD helpers), **[runtime]×2** (custom-Callable signal glue, Variant Tween path), **[glue]×3** (Input/ResourceLoader singletons + the IosGodot cinterop facade — each mixes real ptrcalls with bespoke ergonomics like nullable-Texture2D cursor / typed loadTexture2D, so not cleanly generatable). The numeric "~6" target was aspirational; the real exit (0 coverage-gap HANDWRITTEN, 0 STUB, 0 SUGAR) is met |
 
-## Phase 5 — Virtual methods (deferred)
+## Phase 5 — Virtual methods
 
-Gated on Phase 4 exit. Not started by decision.
+Phase 4 exit met → unblocked. 5.1 design done.
+
+| Task | Model | Status | Notes |
+|---|---|---|---|
+| 5.1 Design: annotation surface + KSP virtual dispatch tables | fable→opus | done | 2026-06-21: [virtual-method-coverage-design.md](./virtual-method-coverage-design.md). **Key finding:** Phase 5 is a COVERAGE WIDENING over already-built typed dispatch, not a new subsystem. Kanama instances are *scripts* (ScriptInstanceExtension), so virtuals route through `call_func`/`has_method`/method-list — NOT the extension-class `get_virtual_call_data` path the roadmap named. The `@Method`-style registrar already does typed args + **typed returns** + method-list on desktop (`KanamaScriptInstance.dispatchCall`/`writeScriptMethodList`); the only reason users can override just 12 virtuals is the processor mints `VirtualModel`s for 12 hard-coded annotations. Generalize: `@OverrideVirtual("_draw")` (lifecycle annotations become aliases) + a generated virtual-signature table from `extension_api.json` (1437 `is_virtual`, fully typed) feeding the existing dispatch. **One genuinely new primitive: iOS `callV` return marshalling** (desktop already returns; iOS callV is void-oriented). Open decisions for the user before 5.2 (annotation surface, signature source, first-cut scope, script-overridable-set derivation). |
+| 5.2 JVM implementation | opus | todo | blocked on 5.1 open decisions |
+| 5.3 iOS implementation (+ callV return marshalling) | opus | todo | blocked on 5.1 open decisions |
+| 5.4 Coverage accounting for virtuals | sonnet | todo | |
 
 ## Standing follow-ups
 
