@@ -85,15 +85,16 @@ separate axis.
 
 ## ★ RESUME HERE (updated 2026-06-21 — resume in Opus)
 
-**State: working tree CLEAN, all committed AND pushed to origin/main (HEAD `83224c9`).** Since batch 12
-this session also landed: **Godot baseline 4.7 rc 2 → 4.7 stable** (metadata+docs only — rc2/stable
-`extension_api.json` minus the `version_status` field + `gdextension_interface.h` are byte-identical;
-no wrapper/binding churn); **iOS + Android + macOS revalidated on 4.7 stable** (iPhone 12 self-test
-54/78 on the 4.7.stable ios.zip template; Android `android_smoke.sh` Match3 + Bunnymark PASS on the API
-36 emulator; macOS `runtime_smoke.sh` PASS); **kanama-demos PR #3 merged** (Bunnymark Android export) +
-all 11 demos bumped to `compatibility_minimum = "4.7"`; **Phase 5.1 virtual-method design DONE** (see
-the Phase 5 table + `virtual-method-coverage-design.md`; decisions made, **5.2 is READY**). The
-godot_binaries memory now reflects 4.7 stable at /Applications/Godot.app.
+**State: working tree CLEAN, all committed AND pushed to origin/main (HEAD `5143758`).** Since batch 12
+this session also landed: **Godot baseline 4.7 rc 2 → 4.7 stable** (metadata+docs only — byte-identical
+API/header; no wrapper/binding churn); **iOS + Android + macOS revalidated on 4.7 stable**; **kanama-demos
+PR #3 merged** + all 11 demos bumped to `compatibility_minimum = "4.7"`; **★ PHASE 5 (virtual methods)
+COMPLETE** — `@OverrideVirtual` (GDScript-style `fun _draw()`; function name = virtual name) overrides
+any engine virtual on desktop/Android + iOS (device-validated, value-returning included), validated
+against a generated signature table; coverage page tracks virtuals as a separate axis. See the Phase 5
+table + `virtual-method-coverage-design.md`. **API note: `@OverrideVirtual` is a no-arg marker (the
+5.1 explicit-name decision was superseded — KSP2-over-Native doesn't expose function-annotation args).**
+The godot_binaries memory reflects 4.7 stable at /Applications/Godot.app.
 (Pre-existing untracked `.agents/` + `skills-lock.json` are tooling files — do NOT stage them.)
 Device self-test baseline: **PTRCALL 54 / OBJECTCALLS 78, 0 failed, 0 crashes** on iPhone 12 (UDID
 `48DF9662-42F3-541F-9F88-7FA2AB870F86`, team `DVZT29Q4QT`) — re-confirmed on batch 12 (2026-06-21).
