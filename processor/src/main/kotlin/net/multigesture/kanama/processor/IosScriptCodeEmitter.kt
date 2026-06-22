@@ -357,16 +357,29 @@ internal class IosScriptCodeEmitter(
     // (_process/_physics_process/_input/_unhandled_input/_shortcut_input/_unhandled_key_input)
     // arrive via the generic call callback once the C side enables the matching processing flag.
     // `_input_event` is just a regular multi-arg method via the generic path.
-    private fun VirtualModel.toIosMethod(): IosMethod? = when (virtualName) {
-        "_ready", "_enter_tree", "_exit_tree",
-        "_process", "_physics_process",
-        "_input", "_unhandled_input", "_shortcut_input", "_unhandled_key_input" ->
+    //
+    // Phase 5.3a: arbitrary VOID @OverrideVirtual virtuals (e.g. _draw, _gui_input, drag-and-drop
+    // _drop_data) dispatch through the same generic call path as a regular method — the engine
+    // calls them on the script instance via the call callback once they appear in the method list.
+    // Value-returning virtuals (returnType != null) still need the iOS `callV` return-marshalling
+    // primitive (Phase 5.3b) and are skipped + warned until then.
+    private fun VirtualModel.toIosMethod(): IosMethod? = when {
+        virtualName in lifecycleIosVirtuals ->
+            IosMethod(virtualName, kotlinMethodName, args)
+        returnType == null ->
             IosMethod(virtualName, kotlinMethodName, args)
         else -> {
-            warn("[kanama-ios] $kotlinMethodName ($virtualName): not wired on iOS (silent no-op)")
+            warn("[kanama-ios] $kotlinMethodName ($virtualName): value-returning virtual not yet " +
+                "wired on iOS (Phase 5.3b: callV return marshalling) — silent no-op")
             null
         }
     }
+
+    private val lifecycleIosVirtuals = setOf(
+        "_ready", "_enter_tree", "_exit_tree",
+        "_process", "_physics_process",
+        "_input", "_unhandled_input", "_shortcut_input", "_unhandled_key_input",
+    )
 
     private fun MethodModel.toIosMethod(): IosMethod =
         IosMethod(godotName = godotName, kotlinName = kotlinName, args = args)
