@@ -1,6 +1,7 @@
 package net.multigesture.kanama.api
 
 import java.lang.foreign.MemorySegment
+import kotlin.jvm.JvmName
 import net.multigesture.kanama.binding.runtime.ObjectCalls
 import net.multigesture.kanama.binding.runtime.*
 
@@ -8,8 +9,22 @@ import net.multigesture.kanama.binding.runtime.*
  * Generated from Godot docs: MultiplayerAPI
  */
 open class MultiplayerAPI(handle: MemorySegment) : RefCounted(handle) {
+    var multiplayerPeer: MultiplayerPeer?
+        @JvmName("multiplayerPeerProperty")
+        get() = getMultiplayerPeer()
+        @JvmName("setMultiplayerPeerProperty")
+        set(value) = setMultiplayerPeer(value)
+
     fun hasMultiplayerPeer(): Boolean {
         return ObjectCalls.ptrcallNoArgsRetBool(hasMultiplayerPeerBind, handle)
+    }
+
+    fun getMultiplayerPeer(): MultiplayerPeer? {
+        return MultiplayerPeer.wrap(ObjectCalls.ptrcallNoArgsRetObject(getMultiplayerPeerBind, handle))
+    }
+
+    fun setMultiplayerPeer(peer: MultiplayerPeer?) {
+        ObjectCalls.ptrcallWithObjectArgs(setMultiplayerPeerBind, handle, listOf(peer?.requireOpenHandle() ?: MemorySegment.NULL))
     }
 
     fun getUniqueId(): Int {
@@ -66,6 +81,16 @@ open class MultiplayerAPI(handle: MemorySegment) : RefCounted(handle) {
         private const val HAS_MULTIPLAYER_PEER_HASH = 2240911060L
         private val hasMultiplayerPeerBind by lazy {
             ObjectCalls.getMethodBind("MultiplayerAPI", "has_multiplayer_peer", HAS_MULTIPLAYER_PEER_HASH)
+        }
+
+        private const val GET_MULTIPLAYER_PEER_HASH = 3223692825L
+        private val getMultiplayerPeerBind by lazy {
+            ObjectCalls.getMethodBind("MultiplayerAPI", "get_multiplayer_peer", GET_MULTIPLAYER_PEER_HASH)
+        }
+
+        private const val SET_MULTIPLAYER_PEER_HASH = 3694835298L
+        private val setMultiplayerPeerBind by lazy {
+            ObjectCalls.getMethodBind("MultiplayerAPI", "set_multiplayer_peer", SET_MULTIPLAYER_PEER_HASH)
         }
 
         private const val GET_UNIQUE_ID_HASH = 2455072627L
