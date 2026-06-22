@@ -21,6 +21,10 @@ class Shortcut(handle: MemorySegment) : Resource(handle) {
         return ObjectCalls.ptrcallNoArgsRetBool(hasValidEventBind, handle)
     }
 
+    fun matchesEvent(event: InputEvent?): Boolean {
+        return ObjectCalls.ptrcallWithObjectArgRetBool(matchesEventBind, handle, event?.requireOpenHandle() ?: MemorySegment.NULL)
+    }
+
     fun getAsText(): String {
         return ObjectCalls.ptrcallNoArgsRetString(getAsTextBind, handle)
     }
@@ -40,6 +44,11 @@ class Shortcut(handle: MemorySegment) : Resource(handle) {
         private const val HAS_VALID_EVENT_HASH = 36873697L
         private val hasValidEventBind by lazy {
             ObjectCalls.getMethodBind("Shortcut", "has_valid_event", HAS_VALID_EVENT_HASH)
+        }
+
+        private const val MATCHES_EVENT_HASH = 3738334489L
+        private val matchesEventBind by lazy {
+            ObjectCalls.getMethodBind("Shortcut", "matches_event", MATCHES_EVENT_HASH)
         }
 
         private const val GET_AS_TEXT_HASH = 201670096L

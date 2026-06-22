@@ -94,6 +94,10 @@ class PopupMenu(handle: MemorySegment) : Popup(handle) {
         @JvmName("setItemCountProperty")
         set(value) = setItemCount(value)
 
+    fun activateItemByEvent(event: InputEvent?, forGlobalOnly: Boolean = false): Boolean {
+        return ObjectCalls.ptrcallWithObjectAndBoolArgRetBool(activateItemByEventBind, handle, event?.requireOpenHandle() ?: MemorySegment.NULL, forGlobalOnly)
+    }
+
     fun setPreferNativeMenu(enabled: Boolean) {
         ObjectCalls.ptrcallWithBoolArg(setPreferNativeMenuBind, handle, enabled)
     }
@@ -487,6 +491,11 @@ class PopupMenu(handle: MemorySegment) : Popup(handle) {
 
         internal fun wrap(handle: MemorySegment): PopupMenu? =
             if (handle.address() == 0L) null else PopupMenu(handle)
+
+        private const val ACTIVATE_ITEM_BY_EVENT_HASH = 3716412023L
+        private val activateItemByEventBind by lazy {
+            ObjectCalls.getMethodBind("PopupMenu", "activate_item_by_event", ACTIVATE_ITEM_BY_EVENT_HASH)
+        }
 
         private const val SET_PREFER_NATIVE_MENU_HASH = 2586408642L
         private val setPreferNativeMenuBind by lazy {

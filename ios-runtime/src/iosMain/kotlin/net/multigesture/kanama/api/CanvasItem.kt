@@ -426,6 +426,10 @@ open class CanvasItem(handle: MemorySegment) : Node(handle) {
         return ObjectCalls.ptrcallWithVector2ArgRetVector2(makeCanvasPositionLocalBind, handle, viewportPoint)
     }
 
+    fun makeInputLocal(event: InputEvent?): InputEvent? {
+        return InputEvent.wrap(ObjectCalls.ptrcallWithObjectArgRetObject(makeInputLocalBind, handle, event?.requireOpenHandle() ?: MemorySegment.NULL))
+    }
+
     fun setVisibilityLayer(layer: Long) {
         ObjectCalls.ptrcallWithUInt32Arg(setVisibilityLayerBind, handle, layer)
     }
@@ -910,6 +914,11 @@ open class CanvasItem(handle: MemorySegment) : Node(handle) {
         private const val MAKE_CANVAS_POSITION_LOCAL_HASH = 2656412154L
         private val makeCanvasPositionLocalBind by lazy {
             ObjectCalls.getMethodBind("CanvasItem", "make_canvas_position_local", MAKE_CANVAS_POSITION_LOCAL_HASH)
+        }
+
+        private const val MAKE_INPUT_LOCAL_HASH = 811130057L
+        private val makeInputLocalBind by lazy {
+            ObjectCalls.getMethodBind("CanvasItem", "make_input_local", MAKE_INPUT_LOCAL_HASH)
         }
 
         private const val SET_VISIBILITY_LAYER_HASH = 1286410249L

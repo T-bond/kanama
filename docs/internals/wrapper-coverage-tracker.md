@@ -73,18 +73,23 @@ Gated on Phase 4 exit. Not started by decision.
 
 ## ★ RESUME HERE (updated 2026-06-20 — resume in Opus)
 
-**State: batches 8+9 code committed + pushed to origin/main; ONE COMBINED DEVICE REGRESSION RUN
+**State: batches 8+9+10 code committed + pushed to origin/main; ONE COMBINED DEVICE REGRESSION RUN
 PENDING (user must unlock iPhone 12 first).** (Pre-existing untracked `.agents/` + `skills-lock.json` are tooling files —
 do NOT stage them.) Device self-test baseline to re-confirm: **PTRCALL 54 / OBJECTCALLS 78, 0 failed**
 on iPhone 12 (UDID `48DF9662-42F3-541F-9F88-7FA2AB870F86`, team `DVZT29Q4QT`) — last confirmed batches
 6+7 (2026-06-20).
 
-**Breadth endpoint (measured 2026-06-21):** a BFS closure over emitted classes' Object args/returns
-reaches only ~33 not-yet-emitted in-scope classes → **~3 batches (8/9/10) to a clean skip-closure
-fixpoint**, after which the only iOS skips left are virtual/callback (91, Phase 5) + Variant/Array
-deferred (~22) + editor/server. Full literal runtime parity (~410 classes) ≈ 23 batches — deferred to
-Phase 5. Plan: `~/.claude/plans/snappy-conjuring-pebble.md`. Batch-10 caveat: InputEvent subtree
-includes `InputEventMouseButton` = hand-written collision (do NOT copy, like AudioStreamPlayer/StaticBody3D).
+**★ SKIP-CLOSURE FIXPOINT REACHED (2026-06-21, batch 10).** The BFS closure over emitted classes'
+Object args/returns/properties now returns **0** not-yet-emitted in-scope classes — the entire
+**Node|Resource runtime closure is emitted (172 classes)**. Every Object-typed arg/return on an
+emitted class resolves. **Remaining iOS skips (350) are all deliberately out-of-breadth:**
+virtual/callback (116, Phase 5) + Variant/Array deferred (~37) + StringName/typed-array long-tail
+(~162) + **14 bare-`root=Object` utility/server types** (KinematicCollision2D/3D, SkinReference,
+Node3DGizmo, AudioSample(Playback), TriangleMesh, MeshConvexDecompositionSettings,
+PhysicsDirectSpaceState2D/3D, MultiplayerAPI, SceneState, + the already-hand-written SceneTree/Tween).
+**Optional future "batch 11"** = those bare-Object utility types if desired (KinematicCollision2D/3D
+are the useful ones — move_and_collide returns; SceneTree/Tween are collisions → skip-copy). Plan:
+`~/.claude/plans/snappy-conjuring-pebble.md`.
 
 **DONE (this session, 2026-06-17→20):**
 - **Phase 2 COMPLETE** — 2.7d (typed-object arrays) → 2.7e (Variant scalars) → 2.7f (arg-bearing
@@ -94,7 +99,7 @@ includes `InputEventMouseButton` = hand-written collision (do NOT copy, like Aud
 - **Phase 4 exit met (0 STUB / 0 SUGAR)** — 4.1 (connectBound/disconnectBound/SignalConnection.close,
   bound + lambda Callables), 4.2 (SUGAR→generator custom-section, regen now LOSSLESS), 4.5 (HANDWRITTEN
   reviewed — all 10 justified bespoke, category-tagged).
-- **Phase 4 breadth batches 1–9** — emitted iOS classes **27→152** (~3,300+ new wrapper methods). All
+- **Phase 4 breadth batches 1–10** — emitted iOS classes **27→172** (~3,400+ new wrapper methods). All
   emit-only (proven marshalling, no new C, no new self-test rows), each regression-clean on device.
   **Batch 5 (2026-06-20): +14 — Button + 5 BaseButton/Button children (CheckBox/CheckButton/OptionButton/
   MenuButton/ColorPickerButton) + LinkButton/TextureButton (direct BaseButton) + the PhysicsBody2D
@@ -123,7 +128,12 @@ includes `InputEventMouseButton` = hand-written collision (do NOT copy, like Aud
   SyntaxHighlighter, RichTextEffect, Compositor/CompositorEffect; +225 method-lines incl. 12 EXISTING
   wrappers (Camera3D, Mesh, RichTextLabel, TileMapLayer, Viewport, etc.). Skips 325→332 (rose — these
   surface the batch-10 mop-up frontier: TileData, the InputEvent subtree, shape variants). Gates +
-  compileKotlinIosArm64 green.** **Batches 8+9 share ONE pending device regression run (must stay 54/78).**
+  compileKotlinIosArm64 green.**
+  **Batch 10 (2026-06-21): +20 — InputEvent subtree (InputEvent + 16 concrete subclasses; the
+  hand-written collision InputEventMouseButton is NOT copied) + TileData + the nav/occlusion leaves it
+  surfaces (NavigationMesh/NavigationPolygon/OccluderPolygon2D). CLOSES THE NODE|RESOURCE SKIP-CLOSURE:
+  BFS reach == 0. Gates + compileKotlinIosArm64 green; skips 350 (residual all out-of-breadth — see
+  RESUME ★).** **Batches 8+9+10 share ONE pending device regression run (must stay 54/78).**
   Note: regen sometimes emits AudioStreamPlayer.kt + StaticBody3D.kt (hand-written collisions in
   IosGodotApi.kt) — these are NOT copied.
 

@@ -112,6 +112,10 @@ class TileMapLayer(handle: MemorySegment) : Node2D(handle) {
         return ObjectCalls.ptrcallWithVector2iArgRetInt(getCellAlternativeTileBind, handle, coords)
     }
 
+    fun getCellTileData(coords: Vector2i): TileData? {
+        return TileData.wrap(ObjectCalls.ptrcallWithVector2iArgRetObject(getCellTileDataBind, handle, coords))
+    }
+
     fun isCellFlippedH(coords: Vector2i): Boolean {
         return ObjectCalls.ptrcallWithVector2iArgRetBool(isCellFlippedHBind, handle, coords)
     }
@@ -312,6 +316,11 @@ class TileMapLayer(handle: MemorySegment) : Node2D(handle) {
         private const val GET_CELL_ALTERNATIVE_TILE_HASH = 2485466453L
         private val getCellAlternativeTileBind by lazy {
             ObjectCalls.getMethodBind("TileMapLayer", "get_cell_alternative_tile", GET_CELL_ALTERNATIVE_TILE_HASH)
+        }
+
+        private const val GET_CELL_TILE_DATA_HASH = 205084707L
+        private val getCellTileDataBind by lazy {
+            ObjectCalls.getMethodBind("TileMapLayer", "get_cell_tile_data", GET_CELL_TILE_DATA_HASH)
         }
 
         private const val IS_CELL_FLIPPED_H_HASH = 3900751641L

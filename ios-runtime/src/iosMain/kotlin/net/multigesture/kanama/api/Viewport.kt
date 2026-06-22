@@ -465,6 +465,14 @@ open class Viewport(handle: MemorySegment) : Node(handle) {
         ObjectCalls.ptrcallWithStringArg(pushTextInputBind, handle, text)
     }
 
+    fun pushInput(event: InputEvent?, inLocalCoords: Boolean = false) {
+        ObjectCalls.ptrcallWithObjectAndBoolArg(pushInputBind, handle, event?.requireOpenHandle() ?: MemorySegment.NULL, inLocalCoords)
+    }
+
+    fun pushUnhandledInput(event: InputEvent?, inLocalCoords: Boolean = false) {
+        ObjectCalls.ptrcallWithObjectAndBoolArg(pushUnhandledInputBind, handle, event?.requireOpenHandle() ?: MemorySegment.NULL, inLocalCoords)
+    }
+
     fun notifyMouseEntered() {
         ObjectCalls.ptrcallNoArgs(notifyMouseEnteredBind, handle)
     }
@@ -1127,6 +1135,16 @@ open class Viewport(handle: MemorySegment) : Node(handle) {
         private const val PUSH_TEXT_INPUT_HASH = 83702148L
         private val pushTextInputBind by lazy {
             ObjectCalls.getMethodBind("Viewport", "push_text_input", PUSH_TEXT_INPUT_HASH)
+        }
+
+        private const val PUSH_INPUT_HASH = 3644664830L
+        private val pushInputBind by lazy {
+            ObjectCalls.getMethodBind("Viewport", "push_input", PUSH_INPUT_HASH)
+        }
+
+        private const val PUSH_UNHANDLED_INPUT_HASH = 3644664830L
+        private val pushUnhandledInputBind by lazy {
+            ObjectCalls.getMethodBind("Viewport", "push_unhandled_input", PUSH_UNHANDLED_INPUT_HASH)
         }
 
         private const val NOTIFY_MOUSE_ENTERED_HASH = 3218959716L
