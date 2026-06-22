@@ -462,8 +462,7 @@ object SceneTree {
      */
     @JvmStatic
     fun getNodesInGroup(name: String): List<Node> =
-        ObjectCalls.ptrcallWithStringNameArgRetObjectList(getNodesInGroupBind, sceneTreeObject(), name)
-            .map { Node(it.handle) }
+        ObjectCalls.ptrcallWithStringNameArgRetTypedNodeList(getNodesInGroupBind, sceneTreeObject(), name)
 
     /**
      * Queues the given `obj` to be deleted, calling its `Object.free` at the end of the current frame.

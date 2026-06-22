@@ -1746,44 +1746,6 @@ object ObjectCalls {
             secondBool,
         ).mapNotNull { wrapper(it.handle) }
 
-    /**
-     * Calls [methodBind] with (String, String, bool, bool) and decodes an Array of Object values as
-     * non-owning wrappers.
-     */
-    fun ptrcallWithTwoStringAndTwoBoolArgsRetObjectList(
-        methodBind: MemorySegment,
-        instance: MemorySegment,
-        first: String,
-        second: String,
-        firstBool: Boolean,
-        secondBool: Boolean,
-    ): List<net.multigesture.kanama.api.GodotObject> {
-        Arena.ofConfined().use { arena ->
-            val arg0 = arena.allocate(8L, 8L)
-            val arg1 = arena.allocate(8L, 8L)
-            val arg2 = arena.allocate(JAVA_BYTE)
-            val arg3 = arena.allocate(JAVA_BYTE)
-            val ret = arena.allocate(8L, 8L)
-            try {
-                GodotStrings.initString(arg0, first)
-                GodotStrings.initString(arg1, second)
-                arg2.set(JAVA_BYTE, 0, if (firstBool) 1.toByte() else 0.toByte())
-                arg3.set(JAVA_BYTE, 0, if (secondBool) 1.toByte() else 0.toByte())
-                val args = arena.allocate(ADDRESS, 4)
-                args.setAtIndex(ADDRESS, 0, arg0)
-                args.setAtIndex(ADDRESS, 1, arg1)
-                args.setAtIndex(ADDRESS, 2, arg2)
-                args.setAtIndex(ADDRESS, 3, arg3)
-                objectMethodBindPtrcall.invoke(methodBind, instance, args, ret)
-                return BuiltinTypes.readArrayObjects(ret)
-            } finally {
-                GodotStrings.destroyString(arg0)
-                GodotStrings.destroyString(arg1)
-                BuiltinTypes.destroyTyped(VariantType.ARRAY, ret)
-            }
-        }
-    }
-
     fun ptrcallWithTwoStringAndTwoBoolArgsRetTypedNodeList(
         methodBind: MemorySegment,
         instance: MemorySegment,

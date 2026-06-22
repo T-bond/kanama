@@ -142,14 +142,14 @@ open class Node(handle: MemorySegment) : GodotObject(handle) {
         recursive: Boolean = true,
         owned: Boolean = true,
     ): List<Node> =
-        ObjectCalls.ptrcallWithTwoStringAndTwoBoolArgsRetObjectList(
+        ObjectCalls.ptrcallWithTwoStringAndTwoBoolArgsRetTypedNodeList(
             findChildrenBind,
             handle,
             pattern,
             type,
             recursive,
             owned,
-        ).map { Node(it.handle) }
+        )
 
     /**
      * Finds the first ancestor of this node whose `name` matches `pattern`, returning `null` if no
