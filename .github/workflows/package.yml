@@ -14,6 +14,8 @@ concurrency:
   cancel-in-progress: false
 
 env:
+  # Dash form of kanamaGodotVersion in gradle.properties (the single-source pin, F4).
+  # scripts/check_godot_version_pin.py fails CI if these drift.
   GODOT_VERSION: 4.7-stable
 
 jobs:

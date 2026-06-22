@@ -698,11 +698,13 @@ tasks.register("packageDistributions") {
 
 val xcodeDeveloperDir = providers.gradleProperty("kanamaXcodeDeveloperDir")
     .orElse("/Applications/Xcode.app/Contents/Developer")
+// Single source of truth for the Godot baseline version (see gradle.properties).
+val godotVersion = providers.gradleProperty("kanamaGodotVersion").orElse("4.7.stable")
 val godotIosTemplateZip = providers.gradleProperty("kanamaGodotIosTemplateZip")
     .orElse(providers.environmentVariable("GODOT_IOS_TEMPLATE_ZIP"))
     .orElse(
-        providers.provider {
-            "${System.getProperty("user.home")}/Library/Application Support/Godot/export_templates/4.7.stable/ios.zip"
+        godotVersion.map { version ->
+            "${System.getProperty("user.home")}/Library/Application Support/Godot/export_templates/$version/ios.zip"
         },
     )
 val iosMinimumDeploymentTarget = providers.gradleProperty("kanamaIosMinVersion").orElse("14.0")

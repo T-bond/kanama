@@ -25,7 +25,10 @@ EOF
 }
 
 xcode_developer_dir="${DEVELOPER_DIR:-/Applications/Xcode.app/Contents/Developer}"
-godot_version="4.7.stable"
+# Default Godot version from the single-source pin in gradle.properties (F4).
+_repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+godot_version="$(sed -n 's/^kanamaGodotVersion=//p' "$_repo_root/gradle.properties" | tr -d '[:space:]')"
+godot_version="${godot_version:-4.7.stable}"
 work_dir=""
 keep_work_dir=0
 debug_only=0

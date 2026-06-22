@@ -154,6 +154,9 @@ python3 "$ROOT_DIR/scripts/check_wrapper_generator.py"
 echo "[local_ci] iOS no-silent-stubs check"
 python3 "$ROOT_DIR/scripts/check_ios_no_silent_stubs.py"
 
+echo "[local_ci] Godot version pin consistency"
+python3 "$ROOT_DIR/scripts/check_godot_version_pin.py"
+
 echo "[local_ci] vararg ptrcall audit"
 python3 "$ROOT_DIR/scripts/audit_vararg_ptrcalls.py"
 

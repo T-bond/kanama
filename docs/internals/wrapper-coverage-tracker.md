@@ -78,7 +78,7 @@ separate axis.
 | Task | Model | Status |
 |---|---|---|
 | PtrcallScratch across generated wrappers (review F3) | sonnet | todo |
-| Single Godot version pin (review F4) | sonnet | todo |
+| Single Godot version pin (review F4) | sonnet | done | 2026-06-22: `kanamaGodotVersion` in `gradle.properties` is the single source (dot form `4.7.stable`). `build.gradle.kts` (iOS template path) + `scripts/ios_template_preflight.sh` read it; CI `GODOT_VERSION` (dash `4.7-stable`) + `extension_api.json` version_status are guarded by `scripts/check_godot_version_pin.py` (in `local_ci.sh`; negative-tested). Upgrade checklist updated to bump the one line. |
 | R8-minified APK smoke gate (review F2) | opus | todo |
 | AVAudioSession workaround | sonnet | todo |
 | ~~Desktop wrapper drift: `Node.findChildren` / `SceneTree.getNodesInGroup` called the stale `...RetObjectList` shape (+ a manual `.map { Node(it.handle) }`) instead of the generator's typed `...RetTypedNodeList`~~ | sonnet | done | 2026-06-22: surgically switched both wrappers to `ptrcallWith{TwoStringAndTwoBool,StringName}ArgRetTypedNodeList` (return `List<Node>` directly, no double-wrap), matching the generator. Removed the now-dead `ptrcallWithTwoStringAndTwoBoolArgsRetObjectList` from `ObjectCalls.kt` (`...StringNameArg...RetObjectList` kept — still used internally by 2 helpers). Sweep: 0 `RetObjectList` left in wrappers. Surgical (not full regen — Node/SceneTree are custom hand-maintained files with sugar, a full regen would churn ~3k lines). compileKotlin + check_wrapper_generator + runtime_smoke green. |
