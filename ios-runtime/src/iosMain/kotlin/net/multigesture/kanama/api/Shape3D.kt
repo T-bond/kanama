@@ -37,6 +37,10 @@ open class Shape3D(handle: MemorySegment) : Resource(handle) {
         return ObjectCalls.ptrcallNoArgsRetDouble(getMarginBind, handle)
     }
 
+    fun getDebugMesh(): ArrayMesh? {
+        return ArrayMesh.wrap(ObjectCalls.ptrcallNoArgsRetObject(getDebugMeshBind, handle))
+    }
+
     companion object {
         fun fromHandle(handle: MemorySegment): Shape3D? =
             wrap(handle)
@@ -62,6 +66,11 @@ open class Shape3D(handle: MemorySegment) : Resource(handle) {
         private const val GET_MARGIN_HASH = 1740695150L
         private val getMarginBind by lazy {
             ObjectCalls.getMethodBind("Shape3D", "get_margin", GET_MARGIN_HASH)
+        }
+
+        private const val GET_DEBUG_MESH_HASH = 1605880883L
+        private val getDebugMeshBind by lazy {
+            ObjectCalls.getMethodBind("Shape3D", "get_debug_mesh", GET_DEBUG_MESH_HASH)
         }
     }
 }

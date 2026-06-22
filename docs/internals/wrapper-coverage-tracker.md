@@ -73,8 +73,8 @@ Gated on Phase 4 exit. Not started by decision.
 
 ## ★ RESUME HERE (updated 2026-06-20 — resume in Opus)
 
-**State: batch-8 code committed + pushed to origin/main; DEVICE REGRESSION RUN PENDING (user must
-unlock iPhone 12 first).** (Pre-existing untracked `.agents/` + `skills-lock.json` are tooling files —
+**State: batches 8+9 code committed + pushed to origin/main; ONE COMBINED DEVICE REGRESSION RUN
+PENDING (user must unlock iPhone 12 first).** (Pre-existing untracked `.agents/` + `skills-lock.json` are tooling files —
 do NOT stage them.) Device self-test baseline to re-confirm: **PTRCALL 54 / OBJECTCALLS 78, 0 failed**
 on iPhone 12 (UDID `48DF9662-42F3-541F-9F88-7FA2AB870F86`, team `DVZT29Q4QT`) — last confirmed batches
 6+7 (2026-06-20).
@@ -94,7 +94,7 @@ includes `InputEventMouseButton` = hand-written collision (do NOT copy, like Aud
 - **Phase 4 exit met (0 STUB / 0 SUGAR)** — 4.1 (connectBound/disconnectBound/SignalConnection.close,
   bound + lambda Callables), 4.2 (SUGAR→generator custom-section, regen now LOSSLESS), 4.5 (HANDWRITTEN
   reviewed — all 10 justified bespoke, category-tagged).
-- **Phase 4 breadth batches 1–8** — emitted iOS classes **27→135** (~3,080+ new wrapper methods). All
+- **Phase 4 breadth batches 1–9** — emitted iOS classes **27→152** (~3,300+ new wrapper methods). All
   emit-only (proven marshalling, no new C, no new self-test rows), each regression-clean on device.
   **Batch 5 (2026-06-20): +14 — Button + 5 BaseButton/Button children (CheckBox/CheckButton/OptionButton/
   MenuButton/ColorPickerButton) + LinkButton/TextureButton (direct BaseButton) + the PhysicsBody2D
@@ -117,7 +117,13 @@ includes `InputEventMouseButton` = hand-written collision (do NOT copy, like Aud
   World2D/World3D); +503 method-lines incl. 19 EXISTING wrappers gaining their now-resolvable Object
   getters/setters (e.g. AudioStreamPlayer2D/3D.get_stream→AudioStream, Path2D.curve→Curve2D,
   Viewport.world_2d/3d). First skip-closure batch — skips DROPPED 327→325 (closure effect: draining
-  more than it adds). Gates + compileKotlinIosArm64 green. DEVICE REGRESSION PENDING.**
+  more than it adds). Gates + compileKotlinIosArm64 green.**
+  **Batch 9 (2026-06-21): +17 — ArrayMesh, ConcavePolygonShape3D/ConvexPolygonShape3D, ViewportTexture,
+  AudioListener2D/3D, Popup/PopupMenu/PopupPanel, ColorPicker, TileSet/TileSetSource/TileMapPattern,
+  SyntaxHighlighter, RichTextEffect, Compositor/CompositorEffect; +225 method-lines incl. 12 EXISTING
+  wrappers (Camera3D, Mesh, RichTextLabel, TileMapLayer, Viewport, etc.). Skips 325→332 (rose — these
+  surface the batch-10 mop-up frontier: TileData, the InputEvent subtree, shape variants). Gates +
+  compileKotlinIosArm64 green.** **Batches 8+9 share ONE pending device regression run (must stay 54/78).**
   Note: regen sometimes emits AudioStreamPlayer.kt + StaticBody3D.kt (hand-written collisions in
   IosGodotApi.kt) — these are NOT copied.
 

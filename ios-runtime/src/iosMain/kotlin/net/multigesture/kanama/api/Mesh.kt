@@ -45,6 +45,14 @@ open class Mesh(handle: MemorySegment) : Resource(handle) {
         return Resource.wrap(ObjectCalls.ptrcallNoArgsRetObject(createPlaceholderBind, handle))
     }
 
+    fun createTrimeshShape(): ConcavePolygonShape3D? {
+        return ConcavePolygonShape3D.wrap(ObjectCalls.ptrcallNoArgsRetObject(createTrimeshShapeBind, handle))
+    }
+
+    fun createConvexShape(clean: Boolean = true, simplify: Boolean = false): ConvexPolygonShape3D? {
+        return ConvexPolygonShape3D.wrap(ObjectCalls.ptrcallWithTwoBoolArgsRetObject(createConvexShapeBind, handle, clean, simplify))
+    }
+
     fun createOutline(margin: Double): Mesh? {
         return Mesh.wrap(ObjectCalls.ptrcallWithDoubleArgRetObject(createOutlineBind, handle, margin))
     }
@@ -147,6 +155,16 @@ open class Mesh(handle: MemorySegment) : Resource(handle) {
         private const val CREATE_PLACEHOLDER_HASH = 121922552L
         private val createPlaceholderBind by lazy {
             ObjectCalls.getMethodBind("Mesh", "create_placeholder", CREATE_PLACEHOLDER_HASH)
+        }
+
+        private const val CREATE_TRIMESH_SHAPE_HASH = 4160111210L
+        private val createTrimeshShapeBind by lazy {
+            ObjectCalls.getMethodBind("Mesh", "create_trimesh_shape", CREATE_TRIMESH_SHAPE_HASH)
+        }
+
+        private const val CREATE_CONVEX_SHAPE_HASH = 2529984628L
+        private val createConvexShapeBind by lazy {
+            ObjectCalls.getMethodBind("Mesh", "create_convex_shape", CREATE_CONVEX_SHAPE_HASH)
         }
 
         private const val CREATE_OUTLINE_HASH = 1208642001L

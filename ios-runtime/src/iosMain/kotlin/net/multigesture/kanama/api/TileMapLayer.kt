@@ -18,6 +18,12 @@ class TileMapLayer(handle: MemorySegment) : Node2D(handle) {
         @JvmName("setEnabledProperty")
         set(value) = setEnabled(value)
 
+    var tileSet: TileSet?
+        @JvmName("tileSetProperty")
+        get() = getTileSet()
+        @JvmName("setTileSetProperty")
+        set(value) = setTileSet(value)
+
     var occlusionEnabled: Boolean
         @JvmName("occlusionEnabledProperty")
         get() = isOcclusionEnabled()
@@ -118,6 +124,10 @@ class TileMapLayer(handle: MemorySegment) : Node2D(handle) {
         return ObjectCalls.ptrcallWithVector2iArgRetBool(isCellTransposedBind, handle, coords)
     }
 
+    fun setPattern(position: Vector2i, pattern: TileMapPattern?) {
+        ObjectCalls.ptrcallWithVector2iAndObjectArg(setPatternBind, handle, position, pattern?.requireOpenHandle() ?: MemorySegment.NULL)
+    }
+
     fun hasBodyRid(body: RID): Boolean {
         return ObjectCalls.ptrcallWithRIDArgRetBool(hasBodyRidBind, handle, body)
     }
@@ -132,6 +142,10 @@ class TileMapLayer(handle: MemorySegment) : Node2D(handle) {
 
     fun notifyRuntimeTileDataUpdate() {
         ObjectCalls.ptrcallNoArgs(notifyRuntimeTileDataUpdateBind, handle)
+    }
+
+    fun mapPattern(positionInTilemap: Vector2i, coordsInPattern: Vector2i, pattern: TileMapPattern?): Vector2i {
+        return ObjectCalls.ptrcallWithTwoVector2iAndObjectArgRetVector2i(mapPatternBind, handle, positionInTilemap, coordsInPattern, pattern?.requireOpenHandle() ?: MemorySegment.NULL)
     }
 
     fun getNeighborCell(coords: Vector2i, neighbor: Long): Vector2i {
@@ -152,6 +166,14 @@ class TileMapLayer(handle: MemorySegment) : Node2D(handle) {
 
     fun isEnabled(): Boolean {
         return ObjectCalls.ptrcallNoArgsRetBool(isEnabledBind, handle)
+    }
+
+    fun setTileSet(tileSet: TileSet?) {
+        ObjectCalls.ptrcallWithObjectArgs(setTileSetBind, handle, listOf(tileSet?.requireOpenHandle() ?: MemorySegment.NULL))
+    }
+
+    fun getTileSet(): TileSet? {
+        return TileSet.wrap(ObjectCalls.ptrcallNoArgsRetObject(getTileSetBind, handle))
     }
 
     fun setYSortOrigin(ySortOrigin: Int) {
@@ -307,6 +329,11 @@ class TileMapLayer(handle: MemorySegment) : Node2D(handle) {
             ObjectCalls.getMethodBind("TileMapLayer", "is_cell_transposed", IS_CELL_TRANSPOSED_HASH)
         }
 
+        private const val SET_PATTERN_HASH = 1491151770L
+        private val setPatternBind by lazy {
+            ObjectCalls.getMethodBind("TileMapLayer", "set_pattern", SET_PATTERN_HASH)
+        }
+
         private const val HAS_BODY_RID_HASH = 4155700596L
         private val hasBodyRidBind by lazy {
             ObjectCalls.getMethodBind("TileMapLayer", "has_body_rid", HAS_BODY_RID_HASH)
@@ -325,6 +352,11 @@ class TileMapLayer(handle: MemorySegment) : Node2D(handle) {
         private const val NOTIFY_RUNTIME_TILE_DATA_UPDATE_HASH = 3218959716L
         private val notifyRuntimeTileDataUpdateBind by lazy {
             ObjectCalls.getMethodBind("TileMapLayer", "notify_runtime_tile_data_update", NOTIFY_RUNTIME_TILE_DATA_UPDATE_HASH)
+        }
+
+        private const val MAP_PATTERN_HASH = 1864516957L
+        private val mapPatternBind by lazy {
+            ObjectCalls.getMethodBind("TileMapLayer", "map_pattern", MAP_PATTERN_HASH)
         }
 
         private const val GET_NEIGHBOR_CELL_HASH = 986575103L
@@ -350,6 +382,16 @@ class TileMapLayer(handle: MemorySegment) : Node2D(handle) {
         private const val IS_ENABLED_HASH = 36873697L
         private val isEnabledBind by lazy {
             ObjectCalls.getMethodBind("TileMapLayer", "is_enabled", IS_ENABLED_HASH)
+        }
+
+        private const val SET_TILE_SET_HASH = 774531446L
+        private val setTileSetBind by lazy {
+            ObjectCalls.getMethodBind("TileMapLayer", "set_tile_set", SET_TILE_SET_HASH)
+        }
+
+        private const val GET_TILE_SET_HASH = 2678226422L
+        private val getTileSetBind by lazy {
+            ObjectCalls.getMethodBind("TileMapLayer", "get_tile_set", GET_TILE_SET_HASH)
         }
 
         private const val SET_Y_SORT_ORIGIN_HASH = 1286410249L

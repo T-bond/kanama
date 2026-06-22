@@ -234,6 +234,12 @@ open class TextEdit(handle: MemorySegment) : Control(handle) {
         @JvmName("setCustomWordSeparatorsProperty")
         set(value) = setCustomWordSeparators(value)
 
+    var syntaxHighlighter: SyntaxHighlighter?
+        @JvmName("syntaxHighlighterProperty")
+        get() = getSyntaxHighlighter()
+        @JvmName("setSyntaxHighlighterProperty")
+        set(value) = setSyntaxHighlighter(value)
+
     var highlightAllOccurrences: Boolean
         @JvmName("highlightAllOccurrencesProperty")
         get() = isHighlightAllOccurrencesEnabled()
@@ -1146,6 +1152,14 @@ open class TextEdit(handle: MemorySegment) : Control(handle) {
         return ObjectCalls.ptrcallWithIntArgRetColor(getLineBackgroundColorBind, handle, line)
     }
 
+    fun setSyntaxHighlighter(syntaxHighlighter: SyntaxHighlighter?) {
+        ObjectCalls.ptrcallWithObjectArgs(setSyntaxHighlighterBind, handle, listOf(syntaxHighlighter?.requireOpenHandle() ?: MemorySegment.NULL))
+    }
+
+    fun getSyntaxHighlighter(): SyntaxHighlighter? {
+        return SyntaxHighlighter.wrap(ObjectCalls.ptrcallNoArgsRetObject(getSyntaxHighlighterBind, handle))
+    }
+
     fun setHighlightCurrentLine(enabled: Boolean) {
         ObjectCalls.ptrcallWithBoolArg(setHighlightCurrentLineBind, handle, enabled)
     }
@@ -1184,6 +1198,10 @@ open class TextEdit(handle: MemorySegment) : Control(handle) {
 
     fun isDrawingSpaces(): Boolean {
         return ObjectCalls.ptrcallNoArgsRetBool(isDrawingSpacesBind, handle)
+    }
+
+    fun getMenu(): PopupMenu? {
+        return PopupMenu.wrap(ObjectCalls.ptrcallNoArgsRetObject(getMenuBind, handle))
     }
 
     fun isMenuVisible(): Boolean {
@@ -2354,6 +2372,16 @@ open class TextEdit(handle: MemorySegment) : Control(handle) {
             ObjectCalls.getMethodBind("TextEdit", "get_line_background_color", GET_LINE_BACKGROUND_COLOR_HASH)
         }
 
+        private const val SET_SYNTAX_HIGHLIGHTER_HASH = 2765644541L
+        private val setSyntaxHighlighterBind by lazy {
+            ObjectCalls.getMethodBind("TextEdit", "set_syntax_highlighter", SET_SYNTAX_HIGHLIGHTER_HASH)
+        }
+
+        private const val GET_SYNTAX_HIGHLIGHTER_HASH = 2721131626L
+        private val getSyntaxHighlighterBind by lazy {
+            ObjectCalls.getMethodBind("TextEdit", "get_syntax_highlighter", GET_SYNTAX_HIGHLIGHTER_HASH)
+        }
+
         private const val SET_HIGHLIGHT_CURRENT_LINE_HASH = 2586408642L
         private val setHighlightCurrentLineBind by lazy {
             ObjectCalls.getMethodBind("TextEdit", "set_highlight_current_line", SET_HIGHLIGHT_CURRENT_LINE_HASH)
@@ -2402,6 +2430,11 @@ open class TextEdit(handle: MemorySegment) : Control(handle) {
         private const val IS_DRAWING_SPACES_HASH = 36873697L
         private val isDrawingSpacesBind by lazy {
             ObjectCalls.getMethodBind("TextEdit", "is_drawing_spaces", IS_DRAWING_SPACES_HASH)
+        }
+
+        private const val GET_MENU_HASH = 229722558L
+        private val getMenuBind by lazy {
+            ObjectCalls.getMethodBind("TextEdit", "get_menu", GET_MENU_HASH)
         }
 
         private const val IS_MENU_VISIBLE_HASH = 36873697L

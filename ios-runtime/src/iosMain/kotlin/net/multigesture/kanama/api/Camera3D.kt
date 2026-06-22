@@ -39,6 +39,12 @@ open class Camera3D(handle: MemorySegment) : Node3D(handle) {
         @JvmName("setAttributesProperty")
         set(value) = setAttributes(value)
 
+    var compositor: Compositor?
+        @JvmName("compositorProperty")
+        get() = getCompositor()
+        @JvmName("setCompositorProperty")
+        set(value) = setCompositor(value)
+
     var hOffset: Double
         @JvmName("hOffsetProperty")
         get() = getHOffset()
@@ -245,6 +251,14 @@ open class Camera3D(handle: MemorySegment) : Node3D(handle) {
 
     fun getAttributes(): CameraAttributes? {
         return CameraAttributes.wrap(ObjectCalls.ptrcallNoArgsRetObject(getAttributesBind, handle))
+    }
+
+    fun setCompositor(compositor: Compositor?) {
+        ObjectCalls.ptrcallWithObjectArgs(setCompositorBind, handle, listOf(compositor?.requireOpenHandle() ?: MemorySegment.NULL))
+    }
+
+    fun getCompositor(): Compositor? {
+        return Compositor.wrap(ObjectCalls.ptrcallNoArgsRetObject(getCompositorBind, handle))
     }
 
     fun setKeepAspectMode(mode: Long) {
@@ -486,6 +500,16 @@ open class Camera3D(handle: MemorySegment) : Node3D(handle) {
         private const val GET_ATTRIBUTES_HASH = 3921283215L
         private val getAttributesBind by lazy {
             ObjectCalls.getMethodBind("Camera3D", "get_attributes", GET_ATTRIBUTES_HASH)
+        }
+
+        private const val SET_COMPOSITOR_HASH = 1586754307L
+        private val setCompositorBind by lazy {
+            ObjectCalls.getMethodBind("Camera3D", "set_compositor", SET_COMPOSITOR_HASH)
+        }
+
+        private const val GET_COMPOSITOR_HASH = 3647707413L
+        private val getCompositorBind by lazy {
+            ObjectCalls.getMethodBind("Camera3D", "get_compositor", GET_COMPOSITOR_HASH)
         }
 
         private const val SET_KEEP_ASPECT_MODE_HASH = 1740651252L

@@ -463,6 +463,10 @@ class LineEdit(handle: MemorySegment) : Control(handle) {
         ObjectCalls.ptrcallWithIntArg(menuOptionBind, handle, option)
     }
 
+    fun getMenu(): PopupMenu? {
+        return PopupMenu.wrap(ObjectCalls.ptrcallNoArgsRetObject(getMenuBind, handle))
+    }
+
     fun isMenuVisible(): Boolean {
         return ObjectCalls.ptrcallNoArgsRetBool(isMenuVisibleBind, handle)
     }
@@ -959,6 +963,11 @@ class LineEdit(handle: MemorySegment) : Control(handle) {
         private const val MENU_OPTION_HASH = 1286410249L
         private val menuOptionBind by lazy {
             ObjectCalls.getMethodBind("LineEdit", "menu_option", MENU_OPTION_HASH)
+        }
+
+        private const val GET_MENU_HASH = 229722558L
+        private val getMenuBind by lazy {
+            ObjectCalls.getMethodBind("LineEdit", "get_menu", GET_MENU_HASH)
         }
 
         private const val IS_MENU_VISIBLE_HASH = 36873697L

@@ -171,6 +171,10 @@ class OptionButton(handle: MemorySegment) : Button(handle) {
         ObjectCalls.ptrcallWithIntArg(removeItemBind, handle, idx)
     }
 
+    fun getPopup(): PopupMenu? {
+        return PopupMenu.wrap(ObjectCalls.ptrcallNoArgsRetObject(getPopupBind, handle))
+    }
+
     fun showPopup() {
         ObjectCalls.ptrcallNoArgs(showPopupBind, handle)
     }
@@ -366,6 +370,11 @@ class OptionButton(handle: MemorySegment) : Button(handle) {
         private const val REMOVE_ITEM_HASH = 1286410249L
         private val removeItemBind by lazy {
             ObjectCalls.getMethodBind("OptionButton", "remove_item", REMOVE_ITEM_HASH)
+        }
+
+        private const val GET_POPUP_HASH = 229722558L
+        private val getPopupBind by lazy {
+            ObjectCalls.getMethodBind("OptionButton", "get_popup", GET_POPUP_HASH)
         }
 
         private const val SHOW_POPUP_HASH = 3218959716L

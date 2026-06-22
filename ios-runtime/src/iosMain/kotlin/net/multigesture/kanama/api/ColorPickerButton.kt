@@ -36,6 +36,14 @@ class ColorPickerButton(handle: MemorySegment) : Button(handle) {
         return ObjectCalls.ptrcallNoArgsRetColor(getPickColorBind, handle)
     }
 
+    fun getPicker(): ColorPicker? {
+        return ColorPicker.wrap(ObjectCalls.ptrcallNoArgsRetObject(getPickerBind, handle))
+    }
+
+    fun getPopup(): PopupPanel? {
+        return PopupPanel.wrap(ObjectCalls.ptrcallNoArgsRetObject(getPopupBind, handle))
+    }
+
     fun setEditAlpha(show: Boolean) {
         ObjectCalls.ptrcallWithBoolArg(setEditAlphaBind, handle, show)
     }
@@ -73,6 +81,16 @@ class ColorPickerButton(handle: MemorySegment) : Button(handle) {
         private const val GET_PICK_COLOR_HASH = 3444240500L
         private val getPickColorBind by lazy {
             ObjectCalls.getMethodBind("ColorPickerButton", "get_pick_color", GET_PICK_COLOR_HASH)
+        }
+
+        private const val GET_PICKER_HASH = 331835996L
+        private val getPickerBind by lazy {
+            ObjectCalls.getMethodBind("ColorPickerButton", "get_picker", GET_PICKER_HASH)
+        }
+
+        private const val GET_POPUP_HASH = 1322440207L
+        private val getPopupBind by lazy {
+            ObjectCalls.getMethodBind("ColorPickerButton", "get_popup", GET_POPUP_HASH)
         }
 
         private const val SET_EDIT_ALPHA_HASH = 2586408642L

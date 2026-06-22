@@ -689,6 +689,10 @@ class RichTextLabel(handle: MemorySegment) : Control(handle) {
         ObjectCalls.ptrcallNoArgs(reloadEffectsBind, handle)
     }
 
+    fun getMenu(): PopupMenu? {
+        return PopupMenu.wrap(ObjectCalls.ptrcallNoArgsRetObject(getMenuBind, handle))
+    }
+
     fun isMenuVisible(): Boolean {
         return ObjectCalls.ptrcallNoArgsRetBool(isMenuVisibleBind, handle)
     }
@@ -1356,6 +1360,11 @@ class RichTextLabel(handle: MemorySegment) : Control(handle) {
         private const val RELOAD_EFFECTS_HASH = 3218959716L
         private val reloadEffectsBind by lazy {
             ObjectCalls.getMethodBind("RichTextLabel", "reload_effects", RELOAD_EFFECTS_HASH)
+        }
+
+        private const val GET_MENU_HASH = 229722558L
+        private val getMenuBind by lazy {
+            ObjectCalls.getMethodBind("RichTextLabel", "get_menu", GET_MENU_HASH)
         }
 
         private const val IS_MENU_VISIBLE_HASH = 36873697L

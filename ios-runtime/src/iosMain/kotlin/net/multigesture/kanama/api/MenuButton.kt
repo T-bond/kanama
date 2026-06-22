@@ -21,6 +21,10 @@ class MenuButton(handle: MemorySegment) : Button(handle) {
         @JvmName("setItemCountProperty")
         set(value) = setItemCount(value)
 
+    fun getPopup(): PopupMenu? {
+        return PopupMenu.wrap(ObjectCalls.ptrcallNoArgsRetObject(getPopupBind, handle))
+    }
+
     fun showPopup() {
         ObjectCalls.ptrcallNoArgs(showPopupBind, handle)
     }
@@ -55,6 +59,11 @@ class MenuButton(handle: MemorySegment) : Button(handle) {
 
         internal fun wrap(handle: MemorySegment): MenuButton? =
             if (handle.address() == 0L) null else MenuButton(handle)
+
+        private const val GET_POPUP_HASH = 229722558L
+        private val getPopupBind by lazy {
+            ObjectCalls.getMethodBind("MenuButton", "get_popup", GET_POPUP_HASH)
+        }
 
         private const val SHOW_POPUP_HASH = 3218959716L
         private val showPopupBind by lazy {

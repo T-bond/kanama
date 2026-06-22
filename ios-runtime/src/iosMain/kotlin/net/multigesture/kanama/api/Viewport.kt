@@ -429,6 +429,10 @@ open class Viewport(handle: MemorySegment) : Node(handle) {
         return ObjectCalls.ptrcallWithTwoLongArgsRetInt(getRenderInfoBind, handle, type, info)
     }
 
+    fun getTexture(): ViewportTexture? {
+        return ViewportTexture.wrap(ObjectCalls.ptrcallNoArgsRetObject(getTextureBind, handle))
+    }
+
     fun setPhysicsObjectPicking(enable: Boolean) {
         ObjectCalls.ptrcallWithBoolArg(setPhysicsObjectPickingBind, handle, enable)
     }
@@ -673,6 +677,10 @@ open class Viewport(handle: MemorySegment) : Node(handle) {
         return ObjectCalls.ptrcallNoArgsRetBool(isAudioListener2dBind, handle)
     }
 
+    fun getAudioListener2d(): AudioListener2D? {
+        return AudioListener2D.wrap(ObjectCalls.ptrcallNoArgsRetObject(getAudioListener2dBind, handle))
+    }
+
     fun getCamera2d(): Camera2D? {
         return Camera2D.wrap(ObjectCalls.ptrcallNoArgsRetObject(getCamera2dBind, handle))
     }
@@ -695,6 +703,10 @@ open class Viewport(handle: MemorySegment) : Node(handle) {
 
     fun isUsingOwnWorld3d(): Boolean {
         return ObjectCalls.ptrcallNoArgsRetBool(isUsingOwnWorld3dBind, handle)
+    }
+
+    fun getAudioListener3d(): AudioListener3D? {
+        return AudioListener3D.wrap(ObjectCalls.ptrcallNoArgsRetObject(getAudioListener3dBind, handle))
     }
 
     fun getCamera3d(): Camera3D? {
@@ -1072,6 +1084,11 @@ open class Viewport(handle: MemorySegment) : Node(handle) {
             ObjectCalls.getMethodBind("Viewport", "get_render_info", GET_RENDER_INFO_HASH)
         }
 
+        private const val GET_TEXTURE_HASH = 1746695840L
+        private val getTextureBind by lazy {
+            ObjectCalls.getMethodBind("Viewport", "get_texture", GET_TEXTURE_HASH)
+        }
+
         private const val SET_PHYSICS_OBJECT_PICKING_HASH = 2586408642L
         private val setPhysicsObjectPickingBind by lazy {
             ObjectCalls.getMethodBind("Viewport", "set_physics_object_picking", SET_PHYSICS_OBJECT_PICKING_HASH)
@@ -1377,6 +1394,11 @@ open class Viewport(handle: MemorySegment) : Node(handle) {
             ObjectCalls.getMethodBind("Viewport", "is_audio_listener_2d", IS_AUDIO_LISTENER_2D_HASH)
         }
 
+        private const val GET_AUDIO_LISTENER_2D_HASH = 1840977180L
+        private val getAudioListener2dBind by lazy {
+            ObjectCalls.getMethodBind("Viewport", "get_audio_listener_2d", GET_AUDIO_LISTENER_2D_HASH)
+        }
+
         private const val GET_CAMERA_2D_HASH = 3551466917L
         private val getCamera2dBind by lazy {
             ObjectCalls.getMethodBind("Viewport", "get_camera_2d", GET_CAMERA_2D_HASH)
@@ -1405,6 +1427,11 @@ open class Viewport(handle: MemorySegment) : Node(handle) {
         private const val IS_USING_OWN_WORLD_3D_HASH = 36873697L
         private val isUsingOwnWorld3dBind by lazy {
             ObjectCalls.getMethodBind("Viewport", "is_using_own_world_3d", IS_USING_OWN_WORLD_3D_HASH)
+        }
+
+        private const val GET_AUDIO_LISTENER_3D_HASH = 3472246991L
+        private val getAudioListener3dBind by lazy {
+            ObjectCalls.getMethodBind("Viewport", "get_audio_listener_3d", GET_AUDIO_LISTENER_3D_HASH)
         }
 
         private const val GET_CAMERA_3D_HASH = 2285090890L

@@ -96,6 +96,14 @@ open class MeshInstance3D(handle: MemorySegment) : GeometryInstance3D(handle) {
         ObjectCalls.ptrcallNoArgs(createDebugTangentsBind, handle)
     }
 
+    fun bakeMeshFromCurrentBlendShapeMix(existing: ArrayMesh?): ArrayMesh? {
+        return ArrayMesh.wrap(ObjectCalls.ptrcallWithObjectArgRetObject(bakeMeshFromCurrentBlendShapeMixBind, handle, existing?.requireOpenHandle() ?: MemorySegment.NULL))
+    }
+
+    fun bakeMeshFromCurrentSkeletonPose(existing: ArrayMesh?): ArrayMesh? {
+        return ArrayMesh.wrap(ObjectCalls.ptrcallWithObjectArgRetObject(bakeMeshFromCurrentSkeletonPoseBind, handle, existing?.requireOpenHandle() ?: MemorySegment.NULL))
+    }
+
     companion object {
         fun fromHandle(handle: MemorySegment): MeshInstance3D? =
             wrap(handle)
@@ -186,6 +194,16 @@ open class MeshInstance3D(handle: MemorySegment) : GeometryInstance3D(handle) {
         private const val CREATE_DEBUG_TANGENTS_HASH = 3218959716L
         private val createDebugTangentsBind by lazy {
             ObjectCalls.getMethodBind("MeshInstance3D", "create_debug_tangents", CREATE_DEBUG_TANGENTS_HASH)
+        }
+
+        private const val BAKE_MESH_FROM_CURRENT_BLEND_SHAPE_MIX_HASH = 1457573577L
+        private val bakeMeshFromCurrentBlendShapeMixBind by lazy {
+            ObjectCalls.getMethodBind("MeshInstance3D", "bake_mesh_from_current_blend_shape_mix", BAKE_MESH_FROM_CURRENT_BLEND_SHAPE_MIX_HASH)
+        }
+
+        private const val BAKE_MESH_FROM_CURRENT_SKELETON_POSE_HASH = 1457573577L
+        private val bakeMeshFromCurrentSkeletonPoseBind by lazy {
+            ObjectCalls.getMethodBind("MeshInstance3D", "bake_mesh_from_current_skeleton_pose", BAKE_MESH_FROM_CURRENT_SKELETON_POSE_HASH)
         }
     }
 }
