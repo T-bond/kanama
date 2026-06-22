@@ -39,6 +39,7 @@ class ApiMethod:
     is_static: bool
     is_const: bool
     is_vararg: bool
+    is_virtual: bool = False
 
     @property
     def signature(self) -> str:
@@ -82,6 +83,7 @@ class ApiMethod:
             "is_static": self.is_static,
             "is_const": self.is_const,
             "is_vararg": self.is_vararg,
+            "is_virtual": self.is_virtual,
             "signature": self.signature,
         }
 
@@ -225,6 +227,7 @@ def load_api_classes(path: Path) -> dict[str, ApiClass]:
                     is_static=bool(method.get("is_static", False)),
                     is_const=bool(method.get("is_const", False)),
                     is_vararg=bool(method.get("is_vararg", False)),
+                    is_virtual=bool(method.get("is_virtual", False)),
                 ),
             )
         classes[class_name] = ApiClass(
