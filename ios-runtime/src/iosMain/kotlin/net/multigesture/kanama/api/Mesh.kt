@@ -57,6 +57,10 @@ open class Mesh(handle: MemorySegment) : Resource(handle) {
         return Mesh.wrap(ObjectCalls.ptrcallWithDoubleArgRetObject(createOutlineBind, handle, margin))
     }
 
+    fun generateTriangleMesh(): TriangleMesh? {
+        return TriangleMesh.wrap(ObjectCalls.ptrcallNoArgsRetObject(generateTriangleMeshBind, handle))
+    }
+
     companion object {
         const val PRIMITIVE_POINTS: Long = 0L
         const val PRIMITIVE_LINES: Long = 1L
@@ -170,6 +174,11 @@ open class Mesh(handle: MemorySegment) : Resource(handle) {
         private const val CREATE_OUTLINE_HASH = 1208642001L
         private val createOutlineBind by lazy {
             ObjectCalls.getMethodBind("Mesh", "create_outline", CREATE_OUTLINE_HASH)
+        }
+
+        private const val GENERATE_TRIANGLE_MESH_HASH = 3476533166L
+        private val generateTriangleMeshBind by lazy {
+            ObjectCalls.getMethodBind("Mesh", "generate_triangle_mesh", GENERATE_TRIANGLE_MESH_HASH)
         }
     }
 }

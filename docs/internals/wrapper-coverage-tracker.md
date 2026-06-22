@@ -73,11 +73,11 @@ Gated on Phase 4 exit. Not started by decision.
 
 ## ★ RESUME HERE (updated 2026-06-20 — resume in Opus)
 
-**State: working tree CLEAN, all committed AND pushed to origin/main at `b6478ec` (batches 8+9+10).**
-(Pre-existing untracked `.agents/` + `skills-lock.json` are tooling files — do NOT stage them.)
-Device self-test baseline: **PTRCALL 54 / OBJECTCALLS 78, 0 failed, 0 crashes** on iPhone 12 (UDID
-`48DF9662-42F3-541F-9F88-7FA2AB870F86`, team `DVZT29Q4QT`) — re-confirmed via combined regression run
-covering batches 8+9+10 (2026-06-21).
+**State: batch-11 code committed + pushed to origin/main; DEVICE REGRESSION RUN PENDING (phone was
+unlocked this session — user offered open testing).** (Pre-existing untracked `.agents/` +
+`skills-lock.json` are tooling files — do NOT stage them.) Device self-test baseline to re-confirm:
+**PTRCALL 54 / OBJECTCALLS 78, 0 failed, 0 crashes** on iPhone 12 (UDID
+`48DF9662-42F3-541F-9F88-7FA2AB870F86`, team `DVZT29Q4QT`) — last confirmed batches 8+9+10 (2026-06-21).
 
 **★ SKIP-CLOSURE FIXPOINT REACHED (2026-06-21, batch 10).** The BFS closure over emitted classes'
 Object args/returns/properties now returns **0** not-yet-emitted in-scope classes — the entire
@@ -87,9 +87,15 @@ virtual/callback (116, Phase 5) + Variant/Array deferred (~37) + StringName/type
 (~162) + **14 bare-`root=Object` utility/server types** (KinematicCollision2D/3D, SkinReference,
 Node3DGizmo, AudioSample(Playback), TriangleMesh, MeshConvexDecompositionSettings,
 PhysicsDirectSpaceState2D/3D, MultiplayerAPI, SceneState, + the already-hand-written SceneTree/Tween).
-**Optional future "batch 11"** = those bare-Object utility types if desired (KinematicCollision2D/3D
-are the useful ones — move_and_collide returns; SceneTree/Tween are collisions → skip-copy). Plan:
-`~/.claude/plans/snappy-conjuring-pebble.md`.
+**★ BATCH 11 DONE (2026-06-21) — bare-Object utility floor reached (190 emitted).** Emitted the
+useful bare-`root=Object` types: KinematicCollision2D/3D (move_and_collide returns now resolve on
+CharacterBody2D/3D + PhysicsBody2D/3D), PhysicsDirectSpaceState2D/3D + the 6 Physics query-param
+classes (raycast/shape/point queries), MultiplayerAPI, SceneState, SkinReference, Node3DGizmo,
+TriangleMesh, MeshConvexDecompositionSettings, AudioSample(Playback). **Residual Object-shape skips
+now just 4 deliberately-excluded classes:** `MultiplayerPeer` (needs PacketPeer = networking subtree,
+not started), bare `Object` (no concrete emit), and `SceneTree`/`Tween` (already hand-written in
+IosGodotApi.kt). **This is the breadth floor** — nothing further is cleanly emittable without entering
+the networking subtree or Phase 5. Plan: `~/.claude/plans/snappy-conjuring-pebble.md`.
 
 **DONE (this session, 2026-06-17→20):**
 - **Phase 2 COMPLETE** — 2.7d (typed-object arrays) → 2.7e (Variant scalars) → 2.7f (arg-bearing
@@ -99,7 +105,7 @@ are the useful ones — move_and_collide returns; SceneTree/Tween are collisions
 - **Phase 4 exit met (0 STUB / 0 SUGAR)** — 4.1 (connectBound/disconnectBound/SignalConnection.close,
   bound + lambda Callables), 4.2 (SUGAR→generator custom-section, regen now LOSSLESS), 4.5 (HANDWRITTEN
   reviewed — all 10 justified bespoke, category-tagged).
-- **Phase 4 breadth batches 1–10** — emitted iOS classes **27→172** (~3,400+ new wrapper methods). All
+- **Phase 4 breadth batches 1–11** — emitted iOS classes **27→190** (~3,550+ new wrapper methods). All
   emit-only (proven marshalling, no new C, no new self-test rows), each regression-clean on device.
   **Batch 5 (2026-06-20): +14 — Button + 5 BaseButton/Button children (CheckBox/CheckButton/OptionButton/
   MenuButton/ColorPickerButton) + LinkButton/TextureButton (direct BaseButton) + the PhysicsBody2D
@@ -135,6 +141,13 @@ are the useful ones — move_and_collide returns; SceneTree/Tween are collisions
   BFS reach == 0. Gates + compileKotlinIosArm64 green; skips 350 (residual all out-of-breadth — see
   RESUME ★).** **Batches 8+9+10 DEVICE-VALIDATED together — combined regression run clean (PTRCALL 54 /
   OBJECTCALLS 78, 0 failed, 0 crashes) on iPhone 12, 2026-06-21.**
+  **Batch 11 (2026-06-21): +18 — bare-root=Object utility floor: KinematicCollision2D/3D,
+  PhysicsDirectSpaceState2D/3D + 6 Physics query-param classes (Shape/Point/Ray ×2D/3D), MultiplayerAPI,
+  SceneState, SkinReference, Node3DGizmo, TriangleMesh, MeshConvexDecompositionSettings,
+  AudioSample/AudioSamplePlayback. Drains move_and_collide on CharacterBody2D/3D + PhysicsBody2D/3D and
+  the space-state intersect queries. SceneTree/Tween excluded (hand-written collisions). Residual
+  Object-shape skips now 4 (MultiplayerPeer/Object/SceneTree/Tween — all deliberately out-of-scope =
+  breadth floor). Gates + compileKotlinIosArm64 green; skips 356. DEVICE REGRESSION PENDING.**
   Note: regen sometimes emits AudioStreamPlayer.kt + StaticBody3D.kt (hand-written collisions in
   IosGodotApi.kt) — these are NOT copied.
 

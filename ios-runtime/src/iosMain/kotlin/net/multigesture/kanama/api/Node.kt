@@ -33,6 +33,10 @@ open class Node(handle: MemorySegment) : GodotObject(handle) {
         @JvmName("ownerProperty")
         get() = getOwner()
 
+    val multiplayer: MultiplayerAPI?
+        @JvmName("multiplayerProperty")
+        get() = getMultiplayer()
+
     var processMode: Long
         @JvmName("processModeProperty")
         get() = getProcessMode()
@@ -477,6 +481,10 @@ open class Node(handle: MemorySegment) : GodotObject(handle) {
 
     fun isMultiplayerAuthority(): Boolean {
         return ObjectCalls.ptrcallNoArgsRetBool(isMultiplayerAuthorityBind, handle)
+    }
+
+    fun getMultiplayer(): MultiplayerAPI? {
+        return MultiplayerAPI.wrap(ObjectCalls.ptrcallNoArgsRetObject(getMultiplayerBind, handle))
     }
 
     fun getNodeRpcConfig(): Any? {
@@ -1154,6 +1162,11 @@ open class Node(handle: MemorySegment) : GodotObject(handle) {
         private const val IS_MULTIPLAYER_AUTHORITY_HASH = 36873697L
         private val isMultiplayerAuthorityBind by lazy {
             ObjectCalls.getMethodBind("Node", "is_multiplayer_authority", IS_MULTIPLAYER_AUTHORITY_HASH)
+        }
+
+        private const val GET_MULTIPLAYER_HASH = 406750475L
+        private val getMultiplayerBind by lazy {
+            ObjectCalls.getMethodBind("Node", "get_multiplayer", GET_MULTIPLAYER_HASH)
         }
 
         private const val GET_NODE_RPC_CONFIG_HASH = 1214101251L

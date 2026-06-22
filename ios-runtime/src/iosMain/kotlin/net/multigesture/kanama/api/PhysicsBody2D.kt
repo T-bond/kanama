@@ -3,12 +3,21 @@ package net.multigesture.kanama.api
 import java.lang.foreign.MemorySegment
 import net.multigesture.kanama.binding.runtime.ObjectCalls
 import net.multigesture.kanama.binding.runtime.*
+import net.multigesture.kanama.types.Transform2D
 import net.multigesture.kanama.types.Vector2
 
 /**
  * Generated from Godot docs: PhysicsBody2D
  */
 open class PhysicsBody2D(handle: MemorySegment) : CollisionObject2D(handle) {
+    fun moveAndCollide(motion: Vector2, testOnly: Boolean = false, safeMargin: Double = 0.08, recoveryAsCollision: Boolean = false): KinematicCollision2D? {
+        return KinematicCollision2D.wrap(ObjectCalls.ptrcallWithVector2BoolFloatBoolArgsRetObject(moveAndCollideBind, handle, motion, testOnly, safeMargin, recoveryAsCollision))
+    }
+
+    fun testMove(from: Transform2D, motion: Vector2, collision: KinematicCollision2D?, safeMargin: Double = 0.08, recoveryAsCollision: Boolean = false): Boolean {
+        return ObjectCalls.ptrcallWithTransform2DVector2ObjectDoubleBoolArgsRetBool(testMoveBind, handle, from, motion, collision?.requireOpenHandle() ?: MemorySegment.NULL, safeMargin, recoveryAsCollision)
+    }
+
     fun getGravity(): Vector2 {
         return ObjectCalls.ptrcallNoArgsRetVector2(getGravityBind, handle)
     }
@@ -31,6 +40,16 @@ open class PhysicsBody2D(handle: MemorySegment) : CollisionObject2D(handle) {
 
         internal fun wrap(handle: MemorySegment): PhysicsBody2D? =
             if (handle.address() == 0L) null else PhysicsBody2D(handle)
+
+        private const val MOVE_AND_COLLIDE_HASH = 3681923724L
+        private val moveAndCollideBind by lazy {
+            ObjectCalls.getMethodBind("PhysicsBody2D", "move_and_collide", MOVE_AND_COLLIDE_HASH)
+        }
+
+        private const val TEST_MOVE_HASH = 3324464701L
+        private val testMoveBind by lazy {
+            ObjectCalls.getMethodBind("PhysicsBody2D", "test_move", TEST_MOVE_HASH)
+        }
 
         private const val GET_GRAVITY_HASH = 3341600327L
         private val getGravityBind by lazy {

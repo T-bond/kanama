@@ -22,6 +22,10 @@ class World2D(handle: MemorySegment) : Resource(handle) {
         @JvmName("spaceProperty")
         get() = getSpace()
 
+    val directSpaceState: PhysicsDirectSpaceState2D?
+        @JvmName("directSpaceStateProperty")
+        get() = getDirectSpaceState()
+
     fun getCanvas(): RID {
         return ObjectCalls.ptrcallNoArgsRetRID(getCanvasBind, handle)
     }
@@ -32,6 +36,10 @@ class World2D(handle: MemorySegment) : Resource(handle) {
 
     fun getSpace(): RID {
         return ObjectCalls.ptrcallNoArgsRetRID(getSpaceBind, handle)
+    }
+
+    fun getDirectSpaceState(): PhysicsDirectSpaceState2D? {
+        return PhysicsDirectSpaceState2D.wrap(ObjectCalls.ptrcallNoArgsRetObject(getDirectSpaceStateBind, handle))
     }
 
     companion object {
@@ -54,6 +62,11 @@ class World2D(handle: MemorySegment) : Resource(handle) {
         private const val GET_SPACE_HASH = 2944877500L
         private val getSpaceBind by lazy {
             ObjectCalls.getMethodBind("World2D", "get_space", GET_SPACE_HASH)
+        }
+
+        private const val GET_DIRECT_SPACE_STATE_HASH = 2506717822L
+        private val getDirectSpaceStateBind by lazy {
+            ObjectCalls.getMethodBind("World2D", "get_direct_space_state", GET_DIRECT_SPACE_STATE_HASH)
         }
     }
 }

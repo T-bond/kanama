@@ -20,6 +20,10 @@ class PackedScene(handle: MemorySegment) : Resource(handle) {
         return ObjectCalls.ptrcallNoArgsRetBool(canInstantiateBind, handle)
     }
 
+    fun getState(): SceneState? {
+        return SceneState.wrap(ObjectCalls.ptrcallNoArgsRetObject(getStateBind, handle))
+    }
+
     companion object {
         const val GEN_EDIT_STATE_DISABLED: Long = 0L
         const val GEN_EDIT_STATE_INSTANCE: Long = 1L
@@ -45,6 +49,11 @@ class PackedScene(handle: MemorySegment) : Resource(handle) {
         private const val CAN_INSTANTIATE_HASH = 36873697L
         private val canInstantiateBind by lazy {
             ObjectCalls.getMethodBind("PackedScene", "can_instantiate", CAN_INSTANTIATE_HASH)
+        }
+
+        private const val GET_STATE_HASH = 3479783971L
+        private val getStateBind by lazy {
+            ObjectCalls.getMethodBind("PackedScene", "get_state", GET_STATE_HASH)
         }
     }
 }

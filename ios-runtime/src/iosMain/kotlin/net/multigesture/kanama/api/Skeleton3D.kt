@@ -97,6 +97,10 @@ class Skeleton3D(handle: MemorySegment) : Node3D(handle) {
         return Skin.wrap(ObjectCalls.ptrcallNoArgsRetObject(createSkinFromRestTransformsBind, handle))
     }
 
+    fun registerSkin(skin: Skin?): SkinReference? {
+        return SkinReference.wrap(ObjectCalls.ptrcallWithObjectArgRetObject(registerSkinBind, handle, skin?.requireOpenHandle() ?: MemorySegment.NULL))
+    }
+
     fun localizeRests() {
         ObjectCalls.ptrcallNoArgs(localizeRestsBind, handle)
     }
@@ -327,6 +331,11 @@ class Skeleton3D(handle: MemorySegment) : Node3D(handle) {
         private const val CREATE_SKIN_FROM_REST_TRANSFORMS_HASH = 1032037385L
         private val createSkinFromRestTransformsBind by lazy {
             ObjectCalls.getMethodBind("Skeleton3D", "create_skin_from_rest_transforms", CREATE_SKIN_FROM_REST_TRANSFORMS_HASH)
+        }
+
+        private const val REGISTER_SKIN_HASH = 3405789568L
+        private val registerSkinBind by lazy {
+            ObjectCalls.getMethodBind("Skeleton3D", "register_skin", REGISTER_SKIN_HASH)
         }
 
         private const val LOCALIZE_RESTS_HASH = 3218959716L

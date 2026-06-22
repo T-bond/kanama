@@ -40,6 +40,10 @@ class World3D(handle: MemorySegment) : Resource(handle) {
         @JvmName("scenarioProperty")
         get() = getScenario()
 
+    val directSpaceState: PhysicsDirectSpaceState3D?
+        @JvmName("directSpaceStateProperty")
+        get() = getDirectSpaceState()
+
     fun getSpace(): RID {
         return ObjectCalls.ptrcallNoArgsRetRID(getSpaceBind, handle)
     }
@@ -74,6 +78,10 @@ class World3D(handle: MemorySegment) : Resource(handle) {
 
     fun getCameraAttributes(): CameraAttributes? {
         return CameraAttributes.wrap(ObjectCalls.ptrcallNoArgsRetObject(getCameraAttributesBind, handle))
+    }
+
+    fun getDirectSpaceState(): PhysicsDirectSpaceState3D? {
+        return PhysicsDirectSpaceState3D.wrap(ObjectCalls.ptrcallNoArgsRetObject(getDirectSpaceStateBind, handle))
     }
 
     companion object {
@@ -126,6 +134,11 @@ class World3D(handle: MemorySegment) : Resource(handle) {
         private const val GET_CAMERA_ATTRIBUTES_HASH = 3921283215L
         private val getCameraAttributesBind by lazy {
             ObjectCalls.getMethodBind("World3D", "get_camera_attributes", GET_CAMERA_ATTRIBUTES_HASH)
+        }
+
+        private const val GET_DIRECT_SPACE_STATE_HASH = 2069328350L
+        private val getDirectSpaceStateBind by lazy {
+            ObjectCalls.getMethodBind("World3D", "get_direct_space_state", GET_DIRECT_SPACE_STATE_HASH)
         }
     }
 }

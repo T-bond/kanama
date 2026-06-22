@@ -284,6 +284,14 @@ class CharacterBody2D(handle: MemorySegment) : PhysicsBody2D(handle) {
         return ObjectCalls.ptrcallNoArgsRetInt(getSlideCollisionCountBind, handle)
     }
 
+    fun getSlideCollision(slideIdx: Int): KinematicCollision2D? {
+        return KinematicCollision2D.wrap(ObjectCalls.ptrcallWithIntArgRetObject(getSlideCollisionBind, handle, slideIdx))
+    }
+
+    fun getLastSlideCollision(): KinematicCollision2D? {
+        return KinematicCollision2D.wrap(ObjectCalls.ptrcallNoArgsRetObject(getLastSlideCollisionBind, handle))
+    }
+
     companion object {
         const val MOTION_MODE_GROUNDED: Long = 0L
         const val MOTION_MODE_FLOATING: Long = 1L
@@ -525,6 +533,16 @@ class CharacterBody2D(handle: MemorySegment) : PhysicsBody2D(handle) {
         private const val GET_SLIDE_COLLISION_COUNT_HASH = 3905245786L
         private val getSlideCollisionCountBind by lazy {
             ObjectCalls.getMethodBind("CharacterBody2D", "get_slide_collision_count", GET_SLIDE_COLLISION_COUNT_HASH)
+        }
+
+        private const val GET_SLIDE_COLLISION_HASH = 860659811L
+        private val getSlideCollisionBind by lazy {
+            ObjectCalls.getMethodBind("CharacterBody2D", "get_slide_collision", GET_SLIDE_COLLISION_HASH)
+        }
+
+        private const val GET_LAST_SLIDE_COLLISION_HASH = 2161834755L
+        private val getLastSlideCollisionBind by lazy {
+            ObjectCalls.getMethodBind("CharacterBody2D", "get_last_slide_collision", GET_LAST_SLIDE_COLLISION_HASH)
         }
     }
 }

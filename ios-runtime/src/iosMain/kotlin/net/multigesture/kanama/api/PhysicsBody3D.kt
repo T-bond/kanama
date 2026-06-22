@@ -3,12 +3,21 @@ package net.multigesture.kanama.api
 import java.lang.foreign.MemorySegment
 import net.multigesture.kanama.binding.runtime.ObjectCalls
 import net.multigesture.kanama.binding.runtime.*
+import net.multigesture.kanama.types.Transform3D
 import net.multigesture.kanama.types.Vector3
 
 /**
  * Generated from Godot docs: PhysicsBody3D
  */
 open class PhysicsBody3D(handle: MemorySegment) : CollisionObject3D(handle) {
+    fun moveAndCollide(motion: Vector3, testOnly: Boolean = false, safeMargin: Double = 0.001, recoveryAsCollision: Boolean = false, maxCollisions: Int = 1): KinematicCollision3D? {
+        return KinematicCollision3D.wrap(ObjectCalls.ptrcallWithVector3BoolFloatBoolIntArgsRetObject(moveAndCollideBind, handle, motion, testOnly, safeMargin, recoveryAsCollision, maxCollisions))
+    }
+
+    fun testMove(from: Transform3D, motion: Vector3, collision: KinematicCollision3D?, safeMargin: Double = 0.001, recoveryAsCollision: Boolean = false, maxCollisions: Int = 1): Boolean {
+        return ObjectCalls.ptrcallWithTransform3DVector3ObjectDoubleBoolIntArgsRetBool(testMoveBind, handle, from, motion, collision?.requireOpenHandle() ?: MemorySegment.NULL, safeMargin, recoveryAsCollision, maxCollisions)
+    }
+
     fun getGravity(): Vector3 {
         return ObjectCalls.ptrcallNoArgsRetVector3(getGravityBind, handle)
     }
@@ -39,6 +48,16 @@ open class PhysicsBody3D(handle: MemorySegment) : CollisionObject3D(handle) {
 
         internal fun wrap(handle: MemorySegment): PhysicsBody3D? =
             if (handle.address() == 0L) null else PhysicsBody3D(handle)
+
+        private const val MOVE_AND_COLLIDE_HASH = 3208792678L
+        private val moveAndCollideBind by lazy {
+            ObjectCalls.getMethodBind("PhysicsBody3D", "move_and_collide", MOVE_AND_COLLIDE_HASH)
+        }
+
+        private const val TEST_MOVE_HASH = 2481691619L
+        private val testMoveBind by lazy {
+            ObjectCalls.getMethodBind("PhysicsBody3D", "test_move", TEST_MOVE_HASH)
+        }
 
         private const val GET_GRAVITY_HASH = 3360562783L
         private val getGravityBind by lazy {

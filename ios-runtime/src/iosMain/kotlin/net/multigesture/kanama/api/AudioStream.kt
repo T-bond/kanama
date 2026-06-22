@@ -24,6 +24,10 @@ open class AudioStream(handle: MemorySegment) : Resource(handle) {
         return ObjectCalls.ptrcallNoArgsRetBool(canBeSampledBind, handle)
     }
 
+    fun generateSample(): AudioSample? {
+        return AudioSample.wrap(ObjectCalls.ptrcallNoArgsRetObject(generateSampleBind, handle))
+    }
+
     fun isMetaStream(): Boolean {
         return ObjectCalls.ptrcallNoArgsRetBool(isMetaStreamBind, handle)
     }
@@ -57,6 +61,11 @@ open class AudioStream(handle: MemorySegment) : Resource(handle) {
         private const val CAN_BE_SAMPLED_HASH = 36873697L
         private val canBeSampledBind by lazy {
             ObjectCalls.getMethodBind("AudioStream", "can_be_sampled", CAN_BE_SAMPLED_HASH)
+        }
+
+        private const val GENERATE_SAMPLE_HASH = 2646048999L
+        private val generateSampleBind by lazy {
+            ObjectCalls.getMethodBind("AudioStream", "generate_sample", GENERATE_SAMPLE_HASH)
         }
 
         private const val IS_META_STREAM_HASH = 36873697L

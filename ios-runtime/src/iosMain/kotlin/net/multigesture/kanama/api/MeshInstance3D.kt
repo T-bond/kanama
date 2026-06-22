@@ -52,6 +52,10 @@ open class MeshInstance3D(handle: MemorySegment) : GeometryInstance3D(handle) {
         return Skin.wrap(ObjectCalls.ptrcallNoArgsRetObject(getSkinBind, handle))
     }
 
+    fun getSkinReference(): SkinReference? {
+        return SkinReference.wrap(ObjectCalls.ptrcallNoArgsRetObject(getSkinReferenceBind, handle))
+    }
+
     fun getSurfaceOverrideMaterialCount(): Int {
         return ObjectCalls.ptrcallNoArgsRetInt(getSurfaceOverrideMaterialCountBind, handle)
     }
@@ -74,6 +78,10 @@ open class MeshInstance3D(handle: MemorySegment) : GeometryInstance3D(handle) {
 
     fun createConvexCollision(clean: Boolean = true, simplify: Boolean = false) {
         ObjectCalls.ptrcallWithTwoBoolArgs(createConvexCollisionBind, handle, clean, simplify)
+    }
+
+    fun createMultipleConvexCollisions(settings: MeshConvexDecompositionSettings?) {
+        ObjectCalls.ptrcallWithObjectArgs(createMultipleConvexCollisionsBind, handle, listOf(settings?.requireOpenHandle() ?: MemorySegment.NULL))
     }
 
     fun getBlendShapeCount(): Int {
@@ -141,6 +149,11 @@ open class MeshInstance3D(handle: MemorySegment) : GeometryInstance3D(handle) {
             ObjectCalls.getMethodBind("MeshInstance3D", "get_skin", GET_SKIN_HASH)
         }
 
+        private const val GET_SKIN_REFERENCE_HASH = 2060603409L
+        private val getSkinReferenceBind by lazy {
+            ObjectCalls.getMethodBind("MeshInstance3D", "get_skin_reference", GET_SKIN_REFERENCE_HASH)
+        }
+
         private const val GET_SURFACE_OVERRIDE_MATERIAL_COUNT_HASH = 3905245786L
         private val getSurfaceOverrideMaterialCountBind by lazy {
             ObjectCalls.getMethodBind("MeshInstance3D", "get_surface_override_material_count", GET_SURFACE_OVERRIDE_MATERIAL_COUNT_HASH)
@@ -169,6 +182,11 @@ open class MeshInstance3D(handle: MemorySegment) : GeometryInstance3D(handle) {
         private const val CREATE_CONVEX_COLLISION_HASH = 2751962654L
         private val createConvexCollisionBind by lazy {
             ObjectCalls.getMethodBind("MeshInstance3D", "create_convex_collision", CREATE_CONVEX_COLLISION_HASH)
+        }
+
+        private const val CREATE_MULTIPLE_CONVEX_COLLISIONS_HASH = 628789669L
+        private val createMultipleConvexCollisionsBind by lazy {
+            ObjectCalls.getMethodBind("MeshInstance3D", "create_multiple_convex_collisions", CREATE_MULTIPLE_CONVEX_COLLISIONS_HASH)
         }
 
         private const val GET_BLEND_SHAPE_COUNT_HASH = 3905245786L

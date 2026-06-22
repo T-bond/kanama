@@ -276,8 +276,20 @@ open class Node3D(handle: MemorySegment) : Node(handle) {
         ObjectCalls.ptrcallNoArgs(updateGizmosBind, handle)
     }
 
+    fun addGizmo(gizmo: Node3DGizmo?) {
+        ObjectCalls.ptrcallWithObjectArgs(addGizmoBind, handle, listOf(gizmo?.requireOpenHandle() ?: MemorySegment.NULL))
+    }
+
+    fun getGizmos(): List<Node3DGizmo> {
+        return ObjectCalls.ptrcallNoArgsRetTypedObjectList(getGizmosBind, handle, Node3DGizmo::fromHandle)
+    }
+
     fun clearGizmos() {
         ObjectCalls.ptrcallNoArgs(clearGizmosBind, handle)
+    }
+
+    fun setSubgizmoSelection(gizmo: Node3DGizmo?, id: Int, transform: Transform3D) {
+        ObjectCalls.ptrcallWithObjectIntTransform3DArgs(setSubgizmoSelectionBind, handle, gizmo?.requireOpenHandle() ?: MemorySegment.NULL, id, transform)
     }
 
     fun clearSubgizmoSelection() {
@@ -608,9 +620,24 @@ open class Node3D(handle: MemorySegment) : Node(handle) {
             ObjectCalls.getMethodBind("Node3D", "update_gizmos", UPDATE_GIZMOS_HASH)
         }
 
+        private const val ADD_GIZMO_HASH = 1544533845L
+        private val addGizmoBind by lazy {
+            ObjectCalls.getMethodBind("Node3D", "add_gizmo", ADD_GIZMO_HASH)
+        }
+
+        private const val GET_GIZMOS_HASH = 3995934104L
+        private val getGizmosBind by lazy {
+            ObjectCalls.getMethodBind("Node3D", "get_gizmos", GET_GIZMOS_HASH)
+        }
+
         private const val CLEAR_GIZMOS_HASH = 3218959716L
         private val clearGizmosBind by lazy {
             ObjectCalls.getMethodBind("Node3D", "clear_gizmos", CLEAR_GIZMOS_HASH)
+        }
+
+        private const val SET_SUBGIZMO_SELECTION_HASH = 3317607635L
+        private val setSubgizmoSelectionBind by lazy {
+            ObjectCalls.getMethodBind("Node3D", "set_subgizmo_selection", SET_SUBGIZMO_SELECTION_HASH)
         }
 
         private const val CLEAR_SUBGIZMO_SELECTION_HASH = 3218959716L

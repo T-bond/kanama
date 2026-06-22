@@ -8,6 +8,14 @@ import net.multigesture.kanama.binding.runtime.*
  * Generated from Godot docs: AudioStreamPlayback
  */
 open class AudioStreamPlayback(handle: MemorySegment) : RefCounted(handle) {
+    fun setSamplePlayback(playbackSample: AudioSamplePlayback?) {
+        ObjectCalls.ptrcallWithObjectArgs(setSamplePlaybackBind, handle, listOf(playbackSample?.requireOpenHandle() ?: MemorySegment.NULL))
+    }
+
+    fun getSamplePlayback(): AudioSamplePlayback? {
+        return AudioSamplePlayback.wrap(ObjectCalls.ptrcallNoArgsRetObject(getSamplePlaybackBind, handle))
+    }
+
     fun start(fromPos: Double = 0.0) {
         ObjectCalls.ptrcallWithDoubleArg(startBind, handle, fromPos)
     }
@@ -38,6 +46,16 @@ open class AudioStreamPlayback(handle: MemorySegment) : RefCounted(handle) {
 
         internal fun wrap(handle: MemorySegment): AudioStreamPlayback? =
             if (handle.address() == 0L) null else AudioStreamPlayback(handle)
+
+        private const val SET_SAMPLE_PLAYBACK_HASH = 3195455091L
+        private val setSamplePlaybackBind by lazy {
+            ObjectCalls.getMethodBind("AudioStreamPlayback", "set_sample_playback", SET_SAMPLE_PLAYBACK_HASH)
+        }
+
+        private const val GET_SAMPLE_PLAYBACK_HASH = 3482738536L
+        private val getSamplePlaybackBind by lazy {
+            ObjectCalls.getMethodBind("AudioStreamPlayback", "get_sample_playback", GET_SAMPLE_PLAYBACK_HASH)
+        }
 
         private const val START_HASH = 1958160172L
         private val startBind by lazy {
