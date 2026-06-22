@@ -77,7 +77,7 @@ separate axis.
 
 | Task | Model | Status |
 |---|---|---|
-| PtrcallScratch across generated wrappers (review F3) | sonnet | todo |
+| PtrcallScratch across generated wrappers (review F3) | sonnet | bounded-done | 2026-06-22: **assessed + bounded batch.** Review premise corrected: desktop `ObjectCalls.kt` is HAND-WRITTEN (only iOS `ObjectCallsGenerated.kt` is generated), so there's no generator to centralize; a blanket convert of the ~1478 Arena helpers is unsafe (828 are variable-size → keep arenas per review; the rest carry reentrancy risk on the hot path; the easy scalar shapes are already on `ptrcallScratch`). Did the safe, benchmark-justified subset: added POD return buffers + converted the 6 leaf per-frame geometry getters (`ptrcallNoArgsRet{Vector3,Vector3i,Vector2i,Transform3D,Basis,Quaternion}`) — const getters, no reentrancy. Micro-bench: arena 27.4 ns/call → scratch 6.8 ns/call (~20.6 ns saved, 75%). compileKotlin + layout/storage audits + check_wrapper_generator + runtime_smoke green. Remaining no-arg POD getters (Vector4/Transform2D/AABB/Plane/Projection/Rect2i/Color) are the same safe pattern + buffers — a straightforward extension. |
 | Single Godot version pin (review F4) | sonnet | done | 2026-06-22: `kanamaGodotVersion` in `gradle.properties` is the single source (dot form `4.7.stable`). `build.gradle.kts` (iOS template path) + `scripts/ios_template_preflight.sh` read it; CI `GODOT_VERSION` (dash `4.7-stable`) + `extension_api.json` version_status are guarded by `scripts/check_godot_version_pin.py` (in `local_ci.sh`; negative-tested). Upgrade checklist updated to bump the one line. |
 | R8-minified APK smoke gate (review F2) | opus | todo |
 | AVAudioSession workaround | sonnet | todo |

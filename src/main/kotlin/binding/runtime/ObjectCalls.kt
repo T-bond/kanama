@@ -97,6 +97,16 @@ object ObjectCalls {
         val vector2Ret: MemorySegment = arena.allocate(GodotReal.SIZE_BYTES * 2, GodotReal.ALIGN_BYTES)
         val rect2Ret: MemorySegment = arena.allocate(GodotReal.SIZE_BYTES * 4, GodotReal.ALIGN_BYTES)
         val colorCell: MemorySegment = arena.allocate(16L, 4L)
+        // Phase F3 (review): fixed-size POD return buffers for the per-frame geometry getters, so
+        // hot const getters (transform/vector polling) skip a per-call confined arena. Safe to reuse
+        // per-thread because these are leaf const getters — the value is read back before the call
+        // returns and the getter triggers no re-entrant JVM dispatch.
+        val vector3Ret: MemorySegment = arena.allocate(GodotReal.SIZE_BYTES * 3, GodotReal.ALIGN_BYTES)
+        val vector3iRet: MemorySegment = arena.allocate(12L, 4L)
+        val vector2iRet: MemorySegment = arena.allocate(8L, 4L)
+        val quaternionRet: MemorySegment = arena.allocate(GodotReal.SIZE_BYTES * 4, GodotReal.ALIGN_BYTES)
+        val basisRet: MemorySegment = arena.allocate(GodotReal.SIZE_BYTES * 9, GodotReal.ALIGN_BYTES)
+        val transform3dRet: MemorySegment = arena.allocate(GodotReal.SIZE_BYTES * 12, GodotReal.ALIGN_BYTES)
 
         fun setBoolArg(value: Boolean): MemorySegment {
             boolCell.set(JAVA_BYTE, 0, if (value) 1.toByte() else 0.toByte())
@@ -14767,25 +14777,21 @@ object ObjectCalls {
         methodBind: MemorySegment,
         instance: MemorySegment,
     ): Vector2i {
-        Arena.ofConfined().use { arena ->
-            val ret = arena.allocate(8L, 4L)
-            objectMethodBindPtrcall.invoke(methodBind, instance, MemorySegment.NULL, ret)
-            return Vector2i(
-                x = ret.get(JAVA_INT, 0),
-                y = ret.get(JAVA_INT, 4),
-            )
-        }
+        val ret = ptrcallScratch.get().vector2iRet
+        objectMethodBindPtrcall.invoke(methodBind, instance, MemorySegment.NULL, ret)
+        return Vector2i(
+            x = ret.get(JAVA_INT, 0),
+            y = ret.get(JAVA_INT, 4),
+        )
     }
 
     fun ptrcallNoArgsRetVector3i(
         methodBind: MemorySegment,
         instance: MemorySegment,
     ): Vector3i {
-        Arena.ofConfined().use { arena ->
-            val ret = arena.allocate(12L, 4L)
-            objectMethodBindPtrcall.invoke(methodBind, instance, MemorySegment.NULL, ret)
-            return readVector3i(ret)
-        }
+        val ret = ptrcallScratch.get().vector3iRet
+        objectMethodBindPtrcall.invoke(methodBind, instance, MemorySegment.NULL, ret)
+        return readVector3i(ret)
     }
 
     fun ptrcallNoArgsRetRect2i(
@@ -24872,15 +24878,13 @@ object ObjectCalls {
         methodBind: MemorySegment,
         instance: MemorySegment,
     ): Vector3 {
-        Arena.ofConfined().use { arena ->
-            val ret = arena.allocate(GodotReal.SIZE_BYTES * 3, GodotReal.ALIGN_BYTES)
-            objectMethodBindPtrcall.invoke(methodBind, instance, MemorySegment.NULL, ret)
-            return Vector3(
-                x = GodotReal.readIndex(ret, 0),
-                y = GodotReal.readIndex(ret, 1),
-                z = GodotReal.readIndex(ret, 2),
-            )
-        }
+        val ret = ptrcallScratch.get().vector3Ret
+        objectMethodBindPtrcall.invoke(methodBind, instance, MemorySegment.NULL, ret)
+        return Vector3(
+            x = GodotReal.readIndex(ret, 0),
+            y = GodotReal.readIndex(ret, 1),
+            z = GodotReal.readIndex(ret, 2),
+        )
     }
 
     fun ptrcallNoArgsRetVector4(
@@ -25246,15 +25250,13 @@ object ObjectCalls {
         methodBind: MemorySegment,
         instance: MemorySegment,
     ): Basis {
-        Arena.ofConfined().use { arena ->
-            val ret = arena.allocate(GodotReal.SIZE_BYTES * 9, GodotReal.ALIGN_BYTES)
-            objectMethodBindPtrcall.invoke(methodBind, instance, MemorySegment.NULL, ret)
-            return Basis(
-                x = Vector3(GodotReal.readIndex(ret, 0), GodotReal.readIndex(ret, 3), GodotReal.readIndex(ret, 6)),
-                y = Vector3(GodotReal.readIndex(ret, 1), GodotReal.readIndex(ret, 4), GodotReal.readIndex(ret, 7)),
-                z = Vector3(GodotReal.readIndex(ret, 2), GodotReal.readIndex(ret, 5), GodotReal.readIndex(ret, 8)),
-            )
-        }
+        val ret = ptrcallScratch.get().basisRet
+        objectMethodBindPtrcall.invoke(methodBind, instance, MemorySegment.NULL, ret)
+        return Basis(
+            x = Vector3(GodotReal.readIndex(ret, 0), GodotReal.readIndex(ret, 3), GodotReal.readIndex(ret, 6)),
+            y = Vector3(GodotReal.readIndex(ret, 1), GodotReal.readIndex(ret, 4), GodotReal.readIndex(ret, 7)),
+            z = Vector3(GodotReal.readIndex(ret, 2), GodotReal.readIndex(ret, 5), GodotReal.readIndex(ret, 8)),
+        )
     }
 
     fun ptrcallWithBasisArg(
@@ -25357,18 +25359,16 @@ object ObjectCalls {
         methodBind: MemorySegment,
         instance: MemorySegment,
     ): Transform3D {
-        Arena.ofConfined().use { arena ->
-            val ret = arena.allocate(GodotReal.SIZE_BYTES * 12, GodotReal.ALIGN_BYTES)
-            objectMethodBindPtrcall.invoke(methodBind, instance, MemorySegment.NULL, ret)
-            return Transform3D(
-                basis = Basis(
-                    x = Vector3(GodotReal.readIndex(ret, 0), GodotReal.readIndex(ret, 3), GodotReal.readIndex(ret, 6)),
-                    y = Vector3(GodotReal.readIndex(ret, 1), GodotReal.readIndex(ret, 4), GodotReal.readIndex(ret, 7)),
-                    z = Vector3(GodotReal.readIndex(ret, 2), GodotReal.readIndex(ret, 5), GodotReal.readIndex(ret, 8)),
-                ),
-                origin = Vector3(GodotReal.readIndex(ret, 9), GodotReal.readIndex(ret, 10), GodotReal.readIndex(ret, 11)),
-            )
-        }
+        val ret = ptrcallScratch.get().transform3dRet
+        objectMethodBindPtrcall.invoke(methodBind, instance, MemorySegment.NULL, ret)
+        return Transform3D(
+            basis = Basis(
+                x = Vector3(GodotReal.readIndex(ret, 0), GodotReal.readIndex(ret, 3), GodotReal.readIndex(ret, 6)),
+                y = Vector3(GodotReal.readIndex(ret, 1), GodotReal.readIndex(ret, 4), GodotReal.readIndex(ret, 7)),
+                z = Vector3(GodotReal.readIndex(ret, 2), GodotReal.readIndex(ret, 5), GodotReal.readIndex(ret, 8)),
+            ),
+            origin = Vector3(GodotReal.readIndex(ret, 9), GodotReal.readIndex(ret, 10), GodotReal.readIndex(ret, 11)),
+        )
     }
 
     fun ptrcallWithTransform3DArg(
@@ -25816,16 +25816,14 @@ object ObjectCalls {
         methodBind: MemorySegment,
         instance: MemorySegment,
     ): Quaternion {
-        Arena.ofConfined().use { arena ->
-            val ret = arena.allocate(GodotReal.SIZE_BYTES * 4, GodotReal.ALIGN_BYTES)
-            objectMethodBindPtrcall.invoke(methodBind, instance, MemorySegment.NULL, ret)
-            return Quaternion(
-                x = GodotReal.readIndex(ret, 0),
-                y = GodotReal.readIndex(ret, 1),
-                z = GodotReal.readIndex(ret, 2),
-                w = GodotReal.readIndex(ret, 3),
-            )
-        }
+        val ret = ptrcallScratch.get().quaternionRet
+        objectMethodBindPtrcall.invoke(methodBind, instance, MemorySegment.NULL, ret)
+        return Quaternion(
+            x = GodotReal.readIndex(ret, 0),
+            y = GodotReal.readIndex(ret, 1),
+            z = GodotReal.readIndex(ret, 2),
+            w = GodotReal.readIndex(ret, 3),
+        )
     }
 
     fun ptrcallWithIntArgRetQuaternion(
