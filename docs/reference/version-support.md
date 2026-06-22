@@ -7,7 +7,7 @@ platforms and engine versions validated for the current preview.
 
 | Target | Status | Notes |
 | --- | --- | --- |
-| Godot 4.7 stable, macOS arm64 | Baseline preview | API/header inputs, generated wrappers, KDoc, local CI, and desktop demo smokes target this preview baseline. |
+| Godot 4.7 stable, macOS arm64 | Validated baseline | API/header inputs, generated wrappers, KDoc, local CI, and desktop demo smokes target this baseline; `runtime_smoke.sh` passed against the 4.7 stable binary (2026-06-21). |
 | Android export, Godot 4.7 stable | Pending 4.7 stable revalidation | Android toolchain uses matching Godot export templates with Android SDK API 36, build-tools 36.1.0, and NDK 29.0.14206865; APK export plus emulator/Pixel 7 smoke remain validation gates before updating Android support claims. |
 | Linux arm64 | Pending 4.7 stable revalidation | Last local runtime, editor, and demo smoke validation passed with the 4.7 beta 2 ARM64 binary. Packaged desktop exports remain a separate release-readiness track. |
 | Linux x86_64 | Pending 4.7 stable revalidation | Last local runtime, editor, and demo smoke validation passed with the 4.7 beta 2 x64 binary. Packaged desktop exports remain a separate release-readiness track. |
@@ -31,9 +31,10 @@ The 4.7 rc 2 → 4.7 stable bump was a metadata-only change: the dumped
 `extension_api.json` (excluding the `version_status` header field) and
 `gdextension_interface.h` are **byte-identical** between the two builds, so the
 generated wrappers, Panama bindings, name constants, and struct layouts are
-unchanged and the rc 2 validation carries over. macOS arm64 smoke
-revalidation against the stable binary is the remaining gate before the support
-table claims a fresh stable pass.
+unchanged and the rc 2 validation carries over. `scripts/runtime_smoke.sh`
+passed against the macOS arm64 4.7 stable binary
+(`4.7.stable.official.5b4e0cb0f`) on 2026-06-21. Linux/Windows/Android remain
+pending revalidation (no local binaries).
 
 ## Kanama Version
 

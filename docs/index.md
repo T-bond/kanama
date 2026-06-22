@@ -30,7 +30,7 @@ ownership, signals, and wrapper coverage. For existing GDScript projects, use
 
 | Platform | Status |
 | --- | --- |
-| macOS | Baseline (4.7 stable) |
+| macOS | Validated (4.7 stable) |
 | Linux | Pending 4.7 stable revalidation |
 | Windows | Pending 4.7 stable revalidation |
 | Android | Experimental; 4.7 stable APK revalidation pending |
