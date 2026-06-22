@@ -78,4 +78,7 @@ fi
 echo "[refresh_godot_api] validating dumped API"
 python3 "$ROOT_DIR/scripts/validate_godot_api.py"
 
+echo "[refresh_godot_api] regenerating virtual-method signature table"
+python3 "$ROOT_DIR/scripts/generate_virtual_signature_table.py"
+
 echo "[refresh_godot_api] PASS"

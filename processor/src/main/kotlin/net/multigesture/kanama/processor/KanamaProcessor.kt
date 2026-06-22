@@ -320,6 +320,74 @@ class KanamaProcessor(
         return SignalModel(godotName = godotName, args = args)
     }
 
+    /**
+     * Build a [VirtualModel] for an `@OverrideVirtual("_x")` declaration. Resolves
+     * the Kotlin signature (args + return) like a method, then validates it
+     * against the canonical engine signature from [VirtualSignatureTable] for the
+     * attach-to class hierarchy. Fails the build (fail-closed) on an unknown
+     * virtual, an arity mismatch, or a void/value-return mismatch.
+     */
+    private fun buildVirtualOverrideModel(
+        fn: KSFunctionDeclaration,
+        ann: com.google.devtools.ksp.symbol.KSAnnotation,
+        attachTo: String,
+        ownerSimpleName: String,
+    ): VirtualModel {
+        val kotlinName = fn.simpleName.asString()
+        val virtualName = (ann.arguments.firstOrNull { it.name?.asString() == "name" }?.value as? String)
+            ?.takeIf { it.isNotBlank() }
+            ?: throw IllegalArgumentException(
+                "$ownerSimpleName.$kotlinName: @OverrideVirtual requires a non-empty virtual name",
+            )
+
+        val canonical = VirtualSignatureTable.resolve(attachTo, virtualName)
+            ?: throw IllegalArgumentException(
+                "$ownerSimpleName.$kotlinName: @OverrideVirtual(\"$virtualName\") — no such virtual on " +
+                    "'$attachTo' or its ancestors. Check the name against extension_api.json.",
+            )
+
+        val returnType = fn.returnType?.resolve()?.let { type ->
+            val fq = type.declaration.qualifiedName?.asString()
+            if (fq == "kotlin.Unit") null
+            else fqToTypeMapping(fq) ?: throw IllegalArgumentException(
+                "$ownerSimpleName.$kotlinName: unsupported @OverrideVirtual return type '$fq'",
+            )
+        }
+        val args = fn.parameters.map { p ->
+            val name = p.name?.asString() ?: "arg"
+            val type = p.type.resolve()
+            fqToArgModel(name, type) ?: throw IllegalArgumentException(
+                "$ownerSimpleName.$kotlinName: unsupported @OverrideVirtual parameter type " +
+                    "'${type.declaration.qualifiedName?.asString()}' for '$name'",
+            )
+        }
+
+        // Fail-closed validation against the canonical engine signature.
+        if (args.size != canonical.argTypes.size) {
+            throw IllegalArgumentException(
+                "$ownerSimpleName.$kotlinName: @OverrideVirtual(\"$virtualName\") arity mismatch — " +
+                    "engine declares ${canonical.argTypes.size} arg(s) (${canonical.argTypes.joinToString(", ")}), " +
+                    "Kotlin has ${args.size}.",
+            )
+        }
+        val canonicalVoid = canonical.returnType == null
+        if (canonicalVoid != (returnType == null)) {
+            throw IllegalArgumentException(
+                "$ownerSimpleName.$kotlinName: @OverrideVirtual(\"$virtualName\") return mismatch — " +
+                    "engine returns ${canonical.returnType ?: "void"}, Kotlin returns " +
+                    "${returnType?.name ?: "Unit"}.",
+            )
+        }
+
+        return VirtualModel(
+            virtualName = virtualName,
+            callFunctionName = kotlinName,
+            kotlinMethodName = kotlinName,
+            args = args,
+            returnType = returnType,
+        )
+    }
+
     private fun buildMethodModel(
         fn: KSFunctionDeclaration,
         ann: com.google.devtools.ksp.symbol.KSAnnotation,
@@ -481,6 +549,7 @@ class KanamaProcessor(
                     "OnUnhandledKeyInput", "UnhandledKeyInput" ->
                                          virtuals += VirtualModel("_unhandled_key_input", kotlinName, kotlinName,
                                              args = listOf(ArgModel("event", TypeMapping.OBJECT, "net.multigesture.kanama.api.GodotObject")))
+                    "OverrideVirtual" -> virtuals += buildVirtualOverrideModel(fn, ann, attachTo, simpleName)
                     "RegisterFunction", "Method" -> methods += buildMethodModel(fn, ann, simpleName)
                     "Signal" -> signals += buildSignalModel(fn, ann, simpleName)
                     "ToolButton", "ExportToolButton" -> {
@@ -2303,7 +2372,8 @@ internal class ScriptCodeEmitter(
         }
         val methodReturnExprByName = linkedMapOf<String, String>()
         for (v in model.virtuals) {
-            methodReturnExprByName[v.virtualName] = "VariantType.NIL.id"
+            methodReturnExprByName[v.virtualName] =
+                v.returnType?.let { "VariantType.${it.variantTypeEnum}.id" } ?: "VariantType.NIL.id"
         }
         for (m in model.methods) {
             methodReturnExprByName[m.godotName] =
@@ -2545,14 +2615,22 @@ internal class ScriptCodeEmitter(
         }
         for (v in model.virtuals) {
             sb.append("                    ${nameVar(v.virtualName)} -> { ")
-            if (v.args.isEmpty()) {
-                sb.append("kt.${v.kotlinMethodName}()")
+            // Extract Variant args (call_func receives Variant pointers, not ptrcall)
+            val callArgs = if (v.args.isEmpty()) {
+                ""
             } else {
-                // Extract Variant args (call_func receives Variant pointers, not ptrcall)
                 val argExprs = v.args.mapIndexed { i, arg ->
                     variantReadArgExpr(arg, "args.reinterpret(${(i + 1) * 8}L).get(ADDRESS, ${i * 8}L)", "arg$i")
                 }
-                sb.append(argExprs.joinToString("; ") + "; kt.${v.kotlinMethodName}(${v.args.indices.joinToString(", ") { "arg$it" }})")
+                sb.append(argExprs.joinToString("; ") + "; ")
+                v.args.indices.joinToString(", ") { "arg$it" }
+            }
+            if (v.returnType != null) {
+                // Value-returning virtual (e.g. _get_minimum_size): marshal the
+                // Kotlin result back into the engine's return Variant slot.
+                sb.append("val vret = kt.${v.kotlinMethodName}($callArgs); ${variantWriteRetExpr(v.returnType, "vret")}")
+            } else {
+                sb.append("kt.${v.kotlinMethodName}($callArgs)")
             }
             if (v.virtualName == "_exit_tree") {
                 sb.append("; cancelKanamaScope(kt)")

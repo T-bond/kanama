@@ -85,6 +85,13 @@ internal data class VirtualModel(
     val kotlinMethodName: String,
     /** Ptrcall-convention args passed by Godot when invoking the virtual. */
     val args: List<ArgModel> = emptyList(),
+    /**
+     * Return type for value-returning virtuals (e.g. `_get_minimum_size` ->
+     * Vector2). `null` for `void` virtuals (all the lifecycle ones). Set for
+     * `@OverrideVirtual` declarations; drives return marshalling in
+     * `dispatchCall` and the reported `return_type` in the method list.
+     */
+    val returnType: TypeMapping? = null,
 )
 
 // ---------- @ScriptClass models ----------

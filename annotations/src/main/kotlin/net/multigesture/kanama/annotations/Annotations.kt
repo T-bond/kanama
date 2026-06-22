@@ -347,6 +347,26 @@ annotation class OnUnhandledKeyInput
 annotation class UnhandledKeyInput
 
 /**
+ * Overrides an arbitrary engine virtual method on the script's attach-to class
+ * (or any of its ancestors), beyond the fixed lifecycle set.
+ *
+ * [name] is the Godot virtual's engine name, e.g. `"_draw"`, `"_gui_input"`,
+ * `"_get_minimum_size"`. The annotated Kotlin function's parameters and return
+ * type must match the engine virtual's signature; the KSP processor validates
+ * this against a generated table derived from `extension_api.json` and fails the
+ * build on a mismatch (unknown virtual for the attach-to class, wrong arity, or a
+ * value returned from a `void` virtual / vice versa).
+ *
+ * The lifecycle annotations ([OnReady], [OnProcess], [OnInput], …) are
+ * convenience aliases for the most common virtuals; use `@OverrideVirtual` for
+ * everything else (custom drawing via `_draw`, control input via `_gui_input`,
+ * editor warnings via `_get_configuration_warnings`, drag-and-drop, …).
+ */
+@Target(AnnotationTarget.FUNCTION)
+@Retention(AnnotationRetention.SOURCE)
+annotation class OverrideVirtual(val name: String)
+
+/**
  * Marks a Kotlin class as a Godot script that can be attached to an
  * existing node type (e.g. CharacterBody3D, Node3D) without registering
  * a new type in ClassDB.
