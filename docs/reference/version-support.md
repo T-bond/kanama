@@ -8,11 +8,11 @@ platforms and engine versions validated for the current preview.
 | Target | Status | Notes |
 | --- | --- | --- |
 | Godot 4.7 stable, macOS arm64 | Validated baseline | API/header inputs, generated wrappers, KDoc, local CI, and desktop demo smokes target this baseline; `runtime_smoke.sh` passed against the 4.7 stable binary (2026-06-21). |
-| Android export, Godot 4.7 stable | Pending 4.7 stable revalidation | Android toolchain uses matching Godot export templates with Android SDK API 36, build-tools 36.1.0, and NDK 29.0.14206865; APK export plus emulator/Pixel 7 smoke remain validation gates before updating Android support claims. |
+| Android export, Godot 4.7 stable | Emulator-validated (4.7 stable); Pixel 7 pending | `scripts/android_smoke.sh` passed on the API 36 emulator with Starter-Kit-Match3 (2026-06-21): plugin AAR build, 4.7 stable APK export, install/launch, Kanama script-language registration (`Error=0`), non-blank frame. Android toolchain: SDK API 36, build-tools 36.1.0, NDK 29.0.14206865. Pixel 7 hardware smoke remains the gate before a full Android support claim. |
 | Linux arm64 | Pending 4.7 stable revalidation | Last local runtime, editor, and demo smoke validation passed with the 4.7 beta 2 ARM64 binary. Packaged desktop exports remain a separate release-readiness track. |
 | Linux x86_64 | Pending 4.7 stable revalidation | Last local runtime, editor, and demo smoke validation passed with the 4.7 beta 2 x64 binary. Packaged desktop exports remain a separate release-readiness track. |
 | Windows x86_64 | Pending 4.7 stable revalidation | Last local runtime/editor smoke validation passed with the 4.7 beta 2 console binary. PowerShell Gradle commands and Git Bash smoke marker checks are the documented path. |
-| iOS | Experimental (Kotlin/Native backend); not a supported export | The iOS backend runs full Kanama project scripts via a C shim + Kotlin/Native static `.xcframework`, using the same wrapper generator as desktop/Android. Match3 and the Kenney 3D platformer are device-validated (real input, signals, scene reload); per-frame Kanama binding overhead measured ~0.63 ms on iPhone 12. Physical-device export/launch is the validation target. Still experimental — see the [iOS roadmap](../internals/ios-backend-roadmap.md) for the audited-type/bridge gaps before broader demos or a supported export. |
+| iOS | Experimental (Kotlin/Native backend); not a supported export | The iOS backend runs full Kanama project scripts via a C shim + Kotlin/Native static `.xcframework`, using the same wrapper generator as desktop/Android. Match3 and the Kenney 3D platformer are device-validated (real input, signals, scene reload); per-frame Kanama binding overhead measured ~0.63 ms on iPhone 12. The iPhone 12 self-test (PTRCALL 54 / OBJECTCALLS 78, 0 failed) passed against the 4.7 stable iOS export template (2026-06-21). Still experimental — see the [iOS roadmap](../internals/ios-backend-roadmap.md) for the audited-type/bridge gaps before broader demos or a supported export. |
 | Web | Not planned | Kanama depends on a JVM/FFM-style runtime path. |
 
 Validated support is only claimed after the matching smoke path passes.
@@ -33,8 +33,11 @@ The 4.7 rc 2 → 4.7 stable bump was a metadata-only change: the dumped
 generated wrappers, Panama bindings, name constants, and struct layouts are
 unchanged and the rc 2 validation carries over. `scripts/runtime_smoke.sh`
 passed against the macOS arm64 4.7 stable binary
-(`4.7.stable.official.5b4e0cb0f`) on 2026-06-21. Linux/Windows/Android remain
-pending revalidation (no local binaries).
+(`4.7.stable.official.5b4e0cb0f`) on 2026-06-21. iOS (iPhone 12 self-test) and
+Android (`android_smoke.sh` on the API 36 emulator, Starter-Kit-Match3) also
+re-passed against 4.7 stable templates the same day. Linux/Windows remain
+pending revalidation (no local binaries); Pixel 7 hardware remains the Android
+gate.
 
 ## Kanama Version
 

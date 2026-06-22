@@ -33,8 +33,8 @@ ownership, signals, and wrapper coverage. For existing GDScript projects, use
 | macOS | Validated (4.7 stable) |
 | Linux | Pending 4.7 stable revalidation |
 | Windows | Pending 4.7 stable revalidation |
-| Android | Experimental; 4.7 stable APK revalidation pending |
-| iOS | Experimental (Kotlin/Native backend) |
+| Android | Experimental; emulator-validated on 4.7 stable (Pixel 7 pending) |
+| iOS | Experimental (Kotlin/Native); device-validated on 4.7 stable |
 | Web | Not planned |
 
 See [Version Support](reference/version-support.md) for exact Godot, JDK,
