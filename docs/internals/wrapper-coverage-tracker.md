@@ -73,11 +73,10 @@ Gated on Phase 4 exit. Not started by decision.
 
 ## ★ RESUME HERE (updated 2026-06-20 — resume in Opus)
 
-**State: batch-11 code committed + pushed to origin/main; DEVICE REGRESSION RUN PENDING (phone was
-unlocked this session — user offered open testing).** (Pre-existing untracked `.agents/` +
-`skills-lock.json` are tooling files — do NOT stage them.) Device self-test baseline to re-confirm:
-**PTRCALL 54 / OBJECTCALLS 78, 0 failed, 0 crashes** on iPhone 12 (UDID
-`48DF9662-42F3-541F-9F88-7FA2AB870F86`, team `DVZT29Q4QT`) — last confirmed batches 8+9+10 (2026-06-21).
+**State: working tree CLEAN, all committed AND pushed to origin/main at `9801a73` (batch 11).**
+(Pre-existing untracked `.agents/` + `skills-lock.json` are tooling files — do NOT stage them.)
+Device self-test baseline: **PTRCALL 54 / OBJECTCALLS 78, 0 failed, 0 crashes** on iPhone 12 (UDID
+`48DF9662-42F3-541F-9F88-7FA2AB870F86`, team `DVZT29Q4QT`) — re-confirmed on batch 11 (2026-06-21).
 
 **★ SKIP-CLOSURE FIXPOINT REACHED (2026-06-21, batch 10).** The BFS closure over emitted classes'
 Object args/returns/properties now returns **0** not-yet-emitted in-scope classes — the entire
@@ -147,7 +146,8 @@ the networking subtree or Phase 5. Plan: `~/.claude/plans/snappy-conjuring-pebbl
   AudioSample/AudioSamplePlayback. Drains move_and_collide on CharacterBody2D/3D + PhysicsBody2D/3D and
   the space-state intersect queries. SceneTree/Tween excluded (hand-written collisions). Residual
   Object-shape skips now 4 (MultiplayerPeer/Object/SceneTree/Tween — all deliberately out-of-scope =
-  breadth floor). Gates + compileKotlinIosArm64 green; skips 356. DEVICE REGRESSION PENDING.**
+  breadth floor). Gates + compileKotlinIosArm64 green; skips 356. DEVICE-VALIDATED (regression-clean
+  PTRCALL 54 / OBJECTCALLS 78, 0 failed, 0 crashes).**
   Note: regen sometimes emits AudioStreamPlayer.kt + StaticBody3D.kt (hand-written collisions in
   IosGodotApi.kt) — these are NOT copied.
 
