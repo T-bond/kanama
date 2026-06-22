@@ -16,6 +16,12 @@ class Label(handle: MemorySegment) : Control(handle) {
         @JvmName("setTextProperty")
         set(value) = setText(value)
 
+    var labelSettings: LabelSettings?
+        @JvmName("labelSettingsProperty")
+        get() = getLabelSettings()
+        @JvmName("setLabelSettingsProperty")
+        set(value) = setLabelSettings(value)
+
     var horizontalAlignment: Long
         @JvmName("horizontalAlignmentProperty")
         get() = getHorizontalAlignment()
@@ -156,6 +162,14 @@ class Label(handle: MemorySegment) : Control(handle) {
 
     fun getText(): String {
         return ObjectCalls.ptrcallNoArgsRetString(getTextBind, handle)
+    }
+
+    fun setLabelSettings(settings: LabelSettings?) {
+        ObjectCalls.ptrcallWithObjectArgs(setLabelSettingsBind, handle, listOf(settings?.requireOpenHandle() ?: MemorySegment.NULL))
+    }
+
+    fun getLabelSettings(): LabelSettings? {
+        return LabelSettings.wrap(ObjectCalls.ptrcallNoArgsRetObject(getLabelSettingsBind, handle))
     }
 
     fun setTextDirection(direction: Long) {
@@ -353,6 +367,16 @@ class Label(handle: MemorySegment) : Control(handle) {
         private const val GET_TEXT_HASH = 201670096L
         private val getTextBind by lazy {
             ObjectCalls.getMethodBind("Label", "get_text", GET_TEXT_HASH)
+        }
+
+        private const val SET_LABEL_SETTINGS_HASH = 1030653839L
+        private val setLabelSettingsBind by lazy {
+            ObjectCalls.getMethodBind("Label", "set_label_settings", SET_LABEL_SETTINGS_HASH)
+        }
+
+        private const val GET_LABEL_SETTINGS_HASH = 826676056L
+        private val getLabelSettingsBind by lazy {
+            ObjectCalls.getMethodBind("Label", "get_label_settings", GET_LABEL_SETTINGS_HASH)
         }
 
         private const val SET_TEXT_DIRECTION_HASH = 119160795L

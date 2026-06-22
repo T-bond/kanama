@@ -9,6 +9,12 @@ import net.multigesture.kanama.binding.runtime.*
  * Generated from Godot docs: AudioStreamPlayer3D
  */
 class AudioStreamPlayer3D(handle: MemorySegment) : Node3D(handle) {
+    var stream: AudioStream?
+        @JvmName("streamProperty")
+        get() = getStream()
+        @JvmName("setStreamProperty")
+        set(value) = setStream(value)
+
     var attenuationModel: Long
         @JvmName("attenuationModelProperty")
         get() = getAttenuationModel()
@@ -134,6 +140,14 @@ class AudioStreamPlayer3D(handle: MemorySegment) : Node3D(handle) {
         get() = getDopplerTracking()
         @JvmName("setDopplerTrackingProperty")
         set(value) = setDopplerTracking(value)
+
+    fun setStream(stream: AudioStream?) {
+        ObjectCalls.ptrcallWithObjectArgs(setStreamBind, handle, listOf(stream?.requireOpenHandle() ?: MemorySegment.NULL))
+    }
+
+    fun getStream(): AudioStream? {
+        return AudioStream.wrap(ObjectCalls.ptrcallNoArgsRetObject(getStreamBind, handle))
+    }
 
     fun setVolumeDb(volumeDb: Double) {
         ObjectCalls.ptrcallWithDoubleArg(setVolumeDbBind, handle, volumeDb)
@@ -315,6 +329,10 @@ class AudioStreamPlayer3D(handle: MemorySegment) : Node3D(handle) {
         return ObjectCalls.ptrcallNoArgsRetBool(hasStreamPlaybackBind, handle)
     }
 
+    fun getStreamPlayback(): AudioStreamPlayback? {
+        return AudioStreamPlayback.wrap(ObjectCalls.ptrcallNoArgsRetObject(getStreamPlaybackBind, handle))
+    }
+
     fun setPlaybackType(playbackType: Long) {
         ObjectCalls.ptrcallWithLongArg(setPlaybackTypeBind, handle, playbackType)
     }
@@ -341,6 +359,16 @@ class AudioStreamPlayer3D(handle: MemorySegment) : Node3D(handle) {
 
         internal fun wrap(handle: MemorySegment): AudioStreamPlayer3D? =
             if (handle.address() == 0L) null else AudioStreamPlayer3D(handle)
+
+        private const val SET_STREAM_HASH = 2210767741L
+        private val setStreamBind by lazy {
+            ObjectCalls.getMethodBind("AudioStreamPlayer3D", "set_stream", SET_STREAM_HASH)
+        }
+
+        private const val GET_STREAM_HASH = 160907539L
+        private val getStreamBind by lazy {
+            ObjectCalls.getMethodBind("AudioStreamPlayer3D", "get_stream", GET_STREAM_HASH)
+        }
 
         private const val SET_VOLUME_DB_HASH = 373806689L
         private val setVolumeDbBind by lazy {
@@ -565,6 +593,11 @@ class AudioStreamPlayer3D(handle: MemorySegment) : Node3D(handle) {
         private const val HAS_STREAM_PLAYBACK_HASH = 2240911060L
         private val hasStreamPlaybackBind by lazy {
             ObjectCalls.getMethodBind("AudioStreamPlayer3D", "has_stream_playback", HAS_STREAM_PLAYBACK_HASH)
+        }
+
+        private const val GET_STREAM_PLAYBACK_HASH = 210135309L
+        private val getStreamPlaybackBind by lazy {
+            ObjectCalls.getMethodBind("AudioStreamPlayer3D", "get_stream_playback", GET_STREAM_PLAYBACK_HASH)
         }
 
         private const val SET_PLAYBACK_TYPE_HASH = 725473817L

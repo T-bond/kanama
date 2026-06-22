@@ -47,6 +47,12 @@ class Environment(handle: MemorySegment) : Resource(handle) {
         @JvmName("setBackgroundCameraFeedIdProperty")
         set(value) = setCameraFeedId(value)
 
+    var sky: Sky?
+        @JvmName("skyProperty")
+        get() = getSky()
+        @JvmName("setSkyProperty")
+        set(value) = setSky(value)
+
     var skyCustomFov: Double
         @JvmName("skyCustomFovProperty")
         get() = getSkyCustomFov()
@@ -569,6 +575,14 @@ class Environment(handle: MemorySegment) : Resource(handle) {
 
     fun getBackground(): Long {
         return ObjectCalls.ptrcallNoArgsRetLong(getBackgroundBind, handle)
+    }
+
+    fun setSky(sky: Sky?) {
+        ObjectCalls.ptrcallWithObjectArgs(setSkyBind, handle, listOf(sky?.requireOpenHandle() ?: MemorySegment.NULL))
+    }
+
+    fun getSky(): Sky? {
+        return Sky.wrap(ObjectCalls.ptrcallNoArgsRetObject(getSkyBind, handle))
     }
 
     fun setSkyCustomFov(scale: Double) {
@@ -1352,6 +1366,16 @@ class Environment(handle: MemorySegment) : Resource(handle) {
         private const val GET_BACKGROUND_HASH = 1843210413L
         private val getBackgroundBind by lazy {
             ObjectCalls.getMethodBind("Environment", "get_background", GET_BACKGROUND_HASH)
+        }
+
+        private const val SET_SKY_HASH = 3336722921L
+        private val setSkyBind by lazy {
+            ObjectCalls.getMethodBind("Environment", "set_sky", SET_SKY_HASH)
+        }
+
+        private const val GET_SKY_HASH = 1177136966L
+        private val getSkyBind by lazy {
+            ObjectCalls.getMethodBind("Environment", "get_sky", GET_SKY_HASH)
         }
 
         private const val SET_SKY_CUSTOM_FOV_HASH = 373806689L

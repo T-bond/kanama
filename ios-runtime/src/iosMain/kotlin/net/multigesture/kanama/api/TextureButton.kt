@@ -39,6 +39,12 @@ class TextureButton(handle: MemorySegment) : BaseButton(handle) {
         @JvmName("setTextureFocusedProperty")
         set(value) = setTextureFocused(value)
 
+    var textureClickMask: BitMap?
+        @JvmName("textureClickMaskProperty")
+        get() = getClickMask()
+        @JvmName("setTextureClickMaskProperty")
+        set(value) = setClickMask(value)
+
     var ignoreTextureSize: Boolean
         @JvmName("ignoreTextureSizeProperty")
         get() = getIgnoreTextureSize()
@@ -83,6 +89,10 @@ class TextureButton(handle: MemorySegment) : BaseButton(handle) {
         ObjectCalls.ptrcallWithObjectArgs(setTextureFocusedBind, handle, listOf(texture?.requireOpenHandle() ?: MemorySegment.NULL))
     }
 
+    fun setClickMask(mask: BitMap?) {
+        ObjectCalls.ptrcallWithObjectArgs(setClickMaskBind, handle, listOf(mask?.requireOpenHandle() ?: MemorySegment.NULL))
+    }
+
     fun setIgnoreTextureSize(ignore: Boolean) {
         ObjectCalls.ptrcallWithBoolArg(setIgnoreTextureSizeBind, handle, ignore)
     }
@@ -125,6 +135,10 @@ class TextureButton(handle: MemorySegment) : BaseButton(handle) {
 
     fun getTextureFocused(): Texture2D? {
         return Texture2D.wrap(ObjectCalls.ptrcallNoArgsRetObject(getTextureFocusedBind, handle))
+    }
+
+    fun getClickMask(): BitMap? {
+        return BitMap.wrap(ObjectCalls.ptrcallNoArgsRetObject(getClickMaskBind, handle))
     }
 
     fun getIgnoreTextureSize(): Boolean {
@@ -173,6 +187,11 @@ class TextureButton(handle: MemorySegment) : BaseButton(handle) {
         private const val SET_TEXTURE_FOCUSED_HASH = 4051416890L
         private val setTextureFocusedBind by lazy {
             ObjectCalls.getMethodBind("TextureButton", "set_texture_focused", SET_TEXTURE_FOCUSED_HASH)
+        }
+
+        private const val SET_CLICK_MASK_HASH = 698588216L
+        private val setClickMaskBind by lazy {
+            ObjectCalls.getMethodBind("TextureButton", "set_click_mask", SET_CLICK_MASK_HASH)
         }
 
         private const val SET_IGNORE_TEXTURE_SIZE_HASH = 2586408642L
@@ -228,6 +247,11 @@ class TextureButton(handle: MemorySegment) : BaseButton(handle) {
         private const val GET_TEXTURE_FOCUSED_HASH = 3635182373L
         private val getTextureFocusedBind by lazy {
             ObjectCalls.getMethodBind("TextureButton", "get_texture_focused", GET_TEXTURE_FOCUSED_HASH)
+        }
+
+        private const val GET_CLICK_MASK_HASH = 2459671998L
+        private val getClickMaskBind by lazy {
+            ObjectCalls.getMethodBind("TextureButton", "get_click_mask", GET_CLICK_MASK_HASH)
         }
 
         private const val GET_IGNORE_TEXTURE_SIZE_HASH = 36873697L

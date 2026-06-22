@@ -10,11 +10,25 @@ import net.multigesture.kanama.types.Color
  * Generated from Godot docs: Path3D
  */
 class Path3D(handle: MemorySegment) : Node3D(handle) {
+    var curve: Curve3D?
+        @JvmName("curveProperty")
+        get() = getCurve()
+        @JvmName("setCurveProperty")
+        set(value) = setCurve(value)
+
     var debugCustomColor: Color
         @JvmName("debugCustomColorProperty")
         get() = getDebugCustomColor()
         @JvmName("setDebugCustomColorProperty")
         set(value) = setDebugCustomColor(value)
+
+    fun setCurve(curve: Curve3D?) {
+        ObjectCalls.ptrcallWithObjectArgs(setCurveBind, handle, listOf(curve?.requireOpenHandle() ?: MemorySegment.NULL))
+    }
+
+    fun getCurve(): Curve3D? {
+        return Curve3D.wrap(ObjectCalls.ptrcallNoArgsRetObject(getCurveBind, handle))
+    }
 
     fun setDebugCustomColor(debugCustomColor: Color) {
         ObjectCalls.ptrcallWithColorArg(setDebugCustomColorBind, handle, debugCustomColor)
@@ -35,6 +49,16 @@ class Path3D(handle: MemorySegment) : Node3D(handle) {
 
         internal fun wrap(handle: MemorySegment): Path3D? =
             if (handle.address() == 0L) null else Path3D(handle)
+
+        private const val SET_CURVE_HASH = 408955118L
+        private val setCurveBind by lazy {
+            ObjectCalls.getMethodBind("Path3D", "set_curve", SET_CURVE_HASH)
+        }
+
+        private const val GET_CURVE_HASH = 4244715212L
+        private val getCurveBind by lazy {
+            ObjectCalls.getMethodBind("Path3D", "get_curve", GET_CURVE_HASH)
+        }
 
         private const val SET_DEBUG_CUSTOM_COLOR_HASH = 2920490490L
         private val setDebugCustomColorBind by lazy {

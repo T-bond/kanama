@@ -16,6 +16,12 @@ open class MeshInstance3D(handle: MemorySegment) : GeometryInstance3D(handle) {
         @JvmName("setMeshProperty")
         set(value) = setMesh(value)
 
+    var skin: Skin?
+        @JvmName("skinProperty")
+        get() = getSkin()
+        @JvmName("setSkinProperty")
+        set(value) = setSkin(value)
+
     var skeleton: NodePath
         @JvmName("skeletonProperty")
         get() = getSkeletonPath()
@@ -36,6 +42,14 @@ open class MeshInstance3D(handle: MemorySegment) : GeometryInstance3D(handle) {
 
     fun getSkeletonPath(): NodePath {
         return ObjectCalls.ptrcallNoArgsRetNodePath(getSkeletonPathBind, handle)
+    }
+
+    fun setSkin(skin: Skin?) {
+        ObjectCalls.ptrcallWithObjectArgs(setSkinBind, handle, listOf(skin?.requireOpenHandle() ?: MemorySegment.NULL))
+    }
+
+    fun getSkin(): Skin? {
+        return Skin.wrap(ObjectCalls.ptrcallNoArgsRetObject(getSkinBind, handle))
     }
 
     fun getSurfaceOverrideMaterialCount(): Int {
@@ -107,6 +121,16 @@ open class MeshInstance3D(handle: MemorySegment) : GeometryInstance3D(handle) {
         private const val GET_SKELETON_PATH_HASH = 277076166L
         private val getSkeletonPathBind by lazy {
             ObjectCalls.getMethodBind("MeshInstance3D", "get_skeleton_path", GET_SKELETON_PATH_HASH)
+        }
+
+        private const val SET_SKIN_HASH = 3971435618L
+        private val setSkinBind by lazy {
+            ObjectCalls.getMethodBind("MeshInstance3D", "set_skin", SET_SKIN_HASH)
+        }
+
+        private const val GET_SKIN_HASH = 2074563878L
+        private val getSkinBind by lazy {
+            ObjectCalls.getMethodBind("MeshInstance3D", "get_skin", GET_SKIN_HASH)
         }
 
         private const val GET_SURFACE_OVERRIDE_MATERIAL_COUNT_HASH = 3905245786L

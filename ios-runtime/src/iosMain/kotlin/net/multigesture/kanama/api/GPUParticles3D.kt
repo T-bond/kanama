@@ -176,6 +176,12 @@ class GPUParticles3D(handle: MemorySegment) : GeometryInstance3D(handle) {
         @JvmName("setDrawPassesProperty")
         set(value) = setDrawPasses(value)
 
+    var drawSkin: Skin?
+        @JvmName("drawSkinProperty")
+        get() = getSkin()
+        @JvmName("setDrawSkinProperty")
+        set(value) = setSkin(value)
+
     fun setEmitting(emitting: Boolean) {
         ObjectCalls.ptrcallWithBoolArg(setEmittingBind, handle, emitting)
     }
@@ -342,6 +348,14 @@ class GPUParticles3D(handle: MemorySegment) : GeometryInstance3D(handle) {
 
     fun getDrawPassMesh(pass: Int): Mesh? {
         return Mesh.wrap(ObjectCalls.ptrcallWithIntArgRetObject(getDrawPassMeshBind, handle, pass))
+    }
+
+    fun setSkin(skin: Skin?) {
+        ObjectCalls.ptrcallWithObjectArgs(setSkinBind, handle, listOf(skin?.requireOpenHandle() ?: MemorySegment.NULL))
+    }
+
+    fun getSkin(): Skin? {
+        return Skin.wrap(ObjectCalls.ptrcallNoArgsRetObject(getSkinBind, handle))
     }
 
     fun restart(keepSeed: Boolean = false) {
@@ -655,6 +669,16 @@ class GPUParticles3D(handle: MemorySegment) : GeometryInstance3D(handle) {
         private const val GET_DRAW_PASS_MESH_HASH = 1576363275L
         private val getDrawPassMeshBind by lazy {
             ObjectCalls.getMethodBind("GPUParticles3D", "get_draw_pass_mesh", GET_DRAW_PASS_MESH_HASH)
+        }
+
+        private const val SET_SKIN_HASH = 3971435618L
+        private val setSkinBind by lazy {
+            ObjectCalls.getMethodBind("GPUParticles3D", "set_skin", SET_SKIN_HASH)
+        }
+
+        private const val GET_SKIN_HASH = 2074563878L
+        private val getSkinBind by lazy {
+            ObjectCalls.getMethodBind("GPUParticles3D", "get_skin", GET_SKIN_HASH)
         }
 
         private const val RESTART_HASH = 107499316L

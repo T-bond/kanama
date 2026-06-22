@@ -45,6 +45,18 @@ open class BaseButton(handle: MemorySegment) : Control(handle) {
         @JvmName("setKeepPressedOutsideProperty")
         set(value) = setKeepPressedOutside(value)
 
+    var buttonGroup: ButtonGroup?
+        @JvmName("buttonGroupProperty")
+        get() = getButtonGroup()
+        @JvmName("setButtonGroupProperty")
+        set(value) = setButtonGroup(value)
+
+    var shortcut: Shortcut?
+        @JvmName("shortcutProperty")
+        get() = getShortcut()
+        @JvmName("setShortcutProperty")
+        set(value) = setShortcut(value)
+
     var shortcutFeedback: Boolean
         @JvmName("shortcutFeedbackProperty")
         get() = isShortcutFeedback()
@@ -131,6 +143,22 @@ open class BaseButton(handle: MemorySegment) : Control(handle) {
 
     fun isShortcutFeedback(): Boolean {
         return ObjectCalls.ptrcallNoArgsRetBool(isShortcutFeedbackBind, handle)
+    }
+
+    fun setShortcut(shortcut: Shortcut?) {
+        ObjectCalls.ptrcallWithObjectArgs(setShortcutBind, handle, listOf(shortcut?.requireOpenHandle() ?: MemorySegment.NULL))
+    }
+
+    fun getShortcut(): Shortcut? {
+        return Shortcut.wrap(ObjectCalls.ptrcallNoArgsRetObject(getShortcutBind, handle))
+    }
+
+    fun setButtonGroup(buttonGroup: ButtonGroup?) {
+        ObjectCalls.ptrcallWithObjectArgs(setButtonGroupBind, handle, listOf(buttonGroup?.requireOpenHandle() ?: MemorySegment.NULL))
+    }
+
+    fun getButtonGroup(): ButtonGroup? {
+        return ButtonGroup.wrap(ObjectCalls.ptrcallNoArgsRetObject(getButtonGroupBind, handle))
     }
 
     object Signals {
@@ -248,6 +276,26 @@ open class BaseButton(handle: MemorySegment) : Control(handle) {
         private const val IS_SHORTCUT_FEEDBACK_HASH = 36873697L
         private val isShortcutFeedbackBind by lazy {
             ObjectCalls.getMethodBind("BaseButton", "is_shortcut_feedback", IS_SHORTCUT_FEEDBACK_HASH)
+        }
+
+        private const val SET_SHORTCUT_HASH = 857163497L
+        private val setShortcutBind by lazy {
+            ObjectCalls.getMethodBind("BaseButton", "set_shortcut", SET_SHORTCUT_HASH)
+        }
+
+        private const val GET_SHORTCUT_HASH = 3415666916L
+        private val getShortcutBind by lazy {
+            ObjectCalls.getMethodBind("BaseButton", "get_shortcut", GET_SHORTCUT_HASH)
+        }
+
+        private const val SET_BUTTON_GROUP_HASH = 1794463739L
+        private val setButtonGroupBind by lazy {
+            ObjectCalls.getMethodBind("BaseButton", "set_button_group", SET_BUTTON_GROUP_HASH)
+        }
+
+        private const val GET_BUTTON_GROUP_HASH = 281644053L
+        private val getButtonGroupBind by lazy {
+            ObjectCalls.getMethodBind("BaseButton", "get_button_group", GET_BUTTON_GROUP_HASH)
         }
     }
 }

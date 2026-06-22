@@ -314,6 +314,10 @@ open class CanvasItem(handle: MemorySegment) : Node(handle) {
         ObjectCalls.ptrcallWithTwoObjectTransform2DColorArgs(drawMeshBind, handle, mesh?.requireOpenHandle() ?: MemorySegment.NULL, texture?.requireOpenHandle() ?: MemorySegment.NULL, transform, modulate)
     }
 
+    fun drawMultimesh(multimesh: MultiMesh?, texture: Texture2D?) {
+        ObjectCalls.ptrcallWithTwoObjectArgs(drawMultimeshBind, handle, multimesh?.requireOpenHandle() ?: MemorySegment.NULL, texture?.requireOpenHandle() ?: MemorySegment.NULL)
+    }
+
     fun drawSetTransform(position: Vector2, rotation: Double = 0.0, scale: Vector2) {
         ObjectCalls.ptrcallWithVector2DoubleVector2Args(drawSetTransformBind, handle, position, rotation, scale)
     }
@@ -372,6 +376,10 @@ open class CanvasItem(handle: MemorySegment) : Node(handle) {
 
     fun getCanvasLayerNode(): CanvasLayer? {
         return CanvasLayer.wrap(ObjectCalls.ptrcallNoArgsRetObject(getCanvasLayerNodeBind, handle))
+    }
+
+    fun getWorld2d(): World2D? {
+        return World2D.wrap(ObjectCalls.ptrcallNoArgsRetObject(getWorld2dBind, handle))
     }
 
     fun setMaterial(material: Material?) {
@@ -764,6 +772,11 @@ open class CanvasItem(handle: MemorySegment) : Node(handle) {
             ObjectCalls.getMethodBind("CanvasItem", "draw_mesh", DRAW_MESH_HASH)
         }
 
+        private const val DRAW_MULTIMESH_HASH = 937992368L
+        private val drawMultimeshBind by lazy {
+            ObjectCalls.getMethodBind("CanvasItem", "draw_multimesh", DRAW_MULTIMESH_HASH)
+        }
+
         private const val DRAW_SET_TRANSFORM_HASH = 288975085L
         private val drawSetTransformBind by lazy {
             ObjectCalls.getMethodBind("CanvasItem", "draw_set_transform", DRAW_SET_TRANSFORM_HASH)
@@ -837,6 +850,11 @@ open class CanvasItem(handle: MemorySegment) : Node(handle) {
         private const val GET_CANVAS_LAYER_NODE_HASH = 2602762519L
         private val getCanvasLayerNodeBind by lazy {
             ObjectCalls.getMethodBind("CanvasItem", "get_canvas_layer_node", GET_CANVAS_LAYER_NODE_HASH)
+        }
+
+        private const val GET_WORLD_2D_HASH = 2339128592L
+        private val getWorld2dBind by lazy {
+            ObjectCalls.getMethodBind("CanvasItem", "get_world_2d", GET_WORLD_2D_HASH)
         }
 
         private const val SET_MATERIAL_HASH = 2757459619L

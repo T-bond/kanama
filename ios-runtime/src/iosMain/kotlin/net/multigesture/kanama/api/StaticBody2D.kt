@@ -10,6 +10,12 @@ import net.multigesture.kanama.types.Vector2
  * Generated from Godot docs: StaticBody2D
  */
 open class StaticBody2D(handle: MemorySegment) : PhysicsBody2D(handle) {
+    var physicsMaterialOverride: PhysicsMaterial?
+        @JvmName("physicsMaterialOverrideProperty")
+        get() = getPhysicsMaterialOverride()
+        @JvmName("setPhysicsMaterialOverrideProperty")
+        set(value) = setPhysicsMaterialOverride(value)
+
     var constantLinearVelocity: Vector2
         @JvmName("constantLinearVelocityProperty")
         get() = getConstantLinearVelocity()
@@ -38,6 +44,14 @@ open class StaticBody2D(handle: MemorySegment) : PhysicsBody2D(handle) {
         return ObjectCalls.ptrcallNoArgsRetDouble(getConstantAngularVelocityBind, handle)
     }
 
+    fun setPhysicsMaterialOverride(physicsMaterialOverride: PhysicsMaterial?) {
+        ObjectCalls.ptrcallWithObjectArgs(setPhysicsMaterialOverrideBind, handle, listOf(physicsMaterialOverride?.requireOpenHandle() ?: MemorySegment.NULL))
+    }
+
+    fun getPhysicsMaterialOverride(): PhysicsMaterial? {
+        return PhysicsMaterial.wrap(ObjectCalls.ptrcallNoArgsRetObject(getPhysicsMaterialOverrideBind, handle))
+    }
+
     companion object {
         fun fromHandle(handle: MemorySegment): StaticBody2D? =
             wrap(handle)
@@ -63,6 +77,16 @@ open class StaticBody2D(handle: MemorySegment) : PhysicsBody2D(handle) {
         private const val GET_CONSTANT_ANGULAR_VELOCITY_HASH = 1740695150L
         private val getConstantAngularVelocityBind by lazy {
             ObjectCalls.getMethodBind("StaticBody2D", "get_constant_angular_velocity", GET_CONSTANT_ANGULAR_VELOCITY_HASH)
+        }
+
+        private const val SET_PHYSICS_MATERIAL_OVERRIDE_HASH = 1784508650L
+        private val setPhysicsMaterialOverrideBind by lazy {
+            ObjectCalls.getMethodBind("StaticBody2D", "set_physics_material_override", SET_PHYSICS_MATERIAL_OVERRIDE_HASH)
+        }
+
+        private const val GET_PHYSICS_MATERIAL_OVERRIDE_HASH = 2521850424L
+        private val getPhysicsMaterialOverrideBind by lazy {
+            ObjectCalls.getMethodBind("StaticBody2D", "get_physics_material_override", GET_PHYSICS_MATERIAL_OVERRIDE_HASH)
         }
     }
 }

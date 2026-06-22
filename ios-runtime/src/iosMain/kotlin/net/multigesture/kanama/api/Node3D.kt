@@ -256,6 +256,10 @@ open class Node3D(handle: MemorySegment) : Node(handle) {
         return ObjectCalls.ptrcallNoArgsRetBool(isScaleDisabledBind, handle)
     }
 
+    fun getWorld3d(): World3D? {
+        return World3D.wrap(ObjectCalls.ptrcallNoArgsRetObject(getWorld3dBind, handle))
+    }
+
     fun forceUpdateTransform() {
         ObjectCalls.ptrcallNoArgs(forceUpdateTransformBind, handle)
     }
@@ -577,6 +581,11 @@ open class Node3D(handle: MemorySegment) : Node(handle) {
         private const val IS_SCALE_DISABLED_HASH = 36873697L
         private val isScaleDisabledBind by lazy {
             ObjectCalls.getMethodBind("Node3D", "is_scale_disabled", IS_SCALE_DISABLED_HASH)
+        }
+
+        private const val GET_WORLD_3D_HASH = 317588385L
+        private val getWorld3dBind by lazy {
+            ObjectCalls.getMethodBind("Node3D", "get_world_3d", GET_WORLD_3D_HASH)
         }
 
         private const val FORCE_UPDATE_TRANSFORM_HASH = 3218959716L

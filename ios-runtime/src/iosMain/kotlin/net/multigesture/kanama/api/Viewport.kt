@@ -31,6 +31,18 @@ open class Viewport(handle: MemorySegment) : Node(handle) {
         @JvmName("setOwnWorld3dProperty")
         set(value) = setUseOwnWorld3d(value)
 
+    var world3d: World3D?
+        @JvmName("world3dProperty")
+        get() = getWorld3d()
+        @JvmName("setWorld3dProperty")
+        set(value) = setWorld3d(value)
+
+    var world2d: World2D?
+        @JvmName("world2dProperty")
+        get() = getWorld2d()
+        @JvmName("setWorld2dProperty")
+        set(value) = setWorld2d(value)
+
     var transparentBg: Boolean
         @JvmName("transparentBgProperty")
         get() = hasTransparentBackground()
@@ -276,6 +288,18 @@ open class Viewport(handle: MemorySegment) : Node(handle) {
         get() = getOversamplingOverride()
         @JvmName("setOversamplingOverrideProperty")
         set(value) = setOversamplingOverride(value)
+
+    fun setWorld2d(world2d: World2D?) {
+        ObjectCalls.ptrcallWithObjectArgs(setWorld2dBind, handle, listOf(world2d?.requireOpenHandle() ?: MemorySegment.NULL))
+    }
+
+    fun getWorld2d(): World2D? {
+        return World2D.wrap(ObjectCalls.ptrcallNoArgsRetObject(getWorld2dBind, handle))
+    }
+
+    fun findWorld2d(): World2D? {
+        return World2D.wrap(ObjectCalls.ptrcallNoArgsRetObject(findWorld2dBind, handle))
+    }
 
     fun setCanvasTransform(xform: Transform2D) {
         ObjectCalls.ptrcallWithTransform2DArg(setCanvasTransformBind, handle, xform)
@@ -653,6 +677,18 @@ open class Viewport(handle: MemorySegment) : Node(handle) {
         return Camera2D.wrap(ObjectCalls.ptrcallNoArgsRetObject(getCamera2dBind, handle))
     }
 
+    fun setWorld3d(world3d: World3D?) {
+        ObjectCalls.ptrcallWithObjectArgs(setWorld3dBind, handle, listOf(world3d?.requireOpenHandle() ?: MemorySegment.NULL))
+    }
+
+    fun getWorld3d(): World3D? {
+        return World3D.wrap(ObjectCalls.ptrcallNoArgsRetObject(getWorld3dBind, handle))
+    }
+
+    fun findWorld3d(): World3D? {
+        return World3D.wrap(ObjectCalls.ptrcallNoArgsRetObject(findWorld3dBind, handle))
+    }
+
     fun setUseOwnWorld3d(enable: Boolean) {
         ObjectCalls.ptrcallWithBoolArg(setUseOwnWorld3dBind, handle, enable)
     }
@@ -860,6 +896,21 @@ open class Viewport(handle: MemorySegment) : Node(handle) {
 
         internal fun wrap(handle: MemorySegment): Viewport? =
             if (handle.address() == 0L) null else Viewport(handle)
+
+        private const val SET_WORLD_2D_HASH = 2736080068L
+        private val setWorld2dBind by lazy {
+            ObjectCalls.getMethodBind("Viewport", "set_world_2d", SET_WORLD_2D_HASH)
+        }
+
+        private const val GET_WORLD_2D_HASH = 2339128592L
+        private val getWorld2dBind by lazy {
+            ObjectCalls.getMethodBind("Viewport", "get_world_2d", GET_WORLD_2D_HASH)
+        }
+
+        private const val FIND_WORLD_2D_HASH = 2339128592L
+        private val findWorld2dBind by lazy {
+            ObjectCalls.getMethodBind("Viewport", "find_world_2d", FIND_WORLD_2D_HASH)
+        }
 
         private const val SET_CANVAS_TRANSFORM_HASH = 2761652528L
         private val setCanvasTransformBind by lazy {
@@ -1329,6 +1380,21 @@ open class Viewport(handle: MemorySegment) : Node(handle) {
         private const val GET_CAMERA_2D_HASH = 3551466917L
         private val getCamera2dBind by lazy {
             ObjectCalls.getMethodBind("Viewport", "get_camera_2d", GET_CAMERA_2D_HASH)
+        }
+
+        private const val SET_WORLD_3D_HASH = 1400875337L
+        private val setWorld3dBind by lazy {
+            ObjectCalls.getMethodBind("Viewport", "set_world_3d", SET_WORLD_3D_HASH)
+        }
+
+        private const val GET_WORLD_3D_HASH = 317588385L
+        private val getWorld3dBind by lazy {
+            ObjectCalls.getMethodBind("Viewport", "get_world_3d", GET_WORLD_3D_HASH)
+        }
+
+        private const val FIND_WORLD_3D_HASH = 317588385L
+        private val findWorld3dBind by lazy {
+            ObjectCalls.getMethodBind("Viewport", "find_world_3d", FIND_WORLD_3D_HASH)
         }
 
         private const val SET_USE_OWN_WORLD_3D_HASH = 2586408642L

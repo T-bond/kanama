@@ -73,11 +73,18 @@ Gated on Phase 4 exit. Not started by decision.
 
 ## ★ RESUME HERE (updated 2026-06-20 — resume in Opus)
 
-**State: working tree CLEAN, all committed AND pushed to origin/main at `154a8c1` (batches 6+7).**
-(Pre-existing untracked `.agents/` + `skills-lock.json` are tooling files — do NOT stage them.)
-Device self-test baseline: **PTRCALL 54 / OBJECTCALLS 78, 0 failed** on iPhone 12 (UDID
-`48DF9662-42F3-541F-9F88-7FA2AB870F86`, team `DVZT29Q4QT`) — re-confirmed (combined regression run
-covering batches 6+7, 2026-06-20).
+**State: batch-8 code committed + pushed to origin/main; DEVICE REGRESSION RUN PENDING (user must
+unlock iPhone 12 first).** (Pre-existing untracked `.agents/` + `skills-lock.json` are tooling files —
+do NOT stage them.) Device self-test baseline to re-confirm: **PTRCALL 54 / OBJECTCALLS 78, 0 failed**
+on iPhone 12 (UDID `48DF9662-42F3-541F-9F88-7FA2AB870F86`, team `DVZT29Q4QT`) — last confirmed batches
+6+7 (2026-06-20).
+
+**Breadth endpoint (measured 2026-06-21):** a BFS closure over emitted classes' Object args/returns
+reaches only ~33 not-yet-emitted in-scope classes → **~3 batches (8/9/10) to a clean skip-closure
+fixpoint**, after which the only iOS skips left are virtual/callback (91, Phase 5) + Variant/Array
+deferred (~22) + editor/server. Full literal runtime parity (~410 classes) ≈ 23 batches — deferred to
+Phase 5. Plan: `~/.claude/plans/snappy-conjuring-pebble.md`. Batch-10 caveat: InputEvent subtree
+includes `InputEventMouseButton` = hand-written collision (do NOT copy, like AudioStreamPlayer/StaticBody3D).
 
 **DONE (this session, 2026-06-17→20):**
 - **Phase 2 COMPLETE** — 2.7d (typed-object arrays) → 2.7e (Variant scalars) → 2.7f (arg-bearing
@@ -87,7 +94,7 @@ covering batches 6+7, 2026-06-20).
 - **Phase 4 exit met (0 STUB / 0 SUGAR)** — 4.1 (connectBound/disconnectBound/SignalConnection.close,
   bound + lambda Callables), 4.2 (SUGAR→generator custom-section, regen now LOSSLESS), 4.5 (HANDWRITTEN
   reviewed — all 10 justified bespoke, category-tagged).
-- **Phase 4 breadth batches 1–7** — emitted iOS classes **27→118** (~2,580+ new wrapper methods). All
+- **Phase 4 breadth batches 1–8** — emitted iOS classes **27→135** (~3,080+ new wrapper methods). All
   emit-only (proven marshalling, no new C, no new self-test rows), each regression-clean on device.
   **Batch 5 (2026-06-20): +14 — Button + 5 BaseButton/Button children (CheckBox/CheckButton/OptionButton/
   MenuButton/ColorPickerButton) + LinkButton/TextureButton (direct BaseButton) + the PhysicsBody2D
@@ -105,6 +112,12 @@ covering batches 6+7, 2026-06-20).
   (Light2D/PointLight2D/DirectionalLight2D) + 2D collision shapes (CollisionShape2D/CollisionPolygon2D);
   +229 wrapper methods; gates + compileKotlinIosArm64 green.** Skips now 327. **Batches 6+7
   DEVICE-VALIDATED together — combined regression run clean (PTRCALL 54 / OBJECTCALLS 78, 0 failed).**
+  **Batch 8 (2026-06-21): +17 — Resource leaves (AudioStream/AudioStreamPlayback/SpriteFrames/Curve2D/
+  Curve3D/Noise/BitMap/ButtonGroup/Shortcut/LabelSettings/Skin/Sky/PhysicsMaterial/Shader/MultiMesh/
+  World2D/World3D); +503 method-lines incl. 19 EXISTING wrappers gaining their now-resolvable Object
+  getters/setters (e.g. AudioStreamPlayer2D/3D.get_stream→AudioStream, Path2D.curve→Curve2D,
+  Viewport.world_2d/3d). First skip-closure batch — skips DROPPED 327→325 (closure effect: draining
+  more than it adds). Gates + compileKotlinIosArm64 green. DEVICE REGRESSION PENDING.**
   Note: regen sometimes emits AudioStreamPlayer.kt + StaticBody3D.kt (hand-written collisions in
   IosGodotApi.kt) — these are NOT copied.
 

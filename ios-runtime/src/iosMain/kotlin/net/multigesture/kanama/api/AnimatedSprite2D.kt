@@ -10,6 +10,12 @@ import net.multigesture.kanama.types.Vector2
  * Generated from Godot docs: AnimatedSprite2D
  */
 class AnimatedSprite2D(handle: MemorySegment) : Node2D(handle) {
+    var spriteFrames: SpriteFrames?
+        @JvmName("spriteFramesProperty")
+        get() = getSpriteFrames()
+        @JvmName("setSpriteFramesProperty")
+        set(value) = setSpriteFrames(value)
+
     var animation: String
         @JvmName("animationProperty")
         get() = getAnimation()
@@ -63,6 +69,14 @@ class AnimatedSprite2D(handle: MemorySegment) : Node2D(handle) {
         get() = isFlippedV()
         @JvmName("setFlipVProperty")
         set(value) = setFlipV(value)
+
+    fun setSpriteFrames(spriteFrames: SpriteFrames?) {
+        ObjectCalls.ptrcallWithObjectArgs(setSpriteFramesBind, handle, listOf(spriteFrames?.requireOpenHandle() ?: MemorySegment.NULL))
+    }
+
+    fun getSpriteFrames(): SpriteFrames? {
+        return SpriteFrames.wrap(ObjectCalls.ptrcallNoArgsRetObject(getSpriteFramesBind, handle))
+    }
 
     fun setAnimation(name: String) {
         ObjectCalls.ptrcallWithStringNameArg(setAnimationBind, handle, name)
@@ -178,6 +192,16 @@ class AnimatedSprite2D(handle: MemorySegment) : Node2D(handle) {
 
         internal fun wrap(handle: MemorySegment): AnimatedSprite2D? =
             if (handle.address() == 0L) null else AnimatedSprite2D(handle)
+
+        private const val SET_SPRITE_FRAMES_HASH = 905781144L
+        private val setSpriteFramesBind by lazy {
+            ObjectCalls.getMethodBind("AnimatedSprite2D", "set_sprite_frames", SET_SPRITE_FRAMES_HASH)
+        }
+
+        private const val GET_SPRITE_FRAMES_HASH = 3804851214L
+        private val getSpriteFramesBind by lazy {
+            ObjectCalls.getMethodBind("AnimatedSprite2D", "get_sprite_frames", GET_SPRITE_FRAMES_HASH)
+        }
 
         private const val SET_ANIMATION_HASH = 3304788590L
         private val setAnimationBind by lazy {

@@ -16,6 +16,12 @@ open class RigidBody2D(handle: MemorySegment) : PhysicsBody2D(handle) {
         @JvmName("setMassProperty")
         set(value) = setMass(value)
 
+    var physicsMaterialOverride: PhysicsMaterial?
+        @JvmName("physicsMaterialOverrideProperty")
+        get() = getPhysicsMaterialOverride()
+        @JvmName("setPhysicsMaterialOverrideProperty")
+        set(value) = setPhysicsMaterialOverride(value)
+
     var gravityScale: Double
         @JvmName("gravityScaleProperty")
         get() = getGravityScale()
@@ -172,6 +178,14 @@ open class RigidBody2D(handle: MemorySegment) : PhysicsBody2D(handle) {
 
     fun getCenterOfMass(): Vector2 {
         return ObjectCalls.ptrcallNoArgsRetVector2(getCenterOfMassBind, handle)
+    }
+
+    fun setPhysicsMaterialOverride(physicsMaterialOverride: PhysicsMaterial?) {
+        ObjectCalls.ptrcallWithObjectArgs(setPhysicsMaterialOverrideBind, handle, listOf(physicsMaterialOverride?.requireOpenHandle() ?: MemorySegment.NULL))
+    }
+
+    fun getPhysicsMaterialOverride(): PhysicsMaterial? {
+        return PhysicsMaterial.wrap(ObjectCalls.ptrcallNoArgsRetObject(getPhysicsMaterialOverrideBind, handle))
     }
 
     fun setGravityScale(gravityScale: Double) {
@@ -429,6 +443,16 @@ open class RigidBody2D(handle: MemorySegment) : PhysicsBody2D(handle) {
         private const val GET_CENTER_OF_MASS_HASH = 3341600327L
         private val getCenterOfMassBind by lazy {
             ObjectCalls.getMethodBind("RigidBody2D", "get_center_of_mass", GET_CENTER_OF_MASS_HASH)
+        }
+
+        private const val SET_PHYSICS_MATERIAL_OVERRIDE_HASH = 1784508650L
+        private val setPhysicsMaterialOverrideBind by lazy {
+            ObjectCalls.getMethodBind("RigidBody2D", "set_physics_material_override", SET_PHYSICS_MATERIAL_OVERRIDE_HASH)
+        }
+
+        private const val GET_PHYSICS_MATERIAL_OVERRIDE_HASH = 2521850424L
+        private val getPhysicsMaterialOverrideBind by lazy {
+            ObjectCalls.getMethodBind("RigidBody2D", "get_physics_material_override", GET_PHYSICS_MATERIAL_OVERRIDE_HASH)
         }
 
         private const val SET_GRAVITY_SCALE_HASH = 373806689L

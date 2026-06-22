@@ -15,6 +15,12 @@ class NoiseTexture2D(handle: MemorySegment) : Texture2D(handle) {
         @JvmName("setGenerateMipmapsProperty")
         set(value) = setGenerateMipmaps(value)
 
+    var noise: Noise?
+        @JvmName("noiseProperty")
+        get() = getNoise()
+        @JvmName("setNoiseProperty")
+        set(value) = setNoise(value)
+
     var colorRamp: Gradient?
         @JvmName("colorRampProperty")
         get() = getColorRamp()
@@ -77,6 +83,14 @@ class NoiseTexture2D(handle: MemorySegment) : Texture2D(handle) {
 
     fun isGeneratingMipmaps(): Boolean {
         return ObjectCalls.ptrcallNoArgsRetBool(isGeneratingMipmapsBind, handle)
+    }
+
+    fun setNoise(noise: Noise?) {
+        ObjectCalls.ptrcallWithObjectArgs(setNoiseBind, handle, listOf(noise?.requireOpenHandle() ?: MemorySegment.NULL))
+    }
+
+    fun getNoise(): Noise? {
+        return Noise.wrap(ObjectCalls.ptrcallNoArgsRetObject(getNoiseBind, handle))
     }
 
     fun setColorRamp(gradient: Gradient?) {
@@ -168,6 +182,16 @@ class NoiseTexture2D(handle: MemorySegment) : Texture2D(handle) {
         private const val IS_GENERATING_MIPMAPS_HASH = 36873697L
         private val isGeneratingMipmapsBind by lazy {
             ObjectCalls.getMethodBind("NoiseTexture2D", "is_generating_mipmaps", IS_GENERATING_MIPMAPS_HASH)
+        }
+
+        private const val SET_NOISE_HASH = 4135492439L
+        private val setNoiseBind by lazy {
+            ObjectCalls.getMethodBind("NoiseTexture2D", "set_noise", SET_NOISE_HASH)
+        }
+
+        private const val GET_NOISE_HASH = 185851837L
+        private val getNoiseBind by lazy {
+            ObjectCalls.getMethodBind("NoiseTexture2D", "get_noise", GET_NOISE_HASH)
         }
 
         private const val SET_COLOR_RAMP_HASH = 2756054477L
