@@ -73,11 +73,10 @@ Gated on Phase 4 exit. Not started by decision.
 
 ## ★ RESUME HERE (updated 2026-06-20 — resume in Opus)
 
-**State: batch-12 code committed + pushed to origin/main; DEVICE REGRESSION RUN PENDING (phone
-unlocked this session).** (Pre-existing untracked `.agents/` + `skills-lock.json` are tooling files —
-do NOT stage them.) Device self-test baseline to re-confirm: **PTRCALL 54 / OBJECTCALLS 78, 0 failed,
-0 crashes** on iPhone 12 (UDID `48DF9662-42F3-541F-9F88-7FA2AB870F86`, team `DVZT29Q4QT`) — last
-confirmed batch 11 (2026-06-21).
+**State: working tree CLEAN, all committed AND pushed to origin/main at `d0dba8d` (batch 12).**
+(Pre-existing untracked `.agents/` + `skills-lock.json` are tooling files — do NOT stage them.)
+Device self-test baseline: **PTRCALL 54 / OBJECTCALLS 78, 0 failed, 0 crashes** on iPhone 12 (UDID
+`48DF9662-42F3-541F-9F88-7FA2AB870F86`, team `DVZT29Q4QT`) — re-confirmed on batch 12 (2026-06-21).
 
 **★ SKIP-CLOSURE FIXPOINT REACHED (2026-06-21, batch 10).** The BFS closure over emitted classes'
 Object args/returns/properties now returns **0** not-yet-emitted in-scope classes — the entire
@@ -155,7 +154,8 @@ the networking subtree or Phase 5. Plan: `~/.claude/plans/snappy-conjuring-pebbl
   + TLSOptions + crypto (X509Certificate/CryptoKey/Crypto/HMACContext/AESContext). Drains MultiplayerPeer
   (was the last useful Object-shape residual). Residual Object-shape skips now the IRREDUCIBLE FLOOR:
   just Object/SceneTree/Tween (bare base + 2 hand-written). Node.kt sugar intact (4/4). Gates +
-  compileKotlinIosArm64 green; skips 416. DEVICE REGRESSION PENDING.**
+  compileKotlinIosArm64 green; skips 416. DEVICE-VALIDATED (regression-clean PTRCALL 54 / OBJECTCALLS
+  78, 0 failed, 0 crashes).**
   Note: regen sometimes emits AudioStreamPlayer.kt + StaticBody3D.kt (hand-written collisions in
   IosGodotApi.kt) — these are NOT copied.
 
