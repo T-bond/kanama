@@ -12,9 +12,10 @@ closure plus the networking/crypto subtree and the bare-`Object` utility floor (
 classes' Object args/returns reaches 0 not-yet-emitted in-scope classes). The audited type set is
 complete for runtime use; the KSP script-model is unified across all targets; arbitrary virtual
 overrides work. Device-validated on iPhone 12: self-test matrix **PTRCALL 54 / OBJECTCALLS 78, 0
-failed**, ~0.63 ms/frame Kanama overhead. **3 of 11 demos device-validated** (Bunnymark, Match3,
-3D-Platformer); 6 demos blocked by residual iOS wrapper gaps (missing classes + Mathf/Input/OS
-methods); 2 demos on hold (City-Builder, tps). The remaining distance to a *supported* iOS export
+failed**, ~0.63 ms/frame Kanama overhead. **3 demos device-validated** (Bunnymark, Match3,
+3D-Platformer) + **4 demos build+link on device target** (dodge, squash, Racing, character-controller,
+2026-06-23 — device-run validation in progress); FPS + third-person still blocked by residual iOS
+wrapper gaps (now narrower — see table); 2 demos on hold (City-Builder, tps). The remaining distance to a *supported* iOS export
 is **widening the iOS wrapper surface** for the blocked demos + export-workflow polish.
 
 ## Architecture in one paragraph
@@ -113,12 +114,12 @@ each port is **port + device-validate** (a port can still surface a residual gap
 | Starter-Kit-Match3 | 2D | **Device-validated** | reference port |
 | Starter-Kit-3D-Platformer | 3D | **Device-validated** | reference port; `view: NodePath` now delivered |
 | Bunnymark | 2D | **Device-validated** | device-validated on iPhone 12 (2026-06-23) |
-| godot-demo-2d-dodge-the-creeps | 2D | **Blocked (wrapper gaps)** | `installIosAddon` fails — missing `PathFollow2D`, `Input.isActionPressed`, `Mathf.PI`, `Tween.delaySeconds`, `SceneTree.callGroup`, `AudioStreamPlayer.stop` |
-| godot-demo-3d-squash-the-creeps | 3D | **Blocked (wrapper gaps)** | `installIosAddon` fails — missing `PathFollow3D`, `RenderingServer`, `Mathf.PI`, `Vector3.FORWARD`, `Input.isActionPressed`, `Node3D.lookingAt` |
-| Starter-Kit-Racing | 3D | **Blocked (wrapper gaps)** | `installIosAddon` fails — missing wrapper classes/methods |
-| Starter-Kit-FPS | 3D | **Blocked (wrapper gaps)** | `installIosAddon` fails — missing `AnimatedSprite3D`, `RayCast3D`, `OS`, `GlobalClass`, `PropertyHint`, `Mathf.lerpf`/`clampf`/`lerpAngle`/`degToRad`, `Vector3 * Float`, `Input.setMouseMode`/`getVector`/`isActionPressed`, `Tween.bindNode`/`tweenCallback`, `Node3D.lookAt`, `Object.hasMethod`/`call`, `Resource.loadPackedScene`, `Node.queueFree`/`isQueuedForDeletion`/`setScript` |
-| godot-4-3d-character-controller | 3D | **Blocked (wrapper gaps)** | `installIosAddon` fails — missing wrapper classes/methods |
-| godot-4-3d-third-person-controller | 3D | **Blocked (wrapper gaps)** | `installIosAddon` fails — missing `RayCast3D`, `SpringArm3D`, `ShapeCast3D`, `OS`, `PropertyHint`, `GlobalClass`, `AnimationNodeStateMachinePlayback`, `MeshDataTool`, `SurfaceTool`, `MultiMeshInstance3D`, `WorldEnvironment`, `InputMap`, `ProjectSettings`, `Engine`, `PhysicsServer3D`, `Time`, `Mathf.PI`/`sqrt`/`degToRad`/`lerpAngle`/`inverseLerp`, `Vector3.FORWARD`/`BACK`/`DOWN`/`RIGHT`, `Input.isActionPressed`/`getActionRawStrength`/`setMouseMode`/`getMouseMode`, `Key.constants`, `Tween.tweenCallback`/`tweenMethod`/`setPaused`, `Transform3D.fromEuler`/`withBasis`/`withOrigin`, `Quaternion.fromEuler`, `Object.hasMethod`/`call`/`isInstanceValid`/`getInstanceId`, `Resource.loadPackedScene`/`loadAudioStream`, `SceneTree.unloadCurrentScene`/`postAfterFrames`/`quit`, `Node.awaitNextFrame`, 200+ unique references |
+| godot-demo-2d-dodge-the-creeps | 2D | **Builds + links + installs** | device build/sign/install OK on iPhone 12 (launch pending cert trust). Needed: `PathFollow2D` (generated), `Input.isActionPressed`, `Mathf.PI`, instance `SceneTree.delaySeconds`/`callGroup`, `AudioStreamPlayer.stop`, `Vector2.normalized`/`clamp` |
+| godot-demo-3d-squash-the-creeps | 3D | **Builds + links** | `installIosAddon` OK. Needed: `PathFollow3D`+`RenderingServer` (generated), `Mathf.PI`, `Vector3.FORWARD`, `Input.isActionPressed`, `Basis.lookingAt`, `Light3D.lightEnergy`, `GodotObject` AutoCloseable (getSlideCollision `.use`) |
+| Starter-Kit-Racing | 3D | **Builds + links** | `installIosAddon` OK. Needed: `RayCast3D` (generated), `GD.signf`/`lerpf`/`clampf`/`lerpAngle`/`remap`, `Vector3.signedAngleTo`/`moveToward`, `Transform3D.withBasis`/`withOrigin`, `Basis.withX`/`withY`/`withZ`+`*Vector3`, `@GlobalClass` |
+| Starter-Kit-FPS | 3D | **Blocked (narrowed)** | now available: `RayCast3D`/`OS`, `@GlobalClass`/`PropertyHint`, `GD.lerpf`/`clampf`/`lerpAngle`, `Vector3 * Number`, `Input.setMouseMode`/`getVector`/`isActionPressed`, `Node3D.lookAt`, `Node.queueFree`, `setScript`. Still missing: `AnimatedSprite3D`, `Tween.bindNode`/`tweenCallback`, `Object.hasMethod`/`call`, `Resource.loadPackedScene`, `Node.isQueuedForDeletion` |
+| godot-4-3d-character-controller | 3D | **Builds + links** | `installIosAddon` OK. Needed: `AnimationNodeStateMachinePlayback`+`BaseMaterial3D` (generated), `@GlobalClass`/`PropertyHint`, `InputEventKey.KEY_*`, `InputEventMouseMotion.from`, `Viewport.getCamera3D`, `AnimationMixer.setParameter`/`getStateMachinePlayback`, `BaseMaterial3D.fromMaterial`, `SceneTree.setPaused`/`unloadCurrentScene`/`getRoot`, `MainThread.postAfterFrames`/`awaitNextFrame`, `Basis*Vector3`, `Mathf.moveToward`/`isEqualApprox` |
+| godot-4-3d-third-person-controller | 3D | **Blocked (narrowed)** | now available: `RayCast3D`/`OS`, `AnimationNodeStateMachinePlayback`, `@GlobalClass`/`PropertyHint`, `Vector3.FORWARD`/`BACK`/`DOWN`/`RIGHT`/`signedAngleTo`/`moveToward`, `Input` mouse-mode/getVector/isActionPressed + `KEY_*`, `Transform3D.withBasis`/`withOrigin`, `SceneTree.unloadCurrentScene`/`getRoot`/`setPaused`, `MainThread.awaitNextFrame`/`postAfterFrames`, `GD.lerpAngle`. Still missing: `SpringArm3D`, `ShapeCast3D`, `MeshDataTool`, `SurfaceTool`, `MultiMeshInstance3D`, `WorldEnvironment`, `InputMap`, `ProjectSettings`, `Engine`, `PhysicsServer3D`, `Time`, `Quaternion.fromEuler`, `Object.hasMethod`/`call`/`isInstanceValid`/`getInstanceId`, `Resource.loadPackedScene`/`loadAudioStream`, `Tween.tweenCallback`/`tweenMethod`/`setPaused` |
 | Starter-Kit-City-Builder | 2D | Hold | GridMap + `List<custom-class>` `@ScriptProperty` (also not an Android demo) |
 | tps-demo-kanama | 3D | **Blocked** | `@Rpc` multiplayer config delivery (the one real backlog gate) |
 
