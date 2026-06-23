@@ -68,6 +68,10 @@ internal data class IosProperty(
     // Godot Variant::Type, so the iOS script instance can advertise this property to the engine
     // (get_property_list) — required for scene-stored @ScriptProperty values to be delivered.
     val godotVariantType: Int = 0,
+    // FQ name of a user @ScriptClass type for an OBJECT property (e.g. a `node_paths`-exported
+    // reference like `target: Vehicle?`). Delivered as the owner handle and resolved to the live
+    // Kotlin script instance via iosScriptInstanceForOwner. Empty for non-custom-script properties.
+    val customScriptFqName: String = "",
 )
 
 internal data class IosSignal(
@@ -201,6 +205,10 @@ internal class IosScriptCodeEmitter(
                     } else {
                         builder.appendLine("        $index -> { script.${property.kotlinName} = net.multigesture.kanama.api.${property.godotClassName}(java.lang.foreign.MemorySegment.ofAddress(value)); true }")
                     }
+                } else if (property.customScriptFqName.isNotEmpty()) {
+                    // node_paths-exported reference to another @ScriptClass: the engine delivers the
+                    // target node's owner handle; resolve it to the live Kotlin script instance.
+                    builder.appendLine("        $index -> { script.${property.kotlinName} = if (value != 0L) net.multigesture.kanama.ios.iosScriptInstanceForOwner(value) as? ${property.customScriptFqName} else null; true }")
                 } else if (!property.isObjectType && !property.isList && property.godotClassName.isNotEmpty() && property.godotClassName != "String") {
                     val rhs = when (property.godotClassName) {
                         "Double", "Float" -> "Double.fromBits(value)"
@@ -446,11 +454,15 @@ internal class IosScriptCodeEmitter(
     private fun ScriptPropertyModel.toIosProperty(className: String): IosProperty {
         val isList = type == TypeMapping.ARRAY
         val isObject = objectWrapperFqName != null
+        // A user @ScriptClass-typed OBJECT property (e.g. `target: Vehicle?` exported via node_paths):
+        // delivered as the owner handle, resolved to the live Kotlin script instance at set time.
+        val customScript = if (type == TypeMapping.OBJECT && customScriptFqName != null) customScriptFqName else ""
         val listElementClassName = arrayElementWrapperFqName?.substringAfterLast('.') ?: ""
         var valueTypeClassName = ""
         val godotClassName = when {
             isObject -> objectWrapperFqName.substringAfterLast('.')
             isList -> ""
+            customScript.isNotEmpty() -> ""
             else -> when (type) {
                 TypeMapping.INT -> "Long"
                 TypeMapping.FLOAT -> "Double"
@@ -486,6 +498,7 @@ internal class IosScriptCodeEmitter(
             isNullable = nullable,
             valueTypeClassName = valueTypeClassName,
             godotVariantType = godotVariantType,
+            customScriptFqName = customScript,
         )
     }
 
