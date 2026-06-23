@@ -22,12 +22,6 @@ open class Light3D(handle: MemorySegment) : VisualInstance3D(handle) {
         @JvmName("setLightColorProperty")
         set(value) = setColor(value)
 
-    var lightProjector: Texture2D?
-        @JvmName("lightProjectorProperty")
-        get() = getProjector()
-        @JvmName("setLightProjectorProperty")
-        set(value) = setProjector(value)
-
     var lightNegative: Boolean
         @JvmName("lightNegativeProperty")
         get() = isNegative()
@@ -198,14 +192,6 @@ open class Light3D(handle: MemorySegment) : VisualInstance3D(handle) {
         return ObjectCalls.ptrcallNoArgsRetLong(getBakeModeBind, handle)
     }
 
-    fun setProjector(projector: Texture2D?) {
-        ObjectCalls.ptrcallWithObjectArgs(setProjectorBind, handle, listOf(projector?.requireOpenHandle() ?: MemorySegment.NULL))
-    }
-
-    fun getProjector(): Texture2D? {
-        return Texture2D.wrap(ObjectCalls.ptrcallNoArgsRetObject(getProjectorBind, handle))
-    }
-
     fun setTemperature(temperature: Double) {
         ObjectCalls.ptrcallWithDoubleArg(setTemperatureBind, handle, temperature)
     }
@@ -217,6 +203,15 @@ open class Light3D(handle: MemorySegment) : VisualInstance3D(handle) {
     fun getCorrelatedColor(): Color {
         return ObjectCalls.ptrcallNoArgsRetColor(getCorrelatedColorBind, handle)
     }
+
+    // ── Kanama iOS sugar (generator custom-section, not from Godot docs) ───────
+    // lightEnergy is an indexed (get_param/set_param) property; the property renderer
+    // skips indexed getters, so expose it explicitly to match the Android/desktop API.
+    var lightEnergy: Double
+        @JvmName("lightEnergyProperty")
+        get() = getParam(PARAM_ENERGY)
+        @JvmName("setLightEnergyProperty")
+        set(value) = setParam(PARAM_ENERGY, value)
 
     companion object {
         const val PARAM_ENERGY: Long = 0L
@@ -379,16 +374,6 @@ open class Light3D(handle: MemorySegment) : VisualInstance3D(handle) {
         private const val GET_BAKE_MODE_HASH = 371737608L
         private val getBakeModeBind by lazy {
             ObjectCalls.getMethodBind("Light3D", "get_bake_mode", GET_BAKE_MODE_HASH)
-        }
-
-        private const val SET_PROJECTOR_HASH = 4051416890L
-        private val setProjectorBind by lazy {
-            ObjectCalls.getMethodBind("Light3D", "set_projector", SET_PROJECTOR_HASH)
-        }
-
-        private const val GET_PROJECTOR_HASH = 3635182373L
-        private val getProjectorBind by lazy {
-            ObjectCalls.getMethodBind("Light3D", "get_projector", GET_PROJECTOR_HASH)
         }
 
         private const val SET_TEMPERATURE_HASH = 373806689L

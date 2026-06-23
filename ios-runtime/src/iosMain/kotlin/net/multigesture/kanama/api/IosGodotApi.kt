@@ -157,7 +157,7 @@ object MainThread {
 
 open class GodotObject(
     val handle: MemorySegment,
-) {
+) : AutoCloseable {
     constructor(handle: Long) : this(MemorySegment.ofAddress(handle))
 
     fun requireOpenHandle(): MemorySegment = handle
@@ -242,8 +242,10 @@ open class GodotObject(
         }
     }
 
-    // KANAMA-IOS-HANDWRITTEN: [platform] AutoCloseable no-op base; Godot object lifetime is managed externally, not by Kotlin's close().
-    open fun close() {
+    // KANAMA-IOS-HANDWRITTEN: [platform] AutoCloseable no-op base; Godot object lifetime is managed
+    // externally (the Kotlin wrapper does not own a ref), not by Kotlin's close(). Implementing
+    // AutoCloseable lets shared demo code use `obj.use { ... }` (e.g. getSlideCollision) uniformly.
+    override fun close() {
     }
 
     companion object {
@@ -351,11 +353,29 @@ class SceneTree(handle: MemorySegment) : Node(handle) {
         delay((seconds * 1000.0).toLong().coerceAtLeast(0L))
     }
 
+    fun setPaused(paused: Boolean) {
+        ObjectCalls.ptrcallWithBoolArg(setPausedBind, handle, paused)
+    }
+
+    fun unloadCurrentScene() {
+        ObjectCalls.ptrcallNoArgs(unloadCurrentSceneBind, handle)
+    }
+
+    // The root Window handle (an Object); wrap with Window(...) or Node(...) at the call site,
+    // matching desktop SceneTree.getRoot(): MemorySegment.
+    fun getRoot(): MemorySegment =
+        ObjectCalls.ptrcallNoArgsRetObject(getRootBind, handle)
+
     companion object {
         private val quitBind by lazy { ObjectCalls.getMethodBind("SceneTree", "quit", 1995695955L) }
         private val reloadCurrentSceneBind by lazy {
             ObjectCalls.getMethodBind("SceneTree", "reload_current_scene", 166280745L)
         }
+        private val setPausedBind by lazy { ObjectCalls.getMethodBind("SceneTree", "set_pause", 2586408642L) }
+        private val unloadCurrentSceneBind by lazy {
+            ObjectCalls.getMethodBind("SceneTree", "unload_current_scene", 3218959716L)
+        }
+        private val getRootBind by lazy { ObjectCalls.getMethodBind("SceneTree", "get_root", 1757182445L) }
 
         suspend fun delaySeconds(seconds: Double) {
             delay((seconds * 1000.0).toLong().coerceAtLeast(0L))

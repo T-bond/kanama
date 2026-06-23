@@ -481,6 +481,16 @@ IOS_CUSTOM_MEMBER_SECTIONS = {
             Tween(MemorySegment.ofAddress(it))
         }
 """.strip("\n"),
+    "Light3D": """
+    // ── Kanama iOS sugar (generator custom-section, not from Godot docs) ───────
+    // lightEnergy is an indexed (get_param/set_param) property; the property renderer
+    // skips indexed getters, so expose it explicitly to match the Android/desktop API.
+    var lightEnergy: Double
+        @JvmName("lightEnergyProperty")
+        get() = getParam(PARAM_ENERGY)
+        @JvmName("setLightEnergyProperty")
+        set(value) = setParam(PARAM_ENERGY, value)
+""".strip("\n"),
 }
 
 
