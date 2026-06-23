@@ -636,6 +636,13 @@ def kotlin_default_expression(default_value: str | None, logical_kind: str) -> s
         return rendered if "." in rendered else f"{rendered}.0"
     if logical_kind == "String" and len(default_value) >= 2 and default_value[0] == default_value[-1] == '"':
         return default_value
+    if logical_kind == "StringName":
+        # StringName defaults appear as a string literal ("...") or a StringName literal (&"...").
+        # Both render to the same Kotlin String default (StringName params are typed `String`).
+        text = default_value[1:] if default_value.startswith("&") else default_value
+        if len(text) >= 2 and text[0] == text[-1] == '"':
+            return text
+        return None
     if logical_kind == "Variant" and default_value == "null":
         return "null"
     if logical_kind in {"Array", "PackedStringArray"} and default_value == "[]":

@@ -80,6 +80,27 @@ data class Basis(
         private val determinantBind by lazy {
             BuiltinCalls.getBuiltinMethod(BuiltinCalls.VT_BASIS, "determinant", 466405837L)
         }
+        private val lookingAtBind by lazy {
+            BuiltinCalls.getBuiltinMethod(BuiltinCalls.VT_BASIS, "looking_at", 3728732505L)
+        }
+
+        /**
+         * Returns a rotation basis that points the -Z axis toward [target] with +Y toward [up]
+         * (or the model-front axis when [useModelFront]). `Basis.looking_at` is a *static* builtin,
+         * so the call passes an empty base (mirrors the desktop `base = NULL`).
+         */
+        fun lookingAt(target: Vector3, up: Vector3 = Vector3.UP, useModelFront: Boolean = false): Basis =
+            fromFloat32(BuiltinCalls.call(lookingAtBind, floatArrayOf(), 9, listOf(
+                BuiltinCalls.BArg.Floats(
+                    BuiltinCalls.PT_VECTOR3,
+                    floatArrayOf(target.x.toFloat(), target.y.toFloat(), target.z.toFloat()),
+                ),
+                BuiltinCalls.BArg.Floats(
+                    BuiltinCalls.PT_VECTOR3,
+                    floatArrayOf(up.x.toFloat(), up.y.toFloat(), up.z.toFloat()),
+                ),
+                BuiltinCalls.BArg.Bool(useModelFront),
+            )))
 
         private fun fromFloat32(c: FloatArray): Basis =
             Basis(

@@ -98,11 +98,11 @@ class AnimatedSprite2D(handle: MemorySegment) : Node2D(handle) {
         return ObjectCalls.ptrcallNoArgsRetBool(isPlayingBind, handle)
     }
 
-    fun play(name: String, customSpeed: Double = 1.0, fromEnd: Boolean = false) {
+    fun play(name: String = "", customSpeed: Double = 1.0, fromEnd: Boolean = false) {
         ObjectCalls.ptrcallWithStringNameDoubleBoolArgs(playBind, handle, name, customSpeed, fromEnd)
     }
 
-    fun playBackwards(name: String) {
+    fun playBackwards(name: String = "") {
         ObjectCalls.ptrcallWithStringNameArg(playBackwardsBind, handle, name)
     }
 

@@ -53,6 +53,16 @@ data class Vector2(
     fun length(): Double =
         sqrt(lengthSquared())
 
+    /** Returns this vector scaled to unit length, or [ZERO] if it has zero length (matches Godot). */
+    fun normalized(): Vector2 {
+        val len = length()
+        return if (len == 0.0) ZERO else this / len
+    }
+
+    /** Returns a copy with each component clamped between [min] and [max] (matches Godot Vector2.clamp). */
+    fun clamp(min: Vector2, max: Vector2): Vector2 =
+        Vector2(x.coerceIn(min.x, max.x), y.coerceIn(min.y, max.y))
+
     fun angle(): Double =
         atan2(y, x)
 

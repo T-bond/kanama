@@ -13,6 +13,7 @@ import kotlinx.cinterop.readBytes
 import kotlinx.cinterop.reinterpret
 import kotlinx.cinterop.set
 import kotlinx.cinterop.toKString
+import net.multigesture.kanama.api.MainThread
 import net.multigesture.kanama.ios.cinterop.kanama_ios_godot_get_method_bind
 import net.multigesture.kanama.ios.cinterop.kanama_ios_godot_ptrcall_string_arg
 import net.multigesture.kanama.ios.cinterop.kanama_ios_godot_set_first_node_in_group_text
@@ -150,6 +151,9 @@ internal object KanamaIosRuntime {
     }
 
     fun frame() {
+        // Resume any coroutines parked on MainThread.awaitNextFrame() once per engine frame.
+        // Runs every frame (before the probe-label early-return) so frame-based waits keep advancing.
+        MainThread.pumpNextFrame()
         if (probeLabelUpdated) {
             return
         }

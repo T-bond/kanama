@@ -507,11 +507,11 @@ open class Node(handle: MemorySegment) : GodotObject(handle) {
         return ObjectCalls.ptrcallNoArgsRetBool(isUniqueNameInOwnerBind, handle)
     }
 
-    fun atr(message: String, context: String): String {
+    fun atr(message: String, context: String = ""): String {
         return ObjectCalls.ptrcallWithStringAndStringNameArgRetString(atrBind, handle, message, context)
     }
 
-    fun atrN(message: String, pluralMessage: String, n: Int, context: String): String {
+    fun atrN(message: String, pluralMessage: String, n: Int, context: String = ""): String {
         return ObjectCalls.ptrcallWithStringStringNameIntStringNameArgsRetString(atrNBind, handle, message, pluralMessage, n, context)
     }
 

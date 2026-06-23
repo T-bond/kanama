@@ -134,31 +134,31 @@ class AnimationPlayer(handle: MemorySegment) : AnimationMixer(handle) {
         return ObjectCalls.ptrcallNoArgsRetLong(getAutoCaptureEaseTypeBind, handle)
     }
 
-    fun play(name: String, customBlend: Double = -1.0, customSpeed: Double = 1.0, fromEnd: Boolean = false) {
+    fun play(name: String = "", customBlend: Double = -1.0, customSpeed: Double = 1.0, fromEnd: Boolean = false) {
         ObjectCalls.ptrcallWithStringNameDoubleDoubleBoolArgs(playBind, handle, name, customBlend, customSpeed, fromEnd)
     }
 
-    fun playSectionWithMarkers(name: String, startMarker: String, endMarker: String, customBlend: Double = -1.0, customSpeed: Double = 1.0, fromEnd: Boolean = false) {
+    fun playSectionWithMarkers(name: String = "", startMarker: String = "", endMarker: String = "", customBlend: Double = -1.0, customSpeed: Double = 1.0, fromEnd: Boolean = false) {
         ObjectCalls.ptrcallWithThreeStringNameTwoDoubleBoolArgs(playSectionWithMarkersBind, handle, name, startMarker, endMarker, customBlend, customSpeed, fromEnd)
     }
 
-    fun playSection(name: String, startTime: Double = -1.0, endTime: Double = -1.0, customBlend: Double = -1.0, customSpeed: Double = 1.0, fromEnd: Boolean = false) {
+    fun playSection(name: String = "", startTime: Double = -1.0, endTime: Double = -1.0, customBlend: Double = -1.0, customSpeed: Double = 1.0, fromEnd: Boolean = false) {
         ObjectCalls.ptrcallWithStringNameFourDoubleBoolArgs(playSectionBind, handle, name, startTime, endTime, customBlend, customSpeed, fromEnd)
     }
 
-    fun playBackwards(name: String, customBlend: Double = -1.0) {
+    fun playBackwards(name: String = "", customBlend: Double = -1.0) {
         ObjectCalls.ptrcallWithStringNameAndDoubleArg(playBackwardsBind, handle, name, customBlend)
     }
 
-    fun playSectionWithMarkersBackwards(name: String, startMarker: String, endMarker: String, customBlend: Double = -1.0) {
+    fun playSectionWithMarkersBackwards(name: String = "", startMarker: String = "", endMarker: String = "", customBlend: Double = -1.0) {
         ObjectCalls.ptrcallWithThreeStringNameAndDoubleArg(playSectionWithMarkersBackwardsBind, handle, name, startMarker, endMarker, customBlend)
     }
 
-    fun playSectionBackwards(name: String, startTime: Double = -1.0, endTime: Double = -1.0, customBlend: Double = -1.0) {
+    fun playSectionBackwards(name: String = "", startTime: Double = -1.0, endTime: Double = -1.0, customBlend: Double = -1.0) {
         ObjectCalls.ptrcallWithStringNameAndThreeDoubleArgs(playSectionBackwardsBind, handle, name, startTime, endTime, customBlend)
     }
 
-    fun playWithCapture(name: String, duration: Double = -1.0, customBlend: Double = -1.0, customSpeed: Double = 1.0, fromEnd: Boolean = false, transType: Long = 0L, easeType: Long = 0L) {
+    fun playWithCapture(name: String = "", duration: Double = -1.0, customBlend: Double = -1.0, customSpeed: Double = 1.0, fromEnd: Boolean = false, transType: Long = 0L, easeType: Long = 0L) {
         ObjectCalls.ptrcallWithStringNameThreeDoubleBoolTwoLongArgs(playWithCaptureBind, handle, name, duration, customBlend, customSpeed, fromEnd, transType, easeType)
     }
 
@@ -242,7 +242,7 @@ class AnimationPlayer(handle: MemorySegment) : AnimationMixer(handle) {
         return ObjectCalls.ptrcallNoArgsRetDouble(getCurrentAnimationLengthBind, handle)
     }
 
-    fun setSectionWithMarkers(startMarker: String, endMarker: String) {
+    fun setSectionWithMarkers(startMarker: String = "", endMarker: String = "") {
         ObjectCalls.ptrcallWithTwoStringNameArgs(setSectionWithMarkersBind, handle, startMarker, endMarker)
     }
 

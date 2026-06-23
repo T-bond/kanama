@@ -516,27 +516,27 @@ open class Window(handle: MemorySegment) : Viewport(handle) {
         ObjectCalls.ptrcallWithStringNameArg(removeThemeConstantOverrideBind, handle, name)
     }
 
-    fun getThemeIcon(name: String, themeType: String): Texture2D? {
+    fun getThemeIcon(name: String, themeType: String = ""): Texture2D? {
         return Texture2D.wrap(ObjectCalls.ptrcallWithTwoStringNameArgsRetObject(getThemeIconBind, handle, name, themeType))
     }
 
-    fun getThemeStylebox(name: String, themeType: String): StyleBox? {
+    fun getThemeStylebox(name: String, themeType: String = ""): StyleBox? {
         return StyleBox.wrap(ObjectCalls.ptrcallWithTwoStringNameArgsRetObject(getThemeStyleboxBind, handle, name, themeType))
     }
 
-    fun getThemeFont(name: String, themeType: String): Font? {
+    fun getThemeFont(name: String, themeType: String = ""): Font? {
         return Font.wrap(ObjectCalls.ptrcallWithTwoStringNameArgsRetObject(getThemeFontBind, handle, name, themeType))
     }
 
-    fun getThemeFontSize(name: String, themeType: String): Int {
+    fun getThemeFontSize(name: String, themeType: String = ""): Int {
         return ObjectCalls.ptrcallWithTwoStringNameArgsRetInt(getThemeFontSizeBind, handle, name, themeType)
     }
 
-    fun getThemeColor(name: String, themeType: String): Color {
+    fun getThemeColor(name: String, themeType: String = ""): Color {
         return ObjectCalls.ptrcallWithTwoStringNameArgsRetColor(getThemeColorBind, handle, name, themeType)
     }
 
-    fun getThemeConstant(name: String, themeType: String): Int {
+    fun getThemeConstant(name: String, themeType: String = ""): Int {
         return ObjectCalls.ptrcallWithTwoStringNameArgsRetInt(getThemeConstantBind, handle, name, themeType)
     }
 
@@ -564,27 +564,27 @@ open class Window(handle: MemorySegment) : Viewport(handle) {
         return ObjectCalls.ptrcallWithStringNameArgRetBool(hasThemeConstantOverrideBind, handle, name)
     }
 
-    fun hasThemeIcon(name: String, themeType: String): Boolean {
+    fun hasThemeIcon(name: String, themeType: String = ""): Boolean {
         return ObjectCalls.ptrcallWithTwoStringNameArgsRetBool(hasThemeIconBind, handle, name, themeType)
     }
 
-    fun hasThemeStylebox(name: String, themeType: String): Boolean {
+    fun hasThemeStylebox(name: String, themeType: String = ""): Boolean {
         return ObjectCalls.ptrcallWithTwoStringNameArgsRetBool(hasThemeStyleboxBind, handle, name, themeType)
     }
 
-    fun hasThemeFont(name: String, themeType: String): Boolean {
+    fun hasThemeFont(name: String, themeType: String = ""): Boolean {
         return ObjectCalls.ptrcallWithTwoStringNameArgsRetBool(hasThemeFontBind, handle, name, themeType)
     }
 
-    fun hasThemeFontSize(name: String, themeType: String): Boolean {
+    fun hasThemeFontSize(name: String, themeType: String = ""): Boolean {
         return ObjectCalls.ptrcallWithTwoStringNameArgsRetBool(hasThemeFontSizeBind, handle, name, themeType)
     }
 
-    fun hasThemeColor(name: String, themeType: String): Boolean {
+    fun hasThemeColor(name: String, themeType: String = ""): Boolean {
         return ObjectCalls.ptrcallWithTwoStringNameArgsRetBool(hasThemeColorBind, handle, name, themeType)
     }
 
-    fun hasThemeConstant(name: String, themeType: String): Boolean {
+    fun hasThemeConstant(name: String, themeType: String = ""): Boolean {
         return ObjectCalls.ptrcallWithTwoStringNameArgsRetBool(hasThemeConstantBind, handle, name, themeType)
     }
 

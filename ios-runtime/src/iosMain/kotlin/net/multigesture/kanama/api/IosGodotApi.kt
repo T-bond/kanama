@@ -12,12 +12,14 @@ import kotlinx.cinterop.alloc
 import kotlinx.cinterop.memScoped
 import kotlinx.cinterop.ptr
 import kotlinx.cinterop.value
+import kotlinx.coroutines.CancellableContinuation
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.suspendCancellableCoroutine
 import net.multigesture.kanama.ios.cinterop.kanama_ios_godot_canvas_item_hide
 import net.multigesture.kanama.ios.cinterop.kanama_ios_godot_canvas_item_get_local_mouse_position
 import net.multigesture.kanama.ios.cinterop.kanama_ios_godot_canvas_item_get_viewport_rect
@@ -88,6 +90,7 @@ import net.multigesture.kanama.types.Vector2
 import net.multigesture.kanama.types.Vector2i
 import net.multigesture.kanama.types.Vector3
 import kotlin.coroutines.CoroutineContext
+import kotlin.coroutines.resume
 import kotlin.math.PI
 import kotlin.random.Random
 
@@ -122,8 +125,33 @@ interface KanamaCoroutineOwner {
 
 // KANAMA-IOS-HANDWRITTEN: [platform] MainThread.post is a no-op shim; on iOS main thread dispatch is handled by Godot's frame loop, not a JVM executor.
 object MainThread {
+    // Continuations parked by [awaitNextFrame], resumed once per engine frame by
+    // KanamaIosRuntime.frame() via [pumpNextFrame]. Accessed only on the engine main thread
+    // (awaitNextFrame runs under Dispatchers.Main; frame() runs on the engine main thread).
+    private val nextFrameContinuations = mutableListOf<CancellableContinuation<Unit>>()
+
     fun post(action: () -> Unit) {
         action()
+    }
+
+    // Suspend until the next engine frame is pumped (mirrors desktop MainThread.awaitNextFrame).
+    // Frame-based waiting is robust to device frame rate, unlike a wall-clock delay.
+    suspend fun awaitNextFrame() {
+        suspendCancellableCoroutine { continuation ->
+            nextFrameContinuations.add(continuation)
+            continuation.invokeOnCancellation { nextFrameContinuations.remove(continuation) }
+        }
+    }
+
+    // Resume everything parked as of this frame; continuations re-parked by the resumed coroutines
+    // wait for the next frame (snapshot-then-clear, matching desktop's one-await-per-frame semantics).
+    internal fun pumpNextFrame() {
+        if (nextFrameContinuations.isEmpty()) return
+        val pending = nextFrameContinuations.toList()
+        nextFrameContinuations.clear()
+        for (continuation in pending) {
+            if (continuation.isActive) continuation.resume(Unit)
+        }
     }
 }
 
@@ -152,22 +180,26 @@ open class GodotObject(
         ObjectCalls.callWithVariantArgs(setDeferredBind, handle, listOf(property, value))
     }
 
-    // Object.set_script(resource) via the Variant call path (matches desktop GodotObject.setScript).
-    fun setScript(script: Any?) {
+    // Object.set_script(resource) via the Variant call path. Signature matches desktop
+    // GodotObject.setScript(Resource?). NOTE: desktop also calls ScriptBridge.noteSetScript to
+    // arm pre-instance script-property buffering; iOS does not mirror that buffering (see set()).
+    fun setScript(script: Resource?) {
         call("set_script", script)
     }
 
-    // Object.set(property, value) via the Variant call path (matches desktop GodotObject.set).
+    // Object.set(property, value) via the Variant call path. Signature/return match desktop
+    // GodotObject.set (returns 0L). NOTE: desktop also calls ScriptBridge.applyOrRecordScriptPropertySet,
+    // which buffers a value set on a Kanama-script owner *before* its Kotlin instance exists and
+    // replays it once the instance is created. iOS receives engine-driven property sets directly
+    // through KanamaIosScriptBridge, so the steady-state path needs no buffering; the rare
+    // "set a script property before the instance is ready" case is not buffered on iOS.
     fun set(property: String, value: Any?): Long {
         call("set", property, value)
         return 0L
     }
 
-    // Object.get(property) via the Variant call path (matches desktop GodotObject.get).
-    @Suppress("UNCHECKED_CAST")
-    fun <T> get(property: String): T? {
-        return call("get", property) as? T
-    }
+    // Object.get(property) via the Variant call path. Return type matches desktop GodotObject.get(): Any?.
+    fun get(property: String): Any? = call("get", property)
 
     fun connect(signalName: String, target: GodotObject, method: String, flags: Long = CONNECT_DEFAULT): Long =
         IosGodot.objectConnect(handle.address(), signalName, target.handle.address(), method, flags)
@@ -306,6 +338,19 @@ class SceneTree(handle: MemorySegment) : Node(handle) {
     fun reloadCurrentScene(): Long =
         ObjectCalls.ptrcallNoArgsRetLong(reloadCurrentSceneBind, handle)
 
+    // SceneTree.call_group(group, method, ...args) via the Variant call path (it is a varargs
+    // method, which the audited ptrcall set can't express — matches desktop SceneTree.callGroup).
+    fun callGroup(group: String, method: String, vararg args: Any?) {
+        call("call_group", group, method, *args)
+    }
+
+    // Instance form so demo code can write `getTree().delaySeconds(...)` (Android/desktop model
+    // SceneTree as a singleton object where the same call resolves; the companion form below also
+    // works). Pure coroutine delay, no engine call.
+    suspend fun delaySeconds(seconds: Double) {
+        delay((seconds * 1000.0).toLong().coerceAtLeast(0L))
+    }
+
     companion object {
         private val quitBind by lazy { ObjectCalls.getMethodBind("SceneTree", "quit", 1995695955L) }
         private val reloadCurrentSceneBind by lazy {
@@ -346,7 +391,13 @@ class AudioStreamPlayer(handle: MemorySegment) : Node(handle) {
         IosGodot.audioStreamPlayerPlay(handle.address(), 0.0)
     }
 
+    fun stop() {
+        ObjectCalls.ptrcallNoArgs(stopBind, handle)
+    }
+
     companion object {
+        private val stopBind by lazy { ObjectCalls.getMethodBind("AudioStreamPlayer", "stop", 3218959716L) }
+
         fun create(): AudioStreamPlayer =
             AudioStreamPlayer(MemorySegment.ofAddress(IosGodot.constructObject("AudioStreamPlayer")))
     }
@@ -420,33 +471,17 @@ class InputEventMouseButton(handle: MemorySegment) : GodotObject(handle) {
     }
 }
 
-// KANAMA-IOS-HANDWRITTEN: [glue] Input is the bespoke singleton glue (getSingleton + cached binds);
-// getAxis/isActionJustPressed are real ptrcalls. Kept hand-written (not a generated wrapper).
-object Input {
-    private val singleton: MemorySegment by lazy { ObjectCalls.getSingleton("Input") }
-    private val getAxisBind by lazy { ObjectCalls.getMethodBind("Input", "get_axis", 1958752504L) }
-    private val isActionJustPressedBind by lazy {
-        ObjectCalls.getMethodBind("Input", "is_action_just_pressed", 1558498928L)
-    }
-    private val setCustomMouseCursorBind by lazy {
-        ObjectCalls.getMethodBind("Input", "set_custom_mouse_cursor", 703945977L)
-    }
+// Input is now a generated iOS wrapper (api/Input.kt, `object Input`), matching desktop's
+// generated Input. The previous hand-written stub (getAxis/isActionJustPressed/setCustomMouseCursor)
+// is retired; the generated object is a superset. setCustomMouseCursor remains guardrail-skipped on
+// iOS (Variant Object arg) and was unused.
 
-    // Input.set_custom_mouse_cursor(image, shape, hotspot) via the Variant path (Object arg +
-    // int + Vector2). A null texture resets the cursor for that shape.
-    fun setCustomMouseCursor(texture: Texture2D?, shape: Long = 0L, hotspot: Vector2 = Vector2.ZERO) {
-        ObjectCalls.callWithVariantArgs(setCustomMouseCursorBind, singleton, listOf(texture, shape, hotspot))
-    }
-
-    fun getAxis(negativeAction: String, positiveAction: String): Double =
-        ObjectCalls.ptrcallWithTwoStringNameArgsRetDouble(getAxisBind, singleton, negativeAction, positiveAction)
-
-    fun isActionJustPressed(action: String, exactMatch: Boolean = false): Boolean =
-        ObjectCalls.ptrcallWithStringNameAndBoolArgRetBool(isActionJustPressedBind, singleton, action, exactMatch)
-}
-
-// KANAMA-IOS-HANDWRITTEN: [platform] pure-Kotlin math helpers (no Godot call). Bespoke utility.
+// KANAMA-IOS-HANDWRITTEN: [platform] pure-Kotlin math helpers (no Godot call). Bespoke utility,
+// matching the desktop Mathf facade (which is hand-authored, not generated).
 object Mathf {
+    const val PI: Double = kotlin.math.PI
+    const val TAU: Double = kotlin.math.PI * 2.0
+
     fun abs(value: Double): Double = kotlin.math.abs(value)
 
     fun abs(value: Float): Float = kotlin.math.abs(value)
@@ -457,6 +492,15 @@ object Mathf {
 
     fun lerp(from: Double, to: Double, weight: Double): Double =
         from + (to - from) * weight
+
+    // Godot's @GlobalScope.move_toward: step [from] toward [to] by at most [delta].
+    fun moveToward(from: Double, to: Double, delta: Double): Double =
+        if (kotlin.math.abs(to - from) <= delta) to
+        else from + (if (to > from) 1.0 else -1.0) * delta
+
+    // Godot's @GlobalScope.is_equal_approx (CMP_EPSILON fuzzy compare), via the shared iOS helper.
+    fun isEqualApprox(a: Double, b: Double): Boolean =
+        net.multigesture.kanama.types.isEqualApprox(a, b)
 
     fun lerpAngle(from: Double, to: Double, weight: Double): Double {
         val difference = ((to - from + PI) % (PI * 2.0)) - PI

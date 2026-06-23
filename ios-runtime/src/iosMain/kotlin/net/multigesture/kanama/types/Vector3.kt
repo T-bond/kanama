@@ -140,6 +140,11 @@ data class Vector3(
         val ZERO = Vector3(0.0, 0.0, 0.0)
         val ONE = Vector3(1.0, 1.0, 1.0)
         val UP = Vector3(0.0, 1.0, 0.0)
+        val DOWN = Vector3(0.0, -1.0, 0.0)
+        val LEFT = Vector3(-1.0, 0.0, 0.0)
+        val RIGHT = Vector3(1.0, 0.0, 0.0)
+        val FORWARD = Vector3(0.0, 0.0, -1.0)
+        val BACK = Vector3(0.0, 0.0, 1.0)
 
         private val crossBind by lazy {
             BuiltinCalls.getBuiltinMethod(BuiltinCalls.VT_VECTOR3, "cross", 2923479887L)
