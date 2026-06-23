@@ -12,6 +12,23 @@ data class Vector3(
 ) {
     constructor(x: Number, y: Number, z: Number) : this(x.toDouble(), y.toDouble(), z.toDouble())
 
+    // Match GDScript/C# `==`: signed zero equal (-0.0 == 0.0), NaN reflexive. See
+    // wrapper-coverage-roadmap.md. hashCode canonicalizes signed zero so equal vectors hash equal.
+    override fun equals(other: Any?): Boolean {
+        if (this === other) return true
+        if (other !is Vector3) return false
+        return (x == other.x || (x.isNaN() && other.x.isNaN())) &&
+            (y == other.y || (y.isNaN() && other.y.isNaN())) &&
+            (z == other.z || (z.isNaN() && other.z.isNaN()))
+    }
+
+    override fun hashCode(): Int {
+        var result = (x + 0.0).hashCode()
+        result = 31 * result + (y + 0.0).hashCode()
+        result = 31 * result + (z + 0.0).hashCode()
+        return result
+    }
+
     operator fun plus(other: Vector3): Vector3 =
         Vector3(x + other.x, y + other.y, z + other.z)
 

@@ -30,6 +30,16 @@ data class Plane(
 ) {
     constructor(normal: Vector3, d: Number) : this(normal, GodotReal.fromNumber(d))
 
+    // Match GDScript/C# `==`: signed zero equal (-0.0 == 0.0), NaN reflexive. `normal` delegates to
+    // Vector3.equals (also fixed); `d` is compared/hashed the same way. See wrapper-coverage-roadmap.md.
+    override fun equals(other: Any?): Boolean {
+        if (this === other) return true
+        if (other !is Plane) return false
+        return normal == other.normal && (d == other.d || (d.isNaN() && other.d.isNaN()))
+    }
+
+    override fun hashCode(): Int = 31 * normal.hashCode() + (d + 0.0f).hashCode()
+
     /**
      * Returns the shortest distance from the plane to the position `point`. If the point is above the
      * plane, the distance will be positive. If below, the distance will be negative.

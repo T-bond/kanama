@@ -14,6 +14,16 @@ data class Plane(
     constructor(x: Number, y: Number, z: Number, d: Number) :
         this(Vector3(x, y, z), d.toDouble())
 
+    // Match GDScript/C# `==`: signed zero equal (-0.0 == 0.0), NaN reflexive. `normal` delegates to
+    // Vector3.equals (also fixed); `d` is compared/hashed the same way. See wrapper-coverage-roadmap.md.
+    override fun equals(other: Any?): Boolean {
+        if (this === other) return true
+        if (other !is Plane) return false
+        return normal == other.normal && (d == other.d || (d.isNaN() && other.d.isNaN()))
+    }
+
+    override fun hashCode(): Int = 31 * normal.hashCode() + (d + 0.0).hashCode()
+
     companion object {
         val ZERO = Plane(Vector3.ZERO, 0.0)
     }

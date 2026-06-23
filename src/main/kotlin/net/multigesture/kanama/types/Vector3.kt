@@ -45,6 +45,25 @@ data class Vector3(
     constructor(x: Number, y: Number, z: Number) :
         this(GodotReal.fromNumber(x), GodotReal.fromNumber(y), GodotReal.fromNumber(z))
 
+    // Match GDScript/C# `==`: signed zero compares equal (-0.0 == 0.0), while NaN stays reflexive
+    // (NaN == NaN) to satisfy the JVM equals contract. The default data-class `equals` uses
+    // `real_t.equals`, which gives the opposite of both. See wrapper-coverage-roadmap.md.
+    override fun equals(other: Any?): Boolean {
+        if (this === other) return true
+        if (other !is Vector3) return false
+        return (x == other.x || (x.isNaN() && other.x.isNaN())) &&
+            (y == other.y || (y.isNaN() && other.y.isNaN())) &&
+            (z == other.z || (z.isNaN() && other.z.isNaN()))
+    }
+
+    override fun hashCode(): Int {
+        // Canonicalize signed zero (-0.0 -> +0.0 via `+ 0.0f`) so equal vectors hash equal.
+        var result = (x + 0.0f).hashCode()
+        result = 31 * result + (y + 0.0f).hashCode()
+        result = 31 * result + (z + 0.0f).hashCode()
+        return result
+    }
+
     operator fun plus(other: Vector3): Vector3 =
         Vector3(x + other.x, y + other.y, z + other.z)
 

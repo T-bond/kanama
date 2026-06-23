@@ -37,6 +37,21 @@ data class Vector2(
 ) {
     constructor(x: Number, y: Number) : this(GodotReal.fromNumber(x), GodotReal.fromNumber(y))
 
+    // Match GDScript/C# `==`: signed zero equal (-0.0 == 0.0), NaN reflexive. See
+    // wrapper-coverage-roadmap.md. hashCode canonicalizes signed zero so equal vectors hash equal.
+    override fun equals(other: Any?): Boolean {
+        if (this === other) return true
+        if (other !is Vector2) return false
+        return (x == other.x || (x.isNaN() && other.x.isNaN())) &&
+            (y == other.y || (y.isNaN() && other.y.isNaN()))
+    }
+
+    override fun hashCode(): Int {
+        var result = (x + 0.0f).hashCode()
+        result = 31 * result + (y + 0.0f).hashCode()
+        return result
+    }
+
     operator fun plus(other: Vector2): Vector2 =
         Vector2(x + other.x, y + other.y)
 

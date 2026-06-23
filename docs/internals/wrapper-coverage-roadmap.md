@@ -143,6 +143,15 @@ hand-shaped methods; coverage page reads ≥99% with virtuals counted.
 
 ### Value-type equality divergence from GDScript/C# (all platforms)
 
+**equals/hashCode FIXED 2026-06-22 (both platforms).** Custom `equals`/`hashCode` on the leaf
+real-component types (`Vector2/3/4`, `Quaternion`, `Color`, `Plane`) on desktop (`real_t`) and iOS
+(`Double`): components compare with `a == b || (a.isNaN() && b.isNaN())` (signed zero equal, NaN
+reflexive) and `hashCode` canonicalizes signed zero via `+ 0.0`. Composites (`Transform3D`/`Basis`/
+`AABB`/`Rect2`/`Transform2D`/`Projection`) delegate to the fixed leaves automatically. Validated:
+both compile + a HashMap-contract logic test (`-0.0`/`0.0` interchangeable as keys; `NaN==NaN`
+reflexive) + runtime_smoke. **Still TODO:** the `isEqualApprox`/`isZeroApprox` fuzzy-comparison
+helpers (Godot's recommended approach) — a separate ergonomic addition. Original analysis kept below.
+
 Kanama value types (`Vector2/3/4`, `Transform3D`, `Basis`, `Color`, `Quaternion`, …)
 are plain Kotlin `data class`es with `Double`/`Float` components and no custom `equals`,
 on **both** JVM (desktop/Android) and Native (iOS). So `==` uses `Double.equals`
