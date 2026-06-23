@@ -119,6 +119,23 @@ data class Vector3(
             BuiltinCalls.BArg.Floats(BuiltinCalls.PT_VECTOR3, with.toFloat32()),
         ))
 
+    /** Returns this vector moved toward [to] by at most [delta] (matches Godot Vector3.move_toward). */
+    fun moveToward(to: Vector3, delta: Double): Vector3 {
+        val diff = to - this
+        val len = diff.length()
+        return if (len <= delta || len < CMP_EPSILON) to else this + diff / len * delta
+    }
+
+    /**
+     * Returns the signed angle (radians) to [to] about [axis] (matches Godot Vector3.signed_angle_to):
+     * positive counter-clockwise when viewed from the [axis] side. Built from cross/dot.
+     */
+    fun signedAngleTo(to: Vector3, axis: Vector3): Double {
+        val crossTo = cross(to)
+        val unsignedAngle = kotlin.math.atan2(crossTo.length(), dot(to))
+        return if (crossTo.dot(axis) < 0.0) -unsignedAngle else unsignedAngle
+    }
+
     /**
      * Returns whether this vector is normalized (length ≈ 1), per Godot's own check (bool
      * return decoded from the ptr-ABI's uint8).

@@ -22,6 +22,12 @@ data class Transform3D(
      * and re-deriving the origin — so for a scaled/sheared transform use the full matrix
      * inverse (`affine_inverse`, not yet wired on iOS) instead.
      */
+    /** Returns a copy with [basis] replaced (matches desktop Transform3D.withBasis). */
+    fun withBasis(value: Basis): Transform3D = copy(basis = value)
+
+    /** Returns a copy with [origin] replaced (matches desktop Transform3D.withOrigin). */
+    fun withOrigin(value: Vector3): Transform3D = copy(origin = value)
+
     fun inverse(): Transform3D =
         fromFloat32(BuiltinCalls.callNoArgsFloat32(inverseBind, toFloat32()))
 

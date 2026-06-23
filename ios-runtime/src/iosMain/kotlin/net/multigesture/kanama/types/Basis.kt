@@ -17,6 +17,11 @@ data class Basis(
     val y: Vector3,
     val z: Vector3,
 ) {
+    /** Returns a copy with the x/y/z axis replaced (matches desktop Basis.withX/withY/withZ). */
+    fun withX(value: Vector3): Basis = Basis(value, y, z)
+    fun withY(value: Vector3): Basis = Basis(x, value, z)
+    fun withZ(value: Vector3): Basis = Basis(x, y, value)
+
     /** Returns the inverse of this basis. Computed by Godot. */
     fun inverse(): Basis =
         fromFloat32(BuiltinCalls.callNoArgsFloat32(inverseBind, toFloat32()))

@@ -89,3 +89,29 @@ annotation class ExportSubgroup(
 annotation class ExportCategory(val name: String)
 
 annotation class Signal(val name: String = "")
+
+// iOS shadow of the desktop PropertyHint constants (used in @Export hint=...).
+object PropertyHint {
+    const val NONE = 0
+    const val RANGE = 1
+    const val ENUM = 2
+    const val ENUM_SUGGESTION = 3
+    const val EXP_EASING = 4
+    const val FLAGS = 6
+    const val FILE = 13
+    const val DIR = 14
+    const val GLOBAL_FILE = 15
+    const val GLOBAL_DIR = 16
+    const val RESOURCE_TYPE = 17
+    const val MULTILINE_TEXT = 18
+    const val PLACEHOLDER_TEXT = 20
+    const val COLOR_NO_ALPHA = 21
+    const val TYPE_STRING = 23
+    const val NODE_TYPE = 34
+    const val TOOL_BUTTON = 39
+}
+
+// iOS shadow of @GlobalClass (GDScript class_name intent). SOURCE-retained; consumed by KSP.
+@Target(AnnotationTarget.CLASS)
+@Retention(AnnotationRetention.SOURCE)
+annotation class GlobalClass

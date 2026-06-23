@@ -560,6 +560,21 @@ object GD {
 
     fun randfRange(from: Double, to: Double): Double =
         if (to <= from) from else Random.nextDouble(from, to)
+
+    // @GlobalScope math facade (pure-Kotlin, matching the desktop GD utility helpers).
+    fun signf(value: Double): Double = kotlin.math.sign(value)
+
+    fun lerpf(from: Double, to: Double, weight: Double): Double =
+        from + (to - from) * weight
+
+    fun clampf(value: Double, min: Double, max: Double): Double =
+        value.coerceIn(min, max)
+
+    fun lerpAngle(from: Double, to: Double, weight: Double): Double =
+        Mathf.lerpAngle(from, to, weight)
+
+    fun remap(value: Double, istart: Double, istop: Double, ostart: Double, ostop: Double): Double =
+        ostart + (ostop - ostart) * ((value - istart) / (istop - istart))
 }
 
 inline fun <reified T> GodotObject.kotlinScriptInstance(): T? =
