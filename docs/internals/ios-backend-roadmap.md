@@ -6,14 +6,16 @@ guardrails that protect it, and the remaining backlog. Deep design lives in
 hand-written sites is [ios-backend-handwritten.md](./ios-backend-handwritten.md). Phase history
 is in [wrapper-coverage-tracker.md](./wrapper-coverage-tracker.md).
 
-**Status (refreshed 2026-06-22):** experimental, but the engine-capability gap to desktop/Android
+**Status (refreshed 2026-06-23):** experimental, but the engine-capability gap to desktop/Android
 is essentially closed. **222 wrapper classes** emitted — the full reachable Node|Resource runtime
 closure plus the networking/crypto subtree and the bare-`Object` utility floor (a BFS over emitted
 classes' Object args/returns reaches 0 not-yet-emitted in-scope classes). The audited type set is
 complete for runtime use; the KSP script-model is unified across all targets; arbitrary virtual
 overrides work. Device-validated on iPhone 12: self-test matrix **PTRCALL 54 / OBJECTCALLS 78, 0
-failed**, ~0.63 ms/frame Kanama overhead. The remaining distance to a *supported* iOS export is
-**export-workflow polish + validated demo breadth**, not engine capability.
+failed**, ~0.63 ms/frame Kanama overhead. **3 of 11 demos device-validated** (Bunnymark, Match3,
+3D-Platformer); 6 demos blocked by residual iOS wrapper gaps (missing classes + Mathf/Input/OS
+methods); 2 demos on hold (City-Builder, tps). The remaining distance to a *supported* iOS export
+is **widening the iOS wrapper surface** for the blocked demos + export-workflow polish.
 
 ## Architecture in one paragraph
 
@@ -110,13 +112,13 @@ each port is **port + device-validate** (a port can still surface a residual gap
 |---|---|---|---|
 | Starter-Kit-Match3 | 2D | **Device-validated** | reference port |
 | Starter-Kit-3D-Platformer | 3D | **Device-validated** | reference port; `view: NodePath` now delivered |
-| Bunnymark | 2D | **Ready** | port for the Android↔iOS perf A/B |
-| godot-demo-2d-dodge-the-creeps | 2D | **Ready** | standard 2D |
-| godot-demo-3d-squash-the-creeps | 3D | **Ready** | input annotations + Object args now wired |
-| Starter-Kit-Racing | 3D | **Ready** | Transform3D + Object usage now supported |
-| Starter-Kit-FPS | 3D | **Ready** | Transform3D + input now supported |
-| godot-4-3d-character-controller | 3D | **Likely ready** | heavy input handling — validate on device |
-| godot-4-3d-third-person-controller | 3D | **Likely ready** | 60+ classes — confirm all emitted; Transform3D |
+| Bunnymark | 2D | **Device-validated** | device-validated on iPhone 12 (2026-06-23) |
+| godot-demo-2d-dodge-the-creeps | 2D | **Blocked (wrapper gaps)** | `installIosAddon` fails — missing `PathFollow2D`, `Input.isActionPressed`, `Mathf.PI`, `Tween.delaySeconds`, `SceneTree.callGroup`, `AudioStreamPlayer.stop` |
+| godot-demo-3d-squash-the-creeps | 3D | **Blocked (wrapper gaps)** | `installIosAddon` fails — missing `PathFollow3D`, `RenderingServer`, `Mathf.PI`, `Vector3.FORWARD`, `Input.isActionPressed`, `Node3D.lookingAt` |
+| Starter-Kit-Racing | 3D | **Blocked (wrapper gaps)** | `installIosAddon` fails — missing wrapper classes/methods |
+| Starter-Kit-FPS | 3D | **Blocked (wrapper gaps)** | `installIosAddon` fails — missing `AnimatedSprite3D`, `RayCast3D`, `OS`, `GlobalClass`, `PropertyHint`, `Mathf.lerpf`/`clampf`/`lerpAngle`/`degToRad`, `Vector3 * Float`, `Input.setMouseMode`/`getVector`/`isActionPressed`, `Tween.bindNode`/`tweenCallback`, `Node3D.lookAt`, `Object.hasMethod`/`call`, `Resource.loadPackedScene`, `Node.queueFree`/`isQueuedForDeletion`/`setScript` |
+| godot-4-3d-character-controller | 3D | **Blocked (wrapper gaps)** | `installIosAddon` fails — missing wrapper classes/methods |
+| godot-4-3d-third-person-controller | 3D | **Blocked (wrapper gaps)** | `installIosAddon` fails — missing `RayCast3D`, `SpringArm3D`, `ShapeCast3D`, `OS`, `PropertyHint`, `GlobalClass`, `AnimationNodeStateMachinePlayback`, `MeshDataTool`, `SurfaceTool`, `MultiMeshInstance3D`, `WorldEnvironment`, `InputMap`, `ProjectSettings`, `Engine`, `PhysicsServer3D`, `Time`, `Mathf.PI`/`sqrt`/`degToRad`/`lerpAngle`/`inverseLerp`, `Vector3.FORWARD`/`BACK`/`DOWN`/`RIGHT`, `Input.isActionPressed`/`getActionRawStrength`/`setMouseMode`/`getMouseMode`, `Key.constants`, `Tween.tweenCallback`/`tweenMethod`/`setPaused`, `Transform3D.fromEuler`/`withBasis`/`withOrigin`, `Quaternion.fromEuler`, `Object.hasMethod`/`call`/`isInstanceValid`/`getInstanceId`, `Resource.loadPackedScene`/`loadAudioStream`, `SceneTree.unloadCurrentScene`/`postAfterFrames`/`quit`, `Node.awaitNextFrame`, 200+ unique references |
 | Starter-Kit-City-Builder | 2D | Hold | GridMap + `List<custom-class>` `@ScriptProperty` (also not an Android demo) |
 | tps-demo-kanama | 3D | **Blocked** | `@Rpc` multiplayer config delivery (the one real backlog gate) |
 
@@ -124,4 +126,5 @@ each port is **port + device-validate** (a port can still surface a residual gap
 `--ios-emit-class` set + regenerate); (2) configure the iOS export; (3) run
 `ios_visual_smoke.sh --physical-device … --kanama-<demo>-probe` on the iPhone; (4) confirm the matrix
 stays 54/78 and the scene runs (input, signals, scene reload). Flag the user before any device run
-(the phone auto-locks).
+(the phone auto-locks). The batch runner `kanama-demos/scripts/ios_smoke_all.sh` runs the probe +
+full device export for all 9 iOS-enabled demos in one command.

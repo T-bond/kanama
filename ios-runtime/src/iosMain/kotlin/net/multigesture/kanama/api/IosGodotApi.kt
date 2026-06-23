@@ -152,6 +152,23 @@ open class GodotObject(
         ObjectCalls.callWithVariantArgs(setDeferredBind, handle, listOf(property, value))
     }
 
+    // Object.set_script(resource) via the Variant call path (matches desktop GodotObject.setScript).
+    fun setScript(script: Any?) {
+        call("set_script", script)
+    }
+
+    // Object.set(property, value) via the Variant call path (matches desktop GodotObject.set).
+    fun set(property: String, value: Any?): Long {
+        call("set", property, value)
+        return 0L
+    }
+
+    // Object.get(property) via the Variant call path (matches desktop GodotObject.get).
+    @Suppress("UNCHECKED_CAST")
+    fun <T> get(property: String): T? {
+        return call("get", property) as? T
+    }
+
     fun connect(signalName: String, target: GodotObject, method: String, flags: Long = CONNECT_DEFAULT): Long =
         IosGodot.objectConnect(handle.address(), signalName, target.handle.address(), method, flags)
 

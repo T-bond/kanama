@@ -50,10 +50,34 @@ Options:
                                the iOS Kotlin/Native runtime.
   --match3-demo-dir DIR        Match3 demo checkout. Defaults to
                                ../kanama-demos/Starter-Kit-Match3.
-  --kanama-platformer3d-probe  Compile a small Kenney 3D platformer asset/script
-                               probe into the iOS Kotlin/Native runtime.
+--kanama-platformer3d-probe  Compile a small Kenney 3D platformer asset/script
+                                probe into the iOS Kotlin/Native runtime.
   --platformer-demo-dir DIR    3D platformer demo checkout. Defaults to
-                               ../kanama-demos/Starter-Kit-3D-Platformer.
+                                ../kanama-demos/Starter-Kit-3D-Platformer.
+  --kanama-dodge-probe         Compile a small Dodge-the-Creeps 2D script probe
+                                into the iOS Kotlin/Native runtime.
+  --dodge-demo-dir DIR         Dodge-the-Creeps demo checkout. Defaults to
+                                ../kanama-demos/godot-demo-2d-dodge-the-creeps.
+  --kanama-squash-probe        Compile a small Squash-the-Creeps 3D script probe
+                                into the iOS Kotlin/Native runtime.
+  --squash-demo-dir DIR        Squash-the-Creeps demo checkout. Defaults to
+                                ../kanama-demos/godot-demo-3d-squash-the-creeps.
+  --kanama-fps-probe           Compile a small FPS 3D script probe into the
+                                iOS Kotlin/Native runtime.
+  --fps-demo-dir DIR           FPS demo checkout. Defaults to
+                                ../kanama-demos/Starter-Kit-FPS.
+  --kanama-racing-probe        Compile a small Racing 3D script probe into the
+                                iOS Kotlin/Native runtime.
+  --racing-demo-dir DIR        Racing demo checkout. Defaults to
+                                ../kanama-demos/Starter-Kit-Racing.
+  --kanama-character-probe     Compile a small character-controller 3D script
+                                probe into the iOS Kotlin/Native runtime.
+  --character-demo-dir DIR     Character-controller demo checkout. Defaults to
+                                ../kanama-demos/godot-4-3d-character-controller-tutorial.
+  --kanama-thirdperson-probe   Compile a small third-person-controller 3D script
+                                probe into the iOS Kotlin/Native runtime.
+  --thirdperson-demo-dir DIR  Third-person demo checkout. Defaults to
+                                ../kanama-demos/godot-4-3d-third-person-controller.
   --godot-project-baseline DIR Copy and export an existing Godot project without
                                installing Kanama. Injects only an FPS overlay.
   --work-dir DIR               Smoke workspace. Defaults to a new /tmp dir.
@@ -86,9 +110,21 @@ godot_fps_probe=0
 kanama_bunnymark_probe=0
 kanama_match3_probe=0
 kanama_platformer3d_probe=0
+kanama_dodge_probe=0
+kanama_squash_probe=0
+kanama_fps_probe=0
+kanama_racing_probe=0
+kanama_character_probe=0
+kanama_thirdperson_probe=0
 bunnymark_demo_dir="$ROOT_DIR/../kanama-demos/Bunnymark"
 match3_demo_dir="$ROOT_DIR/../kanama-demos/Starter-Kit-Match3"
 platformer_demo_dir="$ROOT_DIR/../kanama-demos/Starter-Kit-3D-Platformer"
+dodge_demo_dir="$ROOT_DIR/../kanama-demos/godot-demo-2d-dodge-the-creeps"
+squash_demo_dir="$ROOT_DIR/../kanama-demos/godot-demo-3d-squash-the-creeps"
+fps_demo_dir="$ROOT_DIR/../kanama-demos/Starter-Kit-FPS"
+racing_demo_dir="$ROOT_DIR/../kanama-demos/Starter-Kit-Racing"
+character_demo_dir="$ROOT_DIR/../kanama-demos/godot-4-3d-character-controller-tutorial"
+thirdperson_demo_dir="$ROOT_DIR/../kanama-demos/godot-4-3d-third-person-controller"
 godot_project_baseline_dir=""
 
 while [[ $# -gt 0 ]]; do
@@ -165,6 +201,54 @@ while [[ $# -gt 0 ]]; do
       platformer_demo_dir="${2:-}"
       shift 2
       ;;
+    --kanama-dodge-probe)
+      kanama_dodge_probe=1
+      shift
+      ;;
+    --dodge-demo-dir)
+      dodge_demo_dir="${2:-}"
+      shift 2
+      ;;
+    --kanama-squash-probe)
+      kanama_squash_probe=1
+      shift
+      ;;
+    --squash-demo-dir)
+      squash_demo_dir="${2:-}"
+      shift 2
+      ;;
+    --kanama-fps-probe)
+      kanama_fps_probe=1
+      shift
+      ;;
+    --fps-demo-dir)
+      fps_demo_dir="${2:-}"
+      shift 2
+      ;;
+    --kanama-racing-probe)
+      kanama_racing_probe=1
+      shift
+      ;;
+    --racing-demo-dir)
+      racing_demo_dir="${2:-}"
+      shift 2
+      ;;
+    --kanama-character-probe)
+      kanama_character_probe=1
+      shift
+      ;;
+    --character-demo-dir)
+      character_demo_dir="${2:-}"
+      shift 2
+      ;;
+    --kanama-thirdperson-probe)
+      kanama_thirdperson_probe=1
+      shift
+      ;;
+    --thirdperson-demo-dir)
+      thirdperson_demo_dir="${2:-}"
+      shift 2
+      ;;
     --godot-project-baseline)
       godot_project_baseline_dir="${2:-}"
       shift 2
@@ -194,7 +278,7 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-probe_count=$((kanama_probe + kanama_script_probe + kanama_user_script_probe + godot_fps_probe + kanama_bunnymark_probe + kanama_match3_probe + kanama_platformer3d_probe))
+probe_count=$((kanama_probe + kanama_script_probe + kanama_user_script_probe + godot_fps_probe + kanama_bunnymark_probe + kanama_match3_probe + kanama_platformer3d_probe + kanama_dodge_probe + kanama_squash_probe + kanama_fps_probe + kanama_racing_probe + kanama_character_probe + kanama_thirdperson_probe))
 if [[ "$probe_count" -gt 1 ]]; then
   echo "[ios_visual_smoke] Kanama probe modes are mutually exclusive" >&2
   exit 2
@@ -226,6 +310,30 @@ if [[ "$kanama_match3_probe" -eq 1 && ! -d "$match3_demo_dir" ]]; then
 fi
 if [[ "$kanama_platformer3d_probe" -eq 1 && ! -d "$platformer_demo_dir" ]]; then
   echo "[ios_visual_smoke] 3D platformer demo dir does not exist: $platformer_demo_dir" >&2
+  exit 2
+fi
+if [[ "$kanama_dodge_probe" -eq 1 && ! -d "$dodge_demo_dir" ]]; then
+  echo "[ios_visual_smoke] Dodge demo dir does not exist: $dodge_demo_dir" >&2
+  exit 2
+fi
+if [[ "$kanama_squash_probe" -eq 1 && ! -d "$squash_demo_dir" ]]; then
+  echo "[ios_visual_smoke] Squash demo dir does not exist: $squash_demo_dir" >&2
+  exit 2
+fi
+if [[ "$kanama_fps_probe" -eq 1 && ! -d "$fps_demo_dir" ]]; then
+  echo "[ios_visual_smoke] FPS demo dir does not exist: $fps_demo_dir" >&2
+  exit 2
+fi
+if [[ "$kanama_racing_probe" -eq 1 && ! -d "$racing_demo_dir" ]]; then
+  echo "[ios_visual_smoke] Racing demo dir does not exist: $racing_demo_dir" >&2
+  exit 2
+fi
+if [[ "$kanama_character_probe" -eq 1 && ! -d "$character_demo_dir" ]]; then
+  echo "[ios_visual_smoke] Character-controller demo dir does not exist: $character_demo_dir" >&2
+  exit 2
+fi
+if [[ "$kanama_thirdperson_probe" -eq 1 && ! -d "$thirdperson_demo_dir" ]]; then
+  echo "[ios_visual_smoke] Third-person demo dir does not exist: $thirdperson_demo_dir" >&2
   exit 2
 fi
 if [[ -n "$godot_project_baseline_dir" && ! -f "$godot_project_baseline_dir/project.godot" ]]; then
@@ -334,6 +442,18 @@ elif [[ "$kanama_match3_probe" -eq 1 ]]; then
   echo "[ios_visual_smoke] mode: Match3 asset Kotlin/Native script smoke"
 elif [[ "$kanama_platformer3d_probe" -eq 1 ]]; then
   echo "[ios_visual_smoke] mode: Kenney 3D platformer asset Kotlin/Native script smoke"
+elif [[ "$kanama_dodge_probe" -eq 1 ]]; then
+  echo "[ios_visual_smoke] mode: Dodge-the-Creeps 2D Kotlin/Native script smoke"
+elif [[ "$kanama_squash_probe" -eq 1 ]]; then
+  echo "[ios_visual_smoke] mode: Squash-the-Creeps 3D Kotlin/Native script smoke"
+elif [[ "$kanama_fps_probe" -eq 1 ]]; then
+  echo "[ios_visual_smoke] mode: FPS 3D Kotlin/Native script smoke"
+elif [[ "$kanama_racing_probe" -eq 1 ]]; then
+  echo "[ios_visual_smoke] mode: Racing 3D Kotlin/Native script smoke"
+elif [[ "$kanama_character_probe" -eq 1 ]]; then
+  echo "[ios_visual_smoke] mode: Character-controller 3D Kotlin/Native script smoke"
+elif [[ "$kanama_thirdperson_probe" -eq 1 ]]; then
+  echo "[ios_visual_smoke] mode: Third-person-controller 3D Kotlin/Native script smoke"
 elif [[ -n "$godot_project_baseline_dir" ]]; then
   echo "[ios_visual_smoke] mode: Godot-only project baseline"
 else
@@ -1443,6 +1563,350 @@ text = "Touch 0"
 horizontal_alignment = 1
 vertical_alignment = 1
 EOF
+elif [[ "$kanama_dodge_probe" -eq 1 ]]; then
+  status_text="Running Kanama iOS Dodge smoke"
+  launch_sleep=10
+  custom_scene_written=1
+  mkdir -p "$project_dir/kotlin-src" "$project_dir/art"
+  if [[ -f "$dodge_demo_dir/art/enemyFlyingAlt_1.png" ]]; then
+    cp "$dodge_demo_dir/art/enemyFlyingAlt_1.png" "$project_dir/art/enemyFlyingAlt_1.png"
+  fi
+  cat >"$project_dir/kotlin-src/DodgeIosSmoke.kt" <<'EOF'
+package net.multigesture.kanama.iosdodge
+
+import java.lang.foreign.MemorySegment
+import net.multigesture.kanama.annotations.OnProcess
+import net.multigesture.kanama.annotations.OnReady
+import net.multigesture.kanama.annotations.ScriptClass
+import net.multigesture.kanama.api.KanamaScript
+import net.multigesture.kanama.api.Node2D
+
+@ScriptClass(attachTo = "Node2D")
+class DodgeIosSmoke(godotObject: MemorySegment) : KanamaScript<Node2D>(godotObject, ::Node2D) {
+    private var frame = 0
+
+    @OnReady
+    fun ready() {
+        println("[kanama][ios][kn] dodge smoke ready")
+    }
+
+    @OnProcess
+    fun process(delta: Double) {
+        frame += 1
+        if (frame == 3) {
+            println("[kanama][ios][kn] dodge smoke process frame=3 delta=$delta")
+        }
+    }
+}
+EOF
+  cat >"$project_dir/main.tscn" <<'EOF'
+[gd_scene load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://kotlin-src/DodgeIosSmoke.kt" id="1_actor"]
+
+[node name="Main" type="Node2D"]
+
+[node name="Actor" type="Node2D" parent="."]
+position = Vector2(360, 640)
+script = ExtResource("1_actor")
+
+[node name="Camera2D" type="Camera2D" parent="."]
+EOF
+elif [[ "$kanama_squash_probe" -eq 1 ]]; then
+  status_text="Running Kanama iOS Squash smoke"
+  launch_sleep=10
+  custom_scene_written=1
+  mkdir -p "$project_dir/kotlin-src"
+  cat >"$project_dir/kotlin-src/SquashIosSmoke.kt" <<'EOF'
+package net.multigesture.kanama.iossquash
+
+import java.lang.foreign.MemorySegment
+import net.multigesture.kanama.annotations.OnProcess
+import net.multigesture.kanama.annotations.OnReady
+import net.multigesture.kanama.annotations.ScriptClass
+import net.multigesture.kanama.api.KanamaScript
+import net.multigesture.kanama.api.Node3D
+
+@ScriptClass(attachTo = "Node3D")
+class SquashIosSmoke(godotObject: MemorySegment) : KanamaScript<Node3D>(godotObject, ::Node3D) {
+    private var frame = 0
+
+    @OnReady
+    fun ready() {
+        println("[kanama][ios][kn] squash smoke ready")
+    }
+
+    @OnProcess
+    fun process(delta: Double) {
+        frame += 1
+        if (frame == 3) {
+            println("[kanama][ios][kn] squash smoke process frame=3 delta=$delta")
+        }
+    }
+}
+EOF
+  cat >"$project_dir/main.tscn" <<'EOF'
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://kotlin-src/SquashIosSmoke.kt" id="1_actor"]
+
+[sub_resource type="SphereMesh" id="SphereMesh_actor"]
+radius = 0.35
+height = 0.7
+
+[node name="Main" type="Node3D"]
+
+[node name="Actor" type="Node3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.45, 0)
+script = ExtResource("1_actor")
+
+[node name="ActorMesh" type="MeshInstance3D" parent="Actor"]
+mesh = SubResource("SphereMesh_actor")
+
+[node name="Camera3D" type="Camera3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2.4, 7.0)
+current = true
+
+[node name="Sun" type="DirectionalLight3D" parent="."]
+transform = Transform3D(0.707107, -0.353553, 0.612372, 0, 0.866025, 0.5, -0.707107, -0.353553, 0.612372, 0, 4, 4)
+light_energy = 1.8
+EOF
+elif [[ "$kanama_fps_probe" -eq 1 ]]; then
+  status_text="Running Kanama iOS FPS smoke"
+  launch_sleep=10
+  custom_scene_written=1
+  mkdir -p "$project_dir/kotlin-src"
+  cat >"$project_dir/kotlin-src/FpsIosSmoke.kt" <<'EOF'
+package net.multigesture.kanama.iosfps
+
+import java.lang.foreign.MemorySegment
+import net.multigesture.kanama.annotations.OnProcess
+import net.multigesture.kanama.annotations.OnReady
+import net.multigesture.kanama.annotations.ScriptClass
+import net.multigesture.kanama.api.KanamaScript
+import net.multigesture.kanama.api.Node3D
+
+@ScriptClass(attachTo = "Node3D")
+class FpsIosSmoke(godotObject: MemorySegment) : KanamaScript<Node3D>(godotObject, ::Node3D) {
+    private var frame = 0
+
+    @OnReady
+    fun ready() {
+        println("[kanama][ios][kn] fps smoke ready")
+    }
+
+    @OnProcess
+    fun process(delta: Double) {
+        frame += 1
+        if (frame == 3) {
+            println("[kanama][ios][kn] fps smoke process frame=3 delta=$delta")
+        }
+    }
+}
+EOF
+  cat >"$project_dir/main.tscn" <<'EOF'
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://kotlin-src/FpsIosSmoke.kt" id="1_actor"]
+
+[sub_resource type="SphereMesh" id="SphereMesh_actor"]
+radius = 0.35
+height = 0.7
+
+[node name="Main" type="Node3D"]
+
+[node name="Actor" type="Node3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.45, 0)
+script = ExtResource("1_actor")
+
+[node name="ActorMesh" type="MeshInstance3D" parent="Actor"]
+mesh = SubResource("SphereMesh_actor")
+
+[node name="Camera3D" type="Camera3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2.4, 7.0)
+current = true
+
+[node name="Sun" type="DirectionalLight3D" parent="."]
+transform = Transform3D(0.707107, -0.353553, 0.612372, 0, 0.866025, 0.5, -0.707107, -0.353553, 0.612372, 0, 4, 4)
+light_energy = 1.8
+EOF
+elif [[ "$kanama_racing_probe" -eq 1 ]]; then
+  status_text="Running Kanama iOS Racing smoke"
+  launch_sleep=10
+  custom_scene_written=1
+  mkdir -p "$project_dir/kotlin-src"
+  cat >"$project_dir/kotlin-src/RacingIosSmoke.kt" <<'EOF'
+package net.multigesture.kanama.iosracing
+
+import java.lang.foreign.MemorySegment
+import net.multigesture.kanama.annotations.OnProcess
+import net.multigesture.kanama.annotations.OnReady
+import net.multigesture.kanama.annotations.ScriptClass
+import net.multigesture.kanama.api.KanamaScript
+import net.multigesture.kanama.api.Node3D
+
+@ScriptClass(attachTo = "Node3D")
+class RacingIosSmoke(godotObject: MemorySegment) : KanamaScript<Node3D>(godotObject, ::Node3D) {
+    private var frame = 0
+
+    @OnReady
+    fun ready() {
+        println("[kanama][ios][kn] racing smoke ready")
+    }
+
+    @OnProcess
+    fun process(delta: Double) {
+        frame += 1
+        if (frame == 3) {
+            println("[kanama][ios][kn] racing smoke process frame=3 delta=$delta")
+        }
+    }
+}
+EOF
+  cat >"$project_dir/main.tscn" <<'EOF'
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://kotlin-src/RacingIosSmoke.kt" id="1_actor"]
+
+[sub_resource type="SphereMesh" id="SphereMesh_actor"]
+radius = 0.35
+height = 0.7
+
+[node name="Main" type="Node3D"]
+
+[node name="Actor" type="Node3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.45, 0)
+script = ExtResource("1_actor")
+
+[node name="ActorMesh" type="MeshInstance3D" parent="Actor"]
+mesh = SubResource("SphereMesh_actor")
+
+[node name="Camera3D" type="Camera3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2.4, 7.0)
+current = true
+
+[node name="Sun" type="DirectionalLight3D" parent="."]
+transform = Transform3D(0.707107, -0.353553, 0.612372, 0, 0.866025, 0.5, -0.707107, -0.353553, 0.612372, 0, 4, 4)
+light_energy = 1.8
+EOF
+elif [[ "$kanama_character_probe" -eq 1 ]]; then
+  status_text="Running Kanama iOS Character-controller smoke"
+  launch_sleep=10
+  custom_scene_written=1
+  mkdir -p "$project_dir/kotlin-src"
+  cat >"$project_dir/kotlin-src/CharacterIosSmoke.kt" <<'EOF'
+package net.multigesture.kanama.ioscharacter
+
+import java.lang.foreign.MemorySegment
+import net.multigesture.kanama.annotations.OnProcess
+import net.multigesture.kanama.annotations.OnReady
+import net.multigesture.kanama.annotations.ScriptClass
+import net.multigesture.kanama.api.KanamaScript
+import net.multigesture.kanama.api.Node3D
+
+@ScriptClass(attachTo = "Node3D")
+class CharacterIosSmoke(godotObject: MemorySegment) : KanamaScript<Node3D>(godotObject, ::Node3D) {
+    private var frame = 0
+
+    @OnReady
+    fun ready() {
+        println("[kanama][ios][kn] character smoke ready")
+    }
+
+    @OnProcess
+    fun process(delta: Double) {
+        frame += 1
+        if (frame == 3) {
+            println("[kanama][ios][kn] character smoke process frame=3 delta=$delta")
+        }
+    }
+}
+EOF
+  cat >"$project_dir/main.tscn" <<'EOF'
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://kotlin-src/CharacterIosSmoke.kt" id="1_actor"]
+
+[sub_resource type="SphereMesh" id="SphereMesh_actor"]
+radius = 0.35
+height = 0.7
+
+[node name="Main" type="Node3D"]
+
+[node name="Actor" type="Node3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.45, 0)
+script = ExtResource("1_actor")
+
+[node name="ActorMesh" type="MeshInstance3D" parent="Actor"]
+mesh = SubResource("SphereMesh_actor")
+
+[node name="Camera3D" type="Camera3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2.4, 7.0)
+current = true
+
+[node name="Sun" type="DirectionalLight3D" parent="."]
+transform = Transform3D(0.707107, -0.353553, 0.612372, 0, 0.866025, 0.5, -0.707107, -0.353553, 0.612372, 0, 4, 4)
+light_energy = 1.8
+EOF
+elif [[ "$kanama_thirdperson_probe" -eq 1 ]]; then
+  status_text="Running Kanama iOS Third-person-controller smoke"
+  launch_sleep=10
+  custom_scene_written=1
+  mkdir -p "$project_dir/kotlin-src"
+  cat >"$project_dir/kotlin-src/ThirdpersonIosSmoke.kt" <<'EOF'
+package net.multigesture.kanama.iosthirdperson
+
+import java.lang.foreign.MemorySegment
+import net.multigesture.kanama.annotations.OnProcess
+import net.multigesture.kanama.annotations.OnReady
+import net.multigesture.kanama.annotations.ScriptClass
+import net.multigesture.kanama.api.KanamaScript
+import net.multigesture.kanama.api.Node3D
+
+@ScriptClass(attachTo = "Node3D")
+class ThirdpersonIosSmoke(godotObject: MemorySegment) : KanamaScript<Node3D>(godotObject, ::Node3D) {
+    private var frame = 0
+
+    @OnReady
+    fun ready() {
+        println("[kanama][ios][kn] thirdperson smoke ready")
+    }
+
+    @OnProcess
+    fun process(delta: Double) {
+        frame += 1
+        if (frame == 3) {
+            println("[kanama][ios][kn] thirdperson smoke process frame=3 delta=$delta")
+        }
+    }
+}
+EOF
+  cat >"$project_dir/main.tscn" <<'EOF'
+[gd_scene load_steps=3 format=3]
+
+[ext_resource type="Script" path="res://kotlin-src/ThirdpersonIosSmoke.kt" id="1_actor"]
+
+[sub_resource type="SphereMesh" id="SphereMesh_actor"]
+radius = 0.35
+height = 0.7
+
+[node name="Main" type="Node3D"]
+
+[node name="Actor" type="Node3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.45, 0)
+script = ExtResource("1_actor")
+
+[node name="ActorMesh" type="MeshInstance3D" parent="Actor"]
+mesh = SubResource("SphereMesh_actor")
+
+[node name="Camera3D" type="Camera3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2.4, 7.0)
+current = true
+
+[node name="Sun" type="DirectionalLight3D" parent="."]
+transform = Transform3D(0.707107, -0.353553, 0.612372, 0, 0.866025, 0.5, -0.707107, -0.353553, 0.612372, 0, 4, 4)
+light_energy = 1.8
+EOF
 fi
 
 if [[ "$custom_scene_written" -eq 0 ]]; then
@@ -1501,7 +1965,7 @@ ensure_project_setting application run/max_fps 60
 ensure_project_setting application run/low_processor_mode false
 ensure_project_setting application run/low_processor_mode_sleep_usec 0
 
-if [[ -n "$godot_project_baseline_dir" || "$godot_fps_probe" -eq 1 || "$kanama_match3_probe" -eq 1 || "$kanama_platformer3d_probe" -eq 1 ]]; then
+if [[ -n "$godot_project_baseline_dir" || "$godot_fps_probe" -eq 1 || "$kanama_match3_probe" -eq 1 || "$kanama_platformer3d_probe" -eq 1 || "$kanama_dodge_probe" -eq 1 || "$kanama_squash_probe" -eq 1 || "$kanama_fps_probe" -eq 1 || "$kanama_racing_probe" -eq 1 || "$kanama_character_probe" -eq 1 || "$kanama_thirdperson_probe" -eq 1 ]]; then
   if ! rg -q '^\[display\]' "$project_dir/project.godot"; then
     cat >>"$project_dir/project.godot" <<'EOF'
 
@@ -1577,6 +2041,24 @@ if [[ -z "$godot_project_baseline_dir" ]]; then
     install_ios_addon_args+=("-PkanamaIosProjectScriptsDir=$project_dir/kotlin-src")
   fi
   if [[ "$kanama_platformer3d_probe" -eq 1 ]]; then
+    install_ios_addon_args+=("-PkanamaIosProjectScriptsDir=$project_dir/kotlin-src")
+  fi
+  if [[ "$kanama_dodge_probe" -eq 1 ]]; then
+    install_ios_addon_args+=("-PkanamaIosProjectScriptsDir=$project_dir/kotlin-src")
+  fi
+  if [[ "$kanama_squash_probe" -eq 1 ]]; then
+    install_ios_addon_args+=("-PkanamaIosProjectScriptsDir=$project_dir/kotlin-src")
+  fi
+  if [[ "$kanama_fps_probe" -eq 1 ]]; then
+    install_ios_addon_args+=("-PkanamaIosProjectScriptsDir=$project_dir/kotlin-src")
+  fi
+  if [[ "$kanama_racing_probe" -eq 1 ]]; then
+    install_ios_addon_args+=("-PkanamaIosProjectScriptsDir=$project_dir/kotlin-src")
+  fi
+  if [[ "$kanama_character_probe" -eq 1 ]]; then
+    install_ios_addon_args+=("-PkanamaIosProjectScriptsDir=$project_dir/kotlin-src")
+  fi
+  if [[ "$kanama_thirdperson_probe" -eq 1 ]]; then
     install_ios_addon_args+=("-PkanamaIosProjectScriptsDir=$project_dir/kotlin-src")
   fi
 
@@ -1936,6 +2418,84 @@ if [[ "$physical_device" -eq 0 && "$kanama_platformer3d_probe" -eq 1 ]]; then
     echo "[ios_visual_smoke] 3D platformer ready/process logs detected"
   else
     echo "[ios_visual_smoke] 3D platformer process log missing" >&2
+    exit 1
+  fi
+fi
+
+if [[ "$physical_device" -eq 0 && "$kanama_dodge_probe" -eq 1 ]]; then
+  if ! rg -q 'dodge smoke ready' "$stderr_log" "$stdout_log"; then
+    echo "[ios_visual_smoke] Dodge ready log missing" >&2
+    exit 1
+  fi
+  if rg -q 'dodge smoke process frame=3' "$stderr_log" "$stdout_log"; then
+    echo "[ios_visual_smoke] Dodge ready/process logs detected"
+  else
+    echo "[ios_visual_smoke] Dodge process log missing" >&2
+    exit 1
+  fi
+fi
+
+if [[ "$physical_device" -eq 0 && "$kanama_squash_probe" -eq 1 ]]; then
+  if ! rg -q 'squash smoke ready' "$stderr_log" "$stdout_log"; then
+    echo "[ios_visual_smoke] Squash ready log missing" >&2
+    exit 1
+  fi
+  if rg -q 'squash smoke process frame=3' "$stderr_log" "$stdout_log"; then
+    echo "[ios_visual_smoke] Squash ready/process logs detected"
+  else
+    echo "[ios_visual_smoke] Squash process log missing" >&2
+    exit 1
+  fi
+fi
+
+if [[ "$physical_device" -eq 0 && "$kanama_fps_probe" -eq 1 ]]; then
+  if ! rg -q 'fps smoke ready' "$stderr_log" "$stdout_log"; then
+    echo "[ios_visual_smoke] FPS ready log missing" >&2
+    exit 1
+  fi
+  if rg -q 'fps smoke process frame=3' "$stderr_log" "$stdout_log"; then
+    echo "[ios_visual_smoke] FPS ready/process logs detected"
+  else
+    echo "[ios_visual_smoke] FPS process log missing" >&2
+    exit 1
+  fi
+fi
+
+if [[ "$physical_device" -eq 0 && "$kanama_racing_probe" -eq 1 ]]; then
+  if ! rg -q 'racing smoke ready' "$stderr_log" "$stdout_log"; then
+    echo "[ios_visual_smoke] Racing ready log missing" >&2
+    exit 1
+  fi
+  if rg -q 'racing smoke process frame=3' "$stderr_log" "$stdout_log"; then
+    echo "[ios_visual_smoke] Racing ready/process logs detected"
+  else
+    echo "[ios_visual_smoke] Racing process log missing" >&2
+    exit 1
+  fi
+fi
+
+if [[ "$physical_device" -eq 0 && "$kanama_character_probe" -eq 1 ]]; then
+  if ! rg -q 'character smoke ready' "$stderr_log" "$stdout_log"; then
+    echo "[ios_visual_smoke] Character-controller ready log missing" >&2
+    exit 1
+  fi
+  if rg -q 'character smoke process frame=3' "$stderr_log" "$stdout_log"; then
+    echo "[ios_visual_smoke] Character-controller ready/process logs detected"
+  else
+    echo "[ios_visual_smoke] Character-controller process log missing" >&2
+    exit 1
+  fi
+fi
+
+if [[ "$physical_device" -eq 0 && "$kanama_thirdperson_probe" -eq 1 ]]; then
+  if ! rg -q 'thirdperson smoke ready' "$stderr_log" "$stdout_log"; then
+    echo "[ios_visual_smoke] Third-person ready log missing" >&2
+    exit 1
+  fi
+  if rg -q 'thirdperson smoke process frame=3' "$stderr_log" "$stdout_log"; then
+    echo "[ios_visual_smoke] Third-person ready/process logs detected"
+  else
+    echo "[ios_visual_smoke] Third-person process log missing" >&2
     exit 1
   fi
 fi

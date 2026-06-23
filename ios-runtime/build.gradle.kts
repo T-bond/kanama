@@ -58,13 +58,14 @@ kotlin {
         }
         val iosMain by creating {
             dependsOn(commonMain)
-            iosScriptDirs(configuredIosScriptDirs.orNull).forEach { kotlin.srcDir(file(it)) }
         }
         val iosArm64Main by getting {
             dependsOn(iosMain)
+            iosScriptDirs(configuredIosScriptDirs.orNull).forEach { kotlin.srcDir(file(it)) }
         }
         val iosSimulatorArm64Main by getting {
             dependsOn(iosMain)
+            iosScriptDirs(configuredIosScriptDirs.orNull).forEach { kotlin.srcDir(file(it)) }
         }
     }
 }
