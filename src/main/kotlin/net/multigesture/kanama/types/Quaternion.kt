@@ -71,6 +71,11 @@ data class Quaternion(
         return result
     }
 
+    /** Godot `Quaternion.is_equal_approx`: per-component fuzzy compare (CMP_EPSILON tolerance). */
+    fun isEqualApprox(other: Quaternion): Boolean =
+        isEqualApprox(x, other.x) && isEqualApprox(y, other.y) &&
+            isEqualApprox(z, other.z) && isEqualApprox(w, other.w)
+
     /**
      * Returns this quaternion's length, squared. Note: This method is faster than `length`, so prefer
      * it if you only need to compare quaternion lengths.

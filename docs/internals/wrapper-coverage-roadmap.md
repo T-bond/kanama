@@ -149,8 +149,11 @@ real-component types (`Vector2/3/4`, `Quaternion`, `Color`, `Plane`) on desktop 
 reflexive) and `hashCode` canonicalizes signed zero via `+ 0.0`. Composites (`Transform3D`/`Basis`/
 `AABB`/`Rect2`/`Transform2D`/`Projection`) delegate to the fixed leaves automatically. Validated:
 both compile + a HashMap-contract logic test (`-0.0`/`0.0` interchangeable as keys; `NaN==NaN`
-reflexive) + runtime_smoke. **Still TODO:** the `isEqualApprox`/`isZeroApprox` fuzzy-comparison
-helpers (Godot's recommended approach) — a separate ergonomic addition. Original analysis kept below.
+reflexive) + runtime_smoke. **isEqualApprox/isZeroApprox DONE 2026-06-22:** added to Vector2/3/4 +
+Quaternion (`isEqualApprox`) on both platforms, backed by a local replica of Godot's
+`Math::is_equal_approx` (`CMP_EPSILON = 0.00001` relative tolerance, `types/ApproxMath.kt` per
+platform) — exact match, no per-component engine round-trip. Same one-liner pattern extends to the
+other types if needed. Original analysis kept below.
 
 Kanama value types (`Vector2/3/4`, `Transform3D`, `Basis`, `Color`, `Quaternion`, …)
 are plain Kotlin `data class`es with `Double`/`Float` components and no custom `equals`,

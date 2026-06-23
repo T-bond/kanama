@@ -36,6 +36,15 @@ data class Vector4(
         return result
     }
 
+    /** Godot `Vector4.is_equal_approx`: per-component fuzzy compare (CMP_EPSILON tolerance). */
+    fun isEqualApprox(other: Vector4): Boolean =
+        isEqualApprox(x, other.x) && isEqualApprox(y, other.y) &&
+            isEqualApprox(z, other.z) && isEqualApprox(w, other.w)
+
+    /** Godot `Vector4.is_zero_approx`: true if every component is approximately zero. */
+    fun isZeroApprox(): Boolean =
+        isZeroApprox(x) && isZeroApprox(y) && isZeroApprox(z) && isZeroApprox(w)
+
     operator fun plus(other: Vector4): Vector4 =
         Vector4(x + other.x, y + other.y, z + other.z, w + other.w)
 

@@ -38,6 +38,11 @@ data class Quaternion(
         return result
     }
 
+    /** Godot `Quaternion.is_equal_approx`: per-component fuzzy compare (CMP_EPSILON tolerance). */
+    fun isEqualApprox(other: Quaternion): Boolean =
+        isEqualApprox(x, other.x) && isEqualApprox(y, other.y) &&
+            isEqualApprox(z, other.z) && isEqualApprox(w, other.w)
+
     /**
      * Returns the inverse of this quaternion, computed by Godot (conjugate / length², so it
      * matches the engine even for non-unit quaternions). For a unit quaternion this is the

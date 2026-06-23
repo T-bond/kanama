@@ -64,6 +64,13 @@ data class Vector3(
         return result
     }
 
+    /** Godot `Vector3.is_equal_approx`: per-component fuzzy compare (CMP_EPSILON tolerance). */
+    fun isEqualApprox(other: Vector3): Boolean =
+        isEqualApprox(x, other.x) && isEqualApprox(y, other.y) && isEqualApprox(z, other.z)
+
+    /** Godot `Vector3.is_zero_approx`: true if every component is approximately zero. */
+    fun isZeroApprox(): Boolean = isZeroApprox(x) && isZeroApprox(y) && isZeroApprox(z)
+
     operator fun plus(other: Vector3): Vector3 =
         Vector3(x + other.x, y + other.y, z + other.z)
 
