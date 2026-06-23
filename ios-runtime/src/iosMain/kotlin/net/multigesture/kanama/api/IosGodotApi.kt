@@ -129,9 +129,24 @@ object MainThread {
     // KanamaIosRuntime.frame() via [pumpNextFrame]. Accessed only on the engine main thread
     // (awaitNextFrame runs under Dispatchers.Main; frame() runs on the engine main thread).
     private val nextFrameContinuations = mutableListOf<CancellableContinuation<Unit>>()
+    private val nextFrameTasks = mutableListOf<() -> Unit>()
 
     fun post(action: () -> Unit) {
         action()
+    }
+
+    // Run [action] after at least one engine frame pump (mirrors desktop MainThread.postNextFrame).
+    fun postNextFrame(action: () -> Unit) {
+        nextFrameTasks.add(action)
+    }
+
+    // Run [action] after at least [frames] engine frame pumps (mirrors desktop postAfterFrames).
+    fun postAfterFrames(frames: Int, action: () -> Unit) {
+        if (frames <= 0) {
+            action()
+            return
+        }
+        postNextFrame { postAfterFrames(frames - 1, action) }
     }
 
     // Suspend until the next engine frame is pumped (mirrors desktop MainThread.awaitNextFrame).
@@ -143,9 +158,15 @@ object MainThread {
         }
     }
 
-    // Resume everything parked as of this frame; continuations re-parked by the resumed coroutines
-    // wait for the next frame (snapshot-then-clear, matching desktop's one-await-per-frame semantics).
+    // Once per engine frame: run parked tasks, then resume parked continuations. Both are
+    // snapshot-then-cleared so work re-queued by a resumed coroutine/task waits for the next frame
+    // (matching desktop's one-step-per-frame semantics).
     internal fun pumpNextFrame() {
+        if (nextFrameTasks.isNotEmpty()) {
+            val tasks = nextFrameTasks.toList()
+            nextFrameTasks.clear()
+            for (task in tasks) task()
+        }
         if (nextFrameContinuations.isEmpty()) return
         val pending = nextFrameContinuations.toList()
         nextFrameContinuations.clear()

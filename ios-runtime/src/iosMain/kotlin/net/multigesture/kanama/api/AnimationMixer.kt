@@ -224,6 +224,26 @@ open class AnimationMixer(handle: MemorySegment) : Node(handle) {
         return ObjectCalls.ptrcallNoArgsRetBool(isResetOnSaveEnabledBind, handle)
     }
 
+    // AnimationTree parameters are exposed as `parameters/...` engine properties, so route through
+    // set()/get() (no NodePath set_indexed needed). Matches the desktop AnimationMixer helpers.
+    fun setParameter(path: String, value: Any?) {
+        set(path, value)
+    }
+
+    fun getParameter(path: String): Any? =
+        get(path)
+
+    fun getStateMachinePlayback(path: String): AnimationNodeStateMachinePlayback {
+        val value = getParameter(path)
+        val playback = when (value) {
+            is AnimationNodeStateMachinePlayback -> value
+            is Resource -> AnimationNodeStateMachinePlayback.fromHandle(value.handle)
+            is GodotObject -> AnimationNodeStateMachinePlayback.fromHandle(value.handle)
+            else -> null
+        }
+        return playback ?: error("AnimationMixer parameter '$path' is not an AnimationNodeStateMachinePlayback")
+    }
+
     object Signals {
         const val animationListChanged: String = "animation_list_changed"
         const val animationLibrariesUpdated: String = "animation_libraries_updated"

@@ -22,6 +22,10 @@ data class Basis(
     fun withY(value: Vector3): Basis = Basis(x, value, z)
     fun withZ(value: Vector3): Basis = Basis(x, y, value)
 
+    /** Transforms (basis-multiplies) [vector] by this basis (matches desktop Basis * Vector3). */
+    operator fun times(vector: Vector3): Vector3 =
+        x * vector.x + y * vector.y + z * vector.z
+
     /** Returns the inverse of this basis. Computed by Godot. */
     fun inverse(): Basis =
         fromFloat32(BuiltinCalls.callNoArgsFloat32(inverseBind, toFloat32()))

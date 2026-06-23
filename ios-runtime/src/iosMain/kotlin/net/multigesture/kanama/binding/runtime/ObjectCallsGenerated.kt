@@ -1277,6 +1277,16 @@ fun ObjectCalls.ptrcallWithLongAndNodePathArg(methodBind: MemorySegment, instanc
         Unit
     }
 
+fun ObjectCalls.ptrcallWithLongAndObjectArg(methodBind: MemorySegment, instance: MemorySegment, a0: Long, a1: MemorySegment) =
+    memScoped {
+        val c0 = alloc<LongVar>(); c0.value = a0
+        val c1 = alloc<LongVar>(); c1.value = a1.address()
+        val types = allocArray<IntVar>(2); types[0] = PT_INT64; types[1] = PT_OBJECT
+        val ptrs = allocArray<COpaquePointerVar>(2); ptrs[0] = c0.ptr.reinterpret<CPointed>(); ptrs[1] = c1.ptr.reinterpret<CPointed>()
+        kanama_ios_godot_ptrcall(methodBind.address(), instance.address(), types, ptrs, 2, PT_VOID, null)
+        Unit
+    }
+
 fun ObjectCalls.ptrcallWithLongAndThreeStringNameArgs(methodBind: MemorySegment, instance: MemorySegment, a0: Long, a1: String, a2: String, a3: String) =
     memScoped {
         val c0 = alloc<LongVar>(); c0.value = a0

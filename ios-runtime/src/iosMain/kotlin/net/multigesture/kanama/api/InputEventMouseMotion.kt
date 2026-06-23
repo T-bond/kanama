@@ -115,6 +115,10 @@ class InputEventMouseMotion(handle: MemorySegment) : InputEventMouse(handle) {
         internal fun wrap(handle: MemorySegment): InputEventMouseMotion? =
             if (handle.address() == 0L) null else InputEventMouseMotion(handle)
 
+        // Cast a generic event to InputEventMouseMotion (null if not), mirroring the desktop helper.
+        fun from(value: GodotObject): InputEventMouseMotion? =
+            if (value.isClass("InputEventMouseMotion")) InputEventMouseMotion(value.handle) else null
+
         private const val SET_TILT_HASH = 743155724L
         private val setTiltBind by lazy {
             ObjectCalls.getMethodBind("InputEventMouseMotion", "set_tilt", SET_TILT_HASH)

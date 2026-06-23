@@ -809,6 +809,12 @@ open class Viewport(handle: MemorySegment) : Node(handle) {
         return Texture2D.wrap(ObjectCalls.ptrcallNoArgsRetObject(getVrsTextureBind, handle))
     }
 
+    // getCamera3D/getCamera2D camelCase aliases (the generator emits getCamera3d/getCamera2d);
+    // match the Android aliases so shared demo code resolves on both backends.
+    fun getCamera3D(): Camera3D? = getCamera3d()
+
+    fun getCamera2D(): Camera2D? = getCamera2d()
+
     object Signals {
         const val sizeChanged: String = "size_changed"
         const val guiFocusChanged: String = "gui_focus_changed"

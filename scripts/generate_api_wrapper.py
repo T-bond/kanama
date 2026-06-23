@@ -491,6 +491,66 @@ IOS_CUSTOM_MEMBER_SECTIONS = {
         @JvmName("setLightEnergyProperty")
         set(value) = setParam(PARAM_ENERGY, value)
 """.strip("\n"),
+    "Viewport": """
+    // getCamera3D/getCamera2D camelCase aliases (the generator emits getCamera3d/getCamera2d);
+    // match the Android aliases so shared demo code resolves on both backends.
+    fun getCamera3D(): Camera3D? = getCamera3d()
+
+    fun getCamera2D(): Camera2D? = getCamera2d()
+""".strip("\n"),
+    "AnimationMixer": """
+    // AnimationTree parameters are exposed as `parameters/...` engine properties, so route through
+    // set()/get() (no NodePath set_indexed needed). Matches the desktop AnimationMixer helpers.
+    fun setParameter(path: String, value: Any?) {
+        set(path, value)
+    }
+
+    fun getParameter(path: String): Any? =
+        get(path)
+
+    fun getStateMachinePlayback(path: String): AnimationNodeStateMachinePlayback {
+        val value = getParameter(path)
+        val playback = when (value) {
+            is AnimationNodeStateMachinePlayback -> value
+            is Resource -> AnimationNodeStateMachinePlayback.fromHandle(value.handle)
+            is GodotObject -> AnimationNodeStateMachinePlayback.fromHandle(value.handle)
+            else -> null
+        }
+        return playback ?: error("AnimationMixer parameter '$path' is not an AnimationNodeStateMachinePlayback")
+    }
+""".strip("\n"),
+}
+
+# iOS-only companion-object custom sections (mirrors CUSTOM_COMPANION_MEMBER_SECTIONS for the
+# IOS_AUDIT_ONLY path). Members are emitted inside the generated companion object (8-space indent).
+IOS_CUSTOM_COMPANION_MEMBER_SECTIONS = {
+    "InputEventKey": """
+        // Godot Key enum constants (subset used by gameplay code; values match @GlobalScope.Key).
+        const val KEY_ESCAPE = 4194305L
+        const val KEY_TAB = 4194306L
+        const val KEY_ENTER = 4194309L
+        const val KEY_F10 = 4194341L
+        const val KEY_F11 = 4194342L
+        const val KEY_SPACE = 32L
+        const val KEY_A = 65L
+        const val KEY_D = 68L
+        const val KEY_E = 69L
+        const val KEY_F = 70L
+        const val KEY_Q = 81L
+        const val KEY_R = 82L
+        const val KEY_S = 83L
+        const val KEY_W = 87L
+""".strip("\n"),
+    "InputEventMouseMotion": """
+        // Cast a generic event to InputEventMouseMotion (null if not), mirroring the desktop helper.
+        fun from(value: GodotObject): InputEventMouseMotion? =
+            if (value.isClass("InputEventMouseMotion")) InputEventMouseMotion(value.handle) else null
+""".strip("\n"),
+    "BaseMaterial3D": """
+        // Downcast a Material to BaseMaterial3D (null if not), mirroring the desktop helper.
+        fun fromMaterial(value: Material): BaseMaterial3D? =
+            if (value.isClass("BaseMaterial3D")) BaseMaterial3D(value.handle) else null
+""".strip("\n"),
 }
 
 
@@ -1802,7 +1862,11 @@ def render_draft(
         if companion_constants:
             companion_sections.append(companion_constants)
         companion_sections.append(render_wrap_helpers(cls.name))
-        custom_companion_members = None if IOS_AUDIT_ONLY else CUSTOM_COMPANION_MEMBER_SECTIONS.get(cls.name)
+        custom_companion_members = (
+            IOS_CUSTOM_COMPANION_MEMBER_SECTIONS.get(cls.name)
+            if IOS_AUDIT_ONLY
+            else CUSTOM_COMPANION_MEMBER_SECTIONS.get(cls.name)
+        )
         if custom_companion_members:
             companion_sections.append(custom_companion_members)
         companion_sections.append("\n\n".join(binds) if binds else "        // No MethodBinds emitted yet.")

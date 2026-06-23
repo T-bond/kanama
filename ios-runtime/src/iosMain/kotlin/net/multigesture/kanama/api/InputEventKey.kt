@@ -122,6 +122,22 @@ class InputEventKey(handle: MemorySegment) : InputEventWithModifiers(handle) {
         internal fun wrap(handle: MemorySegment): InputEventKey? =
             if (handle.address() == 0L) null else InputEventKey(handle)
 
+        // Godot Key enum constants (subset used by gameplay code; values match @GlobalScope.Key).
+        const val KEY_ESCAPE = 4194305L
+        const val KEY_TAB = 4194306L
+        const val KEY_ENTER = 4194309L
+        const val KEY_F10 = 4194341L
+        const val KEY_F11 = 4194342L
+        const val KEY_SPACE = 32L
+        const val KEY_A = 65L
+        const val KEY_D = 68L
+        const val KEY_E = 69L
+        const val KEY_F = 70L
+        const val KEY_Q = 81L
+        const val KEY_R = 82L
+        const val KEY_S = 83L
+        const val KEY_W = 87L
+
         private const val SET_PRESSED_HASH = 2586408642L
         private val setPressedBind by lazy {
             ObjectCalls.getMethodBind("InputEventKey", "set_pressed", SET_PRESSED_HASH)
