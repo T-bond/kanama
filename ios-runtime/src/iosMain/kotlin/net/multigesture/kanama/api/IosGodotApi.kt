@@ -255,11 +255,15 @@ open class GodotObject(
         IosGodot.objectEmitSignalVector2i(handle.address(), signalName, value.x.toLong(), value.y.toLong())
 
     fun emitSignal(signalName: String, vararg args: Any?) {
-        val first = args.firstOrNull()
-        when (first) {
-            is Int -> emitSignal(signalName, first)
-            is Long -> emitSignal(signalName, first)
-            is Vector2i -> emitSignal(signalName, first)
+        when {
+            // Keep the bespoke C-shim fast paths for the single scalar args they cover...
+            args.size == 1 && args[0] is Int -> emitSignal(signalName, args[0] as Int)
+            args.size == 1 && args[0] is Long -> emitSignal(signalName, args[0] as Long)
+            args.size == 1 && args[0] is Vector2i -> emitSignal(signalName, args[0] as Vector2i)
+            // ...and route everything else (no-arg signals, and any other arg shapes) through
+            // Object.emit_signal via the Variant call path. The previous `when` silently dropped
+            // no-arg signals (empty args matched nothing), so e.g. a no-arg @Signal never fired.
+            else -> call("emit_signal", signalName, *args)
         }
     }
 
