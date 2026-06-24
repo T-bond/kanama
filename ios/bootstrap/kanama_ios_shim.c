@@ -1023,35 +1023,37 @@ static void kanama_ios_script_resource_init_metadata(KanamaIosExtensionInstance 
     instance->script_base_type_text = kanama_ios_strdup(base_type);
     kanama_ios_init_string_name(&instance->script_base_type, base_type);
 
+    // Do NOT early-return when method_count == 0: a script may declare only signals and/or
+    // properties (e.g. a signal-only Events autoload). Returning here skipped the property and
+    // signal sections, so the Script object never advertised its @Signals — runtime
+    // Object::connect to those signals then failed with ERR_INVALID_PARAMETER.
     int32_t method_count = kanama_ios_runtime_script_resource_method_count(instance->script_handle);
-    if (method_count <= 0) {
-        return;
-    }
-    instance->script_method_names = calloc((size_t)method_count, sizeof(uint64_t));
-    instance->script_method_name_texts = calloc((size_t)method_count, sizeof(char *));
-    if (instance->script_method_names == NULL || instance->script_method_name_texts == NULL) {
-        free(instance->script_method_names);
-        free(instance->script_method_name_texts);
-        instance->script_method_names = NULL;
-        instance->script_method_name_texts = NULL;
-        return;
-    }
-
-    instance->script_method_count = method_count;
-    for (int32_t i = 0; i < method_count; i++) {
-        char method_name[128];
-        method_name[0] = '\0';
-        kanama_ios_runtime_script_resource_method_name(
-            instance->script_handle,
-            i,
-            method_name,
-            (int32_t)sizeof(method_name)
-        );
-        if (method_name[0] == '\0') {
-            continue;
+    if (method_count > 0) {
+        instance->script_method_names = calloc((size_t)method_count, sizeof(uint64_t));
+        instance->script_method_name_texts = calloc((size_t)method_count, sizeof(char *));
+        if (instance->script_method_names == NULL || instance->script_method_name_texts == NULL) {
+            free(instance->script_method_names);
+            free(instance->script_method_name_texts);
+            instance->script_method_names = NULL;
+            instance->script_method_name_texts = NULL;
+        } else {
+            instance->script_method_count = method_count;
+            for (int32_t i = 0; i < method_count; i++) {
+                char method_name[128];
+                method_name[0] = '\0';
+                kanama_ios_runtime_script_resource_method_name(
+                    instance->script_handle,
+                    i,
+                    method_name,
+                    (int32_t)sizeof(method_name)
+                );
+                if (method_name[0] == '\0') {
+                    continue;
+                }
+                kanama_ios_init_string_name(&instance->script_method_names[i], method_name);
+                instance->script_method_name_texts[i] = kanama_ios_strdup(method_name);
+            }
         }
-        kanama_ios_init_string_name(&instance->script_method_names[i], method_name);
-        instance->script_method_name_texts[i] = kanama_ios_strdup(method_name);
     }
 
     int32_t property_count = kanama_ios_runtime_script_resource_property_count(instance->script_handle);
