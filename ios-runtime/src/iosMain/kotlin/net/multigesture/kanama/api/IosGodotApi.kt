@@ -81,6 +81,7 @@ import net.multigesture.kanama.ios.cinterop.kanama_ios_godot_tween_kill
 import net.multigesture.kanama.ios.cinterop.kanama_ios_godot_tween_set_parallel
 import net.multigesture.kanama.ios.cinterop.kanama_ios_godot_tween_tween_property_color
 import net.multigesture.kanama.ios.cinterop.kanama_ios_godot_tween_tween_property_vector2
+import net.multigesture.kanama.ios.cinterop.kanama_ios_godot_tween_tween_callback
 import net.multigesture.kanama.ios.cinterop.kanama_ios_godot_tweener_set_ease
 import net.multigesture.kanama.ios.cinterop.kanama_ios_godot_tweener_set_trans
 import net.multigesture.kanama.ios.cinterop.kanama_ios_godot_viewport_get_visible_rect
@@ -222,6 +223,14 @@ open class GodotObject(
     // Object.get(property) via the Variant call path. Return type matches desktop GodotObject.get(): Any?.
     fun get(property: String): Any? = call("get", property)
 
+    // Object.has_method(name) — ptrcall (StringName arg, bool ret), mirroring desktop GodotObject.
+    fun hasMethod(method: String): Boolean =
+        ObjectCalls.ptrcallWithStringNameArgRetBool(hasMethodBind, handle, method)
+
+    // Object.is_queued_for_deletion() — ptrcall (no args, bool ret), mirroring desktop GodotObject.
+    fun isQueuedForDeletion(): Boolean =
+        ObjectCalls.ptrcallNoArgsRetBool(isQueuedForDeletionBind, handle)
+
     fun connect(signalName: String, target: GodotObject, method: String, flags: Long = CONNECT_DEFAULT): Long =
         IosGodot.objectConnect(handle.address(), signalName, target.handle.address(), method, flags)
 
@@ -280,6 +289,8 @@ open class GodotObject(
         // Variant-call binds (resolved once) for the dynamic Object.call / set_deferred path.
         private val callBind by lazy { ObjectCalls.getMethodBind("Object", "call", 3400424181L) }
         private val setDeferredBind by lazy { ObjectCalls.getMethodBind("Object", "set_deferred", 3776071444L) }
+        private val hasMethodBind by lazy { ObjectCalls.getMethodBind("Object", "has_method", 2619796661L) }
+        private val isQueuedForDeletionBind by lazy { ObjectCalls.getMethodBind("Object", "is_queued_for_deletion", 36873697L) }
 
         fun fromHandle(handle: MemorySegment): GodotObject? = wrap(handle)
 
@@ -416,6 +427,12 @@ class AudioStreamPlayer(handle: MemorySegment) : Node(handle) {
         }
     }
 
+    // AudioStreamPlayer.set_stream(stream) — null clears the assigned stream. Mirrors the
+    // generated 2D/3D variants; routed through the existing cinterop glue (0 == null).
+    fun setStream(stream: AudioStream?) {
+        IosGodot.audioStreamPlayerSetStream(handle.address(), stream?.handle?.address() ?: 0L)
+    }
+
     fun setPitchScale(value: Double) {
         IosGodot.audioStreamPlayerSetPitchScale(handle.address(), value)
     }
@@ -464,11 +481,32 @@ open class Tweener(handle: MemorySegment) : GodotObject(handle) {
 
 class PropertyTweener(handle: MemorySegment) : Tweener(handle)
 
+class CallbackTweener(handle: MemorySegment) : Tweener(handle)
+
 class Tween(handle: MemorySegment) : GodotObject(handle) {
     fun setParallel(parallel: Boolean): Tween {
         IosGodot.tweenSetParallel(handle.address(), if (parallel) 1 else 0)
         return this
     }
+
+    // Tween.bind_node(node) — ptrcall (object arg, returns self). Mirrors desktop Tween.bindNode.
+    fun bindNode(node: Node): Tween {
+        ObjectCalls.ptrcallWithObjectArgRetObject(bindNodeBind, handle, node.handle)
+        return this
+    }
+
+    // Tween.set_ease(ease) — ptrcall (int arg, returns self). Tween-level default ease (distinct
+    // from Tweener.setEase, which configures an individual tweener).
+    fun setEase(ease: Long): Tween {
+        ObjectCalls.ptrcallWithLongArgRetObject(setEaseBind, handle, ease)
+        return this
+    }
+
+    // Tween.tween_callback(Callable(target, method)). Routed through the C shim (Callable arg).
+    fun tweenCallback(target: GodotObject, method: String): CallbackTweener? =
+        IosGodot.tweenTweenCallback(handle.address(), target.handle.address(), method)
+            .takeIf { it != 0L }
+            ?.let { CallbackTweener(MemorySegment.ofAddress(it)) }
 
     fun tweenProperty(target: GodotObject, property: String, finalValue: Any?, duration: Double): PropertyTweener? {
         val addr = handle.address()
@@ -491,7 +529,13 @@ class Tween(handle: MemorySegment) : GodotObject(handle) {
     companion object {
         const val TRANS_BACK = 10L
         const val TRANS_ELASTIC = 6L
+        const val EASE_IN = 0L
         const val EASE_OUT = 1L
+        const val EASE_IN_OUT = 2L
+        const val EASE_OUT_IN = 3L
+
+        private val bindNodeBind by lazy { ObjectCalls.getMethodBind("Tween", "bind_node", 2946786331L) }
+        private val setEaseBind by lazy { ObjectCalls.getMethodBind("Tween", "set_ease", 1208117252L) }
     }
 }
 
@@ -567,6 +611,11 @@ object ResourceLoader {
         IosGodot.resourceLoaderLoad(path, "Texture2D").takeIf { it != 0L }?.let {
             Texture2D(MemorySegment.ofAddress(it))
         }
+
+    fun loadPackedScene(path: String): PackedScene? =
+        IosGodot.resourceLoaderLoad(path, "PackedScene").takeIf { it != 0L }?.let {
+            PackedScene(MemorySegment.ofAddress(it))
+        }
 }
 
 // KANAMA-IOS-HANDWRITTEN: [platform] GD global helpers (rand*, print) — Kotlin/native impls, bespoke.
@@ -600,6 +649,10 @@ object GD {
 
     fun remap(value: Double, istart: Double, istop: Double, ostart: Double, ostop: Double): Double =
         ostart + (ostop - ostart) * ((value - istart) / (istop - istart))
+
+    fun degToRad(degrees: Double): Double = degrees * (Mathf.PI / 180.0)
+
+    fun radToDeg(radians: Double): Double = radians * (180.0 / Mathf.PI)
 }
 
 inline fun <reified T> GodotObject.kotlinScriptInstance(): T? =
@@ -862,6 +915,9 @@ internal object IosGodot {
 
     fun tweenSetParallel(tween: Long, parallel: Int): Long =
         kanama_ios_godot_tween_set_parallel(tween, parallel)
+
+    fun tweenTweenCallback(tween: Long, target: Long, method: String): Long =
+        kanama_ios_godot_tween_tween_callback(tween, target, method)
 
     fun tweenKill(tween: Long) {
         kanama_ios_godot_tween_kill(tween)

@@ -271,6 +271,7 @@ static GDExtensionMethodBindPtr g_object_emit_signal_bind = NULL;
 static GDExtensionMethodBindPtr g_object_connect_bind = NULL;
 static GDExtensionMethodBindPtr g_object_disconnect_bind = NULL;
 static GDExtensionMethodBindPtr g_tween_tween_property_bind = NULL;
+static GDExtensionMethodBindPtr g_tween_tween_callback_bind = NULL;
 static GDExtensionMethodBindPtr g_tween_set_parallel_bind = NULL;
 static GDExtensionMethodBindPtr g_tween_kill_bind = NULL;
 static GDExtensionMethodBindPtr g_property_tweener_set_trans_bind = NULL;
@@ -591,6 +592,7 @@ enum {
     KANAMA_IOS_OBJECT_SET_DEFERRED_HASH = 3776071444U,
     KANAMA_IOS_INPUT_SET_CUSTOM_MOUSE_CURSOR_HASH = 703945977U,
     KANAMA_IOS_TWEEN_TWEEN_PROPERTY_HASH = 4049770449U,
+    KANAMA_IOS_TWEEN_TWEEN_CALLBACK_HASH = 1540176488U,
     KANAMA_IOS_TWEEN_SET_PARALLEL_HASH = 1942052223U,
     KANAMA_IOS_TWEEN_KILL_HASH = 3218959716U,
     KANAMA_IOS_PROPERTY_TWEENER_SET_TRANS_HASH = 1899107404U,
@@ -4569,6 +4571,65 @@ int64_t kanama_ios_godot_tween_tween_property_color(
     g_variant_destroy(prop_v);
     g_variant_destroy(obj_v);
     kanama_ios_destroy_node_path(node_path_storage);
+    return (int64_t)(intptr_t)result;
+}
+
+// Tween.tween_callback(Callable(target, method)) — builds the method-Callable (same constructor
+// the connect path uses), boxes it into a Variant, and calls tween_callback via the variant path
+// (Callable args can't be expressed through the audited ptrcall set). Returns the CallbackTweener
+// object handle (0 on failure). The demo discards the return; it's wrapped for parity.
+int64_t kanama_ios_godot_tween_tween_callback(int64_t tween, int64_t target, const char *method) {
+    if (!kanama_ios_resolve_godot_api() || tween == 0 || target == 0 || method == NULL) {
+        return 0;
+    }
+    if (g_callable_object_method_constructor == NULL || g_variant_from_callable == NULL) {
+        return 0;
+    }
+    GDExtensionMethodBindPtr mb = kanama_ios_get_method_bind_cached(
+        &g_tween_tween_callback_bind,
+        "Tween",
+        "tween_callback",
+        KANAMA_IOS_TWEEN_TWEEN_CALLBACK_HASH
+    );
+    if (mb == NULL) return 0;
+
+    GDExtensionObjectPtr tween_obj = (GDExtensionObjectPtr)(intptr_t)tween;
+
+    // Callable(target, method).
+    uint64_t method_name_storage = 0;
+    kanama_ios_init_string_name(&method_name_storage, method);
+    GDExtensionObjectPtr target_obj = (GDExtensionObjectPtr)(intptr_t)target;
+    const void *callable_args[2] = { &target_obj, &method_name_storage };
+    uint8_t callable[24];
+    memset(callable, 0, sizeof(callable));
+    g_callable_object_method_constructor(callable, callable_args);
+
+    // Box the Callable into a Variant and call Tween::tween_callback(callable).
+    uint8_t cb_v[24], ret_v[24];
+    memset(cb_v, 0, 24);
+    memset(ret_v, 0, 24);
+    g_variant_from_callable(cb_v, callable);
+    kanama_ios_check_variant_arg("Tween::tween_callback", 0, cb_v, KANAMA_IOS_VARIANT_TYPE_CALLABLE);
+
+    const GDExtensionConstVariantPtr args[1] = { (GDExtensionConstVariantPtr)cb_v };
+    GDExtensionCallError error;
+    memset(&error, 0, sizeof(error));
+    g_object_method_bind_call(mb, tween_obj, args, 1, ret_v, &error);
+    kanama_ios_check_call_error("Tween::tween_callback", &error);
+
+    GDExtensionObjectPtr result = NULL;
+    if (g_variant_to_object != NULL && g_variant_get_type != NULL) {
+        if (g_variant_get_type(ret_v) == KANAMA_IOS_VARIANT_TYPE_OBJECT) {
+            g_variant_to_object(&result, ret_v);
+        }
+    }
+
+    g_variant_destroy(ret_v);
+    g_variant_destroy(cb_v);
+    if (g_callable_destructor != NULL) {
+        g_callable_destructor(callable);
+    }
+    kanama_ios_destroy_string_name(&method_name_storage);
     return (int64_t)(intptr_t)result;
 }
 

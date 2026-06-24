@@ -72,6 +72,10 @@ internal data class IosProperty(
     // reference like `target: Vehicle?`). Delivered as the owner handle and resolved to the live
     // Kotlin script instance via iosScriptInstanceForOwner. Empty for non-custom-script properties.
     val customScriptFqName: String = "",
+    // FQ name of a user @ScriptClass element type for a `List<UserScript>` property (e.g. FPS
+    // `weapons: List<Weapon>`). Each delivered owner handle is resolved to its live Kotlin script
+    // instance. Empty unless the array element is a user @ScriptClass type.
+    val arrayElementCustomScriptFqName: String = "",
 )
 
 internal data class IosSignal(
@@ -232,13 +236,24 @@ internal class IosScriptCodeEmitter(
                 builder.appendLine("        else -> false")
                 builder.appendLine("    }")
             }
-            val listProperties = script.properties.filter { it.isList && it.listElementClassName.isNotEmpty() }
+            val listProperties = script.properties.filter {
+                it.isList && (it.listElementClassName.isNotEmpty() || it.arrayElementCustomScriptFqName.isNotEmpty())
+            }
             if (listProperties.isNotEmpty()) {
                 builder.appendLine()
                 builder.appendLine("    override fun setPropertyObjectArray(propertyIndex: Int, values: LongArray): Boolean = when (propertyIndex) {")
                 script.properties.forEachIndexed { index, property ->
-                    if (property.isList && property.listElementClassName.isNotEmpty()) {
-                        builder.appendLine("        $index -> { script.${property.kotlinName} = values.map { net.multigesture.kanama.api.${property.listElementClassName}(java.lang.foreign.MemorySegment.ofAddress(it)) }; true }")
+                    when {
+                        // Array of a user @ScriptClass type (e.g. `weapons: List<Weapon>`): each
+                        // delivered owner handle resolves to its live Kotlin script instance, mirroring
+                        // the single-object node_paths case. Stray unresolved handles are dropped.
+                        property.isList && property.arrayElementCustomScriptFqName.isNotEmpty() -> {
+                            builder.appendLine("        $index -> { script.${property.kotlinName} = values.toList().mapNotNull { owner -> net.multigesture.kanama.ios.iosScriptInstanceForOwner(owner) as? ${property.arrayElementCustomScriptFqName} }; true }")
+                        }
+                        // Array of an engine wrapper type: wrap each handle directly.
+                        property.isList && property.listElementClassName.isNotEmpty() -> {
+                            builder.appendLine("        $index -> { script.${property.kotlinName} = values.map { owner: Long -> net.multigesture.kanama.api.${property.listElementClassName}(java.lang.foreign.MemorySegment.ofAddress(owner)) }; true }")
+                        }
                     }
                 }
                 builder.appendLine("        else -> false")
@@ -288,20 +303,26 @@ internal class IosScriptCodeEmitter(
                 builder.appendLine("}")
             }
             val helperMethods = script.methods
-                .filter { it.argumentCount == 0 && !it.godotName.startsWith("_") }
+                .filter { !it.godotName.startsWith("_") }
             if (helperMethods.isNotEmpty()) {
                 val fqClassName = "${script.packageName}.${script.className}"
                 builder.appendLine()
                 builder.appendLine("object ${script.className}Methods {")
                 helperMethods.forEach { method ->
                     val functionName = constantIdentifier(method.kotlinName)
-                    builder.appendLine("    fun $functionName(instance: $fqClassName) {")
-                    builder.appendLine("        instance.${method.kotlinName}()")
+                    // Synthetic positional params (a0, a1, …) typed by the declared arg type, so
+                    // method helpers forward to the typed Kotlin method (parity with desktop's
+                    // <Class>Methods.<method>(target, args…)). Zero-arg methods keep the prior shape.
+                    val typedParams = method.args.mapIndexed { i, a -> ", a$i: ${a.kotlinType}" }.joinToString("")
+                    val forwardArgs = method.args.indices.joinToString(", ") { "a$it" }
+                    val passthroughArgs = method.args.indices.joinToString("") { ", a$it" }
+                    builder.appendLine("    fun $functionName(instance: $fqClassName$typedParams) {")
+                    builder.appendLine("        instance.${method.kotlinName}($forwardArgs)")
                     builder.appendLine("    }")
                     builder.appendLine()
-                    builder.appendLine("    fun $functionName(target: net.multigesture.kanama.api.GodotObject): Boolean {")
+                    builder.appendLine("    fun $functionName(target: net.multigesture.kanama.api.GodotObject$typedParams): Boolean {")
                     builder.appendLine("        val instance = target.kotlinScriptInstance<$fqClassName>() ?: return false")
-                    builder.appendLine("        $functionName(instance)")
+                    builder.appendLine("        $functionName(instance$passthroughArgs)")
                     builder.appendLine("        return true")
                     builder.appendLine("    }")
                 }
@@ -499,6 +520,7 @@ internal class IosScriptCodeEmitter(
             valueTypeClassName = valueTypeClassName,
             godotVariantType = godotVariantType,
             customScriptFqName = customScript,
+            arrayElementCustomScriptFqName = if (isList) arrayElementCustomScriptFqName.orEmpty() else "",
         )
     }
 

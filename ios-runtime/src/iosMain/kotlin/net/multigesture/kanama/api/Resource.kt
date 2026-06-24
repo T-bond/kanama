@@ -132,8 +132,10 @@ open class Resource(handle: MemorySegment) : RefCounted(handle) {
         const val DEEP_DUPLICATE_INTERNAL: Long = 1L
         const val DEEP_DUPLICATE_ALL: Long = 2L
 
-        fun fromHandle(handle: MemorySegment): Resource? =
-            wrap(handle)
+        // Non-null factory (matches desktop) so it satisfies KanamaScript's
+        // `(MemorySegment) -> Resource` selfFactory for @ScriptClass(attachTo = "Resource").
+        fun fromHandle(handle: MemorySegment): Resource =
+            Resource(handle)
 
         internal fun wrap(handle: MemorySegment): Resource? =
             if (handle.address() == 0L) null else Resource(handle)
