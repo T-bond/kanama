@@ -227,6 +227,10 @@ open class GodotObject(
     fun hasMethod(method: String): Boolean =
         ObjectCalls.ptrcallWithStringNameArgRetBool(hasMethodBind, handle, method)
 
+    // Object.get_instance_id() via the Variant call path (int64 return). Matches desktop GodotObject.
+    fun getInstanceId(): Long =
+        (call("get_instance_id") as? Long) ?: 0L
+
     // Object.is_queued_for_deletion() — ptrcall (no args, bool ret), mirroring desktop GodotObject.
     fun isQueuedForDeletion(): Boolean =
         ObjectCalls.ptrcallNoArgsRetBool(isQueuedForDeletionBind, handle)
@@ -397,6 +401,24 @@ class SceneTree(handle: MemorySegment) : Node(handle) {
         ObjectCalls.ptrcallNoArgs(unloadCurrentSceneBind, handle)
     }
 
+    fun isPaused(): Boolean =
+        ObjectCalls.ptrcallNoArgsRetBool(isPausedBind, handle)
+
+    // SceneTree.get_nodes_in_group(group) -> Array[Node]. The (StringName)->typed-object-array ptrcall
+    // shape isn't wired, so this goes through the Variant call path; OBJECT elements surface as raw
+    // handles (or wrapped objects), wrapped back to Node. A non-array/unsupported decode yields empty
+    // (only the F10 free-camera HUD toggle uses this — graceful no-op if the decode degrades).
+    fun getNodesInGroup(group: String): List<Node> =
+        (call("get_nodes_in_group", group) as? List<*>)?.mapNotNull { element ->
+            when (element) {
+                is Node -> element
+                is GodotObject -> Node(element.handle)
+                is MemorySegment -> Node(element)
+                is Long -> Node(MemorySegment.ofAddress(element))
+                else -> null
+            }
+        } ?: emptyList()
+
     // The root Window handle (an Object); wrap with Window(...) or Node(...) at the call site,
     // matching desktop SceneTree.getRoot(): MemorySegment.
     fun getRoot(): MemorySegment =
@@ -411,6 +433,7 @@ class SceneTree(handle: MemorySegment) : Node(handle) {
         private val unloadCurrentSceneBind by lazy {
             ObjectCalls.getMethodBind("SceneTree", "unload_current_scene", 3218959716L)
         }
+        private val isPausedBind by lazy { ObjectCalls.getMethodBind("SceneTree", "is_paused", 36873697L) }
         private val getRootBind by lazy { ObjectCalls.getMethodBind("SceneTree", "get_root", 1757182445L) }
 
         suspend fun delaySeconds(seconds: Double) {
@@ -669,6 +692,17 @@ object GD {
     fun degToRad(degrees: Double): Double = degrees * (Mathf.PI / 180.0)
 
     fun radToDeg(radians: Double): Double = radians * (180.0 / Mathf.PI)
+
+    // @GlobalScope.is_instance_valid. Desktop routes this through the engine is_instance_valid
+    // UtilityFunction; iOS has no utility-function call path (see roadmap), so this is an
+    // APPROXIMATION: non-null, and for an engine object a live (non-zero) handle. It does not detect
+    // an object freed while a non-null wrapper is still held — acceptable for the current demos.
+    fun isInstanceValid(value: Any?): Boolean =
+        when (value) {
+            null -> false
+            is GodotObject -> value.handle.address() != 0L
+            else -> true
+        }
 }
 
 inline fun <reified T> GodotObject.kotlinScriptInstance(): T? =
