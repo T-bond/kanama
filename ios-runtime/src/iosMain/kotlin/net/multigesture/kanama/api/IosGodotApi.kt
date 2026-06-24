@@ -82,6 +82,8 @@ import net.multigesture.kanama.ios.cinterop.kanama_ios_godot_tween_set_parallel
 import net.multigesture.kanama.ios.cinterop.kanama_ios_godot_tween_tween_property_color
 import net.multigesture.kanama.ios.cinterop.kanama_ios_godot_tween_tween_property_vector2
 import net.multigesture.kanama.ios.cinterop.kanama_ios_godot_tween_tween_callback
+import net.multigesture.kanama.ios.cinterop.kanama_ios_godot_tween_tween_method
+import net.multigesture.kanama.ios.cinterop.kanama_ios_godot_property_tweener_from_color
 import net.multigesture.kanama.ios.cinterop.kanama_ios_godot_tweener_set_ease
 import net.multigesture.kanama.ios.cinterop.kanama_ios_godot_tweener_set_trans
 import net.multigesture.kanama.ios.cinterop.kanama_ios_godot_viewport_get_visible_rect
@@ -516,7 +518,17 @@ open class Tweener(handle: MemorySegment) : GodotObject(handle) {
     }
 }
 
-class PropertyTweener(handle: MemorySegment) : Tweener(handle)
+class PropertyTweener(handle: MemorySegment) : Tweener(handle) {
+    // PropertyTweener.from(value) — sets the tween's starting value. The demos only use a Color
+    // (modulate) start; routed through the C shim (Variant arg). Returns this for chaining.
+    fun from(value: Color): PropertyTweener {
+        IosGodot.propertyTweenerFromColor(
+            handle.address(),
+            value.r.toDouble(), value.g.toDouble(), value.b.toDouble(), value.a.toDouble(),
+        )
+        return this
+    }
+}
 
 class CallbackTweener(handle: MemorySegment) : Tweener(handle)
 
@@ -544,6 +556,13 @@ class Tween(handle: MemorySegment) : GodotObject(handle) {
         IosGodot.tweenTweenCallback(handle.address(), target.handle.address(), method)
             .takeIf { it != 0L }
             ?.let { CallbackTweener(MemorySegment.ofAddress(it)) }
+
+    // Tween.tween_method(Callable(target, method), from, to, duration) — animates [from]->[to] over
+    // [duration], calling target.method(value) each frame. Callable arg → routed through the C shim.
+    fun tweenMethod(target: GodotObject, method: String, from: Double, to: Double, duration: Double): Tweener? =
+        IosGodot.tweenTweenMethod(handle.address(), target.handle.address(), method, from, to, duration)
+            .takeIf { it != 0L }
+            ?.let { Tweener(MemorySegment.ofAddress(it)) }
 
     fun tweenProperty(target: GodotObject, property: String, finalValue: Any?, duration: Double): PropertyTweener? {
         val addr = handle.address()
@@ -997,6 +1016,12 @@ internal object IosGodot {
 
     fun tweenTweenCallback(tween: Long, target: Long, method: String): Long =
         kanama_ios_godot_tween_tween_callback(tween, target, method)
+
+    fun tweenTweenMethod(tween: Long, target: Long, method: String, from: Double, to: Double, duration: Double): Long =
+        kanama_ios_godot_tween_tween_method(tween, target, method, from, to, duration)
+
+    fun propertyTweenerFromColor(tweener: Long, r: Double, g: Double, b: Double, a: Double): Long =
+        kanama_ios_godot_property_tweener_from_color(tweener, r, g, b, a)
 
     fun tweenKill(tween: Long) {
         kanama_ios_godot_tween_kill(tween)

@@ -272,6 +272,8 @@ static GDExtensionMethodBindPtr g_object_connect_bind = NULL;
 static GDExtensionMethodBindPtr g_object_disconnect_bind = NULL;
 static GDExtensionMethodBindPtr g_tween_tween_property_bind = NULL;
 static GDExtensionMethodBindPtr g_tween_tween_callback_bind = NULL;
+static GDExtensionMethodBindPtr g_tween_tween_method_bind = NULL;
+static GDExtensionMethodBindPtr g_property_tweener_from_bind = NULL;
 static GDExtensionMethodBindPtr g_tween_set_parallel_bind = NULL;
 static GDExtensionMethodBindPtr g_tween_kill_bind = NULL;
 static GDExtensionMethodBindPtr g_property_tweener_set_trans_bind = NULL;
@@ -593,6 +595,8 @@ enum {
     KANAMA_IOS_INPUT_SET_CUSTOM_MOUSE_CURSOR_HASH = 703945977U,
     KANAMA_IOS_TWEEN_TWEEN_PROPERTY_HASH = 4049770449U,
     KANAMA_IOS_TWEEN_TWEEN_CALLBACK_HASH = 1540176488U,
+    KANAMA_IOS_TWEEN_TWEEN_METHOD_HASH = 2337877153U,
+    KANAMA_IOS_PROPERTY_TWEENER_FROM_HASH = 4190193059U,
     KANAMA_IOS_TWEEN_SET_PARALLEL_HASH = 1942052223U,
     KANAMA_IOS_TWEEN_KILL_HASH = 3218959716U,
     KANAMA_IOS_PROPERTY_TWEENER_SET_TRANS_HASH = 1899107404U,
@@ -4630,6 +4634,135 @@ int64_t kanama_ios_godot_tween_tween_callback(int64_t tween, int64_t target, con
         g_callable_destructor(callable);
     }
     kanama_ios_destroy_string_name(&method_name_storage);
+    return (int64_t)(intptr_t)result;
+}
+
+// Tween.tween_method(Callable(target, method), from, to, duration) — animates a value from->to over
+// [duration], calling target.method(value) each frame. Builds the method-Callable (same constructor as
+// tween_callback), boxes the Callable + the two FLOAT endpoints + the FLOAT duration into Variants, and
+// calls via the variant path (Callable args can't go through the audited ptrcall set). Returns the
+// MethodTweener object handle (0 on failure).
+int64_t kanama_ios_godot_tween_tween_method(
+    int64_t tween,
+    int64_t target,
+    const char *method,
+    double from,
+    double to,
+    double duration
+) {
+    if (!kanama_ios_resolve_godot_api() || tween == 0 || target == 0 || method == NULL) {
+        return 0;
+    }
+    if (g_callable_object_method_constructor == NULL || g_variant_from_callable == NULL ||
+        g_variant_from_float == NULL) {
+        return 0;
+    }
+    GDExtensionMethodBindPtr mb = kanama_ios_get_method_bind_cached(
+        &g_tween_tween_method_bind,
+        "Tween",
+        "tween_method",
+        KANAMA_IOS_TWEEN_TWEEN_METHOD_HASH
+    );
+    if (mb == NULL) return 0;
+
+    GDExtensionObjectPtr tween_obj = (GDExtensionObjectPtr)(intptr_t)tween;
+
+    // Callable(target, method).
+    uint64_t method_name_storage = 0;
+    kanama_ios_init_string_name(&method_name_storage, method);
+    GDExtensionObjectPtr target_obj = (GDExtensionObjectPtr)(intptr_t)target;
+    const void *callable_args[2] = { &target_obj, &method_name_storage };
+    uint8_t callable[24];
+    memset(callable, 0, sizeof(callable));
+    g_callable_object_method_constructor(callable, callable_args);
+
+    double from_d = from, to_d = to, dur_d = duration;
+    uint8_t cb_v[24], from_v[24], to_v[24], dur_v[24], ret_v[24];
+    memset(cb_v, 0, 24); memset(from_v, 0, 24); memset(to_v, 0, 24);
+    memset(dur_v, 0, 24); memset(ret_v, 0, 24);
+    g_variant_from_callable(cb_v, callable);
+    g_variant_from_float(from_v, &from_d);
+    g_variant_from_float(to_v, &to_d);
+    g_variant_from_float(dur_v, &dur_d);
+    kanama_ios_check_variant_arg("Tween::tween_method", 0, cb_v, KANAMA_IOS_VARIANT_TYPE_CALLABLE);
+    kanama_ios_check_variant_arg("Tween::tween_method", 1, from_v, KANAMA_IOS_VARIANT_TYPE_FLOAT);
+    kanama_ios_check_variant_arg("Tween::tween_method", 2, to_v, KANAMA_IOS_VARIANT_TYPE_FLOAT);
+    kanama_ios_check_variant_arg("Tween::tween_method", 3, dur_v, KANAMA_IOS_VARIANT_TYPE_FLOAT);
+
+    const GDExtensionConstVariantPtr args[4] = {
+        (GDExtensionConstVariantPtr)cb_v,
+        (GDExtensionConstVariantPtr)from_v,
+        (GDExtensionConstVariantPtr)to_v,
+        (GDExtensionConstVariantPtr)dur_v,
+    };
+    GDExtensionCallError error;
+    memset(&error, 0, sizeof(error));
+    g_object_method_bind_call(mb, tween_obj, args, 4, ret_v, &error);
+    kanama_ios_check_call_error("Tween::tween_method", &error);
+
+    GDExtensionObjectPtr result = NULL;
+    if (g_variant_to_object != NULL && g_variant_get_type != NULL) {
+        if (g_variant_get_type(ret_v) == KANAMA_IOS_VARIANT_TYPE_OBJECT) {
+            g_variant_to_object(&result, ret_v);
+        }
+    }
+
+    g_variant_destroy(ret_v);
+    g_variant_destroy(dur_v);
+    g_variant_destroy(to_v);
+    g_variant_destroy(from_v);
+    g_variant_destroy(cb_v);
+    if (g_callable_destructor != NULL) {
+        g_callable_destructor(callable);
+    }
+    kanama_ios_destroy_string_name(&method_name_storage);
+    return (int64_t)(intptr_t)result;
+}
+
+// PropertyTweener.from(Color) — sets the tween's starting value (Variant arg). The demo's only use is a
+// Color (modulate), so this boxes a COLOR Variant and calls from() via the variant path. Returns the
+// PropertyTweener handle (0 on failure).
+int64_t kanama_ios_godot_property_tweener_from_color(
+    int64_t tweener,
+    double r,
+    double g,
+    double b,
+    double a
+) {
+    if (!kanama_ios_resolve_godot_api() || tweener == 0) {
+        return 0;
+    }
+    if (g_variant_from_color == NULL) return 0;
+    GDExtensionMethodBindPtr mb = kanama_ios_get_method_bind_cached(
+        &g_property_tweener_from_bind,
+        "PropertyTweener",
+        "from",
+        KANAMA_IOS_PROPERTY_TWEENER_FROM_HASH
+    );
+    if (mb == NULL) return 0;
+
+    GDExtensionObjectPtr tweener_obj = (GDExtensionObjectPtr)(intptr_t)tweener;
+    float color[4] = { (float)r, (float)g, (float)b, (float)a };
+    uint8_t val_v[24], ret_v[24];
+    memset(val_v, 0, 24); memset(ret_v, 0, 24);
+    g_variant_from_color(val_v, color);
+    kanama_ios_check_variant_arg("PropertyTweener::from", 0, val_v, KANAMA_IOS_VARIANT_TYPE_COLOR);
+
+    const GDExtensionConstVariantPtr args[1] = { (GDExtensionConstVariantPtr)val_v };
+    GDExtensionCallError error;
+    memset(&error, 0, sizeof(error));
+    g_object_method_bind_call(mb, tweener_obj, args, 1, ret_v, &error);
+    kanama_ios_check_call_error("PropertyTweener::from", &error);
+
+    GDExtensionObjectPtr result = NULL;
+    if (g_variant_to_object != NULL && g_variant_get_type != NULL) {
+        if (g_variant_get_type(ret_v) == KANAMA_IOS_VARIANT_TYPE_OBJECT) {
+            g_variant_to_object(&result, ret_v);
+        }
+    }
+
+    g_variant_destroy(ret_v);
+    g_variant_destroy(val_v);
     return (int64_t)(intptr_t)result;
 }
 

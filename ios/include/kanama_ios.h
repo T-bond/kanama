@@ -472,6 +472,23 @@ int64_t kanama_ios_godot_tween_set_parallel(int64_t tween, int32_t parallel);
 
 int64_t kanama_ios_godot_tween_tween_callback(int64_t tween, int64_t target, const char *method);
 
+int64_t kanama_ios_godot_tween_tween_method(
+    int64_t tween,
+    int64_t target,
+    const char *method,
+    double from,
+    double to,
+    double duration
+);
+
+int64_t kanama_ios_godot_property_tweener_from_color(
+    int64_t tweener,
+    double r,
+    double g,
+    double b,
+    double a
+);
+
 void kanama_ios_godot_tween_kill(int64_t tween);
 
 int64_t kanama_ios_godot_tweener_set_trans(int64_t tweener, int64_t trans);
