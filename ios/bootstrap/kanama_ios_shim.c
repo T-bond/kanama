@@ -6,6 +6,7 @@
  * state to a Kotlin/Native static library linked into the same xcframework.
  */
 
+#include <limits.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -6224,11 +6225,15 @@ static void kanama_ios_frame(void) {
     if (!g_main_loop_callbacks_active) {
         return;
     }
-    if (g_main_loop_callback_frame_count >= 30) {
-        g_main_loop_callbacks_active = 0;
-        return;
+    // Persistent per-frame hook: drive the Kotlin runtime frame for the lifetime of the
+    // extension. KanamaIosRuntime.frame() pumps MainThread.pumpNextFrame() every frame —
+    // which advances awaitNextFrame / postNextFrame / postAfterFrames (e.g. the KillPlane3D
+    // deferred respawn) — and self-terminates its one-time startup probe via its own
+    // probeLabelUpdated guard. (Previously this callback disabled itself after 30 frames,
+    // permanently killing ALL frame-deferred logic; see ios-demo-port-tracker V1.)
+    if (g_main_loop_callback_frame_count < INT_MAX) {
+        g_main_loop_callback_frame_count++;
     }
-    g_main_loop_callback_frame_count++;
     kanama_ios_runtime_frame();
 }
 

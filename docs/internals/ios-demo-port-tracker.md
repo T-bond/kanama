@@ -20,7 +20,7 @@ session without replaying prior history.
 | Bunnymark, Match3, 3D-Platformer | playable (pre-existing) |
 | **dodge** | playable + touch controls |
 | **squash** | playable + touch controls |
-| **character-controller** | playable; flag works; **death plane broken** (see V1) |
+| **character-controller** | playable; flag works; death plane respawns (V1 fixed) |
 | **Racing** | playable + camera-follow; **no steering joystick** (see R1) |
 | FPS, third-person | not built (see F1, T1) |
 
@@ -71,24 +71,15 @@ file before copying. Generator + iOS custom sections: `scripts/generate_api_wrap
   case for `customScriptFqName` props (`iosScriptInstanceForOwner(value) as? <Fq>`). (Racing camera.)
 - **Signal registration for method-less scripts** — `init_metadata` early-returned on 0 methods, skipping
   property+signal registration (Events autoload). Guarded with `if (method_count > 0)`.
+- **V1 frame hook stopped firing** — `kanama_ios_frame` (C, `kanama_ios_shim.c`) hard-capped at 30 frames
+  then set `g_main_loop_callbacks_active = 0`, permanently killing `MainThread.pumpNextFrame()` and ALL
+  frame-deferred logic (`awaitNextFrame`/`postNextFrame`/`postAfterFrames`, incl. `KillPlane3D` deferred
+  respawn). Cap was redundant — Kotlin `frame()` already self-terminates its startup probe via
+  `probeLabelUpdated`. Removed the cap → persistent per-frame hook. Device-verified: death plane respawns.
 - Demos: iOS gdextension entries; `mobile_controls.gd` enabled on iOS (`or OS.has_feature("ios")`);
   cross-platform script idioms; character flag reloads the level instead of quitting.
 
 ## Remaining tasks (each resumable on its own)
-
-### V1. character DEATH PLANE broken — frame callback stops firing  (ROOT CAUSE FOUND)
-Reaching the flag works; **falling off / kill plane does not respawn the player.** Traced on device:
-`KillPlane3D` body_entered fires, but the deferred emit never runs. **Root cause:** the per-frame hook
-`KanamaIosRuntime.frame()` (C entry `kanama_ios_runtime_frame`) **stops being called after the first
-~tens of frames** — so `MainThread.pumpNextFrame()` stops, and EVERYTHING frame-deferred dies:
-`awaitNextFrame`, `postNextFrame`, `postAfterFrames`. (Evidence: probe log prints `frame=1`,`frame=30`
-then never `frame=120`, and the demo keeps running via `_physics_process` the whole time.) This is a
-real runtime bug affecting any frame-deferred logic.
-- Fix: make the C `kanama_ios_runtime_frame` callback a persistent per-frame hook. Find where it's
-  registered/invoked (`ios/bootstrap/kanama_ios_shim.c`: "registered main loop frame callback") — it's
-  likely tied to the startup probe/self-test and not a durable engine `_process`/`_frame` hook.
-- Verify: `KillPlane3D` death plane respawns; re-test flag (it currently dodges this by using
-  `reloadCurrentScene()` directly, not awaitNextFrame).
 
 ### R1. Racing steering — `VirtualJoystick` on iOS
 `SteeringJoystick` in `Starter-Kit-Racing/scenes/main.tscn` is `type="VirtualJoystick"` (absent on iOS).
@@ -115,4 +106,5 @@ Largest. Generate `SpringArm3D`, `ShapeCast3D`, `MeshDataTool`, `SurfaceTool`, `
 
 ### Misc
 - Roadmap table: `docs/internals/ios-backend-roadmap.md` (keep in sync).
-- After V1 lands, re-test signal-heavy + frame-deferred flows across all demos.
+- V1 landed (frame hook now persistent). Worth re-testing signal-heavy + frame-deferred flows across all
+  demos now that `awaitNextFrame`/`postNextFrame`/`postAfterFrames` work for the whole session.
