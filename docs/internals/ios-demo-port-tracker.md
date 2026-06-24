@@ -24,7 +24,7 @@ session without replaying prior history.
 | **Racing** | playable + camera-follow + steering joystick (R1 validated) |
 | **Bunnymark** | playable; FPS + Bunnies readouts safe-area-inset (E1 validated) |
 | **FPS** | playable; weapons `List<Weapon>` @ScriptProperty delivered + AnimatedSprite3D generated (F1). KNOWN: intermittent SIGSEGV in Audio autoload `_ready` (pre-existing lambda-connect infra, see F2) |
-| third-person | not built (see T1) |
+| third-person | IN PROGRESS (T1) — demo compile errors 169→~50; 4 layers landed + compiling (KSP fix, 7 wrappers, math, value-types). Remaining: 5 singletons + misc glue + device run |
 
 ## Build / deploy / debug (see private handoff for exact commands + UDIDs)
 - **Build-check a demo's scripts** (fast, no device): `./gradlew installIosAddon
@@ -134,11 +134,66 @@ intermittent — works after restart). Suspect the loop-captured `player` lambda
 lifetime under 12 rapid `connect`s. Pull the `.ips` for the native backtrace (idevicecrashreport could
 not see the network-paired device this session; try USB or `xcrun devicectl`).
 
-### T1. third-person (`godot-4-3d-third-person-controller`)
-Largest. Generate `SpringArm3D`, `ShapeCast3D`, `MeshDataTool`, `SurfaceTool`, `MultiMeshInstance3D`,
-`WorldEnvironment`; add `Engine`/`Time`/`ProjectSettings`/`PhysicsServer3D`/`InputMap`,
-`Quaternion.fromEuler`, `Object.hasMethod`/`call`/`isInstanceValid`/`getInstanceId`,
-`Resource.loadPackedScene`/`loadAudioStream`, `Tween.tweenCallback`/`tweenMethod`/`setPaused`.
+### T1. third-person (`godot-4-3d-third-person-controller`) — IN PROGRESS (2026-06-24)
+Largest demo. Build-check: `installIosAddon -PkanamaIosProjectDir=.../godot-4-3d-third-person-controller
+-PkanamaIosProjectScriptsDir=.../kotlin-src`. Demo compile errors **169 → ~50**. Working tree has
+UNCOMMITTED edits (not committed — user hadn't asked). 4 layers landed, **all compiling clean** (0
+`ios-runtime` errors; only the demo scripts still fail on the remaining layers):
+
+**DONE this session (verify by build-check):**
+1. **iOS KSP dual-annotation const conflict** (`IosScriptCodeEmitter.kt` ~line 339) — a single Kotlin fn
+   annotated `@OnInput`+`@OnUnhandledInput` (CameraController.unhandledInput) backed two Godot methods
+   (`_input`/`_unhandled_input`) that collapsed to one kotlinName-keyed const → two `const val
+   unhandledInput` → "Conflicting declarations". Fixed: `methods.distinctBy { constantIdentifier(it.kotlinName) }`
+   on the `Names.Methods` emission only (registration/dispatch correctly keep both). iOS-only bug (JVM
+   emitter uses `uniqueConstantIdentifier(godotName, seen)`; Android was fine). **Verified: single const.**
+2. **7 wrapper classes** via the full-union regen (CRITICAL gotcha): NavigationAgent3D, SpringArm3D,
+   ShapeCast3D, MeshDataTool, SurfaceTool, MultiMeshInstance3D, WorldEnvironment. Union = 232 committed
+   "Generated from Godot docs:" names + 7 new → 239 `--ios-emit-class`. Copied ONLY the 7 new files +
+   `ObjectCallsGenerated.kt` (proven purely additive: 0 removed / +43 via difflib). All demo-needed
+   methods present; skips are exotic (vertex tangents/bones/meta, PackedVector3Array paths). Parents all
+   resolve to emitted classes; no name collisions with IosGodotApi hand-written objects.
+3. **Math layer** (`IosGodotApi.kt`) — `Mathf.sin`/`sqrt`/`inverseLerp`, `GD.randfn` (Box-Muller).
+   Pure kotlin.math (see roadmap "Scalar-math backend divergence" — deliberate, documented).
+4. **Value-type layer** — `Vector2` LEFT/RIGHT/UP/DOWN consts; `Vector3.distanceTo`/`distanceSquaredTo`
+   (pure)/`bounce`; `Quaternion.slerp`+`fromEuler` (engine builtins, hashes in file); `Basis(Quaternion)`
+   ctor + `getEuler()` (pure-Kotlin YXZ, exact Godot formula) + `getScale`/`getRotationQuaternion`
+   (engine builtins) + `fromEuler`=`Basis(Quaternion.fromEuler)` (sidesteps the int euler-order arg);
+   `Transform3D.times(Vector3)` (xform) + `scaledLocal` (pure); `Node3D.lookAt` `up: Vector3 = Vector3.UP`
+   default. NOT yet device-validated — the engine-backed Basis/Quaternion math wants a device check.
+
+**REMAINING (~50 errors, all demo-side):**
+- **5 singletons** (mirror `OS.kt`: `getSingleton("X")` + per-method `getMethodBind(hash)`):
+  `Time.getTicksMsec`, `Engine.isEditorHint`, `ProjectSettings.getSettingDouble` (get_setting returns
+  Variant → use the GodotObject.call Variant path), `PhysicsServer3D.bodyAddCollisionException` (TWO RID
+  args — verify an ObjectCalls helper exists), `InputMap.hasAction`/`addAction`/`actionAddEvent`
+  (StringName args; actionAddEvent takes StringName+InputEvent → verify/ add the (StringName,Object)
+  ptrcall shape).
+- **Constants:** `PhysicsBody3D.BODY_AXIS_ANGULAR_X/Y/Z` (generated companion consts — regen
+  PhysicsBody3D or add a custom companion section); `InputEventMouseButton.MOUSE_BUTTON_RIGHT` (+ its
+  `.from(event)` — hand-written class in IosGodotApi, warned-collision list).
+- **`.create()` factories** on generated classes (`Camera3D`, `SurfaceTool`, `MeshDataTool`,
+  `InputEventKey`) and `ArrayMesh.fromResource(Resource)` — durable path is the generator's
+  `IOS_CUSTOM_COMPANION_MEMBER_SECTIONS` (+ regen the affected files), mirroring KEY_*/InputEventMouseMotion.from/
+  BaseMaterial3D.fromMaterial. Pattern: `X(MemorySegment.ofAddress(IosGodot.constructObject("X")))`.
+  NOTE: GrassScatter's `createFromSurface`/`fromResource`/`T`/`R`-inference errors all CASCADE from the
+  missing `MeshDataTool.create()`/`ArrayMesh.fromResource` — fixing those two clears all of GrassScatter.
+- **Misc engine methods:** `GD.isInstanceValid(Object)` + `Object.getInstanceId()`; `SceneTree.isPaused`
+  + `getNodesInGroup` (typed List<Node> — reuse the 2.7d typed-object-array helper); `Node.isClass(String)`;
+  `Signal.emit()` (on the `.signal(name)` GodotSignal — SmokeQuit `resume.signal(...).emit()`);
+  `Tween.tweenMethod(...)`; `ResourceLoader.loadAudioStream(path)`; `System.err` (iOS compat `System`
+  shim in IosScriptCodeEmitter.compatibilitySources lacks `err` — SmokeQuit `System.err.println`).
+- **`@ScriptProperty(hint=…, hintString=…)`** — CameraController:32/35 "No parameter with name
+  'hint'/'hintString'": the iOS annotation shadow lacks those params (add to the iOS Annotations.kt copy +
+  emitter, per the KSP2-native shadow-annotation rule).
+- **Int/Long width:** `ShapeCast3D.getCollisionCount()` returns `Int`; demo writes `!= 0L`
+  (GrenadeLauncher:123). iOS generates `Int` for int32 returns; desktop/Android return `Long`. Either a
+  generator int-width parity fix or confirm the demo's `0L` is the outlier — check the desktop wrapper.
+- **`quit`/`unloadCurrentScene`** (SmokeQuit/DemoPage): exist on `SceneTree` already — verify the
+  `getTree()` receiver type at those sites (likely a nullable/receiver mismatch, not a missing method).
+- **THEN:** clean `compileKotlinIosArm64`, deploy to iPhone 15 Pro (`ios_device_run.sh … thirdperson`
+  → AppName `KanamaThirdPerson`, bundle `net.multigesture.kanama.thirdperson`), device-validate
+  (esp. the engine-backed Basis/Quaternion math + free-cam getEuler). FLAG USER before on-device launch.
 
 ### Misc
 - Roadmap table: `docs/internals/ios-backend-roadmap.md` (keep in sync).

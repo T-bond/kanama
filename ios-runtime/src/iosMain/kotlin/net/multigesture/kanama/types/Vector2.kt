@@ -85,6 +85,10 @@ data class Vector2(
     companion object {
         val ZERO = Vector2(0.0, 0.0)
         val ONE = Vector2(1.0, 1.0)
+        val LEFT = Vector2(-1.0, 0.0)
+        val RIGHT = Vector2(1.0, 0.0)
+        val UP = Vector2(0.0, -1.0)
+        val DOWN = Vector2(0.0, 1.0)
 
         private val rotatedBind by lazy {
             BuiltinCalls.getBuiltinMethod(BuiltinCalls.VT_VECTOR2, "rotated", 2544004089L)

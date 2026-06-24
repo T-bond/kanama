@@ -17,6 +17,12 @@ data class Basis(
     val y: Vector3,
     val z: Vector3,
 ) {
+    /** Builds the rotation basis for [quaternion] (matches Godot's `Basis(Quaternion)` constructor). */
+    constructor(quaternion: Quaternion) : this(columnsFromQuaternion(quaternion))
+
+    private constructor(columns: Triple<Vector3, Vector3, Vector3>) :
+        this(columns.first, columns.second, columns.third)
+
     /** Returns a copy with the x/y/z axis replaced (matches desktop Basis.withX/withY/withZ). */
     fun withX(value: Vector3): Basis = Basis(value, y, z)
     fun withY(value: Vector3): Basis = Basis(x, value, z)
@@ -57,6 +63,44 @@ data class Basis(
     fun determinant(): Double =
         BuiltinCalls.callScalar(determinantBind, toFloat32())
 
+    /** Returns the scale component of this basis, computed by Godot (matches Basis.get_scale). */
+    fun getScale(): Vector3 {
+        val c = BuiltinCalls.call(getScaleBind, toFloat32(), 3)
+        return Vector3(c[0].toDouble(), c[1].toDouble(), c[2].toDouble())
+    }
+
+    /**
+     * Returns the rotation part of this basis as a quaternion, computed by Godot
+     * (orthonormalization + negative-scale handling match the engine; Basis.get_rotation_quaternion).
+     */
+    fun getRotationQuaternion(): Quaternion {
+        val c = BuiltinCalls.call(getRotationQuaternionBind, toFloat32(), 4)
+        return Quaternion(c[0].toDouble(), c[1].toDouble(), c[2].toDouble(), c[3].toDouble())
+    }
+
+    /**
+     * Returns the Euler angles (radians) for this basis in Godot's default YXZ order. Pure-Kotlin
+     * decomposition matching `Basis::get_euler(EULER_ORDER_YXZ)` exactly (the builtin needs an int
+     * order arg the iOS value-call path doesn't carry; the math is convention-fixed here instead).
+     * `rows[i][j]` in the engine maps to component `i` of column axis `j` (x=col0, y=col1, z=col2).
+     */
+    fun getEuler(): Vector3 {
+        val m12 = z.y // rows[1][2]
+        return when {
+            m12 < 1.0 - CMP_EPSILON -> when {
+                m12 > -(1.0 - CMP_EPSILON) -> Vector3(
+                    kotlin.math.asin(-m12),
+                    kotlin.math.atan2(z.x, z.z), // atan2(rows[0][2], rows[2][2])
+                    kotlin.math.atan2(x.y, y.y), // atan2(rows[1][0], rows[1][1])
+                )
+                // m12 == -1
+                else -> Vector3(kotlin.math.PI * 0.5, kotlin.math.atan2(y.x, x.x), 0.0)
+            }
+            // m12 == 1
+            else -> Vector3(-kotlin.math.PI * 0.5, -kotlin.math.atan2(y.x, x.x), 0.0)
+        }
+    }
+
     // Column-major 9 float32, matching the ObjectCalls Basis ptrcall layout.
     private fun toFloat32(): FloatArray =
         floatArrayOf(
@@ -66,11 +110,33 @@ data class Basis(
         )
 
     companion object {
+        // Godot CMP_EPSILON (used by the Euler decomposition gimbal checks).
+        private const val CMP_EPSILON = 0.00001
+
         val IDENTITY = Basis(
             Vector3(1.0, 0.0, 0.0),
             Vector3(0.0, 1.0, 0.0),
             Vector3(0.0, 0.0, 1.0),
         )
+
+        /** Returns the rotation basis for [euler] (radians, YXZ), via Godot's Quaternion.from_euler. */
+        fun fromEuler(euler: Vector3): Basis = Basis(Quaternion.fromEuler(euler))
+
+        // Godot `Basis::set_quaternion`: builds the 3 column axes from a quaternion. rows[i][j] in
+        // the engine is component i of column j here, so the engine rows are transposed into columns.
+        private fun columnsFromQuaternion(q: Quaternion): Triple<Vector3, Vector3, Vector3> {
+            val d = q.x * q.x + q.y * q.y + q.z * q.z + q.w * q.w
+            val s = 2.0 / d
+            val xs = q.x * s; val ys = q.y * s; val zs = q.z * s
+            val wx = q.w * xs; val wy = q.w * ys; val wz = q.w * zs
+            val xx = q.x * xs; val xy = q.x * ys; val xz = q.x * zs
+            val yy = q.y * ys; val yz = q.y * zs; val zz = q.z * zs
+            return Triple(
+                Vector3(1.0 - (yy + zz), xy + wz, xz - wy),
+                Vector3(xy - wz, 1.0 - (xx + zz), yz + wx),
+                Vector3(xz + wy, yz - wx, 1.0 - (xx + yy)),
+            )
+        }
 
         // All no-arg->Self Basis builtin methods share this signature-shape hash; the name
         // selects the method (inverse / transposed / orthonormalized).
@@ -88,6 +154,12 @@ data class Basis(
         }
         private val determinantBind by lazy {
             BuiltinCalls.getBuiltinMethod(BuiltinCalls.VT_BASIS, "determinant", 466405837L)
+        }
+        private val getScaleBind by lazy {
+            BuiltinCalls.getBuiltinMethod(BuiltinCalls.VT_BASIS, "get_scale", 1776574132L)
+        }
+        private val getRotationQuaternionBind by lazy {
+            BuiltinCalls.getBuiltinMethod(BuiltinCalls.VT_BASIS, "get_rotation_quaternion", 4274879941L)
         }
         private val lookingAtBind by lazy {
             BuiltinCalls.getBuiltinMethod(BuiltinCalls.VT_BASIS, "looking_at", 3728732505L)

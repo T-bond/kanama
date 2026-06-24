@@ -51,6 +51,17 @@ data class Quaternion(
     fun inverse(): Quaternion =
         fromFloat32(BuiltinCalls.callNoArgsFloat32(inverseBind, toFloat32()))
 
+    /**
+     * Spherically interpolates toward [to] by [weight] (0..1), computed by Godot so the
+     * shortest-arc handling and normalization match the engine exactly. Both quaternions
+     * are assumed normalized (matches Godot Quaternion.slerp).
+     */
+    fun slerp(to: Quaternion, weight: Double): Quaternion =
+        fromFloat32(BuiltinCalls.call(slerpBind, toFloat32(), 4, listOf(
+            BuiltinCalls.BArg.Floats(BuiltinCalls.PT_QUATERNION, to.toFloat32()),
+            BuiltinCalls.BArg.Real(weight),
+        )))
+
     private fun toFloat32(): FloatArray =
         floatArrayOf(x.toFloat(), y.toFloat(), z.toFloat(), w.toFloat())
 
@@ -60,6 +71,24 @@ data class Quaternion(
         private val inverseBind by lazy {
             BuiltinCalls.getBuiltinMethod(BuiltinCalls.VT_QUATERNION, "inverse", 4274879941L)
         }
+        private val slerpBind by lazy {
+            BuiltinCalls.getBuiltinMethod(BuiltinCalls.VT_QUATERNION, "slerp", 1773590316L)
+        }
+        private val fromEulerBind by lazy {
+            BuiltinCalls.getBuiltinMethod(BuiltinCalls.VT_QUATERNION, "from_euler", 4053467903L)
+        }
+
+        /**
+         * Returns the rotation quaternion for [euler] (radians, Godot's default YXZ order),
+         * computed by Godot. `from_euler` is a *static* builtin, so the call passes an empty base.
+         */
+        fun fromEuler(euler: Vector3): Quaternion =
+            fromFloat32(BuiltinCalls.call(fromEulerBind, floatArrayOf(), 4, listOf(
+                BuiltinCalls.BArg.Floats(
+                    BuiltinCalls.PT_VECTOR3,
+                    floatArrayOf(euler.x.toFloat(), euler.y.toFloat(), euler.z.toFloat()),
+                ),
+            )))
 
         private fun fromFloat32(c: FloatArray): Quaternion =
             Quaternion(c[0].toDouble(), c[1].toDouble(), c[2].toDouble(), c[3].toDouble())

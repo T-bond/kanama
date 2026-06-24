@@ -102,6 +102,18 @@ target (no iOS-specific parser). See architecture.md for the ptrcall width table
   silenced; optional shim fix); `Input.setCustomMouseCursor` (Texture2D arg, cosmetic);
   `_get_script_signal_list` (editor-only introspection, irrelevant on-device); `real_t` centralization
   (irrelevant while single-precision — iOS stores Double + converts at the boundary).
+- **Scalar-math backend divergence (KNOWN + DELIBERATE, decided 2026-06-24)** — iOS `Mathf`/`GD`
+  scalar math (`sqrt`/`sin`/`cos`/`lerp`/`randfn`/`degToRad`/…) is implemented in pure `kotlin.math` /
+  Kotlin, whereas **desktop/Android route through Godot's `UtilityFunctions`** (`GD.sqrt =
+  callDoubleOneArgUtility("sqrt", …)`). iOS has no UtilityFunctions call path wired (only the
+  GDExtension typedef exists), so this isn't a considered choice — it's "the engine path was never
+  built for iOS". Decision: **leave as-is, document it** (not worth the C-shim + cinterop + self-test
+  work now). Magnitude: `sqrt` and +−×÷ are IEEE-correctly-rounded → bit-identical everywhere regardless;
+  only transcendentals (`sin`/`cos`/`tan`/`log`/`exp`/`pow`) can differ ≤1 ULP — and they can differ
+  *across platforms even through the engine* (Godot's `Math::sin` is just platform `libm`), so routing
+  can't fully equalize them anyway. The only parity it would buy is *intra-platform* (iOS Kanama math ==
+  iOS-GDScript math to the ULP). To change later: add an iOS `UtilityCalls` path (C shim using
+  `variant_get_ptr_utility_function` + cinterop + a Kotlin helper) and migrate `Mathf`/`GD` scalar fns.
 
 ## Demo iOS coverage (per-demo readiness — re-assessed 2026-06-22)
 

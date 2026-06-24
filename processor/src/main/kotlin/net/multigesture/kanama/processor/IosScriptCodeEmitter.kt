@@ -336,7 +336,11 @@ internal class IosScriptCodeEmitter(
                 builder.appendLine("object ${script.className}Names {")
                 if (methods.isNotEmpty()) {
                     builder.appendLine("    object Methods {")
-                    methods.forEach { method ->
+                    // A single Kotlin function may back several Godot methods (e.g. one handler
+                    // annotated @OnInput + @OnUnhandledInput → "_input" and "_unhandled_input").
+                    // Those are distinct in `methods` (registration/dispatch need both) but collapse
+                    // to one Kotlin-name-keyed const here, so dedupe to avoid conflicting declarations.
+                    methods.distinctBy { constantIdentifier(it.kotlinName) }.forEach { method ->
                         builder.appendLine(
                             "        const val ${constantIdentifier(method.kotlinName)}: String = ${kotlinString(method.godotName)}",
                         )

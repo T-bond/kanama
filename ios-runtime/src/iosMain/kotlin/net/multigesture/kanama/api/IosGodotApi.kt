@@ -577,7 +577,15 @@ object Mathf {
 
     fun cos(value: Double): Double = kotlin.math.cos(value)
 
+    fun sin(value: Double): Double = kotlin.math.sin(value)
+
+    fun sqrt(value: Double): Double = kotlin.math.sqrt(value)
+
     fun log(value: Double): Double = kotlin.math.ln(value)
+
+    // Godot's @GlobalScope.inverse_lerp: the weight that lerp(from, to, w) == value.
+    fun inverseLerp(from: Double, to: Double, value: Double): Double =
+        if (to == from) 0.0 else (value - from) / (to - from)
 
     fun lerp(from: Double, to: Double, weight: Double): Double =
         from + (to - from) * weight
@@ -634,6 +642,14 @@ object GD {
 
     fun randfRange(from: Double, to: Double): Double =
         if (to <= from) from else Random.nextDouble(from, to)
+
+    // Godot's @GlobalScope.randfn: normally-distributed pseudo-random via Box-Muller.
+    fun randfn(mean: Double, deviation: Double): Double {
+        val u1 = Random.nextDouble().coerceAtLeast(Double.MIN_VALUE)
+        val u2 = Random.nextDouble()
+        val standard = kotlin.math.sqrt(-2.0 * kotlin.math.ln(u1)) * kotlin.math.cos(2.0 * Mathf.PI * u2)
+        return mean + deviation * standard
+    }
 
     // @GlobalScope math facade (pure-Kotlin, matching the desktop GD utility helpers).
     fun signf(value: Double): Double = kotlin.math.sign(value)

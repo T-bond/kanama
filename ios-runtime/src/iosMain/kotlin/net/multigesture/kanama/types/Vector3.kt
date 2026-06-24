@@ -119,6 +119,21 @@ data class Vector3(
             BuiltinCalls.BArg.Floats(BuiltinCalls.PT_VECTOR3, with.toFloat32()),
         ))
 
+    /** Euclidean distance from this point to [to] (matches Godot Vector3.distance_to). */
+    fun distanceTo(to: Vector3): Double =
+        (to - this).length()
+
+    /** Squared distance from this point to [to] (matches Godot Vector3.distance_squared_to). */
+    fun distanceSquaredTo(to: Vector3): Double =
+        (to - this).lengthSquared()
+
+    /**
+     * Returns this vector bounced off a plane with the given [normal] (matches Godot
+     * Vector3.bounce == -reflect(normal); [normal] must be normalized).
+     */
+    fun bounce(normal: Vector3): Vector3 =
+        this - normal * (2.0 * dot(normal))
+
     /** Returns this vector moved toward [to] by at most [delta] (matches Godot Vector3.move_toward). */
     fun moveToward(to: Vector3, delta: Double): Vector3 {
         val diff = to - this

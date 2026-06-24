@@ -75,6 +75,18 @@ data class Transform3D(
             BuiltinCalls.BArg.Floats(BuiltinCalls.PT_VECTOR3, vec3(offset)),
         )))
 
+    /** Transforms (xforms) [point] by this transform: `basis * point + origin` (matches Transform3D * Vector3). */
+    operator fun times(point: Vector3): Vector3 =
+        basis * point + origin
+
+    /**
+     * Returns a copy scaled by [scale] in local space, keeping [origin] (matches
+     * Transform3D.scaled_local == post-multiplying the basis by a diagonal scale, i.e. scaling
+     * each basis column).
+     */
+    fun scaledLocal(scale: Vector3): Transform3D =
+        Transform3D(Basis(basis.x * scale.x, basis.y * scale.y, basis.z * scale.z), origin)
+
     // Column-major 12 float32, matching the ObjectCalls Transform3D ptrcall layout.
     private fun toFloat32(): FloatArray =
         floatArrayOf(
