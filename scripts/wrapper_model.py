@@ -61,8 +61,19 @@ class ApiMethod:
             for arg_type, meta in zip(self.argument_types, self.argument_metas, strict=True)
         )
 
+    # Godot ints are 64-bit; the `int32` meta is only a storage hint, and desktop/Android wrappers
+    # return Long for int32-meta returns. Full parity (widening ALL int32 returns -> Long) is a tracked
+    # task: it widens 341 returns cleanly but drops 23 arg-bearing int32 returns that lack a Long-return
+    # ptrcall helper (e.g. getCellSourceId, Animation track-inserts), so those helpers must be added
+    # first to stay non-regressing. Until then, widen only the no-arg count getters the demos need (each
+    # already has ptrcallNoArgsRetLong, so it's additive). See ios-demo-port-tracker.md.
+    _INT32_RETURN_WIDEN_TO_LONG = frozenset({"get_collision_count"})
+
     def logical_return_kind(self, object_types: set[str]) -> str:
-        return logical_type(self.return_type, self.return_meta, object_types)
+        kind = logical_type(self.return_type, self.return_meta, object_types)
+        if kind == "int32" and self.name in self._INT32_RETURN_WIDEN_TO_LONG:
+            return "int64"
+        return kind
 
     def logical_arg_kinds(self, object_types: set[str]) -> tuple[str, ...]:
         return tuple(

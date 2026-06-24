@@ -481,6 +481,11 @@ IOS_CUSTOM_MEMBER_SECTIONS = {
             Tween(MemorySegment.ofAddress(it))
         }
 """.strip("\n"),
+    "ShapeCast3D": """
+    // Long-index overload (desktop ShapeCast3D exposes both Int and Long), so loops over the now-Long
+    // getCollisionCount() (`for (i in 0 until getCollisionCount())`) pass a Long index straight through.
+    fun getCollisionPoint(index: Long): Vector3 = getCollisionPoint(index.toInt())
+""".strip("\n"),
     "SurfaceTool": """
     // No-arg commit() — the generated commit(existing, flags) doesn't default the nullable `existing`
     // ArrayMesh; this overload matches the desktop/Android commit() default-arg call.

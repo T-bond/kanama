@@ -124,8 +124,8 @@ class ShapeCast3D(handle: MemorySegment) : Node3D(handle) {
         return ObjectCalls.ptrcallNoArgsRetBool(isCollidingBind, handle)
     }
 
-    fun getCollisionCount(): Int {
-        return ObjectCalls.ptrcallNoArgsRetInt(getCollisionCountBind, handle)
+    fun getCollisionCount(): Long {
+        return ObjectCalls.ptrcallNoArgsRetLong(getCollisionCountBind, handle)
     }
 
     fun forceShapecastUpdate() {
@@ -231,6 +231,10 @@ class ShapeCast3D(handle: MemorySegment) : Node3D(handle) {
     fun getDebugShapeCustomColor(): Color {
         return ObjectCalls.ptrcallNoArgsRetColor(getDebugShapeCustomColorBind, handle)
     }
+
+    // Long-index overload (desktop ShapeCast3D exposes both Int and Long), so loops over the now-Long
+    // getCollisionCount() (`for (i in 0 until getCollisionCount())`) pass a Long index straight through.
+    fun getCollisionPoint(index: Long): Vector3 = getCollisionPoint(index.toInt())
 
     companion object {
         fun fromHandle(handle: MemorySegment): ShapeCast3D? =
