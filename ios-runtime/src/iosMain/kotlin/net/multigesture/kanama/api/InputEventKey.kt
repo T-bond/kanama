@@ -138,6 +138,14 @@ class InputEventKey(handle: MemorySegment) : InputEventWithModifiers(handle) {
         const val KEY_S = 83L
         const val KEY_W = 87L
 
+        // Instantiate a blank InputEventKey (for synthesizing input events / InputMap actions).
+        fun create(): InputEventKey =
+            InputEventKey(MemorySegment.ofAddress(IosGodot.constructObject("InputEventKey")))
+
+        // Cast a generic event to InputEventKey (null if not), mirroring the desktop helper.
+        fun from(value: GodotObject): InputEventKey? =
+            if (value.isClass("InputEventKey")) InputEventKey(value.handle) else null
+
         private const val SET_PRESSED_HASH = 2586408642L
         private val setPressedBind by lazy {
             ObjectCalls.getMethodBind("InputEventKey", "set_pressed", SET_PRESSED_HASH)

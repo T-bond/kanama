@@ -116,6 +116,10 @@ class ArrayMesh(handle: MemorySegment) : Mesh(handle) {
         internal fun wrap(handle: MemorySegment): ArrayMesh? =
             if (handle.address() == 0L) null else ArrayMesh(handle)
 
+        // Downcast a Resource/Mesh to ArrayMesh (null if not), mirroring the desktop helper.
+        fun fromResource(value: Resource): ArrayMesh? =
+            if (value.isClass("ArrayMesh")) ArrayMesh(value.handle) else null
+
         private const val ADD_BLEND_SHAPE_HASH = 3304788590L
         private val addBlendShapeBind by lazy {
             ObjectCalls.getMethodBind("ArrayMesh", "add_blend_shape", ADD_BLEND_SHAPE_HASH)

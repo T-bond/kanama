@@ -125,6 +125,10 @@ class SurfaceTool(handle: MemorySegment) : RefCounted(handle) {
         return ObjectCalls.ptrcallNoArgsRetArray(commitToArraysBind, handle)
     }
 
+    // No-arg commit() — the generated commit(existing, flags) doesn't default the nullable `existing`
+    // ArrayMesh; this overload matches the desktop/Android commit() default-arg call.
+    fun commit(): ArrayMesh? = commit(null)
+
     companion object {
         const val CUSTOM_RGBA8_UNORM: Long = 0L
         const val CUSTOM_RGBA8_SNORM: Long = 1L
@@ -143,6 +147,10 @@ class SurfaceTool(handle: MemorySegment) : RefCounted(handle) {
 
         internal fun wrap(handle: MemorySegment): SurfaceTool? =
             if (handle.address() == 0L) null else SurfaceTool(handle)
+
+        // Instantiate a SurfaceTool (RefCounted; used to build meshes procedurally).
+        fun create(): SurfaceTool =
+            SurfaceTool(MemorySegment.ofAddress(IosGodot.constructObject("SurfaceTool")))
 
         private const val SET_SKIN_WEIGHT_COUNT_HASH = 618679515L
         private val setSkinWeightCountBind by lazy {

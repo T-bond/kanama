@@ -317,6 +317,10 @@ open class Camera3D(handle: MemorySegment) : Node3D(handle) {
         internal fun wrap(handle: MemorySegment): Camera3D? =
             if (handle.address() == 0L) null else Camera3D(handle)
 
+        // Instantiate a Camera3D (e.g. the debug free-camera).
+        fun create(): Camera3D =
+            Camera3D(MemorySegment.ofAddress(IosGodot.constructObject("Camera3D")))
+
         private const val PROJECT_RAY_NORMAL_HASH = 1718073306L
         private val projectRayNormalBind by lazy {
             ObjectCalls.getMethodBind("Camera3D", "project_ray_normal", PROJECT_RAY_NORMAL_HASH)

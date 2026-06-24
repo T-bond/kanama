@@ -67,7 +67,12 @@ object RpcTransferMode {
     const val RELIABLE = 2
 }
 
-annotation class ScriptProperty
+annotation class ScriptProperty(
+    val name: String = "",
+    val hint: Int = 0,
+    val hintString: String = "",
+    val usage: Int = 6,
+)
 
 annotation class Export(
     val name: String = "",

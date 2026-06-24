@@ -49,6 +49,15 @@ open class PhysicsBody3D(handle: MemorySegment) : CollisionObject3D(handle) {
         internal fun wrap(handle: MemorySegment): PhysicsBody3D? =
             if (handle.address() == 0L) null else PhysicsBody3D(handle)
 
+        // PhysicsServer3D.BodyAxis flags, exposed on PhysicsBody3D to match the desktop/Android API
+        // (used by set_axis_lock). Values are @GlobalScope PhysicsServer3D.BODY_AXIS_* bit flags.
+        const val BODY_AXIS_LINEAR_X = 1L
+        const val BODY_AXIS_LINEAR_Y = 2L
+        const val BODY_AXIS_LINEAR_Z = 4L
+        const val BODY_AXIS_ANGULAR_X = 8L
+        const val BODY_AXIS_ANGULAR_Y = 16L
+        const val BODY_AXIS_ANGULAR_Z = 32L
+
         private const val MOVE_AND_COLLIDE_HASH = 3208792678L
         private val moveAndCollideBind by lazy {
             ObjectCalls.getMethodBind("PhysicsBody3D", "move_and_collide", MOVE_AND_COLLIDE_HASH)

@@ -310,6 +310,11 @@ class GodotSignal internal constructor(
     fun connect(target: GodotObject, method: String, flags: Long = GodotObject.CONNECT_DEFAULT): Long =
         owner.connect(name, target, method, flags)
 
+    /** Emits this signal (matches desktop Signal.emit). Delegates to the owner's emit_signal path. */
+    fun emit(vararg args: Any?) {
+        owner.emitSignal(name, *args)
+    }
+
     fun connect(
         target: GodotObject,
         argumentCount: Int,
@@ -439,6 +444,15 @@ class SceneTree(handle: MemorySegment) : Node(handle) {
         suspend fun delaySeconds(seconds: Double) {
             delay((seconds * 1000.0).toLong().coerceAtLeast(0L))
         }
+
+        // Static-call forms: demos written against desktop/Android (where SceneTree is reachable
+        // statically) call `SceneTree.quit()` / `SceneTree.unloadCurrentScene()`. Resolve the active
+        // tree via Engine.get_main_loop() and delegate to the instance method.
+        private fun active(): SceneTree = SceneTree(Engine.getMainLoop())
+
+        fun quit(exitCode: Int = 0) = active().quit(exitCode)
+
+        fun unloadCurrentScene() = active().unloadCurrentScene()
     }
 }
 
@@ -575,6 +589,8 @@ class InputEventMouseButton(handle: MemorySegment) : GodotObject(handle) {
 
     companion object {
         const val MOUSE_BUTTON_LEFT = 1L
+        const val MOUSE_BUTTON_RIGHT = 2L
+        const val MOUSE_BUTTON_MIDDLE = 3L
 
         fun from(value: GodotObject): InputEventMouseButton? =
             if (value.isClass("InputEventMouseButton")) InputEventMouseButton(value.handle)
@@ -597,6 +613,14 @@ object Mathf {
     fun abs(value: Double): Double = kotlin.math.abs(value)
 
     fun abs(value: Float): Float = kotlin.math.abs(value)
+
+    fun min(a: Double, b: Double): Double = kotlin.math.min(a, b)
+
+    fun max(a: Double, b: Double): Double = kotlin.math.max(a, b)
+
+    fun min(a: Long, b: Long): Long = kotlin.math.min(a, b)
+
+    fun max(a: Long, b: Long): Long = kotlin.math.max(a, b)
 
     fun cos(value: Double): Double = kotlin.math.cos(value)
 
@@ -641,6 +665,11 @@ object ResourceLoader {
     fun loadTexture2D(path: String): Texture2D? =
         IosGodot.resourceLoaderLoad(path, "Texture2D").takeIf { it != 0L }?.let {
             Texture2D(MemorySegment.ofAddress(it))
+        }
+
+    fun loadAudioStream(path: String): AudioStream? =
+        IosGodot.resourceLoaderLoad(path, "AudioStream").takeIf { it != 0L }?.let {
+            AudioStream(MemorySegment.ofAddress(it))
         }
 
     fun loadPackedScene(path: String): PackedScene? =

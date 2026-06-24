@@ -392,6 +392,9 @@ internal class IosScriptCodeEmitter(
                     appendLine("@Suppress(\"unused\")")
                     appendLine("internal object System {")
                     appendLine("    fun getenv(name: String): String? = null")
+                    appendLine("    object PrintShim { fun println(message: Any?) { kotlin.io.println(message) } }")
+                    appendLine("    val err: PrintShim = PrintShim")
+                    appendLine("    val out: PrintShim = PrintShim")
                     appendLine("}")
                 }
                 relativePath to source

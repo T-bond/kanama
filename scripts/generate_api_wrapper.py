@@ -481,6 +481,11 @@ IOS_CUSTOM_MEMBER_SECTIONS = {
             Tween(MemorySegment.ofAddress(it))
         }
 """.strip("\n"),
+    "SurfaceTool": """
+    // No-arg commit() — the generated commit(existing, flags) doesn't default the nullable `existing`
+    // ArrayMesh; this overload matches the desktop/Android commit() default-arg call.
+    fun commit(): ArrayMesh? = commit(null)
+""".strip("\n"),
     "Light3D": """
     // ── Kanama iOS sugar (generator custom-section, not from Godot docs) ───────
     // lightEnergy is an indexed (get_param/set_param) property; the property renderer
@@ -542,6 +547,44 @@ IOS_CUSTOM_COMPANION_MEMBER_SECTIONS = {
         const val KEY_R = 82L
         const val KEY_S = 83L
         const val KEY_W = 87L
+
+        // Instantiate a blank InputEventKey (for synthesizing input events / InputMap actions).
+        fun create(): InputEventKey =
+            InputEventKey(MemorySegment.ofAddress(IosGodot.constructObject("InputEventKey")))
+
+        // Cast a generic event to InputEventKey (null if not), mirroring the desktop helper.
+        fun from(value: GodotObject): InputEventKey? =
+            if (value.isClass("InputEventKey")) InputEventKey(value.handle) else null
+""".strip("\n"),
+    "Camera3D": """
+        // Instantiate a Camera3D (e.g. the debug free-camera).
+        fun create(): Camera3D =
+            Camera3D(MemorySegment.ofAddress(IosGodot.constructObject("Camera3D")))
+""".strip("\n"),
+    "SurfaceTool": """
+        // Instantiate a SurfaceTool (RefCounted; used to build meshes procedurally).
+        fun create(): SurfaceTool =
+            SurfaceTool(MemorySegment.ofAddress(IosGodot.constructObject("SurfaceTool")))
+""".strip("\n"),
+    "MeshDataTool": """
+        // Instantiate a MeshDataTool (RefCounted; used to read mesh vertex/face data).
+        fun create(): MeshDataTool =
+            MeshDataTool(MemorySegment.ofAddress(IosGodot.constructObject("MeshDataTool")))
+""".strip("\n"),
+    "ArrayMesh": """
+        // Downcast a Resource/Mesh to ArrayMesh (null if not), mirroring the desktop helper.
+        fun fromResource(value: Resource): ArrayMesh? =
+            if (value.isClass("ArrayMesh")) ArrayMesh(value.handle) else null
+""".strip("\n"),
+    "PhysicsBody3D": """
+        // PhysicsServer3D.BodyAxis flags, exposed on PhysicsBody3D to match the desktop/Android API
+        // (used by set_axis_lock). Values are @GlobalScope PhysicsServer3D.BODY_AXIS_* bit flags.
+        const val BODY_AXIS_LINEAR_X = 1L
+        const val BODY_AXIS_LINEAR_Y = 2L
+        const val BODY_AXIS_LINEAR_Z = 4L
+        const val BODY_AXIS_ANGULAR_X = 8L
+        const val BODY_AXIS_ANGULAR_Y = 16L
+        const val BODY_AXIS_ANGULAR_Z = 32L
 """.strip("\n"),
     "InputEventMouseMotion": """
         // Cast a generic event to InputEventMouseMotion (null if not), mirroring the desktop helper.
