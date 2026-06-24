@@ -21,7 +21,8 @@ session without replaying prior history.
 | **dodge** | playable + touch controls |
 | **squash** | playable + touch controls |
 | **character-controller** | playable; flag works; death plane respawns (V1 fixed) |
-| **Racing** | playable + camera-follow; **no steering joystick** (see R1) |
+| **Racing** | playable + camera-follow + steering joystick (R1 validated) |
+| **Bunnymark** | playable; FPS + Bunnies readouts safe-area-inset (E1 validated) |
 | FPS, third-person | not built (see F1, T1) |
 
 ## Build / deploy / debug (see private handoff for exact commands + UDIDs)
@@ -78,20 +79,20 @@ file before copying. Generator + iOS custom sections: `scripts/generate_api_wrap
   `probeLabelUpdated`. Removed the cap → persistent per-frame hook. Device-verified: death plane respawns.
 - Demos: iOS gdextension entries; `mobile_controls.gd` enabled on iOS (`or OS.has_feature("ios")`);
   cross-platform script idioms; character flag reloads the level instead of quitting.
+- **R1 Racing steering — no fix needed.** `VirtualJoystick` is a **built-in Godot 4.7 class** (confirmed
+  via `--doctool`: `doc/classes/VirtualJoystick.xml`), so it's already in the iOS export template — it was
+  never "absent on iOS". The only thing required was making the `MobileControls` CanvasLayer visible on
+  iOS, already done by `mobile_controls.gd` (commit `5c060ab`). Input actions `left`/`right` exist in
+  `project.godot`. Device-validated on iPhone 15 Pro: steering joystick turns the car.
+- **E1 Bunnymark readout safe-area** — `Benchmarker.gd` now insets the top-left readouts on mobile by
+  `DisplayServer.get_display_safe_area().position + SAFE_AREA_MARGIN(24,24)` (`_apply_safe_area()`).
+  Stretch mode is disabled, so GUI coords == screen px. TWO readouts needed it: the scene `Panel/FPS`
+  Label AND the **Kotlin-created "Bunnies" Label** (`BunnymarkV2/V3Kanama.kt`, `position=(0,20)`, not
+  safe-area-aware) — the latter is offset from GDScript via `find_children(...,"Label")` after
+  `add_child`, so no Kotlin rebuild/dual-target needed. In landscape the safe-area *top* inset is tiny,
+  hence the fixed margin. Device-validated on iPhone 15 Pro.
 
 ## Remaining tasks (each resumable on its own)
-
-### R1. Racing steering — `VirtualJoystick` on iOS
-`SteeringJoystick` in `Starter-Kit-Racing/scenes/main.tscn` is `type="VirtualJoystick"` (absent on iOS).
-Identify what `VirtualJoystick` is (GDScript addon `class_name` under `Starter-Kit-Racing/addons/`, vs a
-Kanama-registered class — `kanama/.../api/VirtualJoystick.kt` is a generated *wrapper*), then make it
-available/registered on iOS. Verify: steering joystick appears + turns the car.
-
-### E1. Bunnymark FPS-label safe-area
-FPS panel (`Bunnymark/Benchmarker.tscn` `Panel/FPS`, top-left; `Benchmarker.gd:fps_label`) is clipped by
-the device rounded corner. Make it safe-area-aware in `Benchmarker.gd._ready`
-(`DisplayServer.get_display_safe_area()`) or inset the Panel. Landscape (`orientation=0`). Confirm on
-device.
 
 ### F1. FPS demo (`Starter-Kit-FPS`)
 Build via installIosAddon, fix iteratively. Roadmap-listed gaps: generate `AnimatedSprite3D`; add
