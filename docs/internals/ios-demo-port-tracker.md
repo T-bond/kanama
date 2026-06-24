@@ -24,7 +24,7 @@ session without replaying prior history.
 | **Racing** | playable + camera-follow + steering joystick (R1 validated) |
 | **Bunnymark** | playable; FPS + Bunnies readouts safe-area-inset (E1 validated) |
 | **FPS** | playable; weapons `List<Weapon>` @ScriptProperty delivered + AnimatedSprite3D generated (F1). KNOWN: intermittent SIGSEGV in Audio autoload `_ready` (pre-existing lambda-connect infra, see F2) |
-| third-person | IN PROGRESS (T1) — demo compile errors **169→3**; ios-runtime compiles clean. Remaining 3 need C shims / a generator-policy decision (tweenMethod, PropertyTweener.from, getCollisionCount Int↔Long). Then device run |
+| third-person | **COMPILES (T1, 169→0 errors)** — iOS addon installs clean (incl. 2 new tween C shims). Pending: on-device validation on iPhone 15 Pro |
 
 ## Build / deploy / debug (see private handoff for exact commands + UDIDs)
 - **Build-check a demo's scripts** (fast, no device): `./gradlew installIosAddon
@@ -134,7 +134,20 @@ intermittent — works after restart). Suspect the loop-captured `player` lambda
 lifetime under 12 rapid `connect`s. Pull the `.ips` for the native backtrace (idevicecrashreport could
 not see the network-paired device this session; try USB or `xcrun devicectl`).
 
-### T1. third-person (`godot-4-3d-third-person-controller`) — IN PROGRESS (2026-06-24)
+### T1. third-person (`godot-4-3d-third-person-controller`) — COMPILES (2026-06-24); device-validation pending
+**169 → 0 compile errors.** All layers landed + committed/pushed: KSP dual-annotation fix, 7 wrappers,
+math, value-types, 5 singletons, misc glue, generator companions (create/from/fromResource/BODY_AXIS +
+SurfaceTool commit), the targeted int32→Long return widening (getCollisionCount + ShapeCast3D Long
+index overload), and the 2 tween C shims (tween_method, PropertyTweener.from). iOS addon installs clean.
+**ONLY REMAINING: on-device validation on iPhone 15 Pro** (`ios_device_run.sh … thirdperson` →
+KanamaThirdPerson / net.multigesture.kanama.thirdperson) — esp. engine-backed Basis/Quaternion math
+(getRotationQuaternion/getScale/slerp/fromEuler), free-cam getEuler, coin-fly tween_method, grenade
+landing prediction (ShapeCast getCollisionCount/Point). FLAG USER before launch (auto-lock).
+Two tracked follow-ups (NOT third-person blockers): (1) systematic int32→Long widening (add the ~dozen
+Long-return ptrcall helpers the 23 dropped arg-bearing returns need, then flip logical_return_kind
+fully); (2) PropertyTweener.from only handles Color (add Vector2/Double/etc. overloads if a demo needs).
+
+#### Original task notes (now done) ────────────────────────────────────────────
 Largest demo. Build-check: `installIosAddon -PkanamaIosProjectDir=.../godot-4-3d-third-person-controller
 -PkanamaIosProjectScriptsDir=.../kotlin-src`. Demo compile errors **169 → ~50**. Working tree has
 UNCOMMITTED edits (not committed — user hadn't asked). 4 layers landed, **all compiling clean** (0
