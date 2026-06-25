@@ -3905,6 +3905,9 @@ static void kanama_ios_pt_arg_to_variant(
         case KANAMA_IOS_PT_VECTOR2I:
             g_variant_from_vector2i(out_variant, (void *)p);
             break;
+        case KANAMA_IOS_PT_VECTOR3:
+            g_variant_from_vector3(out_variant, (void *)p);
+            break;
         case KANAMA_IOS_PT_COLOR:
             g_variant_from_color(out_variant, (void *)p);
             break;

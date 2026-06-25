@@ -945,6 +945,10 @@ object ObjectCalls {
                     val c = allocArray<IntVar>(2); c[0] = a.x; c[1] = a.y
                     tags[i] = PT_VECTOR2I; ptrs[i] = c.reinterpret<CPointed>()
                 }
+                is Vector3 -> {
+                    val c = allocArray<FloatVar>(3); c[0] = a.x.toFloat(); c[1] = a.y.toFloat(); c[2] = a.z.toFloat()
+                    tags[i] = PT_VECTOR3; ptrs[i] = c.reinterpret<CPointed>()
+                }
                 is Color -> {
                     val c = allocArray<FloatVar>(4); c[0] = a.r; c[1] = a.g; c[2] = a.b; c[3] = a.a
                     tags[i] = PT_COLOR; ptrs[i] = c.reinterpret<CPointed>()
