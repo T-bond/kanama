@@ -24,7 +24,7 @@ session without replaying prior history.
 | **Racing** | playable + camera-follow + steering joystick (R1 validated) |
 | **Bunnymark** | playable; FPS + Bunnies readouts safe-area-inset (E1 validated) |
 | **FPS** | playable; weapons `List<Weapon>` @ScriptProperty delivered + AnimatedSprite3D generated (F1). KNOWN: intermittent SIGSEGV in Audio autoload `_ready` (pre-existing lambda-connect infra, see F2) |
-| third-person | **COMPILES (T1, 169→0 errors)** — iOS addon installs clean (incl. 2 new tween C shims). Pending: on-device validation on iPhone 15 Pro |
+| third-person | **PLAYABLE on iPhone 15 Pro (T1)** — runs, all scripts init, self-tests 54/78. Fixed on-device: attack crash (Vector3 in Variant path) + visuals (Mobile renderer, not gl_compatibility). KNOWN: enemy walk animation (AnimationTree `travel()`) not driving on iOS |
 
 ## Build / deploy / debug (see private handoff for exact commands + UDIDs)
 - **Build-check a demo's scripts** (fast, no device): `./gradlew installIosAddon
@@ -134,7 +134,29 @@ intermittent — works after restart). Suspect the loop-captured `player` lambda
 lifetime under 12 rapid `connect`s. Pull the `.ips` for the native backtrace (idevicecrashreport could
 not see the network-paired device this session; try USB or `xcrun devicectl`).
 
-### T1. third-person (`godot-4-3d-third-person-controller`) — COMPILES (2026-06-24); device-validation pending
+### T1. third-person (`godot-4-3d-third-person-controller`) — PLAYABLE on device (2026-06-24)
+**Device-validated on iPhone 15 Pro.** Runs, all script instances init, self-tests 54/78, gameplay
+works. Two on-device fixes landed after the first launch:
+- **Attack crash (FIXED, committed):** attacking passed a `Vector3` (knockback) through the Object
+  Variant call path, which abort()ed — `encodeVariantArgs` (Kotlin) + `pt_arg_to_variant` (C) handled
+  Vector2/Vector2i/Color but not Vector3. Added the Vector3 case to both (PT_VECTOR3 / g_variant_from_vector3).
+- **Over-bright scene + white water (FIXED, committed in kanama-demos):** the demo shipped
+  `rendering_method.mobile="gl_compatibility"` — too low-tier for its Forward+-authored visuals (HDR
+  tonemap, glow, screen-space water shader). Switched to `"mobile"` (Vulkan/MoltenVK); device-confirmed
+  exposure + water correct. (Other demos keep gl_compatibility; they don't use those features.)
+- **KNOWN-OPEN — enemy walk animation:** BeetleBot calls `beetleSkin.walk()` every physics frame →
+  `BeetlebotSkin` runs `AnimationNodeStateMachinePlayback.travel("walk")`, but the bug doesn't animate
+  (floats to the player). The `travel()` binding is correct (`ptrcallWithStringNameAndBoolArg`, hash
+  3823612587) and `_ready` (which does `animationTree.getStateMachinePlayback("parameters/StateMachine/
+  playback")`) completes; the secondary-action timer also calls travel(). HYPOTHESES: (a) the playback
+  Ref obtained via the Variant `get("parameters/.../playback")` path isn't the AnimationTree's *live*
+  playback (RefCounted liveness / a fresh instance) so travel() drives a detached object; (b) the
+  AnimationTree isn't `active`/processing on iOS. NEXT (device round-trips): temp-log the playback handle
+  + `isPlaying()`/`getCurrentNode()` right after travel() to see if state advances; check AnimationTree.active;
+  compare the stored playback handle vs a re-fetched `get()` handle. (See [[ios_script_model_unification]]-era
+  AnimationMixer.getStateMachinePlayback custom section — it wraps the raw Variant Object handle.)
+
+### T1 — original task notes (now done) ────────────────────────────────────────
 **169 → 0 compile errors.** All layers landed + committed/pushed: KSP dual-annotation fix, 7 wrappers,
 math, value-types, 5 singletons, misc glue, generator companions (create/from/fromResource/BODY_AXIS +
 SurfaceTool commit), the targeted int32→Long return widening (getCollisionCount + ShapeCast3D Long
