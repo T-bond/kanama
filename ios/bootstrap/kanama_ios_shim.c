@@ -86,6 +86,15 @@ extern int32_t kanama_ios_runtime_script_instance_set_property_string(
     int32_t property_index,
     const char *value
 );
+// `List<String>` (Godot PackedStringArray) @ScriptProperty delivery. The C dispatch extracts
+// each packed-array element to a utf8 C string and passes them here; the Kotlin runtime hands
+// a List<String> to the generated setPropertyStringArray bridge branch.
+extern int32_t kanama_ios_runtime_script_instance_set_property_string_array(
+    int64_t instance_handle,
+    int32_t property_index,
+    const char *const *strings,
+    int32_t count
+);
 // Value-type (NodePath/Vector2/Vector3/Color) @ScriptProperty delivery: the C side extracts
 // the Variant into a PT-tagged raw byte buffer and hands it across. NODE_PATH ships its utf8
 // path bytes (PT_NODE_PATH); Vector2/3/Color ship their float32 components (PT_VECTOR2/
@@ -305,6 +314,7 @@ static GDExtensionTypeFromVariantConstructorFunc g_variant_to_color = NULL;
 static GDExtensionTypeFromVariantConstructorFunc g_variant_to_node_path = NULL;
 static GDExtensionTypeFromVariantConstructorFunc g_variant_to_string_name = NULL;
 static GDExtensionTypeFromVariantConstructorFunc g_variant_to_plane = NULL;
+static GDExtensionTypeFromVariantConstructorFunc g_variant_to_packed_string_array = NULL;
 static GDExtensionPtrConstructor g_string_from_node_path_constructor = NULL;
 static GDExtensionPtrBuiltInMethod g_array_size_method = NULL;
 static GDExtensionPtrBuiltInMethod g_array_get_method = NULL;
@@ -356,6 +366,7 @@ static GDExtensionVariantFromTypeConstructorFunc g_variant_from_string_name = NU
 static GDExtensionVariantFromTypeConstructorFunc g_variant_from_int = NULL;
 static GDExtensionVariantFromTypeConstructorFunc g_variant_from_bool = NULL;
 static GDExtensionVariantFromTypeConstructorFunc g_variant_from_string = NULL;
+static GDExtensionVariantFromTypeConstructorFunc g_variant_from_packed_string_array = NULL;
 static int g_main_loop_callbacks_registered = 0;
 static int g_main_loop_callbacks_active = 0;
 static int g_main_loop_callback_frame_count = 0;
@@ -744,6 +755,8 @@ static int kanama_ios_resolve_godot_api(void) {
     g_variant_to_node_path = g_get_variant_to_type_constructor(KANAMA_IOS_VARIANT_TYPE_NODE_PATH);
     g_variant_to_string_name = g_get_variant_to_type_constructor(KANAMA_IOS_VARIANT_TYPE_STRING_NAME);
     g_variant_to_plane = g_get_variant_to_type_constructor(KANAMA_IOS_VARIANT_TYPE_PLANE);
+    g_variant_to_packed_string_array = g_get_variant_to_type_constructor(
+        KANAMA_IOS_VARIANT_TYPE_PACKED_STRING_ARRAY);
     // String(from: NodePath) — constructor index 3 in extension_api.json. Lets the set-property
     // value path turn a NodePath Variant into utf8 (no GDExtension NodePath->utf8 exists).
     g_string_from_node_path_constructor = g_variant_get_ptr_constructor(KANAMA_IOS_VARIANT_TYPE_STRING, 3);
@@ -761,6 +774,8 @@ static int kanama_ios_resolve_godot_api(void) {
     g_variant_from_int = g_get_variant_from_type_constructor(KANAMA_IOS_VARIANT_TYPE_INT);
     g_variant_from_bool = g_get_variant_from_type_constructor(KANAMA_IOS_VARIANT_TYPE_BOOL);
     g_variant_from_string = g_get_variant_from_type_constructor(KANAMA_IOS_VARIANT_TYPE_STRING);
+    g_variant_from_packed_string_array =
+        g_get_variant_from_type_constructor(KANAMA_IOS_VARIANT_TYPE_PACKED_STRING_ARRAY);
 
     if (
         g_string_name_destructor == NULL ||
@@ -787,7 +802,8 @@ static int kanama_ios_resolve_godot_api(void) {
         g_variant_from_string_name == NULL ||
         g_variant_from_int == NULL ||
         g_variant_from_bool == NULL ||
-        g_variant_from_string == NULL
+        g_variant_from_string == NULL ||
+        g_variant_from_packed_string_array == NULL
     ) {
         fprintf(stderr, "[kanama][ios][c] error: failed to resolve Godot builtin helpers\n");
         return 0;
@@ -6192,6 +6208,55 @@ static GDExtensionBool kanama_ios_script_instance_set_property(
             instance->runtime_handle, property_index, KANAMA_IOS_PT_COLOR,
             (const uint8_t *)comps, (int32_t)sizeof(comps));
         return (GDExtensionBool)ok;
+    } else if (type == KANAMA_IOS_VARIANT_TYPE_PACKED_STRING_ARRAY
+               && g_variant_to_packed_string_array != NULL) {
+        // List<String> @ScriptProperty delivery. Extract the PackedStringArray from the Variant
+        // into its opaque storage, then iterate via the cached size/operator_index_const builtins
+        // (same trio the no-arg ptrcall return helper uses), dup each element to utf8, and hand
+        // the C string array to the Kotlin runtime entrypoint.
+        kanama_ios_cache_packed_string_methods();
+        if (g_packed_string_array_size_method == NULL ||
+            g_packed_string_array_operator_index_const == NULL) {
+            return 0;
+        }
+        KANAMA_IOS_PACKED_ARRAY_STORAGE(array_storage);
+        g_variant_to_packed_string_array(
+            (GDExtensionUninitializedTypePtr)array_storage,
+            (GDExtensionVariantPtr)(intptr_t)value);
+        int64_t count = 0;
+        g_packed_string_array_size_method(array_storage, NULL, &count, 0);
+        if (count < 0) {
+            count = 0;
+        }
+        const char **strings = NULL;
+        if (count > 0) {
+            strings = (const char **)calloc((size_t)count, sizeof(char *));
+            if (strings == NULL) {
+                if (g_packed_string_array_destructor != NULL) {
+                    g_packed_string_array_destructor(array_storage);
+                }
+                return 0;
+            }
+            for (int64_t i = 0; i < count; i++) {
+                GDExtensionStringPtr str = g_packed_string_array_operator_index_const(
+                    array_storage, (GDExtensionInt)i);
+                strings[i] = (str != NULL)
+                    ? kanama_ios_string_to_utf8_dup((GDExtensionConstStringPtr)str)
+                    : NULL;
+            }
+        }
+        int32_t ok = kanama_ios_runtime_script_instance_set_property_string_array(
+            instance->runtime_handle, property_index, strings, (int32_t)count);
+        if (strings != NULL) {
+            for (int64_t i = 0; i < count; i++) {
+                free((void *)strings[i]);
+            }
+            free(strings);
+        }
+        if (g_packed_string_array_destructor != NULL) {
+            g_packed_string_array_destructor(array_storage);
+        }
+        return (GDExtensionBool)ok;
     } else {
         return 0;
     }
@@ -7539,6 +7604,40 @@ static void kanama_ios_ptrcall_selftest(void) {
         if (g_variant_destroy != NULL) { g_variant_destroy((GDExtensionVariantPtr)variant); }
     } else {
         KANAMA_IOS_ST_CHECK("setprop-vector3", 0);
+    }
+    // PackedStringArray round-trip: build the same Variant shape Godot delivers for
+    // List<String> @ScriptProperty values, extract it through the set-property primitive, and
+    // verify the utf8 element path used by kanama_ios_script_instance_set_property.
+    if (g_variant_from_packed_string_array != NULL && g_variant_to_packed_string_array != NULL) {
+        kanama_ios_cache_packed_string_methods();
+        KANAMA_IOS_PACKED_ARRAY_STORAGE(in_array);
+        KANAMA_IOS_PACKED_ARRAY_STORAGE(out_array);
+        kanama_ios_init_packed_string_array_one(in_array, "walk");
+        uint8_t variant[24] = {0};
+        g_variant_from_packed_string_array(
+            (GDExtensionUninitializedVariantPtr)variant,
+            (GDExtensionTypePtr)in_array);
+        g_variant_to_packed_string_array(
+            (GDExtensionUninitializedTypePtr)out_array,
+            (GDExtensionVariantPtr)variant);
+        int64_t count = 0;
+        if (g_packed_string_array_size_method != NULL) {
+            g_packed_string_array_size_method(out_array, NULL, &count, 0);
+        }
+        GDExtensionStringPtr str = (g_packed_string_array_operator_index_const != NULL && count == 1)
+            ? g_packed_string_array_operator_index_const(out_array, 0)
+            : NULL;
+        char *utf8 = kanama_ios_string_to_utf8_dup((GDExtensionConstStringPtr)str);
+        KANAMA_IOS_ST_CHECK("setprop-packed-string-array",
+            count == 1 && utf8 != NULL && strcmp(utf8, "walk") == 0);
+        free(utf8);
+        if (g_packed_string_array_destructor != NULL) {
+            g_packed_string_array_destructor(out_array);
+            g_packed_string_array_destructor(in_array);
+        }
+        if (g_variant_destroy != NULL) { g_variant_destroy((GDExtensionVariantPtr)variant); }
+    } else {
+        KANAMA_IOS_ST_CHECK("setprop-packed-string-array", 0);
     }
 
     fprintf(stderr, "[kanama][ios][c] PTRCALL SELFTEST MATRIX: %d passed, %d failed\n", pass, fail);
