@@ -24,6 +24,13 @@ data class AABB(
      */
     val size: Vector3,
 ) {
+    /** Godot-style fuzzy compare: true if position and size are approximately equal. */
+    fun isEqualApprox(other: AABB): Boolean =
+        position.isEqualApprox(other.position) && size.isEqualApprox(other.size)
+
+    /** True if position and size are approximately zero. */
+    fun isZeroApprox(): Boolean = position.isZeroApprox() && size.isZeroApprox()
+
     /**
      * The ending point. This is usually the corner on the top-right and back of the bounding box, and
      * is equivalent to `position + size`. Setting this point affects the `size`.

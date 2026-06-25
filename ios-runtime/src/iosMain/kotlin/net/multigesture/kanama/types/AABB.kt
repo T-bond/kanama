@@ -11,6 +11,13 @@ data class AABB(
     val position: Vector3,
     val size: Vector3,
 ) {
+    /** Godot-style fuzzy compare: true if position and size are approximately equal. */
+    fun isEqualApprox(other: AABB): Boolean =
+        position.isEqualApprox(other.position) && size.isEqualApprox(other.size)
+
+    /** True if position and size are approximately zero. */
+    fun isZeroApprox(): Boolean = position.isZeroApprox() && size.isZeroApprox()
+
     companion object {
         val ZERO = AABB(Vector3.ZERO, Vector3.ZERO)
     }

@@ -17,6 +17,13 @@ data class Transform2D(
     val y: Vector2,
     val origin: Vector2,
 ) {
+    /** Godot-style fuzzy compare: true if every column is approximately equal. */
+    fun isEqualApprox(other: Transform2D): Boolean =
+        x.isEqualApprox(other.x) && y.isEqualApprox(other.y) && origin.isEqualApprox(other.origin)
+
+    /** True if every column is approximately zero. */
+    fun isZeroApprox(): Boolean = x.isZeroApprox() && y.isZeroApprox() && origin.isZeroApprox()
+
     companion object {
         /**
          * The identity `Transform2D`: no translation, no rotation, scale of `Vector2.ONE`

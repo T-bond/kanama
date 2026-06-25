@@ -32,6 +32,15 @@ data class Projection(
      */
     val w: Vector4,
 ) {
+    /** Godot-style fuzzy compare: true if every column is approximately equal. */
+    fun isEqualApprox(other: Projection): Boolean =
+        x.isEqualApprox(other.x) && y.isEqualApprox(other.y) &&
+            z.isEqualApprox(other.z) && w.isEqualApprox(other.w)
+
+    /** True if every column is approximately zero. */
+    fun isZeroApprox(): Boolean =
+        x.isZeroApprox() && y.isZeroApprox() && z.isZeroApprox() && w.isZeroApprox()
+
     companion object {
         /**
          * A `Projection` with no transformation defined. When applied to other data structures, no

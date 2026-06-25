@@ -51,6 +51,13 @@ data class Basis(
 
     private constructor(from: Basis, ignored: Unit) : this(from.x, from.y, from.z)
 
+    /** Godot-style fuzzy compare: true if every axis is approximately equal. */
+    fun isEqualApprox(other: Basis): Boolean =
+        x.isEqualApprox(other.x) && y.isEqualApprox(other.y) && z.isEqualApprox(other.z)
+
+    /** True if every axis is approximately zero. */
+    fun isZeroApprox(): Boolean = x.isZeroApprox() && y.isZeroApprox() && z.isZeroApprox()
+
     operator fun times(vector: Vector3): Vector3 =
         x * vector.x + y * vector.y + z * vector.z
 

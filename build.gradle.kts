@@ -143,6 +143,12 @@ dependencies {
     "implementation"(project(":annotations"))
     "implementation"("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.11.0")
     "ksp"(project(":processor"))
+    "testImplementation"(kotlin("test-junit5"))
+    "testRuntimeOnly"("org.junit.platform:junit-platform-launcher")
+}
+
+tasks.withType<Test>().configureEach {
+    useJUnitPlatform()
 }
 
 fun hostNativeBootstrapArtifactName(): String {

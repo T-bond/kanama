@@ -16,6 +16,13 @@ data class Transform3D(
     val basis: Basis,
     val origin: Vector3,
 ) {
+    /** Godot-style fuzzy compare: true if basis and origin are approximately equal. */
+    fun isEqualApprox(other: Transform3D): Boolean =
+        basis.isEqualApprox(other.basis) && origin.isEqualApprox(other.origin)
+
+    /** True if basis and origin are approximately zero. */
+    fun isZeroApprox(): Boolean = basis.isZeroApprox() && origin.isZeroApprox()
+
     /**
      * Returns the inverse of this transform, assuming its [basis] is orthonormal (a pure
      * rotation, no scale/shear). Godot computes this the fast way — transposing the basis

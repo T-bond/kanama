@@ -33,6 +33,13 @@ data class Transform3D(
      */
     val origin: Vector3,
 ) {
+    /** Godot-style fuzzy compare: true if basis and origin are approximately equal. */
+    fun isEqualApprox(other: Transform3D): Boolean =
+        basis.isEqualApprox(other.basis) && origin.isEqualApprox(other.origin)
+
+    /** True if basis and origin are approximately zero. */
+    fun isZeroApprox(): Boolean = basis.isZeroApprox() && origin.isZeroApprox()
+
     operator fun times(vector: Vector3): Vector3 =
         basis * vector + origin
 

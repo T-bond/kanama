@@ -23,6 +23,13 @@ data class Basis(
     private constructor(columns: Triple<Vector3, Vector3, Vector3>) :
         this(columns.first, columns.second, columns.third)
 
+    /** Godot-style fuzzy compare: true if every axis is approximately equal. */
+    fun isEqualApprox(other: Basis): Boolean =
+        x.isEqualApprox(other.x) && y.isEqualApprox(other.y) && z.isEqualApprox(other.z)
+
+    /** True if every axis is approximately zero. */
+    fun isZeroApprox(): Boolean = x.isZeroApprox() && y.isZeroApprox() && z.isZeroApprox()
+
     /** Returns a copy with the x/y/z axis replaced (matches desktop Basis.withX/withY/withZ). */
     fun withX(value: Vector3): Basis = Basis(value, y, z)
     fun withY(value: Vector3): Basis = Basis(x, value, z)
