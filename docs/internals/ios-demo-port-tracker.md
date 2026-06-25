@@ -25,11 +25,93 @@ experimental: this is demo parity, not desktop-level support.
 ## Build / Deploy Pointers
 
 - Build-check a demo's scripts with `installIosAddon` and a full Xcode `DEVELOPER_DIR`.
-- Deploy/launch with `kanama-demos/scripts/ios_device_run.sh`.
+- Deploy/launch one demo with `kanama-demos/scripts/ios_device_run.sh`.
+- Run the repeatable physical-device gate with `scripts/ios_device_gate.sh`.
 - Use `xcrun devicectl device process launch --console` for gameplay crashes; the runtime logs script
   resource/instance creation and registered method calls.
 - Keep device IDs, signing values, and exact local commands in the private handoff, not here.
 - Warn before a device launch when the phone may be locked.
+
+## Device Gate Procedure
+
+The public physical-device gate covers the current nine-demo matrix and a fresh starter-project install
+path. It is intentionally environment-driven so public files never contain device UDIDs, Apple team IDs,
+provisioning profile names, or workstation paths.
+
+Prerequisites:
+
+- Godot 4.7 stable and matching iOS export templates installed.
+- Full Xcode app selected through `DEVELOPER_DIR` or `--xcode-select`.
+- A trusted, unlocked physical iPhone with Developer Mode enabled.
+- The Apple Development profile for the signing account trusted on the device
+  (`Settings` -> `General` -> `VPN & Device Management`).
+- Local signing values exported from private maintainer notes:
+  `KANAMA_IOS_DEVICE` and `KANAMA_IOS_TEAM`.
+- The companion `kanama-demos` checkout available next to this repo or passed with `--demos-root`.
+
+Run the full gate from the Kanama checkout:
+
+```sh
+KANAMA_IOS_DEVICE=<private-device-udid> \
+KANAMA_IOS_TEAM=<private-apple-team-id> \
+scripts/ios_device_gate.sh \
+  --godot /Applications/Godot.app/Contents/MacOS/Godot \
+  --device-label "iPhone model, iOS version" \
+  --allow-provisioning-updates
+```
+
+When the signing account is limited to a small number of installed free-development apps, use a single
+already-provisioned bundle ID for copied demo exports:
+
+```sh
+KANAMA_IOS_DEVICE=<private-device-udid> \
+KANAMA_IOS_TEAM=<private-apple-team-id> \
+scripts/ios_device_gate.sh \
+  --gate-bundle-id <locally-provisioned-bundle-id>
+```
+
+The gate copies demo projects into its output directory before patching the bundle ID, so the companion
+demo checkout is not modified.
+
+The gate runs:
+
+1. Fresh starter project: `createStarterProject` -> `installIosAddon` with project scripts -> Godot iOS
+   export -> Xcode build -> device install -> launch.
+2. Bunnymark.
+3. Starter-Kit-Match3.
+4. Starter-Kit-3D-Platformer.
+5. godot-demo-2d-dodge-the-creeps.
+6. godot-demo-3d-squash-the-creeps.
+7. godot-4-3d-character-controller.
+8. Starter-Kit-Racing.
+9. Starter-Kit-FPS.
+10. godot-4-3d-third-person-controller.
+
+Record only public-safe baseline data here: device model, iOS version, Godot version, pass/fail, rough
+load or gate elapsed time, and observed FPS/readouts where the app exposes them. Keep raw logs, device
+UDIDs, signing team IDs, local output paths, and exact private shell commands in maintainer notes.
+The gate removes older known Kanama iOS gate apps before installing the next app by default, but leaves
+the active app installed. This avoids most free-profile installed-app limit failures without causing the
+device to forget the currently trusted app.
+
+## Device Gate Baselines
+
+Last full gate refresh: 2026-06-25 on iPhone 12, iOS 26.5, with Godot 4.7 stable. The demo matrix
+used a reusable locally provisioned bundle ID for copied demo exports after the first two demos, so only
+one gate app needed to remain installed on the device.
+
+| Path | Device / OS | Godot | Result | Load / gate elapsed | FPS / readout | Notes |
+|---|---|---|---|---:|---|---|
+| Fresh starter project | iPhone 12, iOS 26.5 | 4.7 stable | Pass | 195s | Probe label ready | Fresh `createStarterProject` + `installIosAddon` path. |
+| Bunnymark | iPhone 12, iOS 26.5 | 4.7 stable | Pass | 186s | FPS/readout visible on device; not machine-captured | Built, installed, and launched with its demo bundle ID. |
+| Starter-Kit-Match3 | iPhone 12, iOS 26.5 | 4.7 stable | Pass | 182s build/install + direct launch retry | Visual launch pass | Initial launch required trusting the development profile after install. |
+| Starter-Kit-3D-Platformer | iPhone 12, iOS 26.5 | 4.7 stable | Pass | 18s warm build/install + direct launch retry | Visual launch pass | Reused the locally provisioned Match3 bundle ID from a copied demo export. |
+| godot-demo-2d-dodge-the-creeps | iPhone 12, iOS 26.5 | 4.7 stable | Pass | 183s | Visual launch pass | Copied demo export with reusable gate bundle ID. |
+| godot-demo-3d-squash-the-creeps | iPhone 12, iOS 26.5 | 4.7 stable | Pass | 188s | Visual launch pass | Copied demo export with reusable gate bundle ID. |
+| godot-4-3d-character-controller | iPhone 12, iOS 26.5 | 4.7 stable | Pass | 189s | Visual launch pass | Copied demo export with reusable gate bundle ID. |
+| Starter-Kit-Racing | iPhone 12, iOS 26.5 | 4.7 stable | Pass | 187s | Visual launch pass | Copied demo export with reusable gate bundle ID. |
+| Starter-Kit-FPS | iPhone 12, iOS 26.5 | 4.7 stable | Pass | 191s | Visual launch pass | Copied demo export with reusable gate bundle ID. |
+| godot-4-3d-third-person-controller | iPhone 12, iOS 26.5 | 4.7 stable | Pass | 265s | Visual launch pass | Copied demo export with reusable gate bundle ID. |
 
 ## Generator Gotcha
 
