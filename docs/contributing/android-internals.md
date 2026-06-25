@@ -1,13 +1,14 @@
 # Android Internals
 
 This page records the current Android implementation path. Android is an
-experimental Kanama target for the Godot 4.7 stable preview baseline, and the
+experimental Kanama target for the Godot 4.7 stable baseline, and the
 API/build flow is less settled than the desktop path.
 
 ## What Works
 
 Eight Kanama demo exports are Android smoke targets. The Godot 4.7 stable
-Android matrix is pending revalidation:
+emulator smoke path has re-passed for Starter-Kit-Match3; Pixel 7 hardware
+coverage remains pending before a stronger Android claim:
 
 - `godot-demo-2d-dodge-the-creeps`
 - `Starter-Kit-3D-Platformer`

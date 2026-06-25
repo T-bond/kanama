@@ -1,7 +1,7 @@
 # Android Experimental
 
 Kanama's Android path is experimental for the v0.2.2 line and currently tracks
-the Godot 4.7 stable preview baseline. It proves that Kanama can run inside a
+the Godot 4.7 stable baseline. It proves that Kanama can run inside a
 stock Godot Android export through a Godot Android plugin AAR, without a Godot
 fork and without custom JNI in game code.
 
@@ -14,10 +14,10 @@ for testing Kanama games on Android.
 
 ## Current Status
 
-Eight public demo exports are Android smoke targets. The stable Android matrix
-is pending revalidation; the last completed Android matrix had emulator
-validation and Pixel 7 startup/playability coverage, while remaining an
-experimental physical-device path:
+Eight public demo exports are Android smoke targets. The Godot 4.7 stable
+emulator smoke path has re-passed for Starter-Kit-Match3; Pixel 7 hardware
+startup/playability coverage is still pending for the stable baseline, so
+Android remains experimental:
 
 | Demo | Current Result |
 |---|---|
@@ -30,11 +30,10 @@ experimental physical-device path:
 | `godot-4-3d-character-controller-tutorial` | Android export preset and smoke target with virtual joystick controls. |
 | `godot-4-3d-third-person-controller` | Android export preset and smoke target with virtual joysticks and warmup coverage for gameplay hitches. |
 
-Pixel 7 coverage in the last completed Android matrix includes manual
-playability checks for the
-Android-enabled demos in addition to startup/screenshot smoke checks. Android
-still remains experimental; these checks validate the preview path, not
-production mobile support.
+Pixel 7 coverage in the last completed pre-stable matrix included manual
+playability checks for the Android-enabled demos in addition to
+startup/screenshot smoke checks. Re-run the hardware matrix before making a
+stronger Android support claim.
 
 The validated Android demos currently use Godot's OpenGL Compatibility renderer.
 Desktop demos can continue using their normal renderer. Vulkan/Mobile-renderer
@@ -74,7 +73,7 @@ Current experimental values:
 
 | Tool | Version / Setting |
 |---|---|
-| Godot | 4.7 stable preview |
+| Godot | 4.7 stable |
 | Godot Android export template AGP | 8.6.1 |
 | Godot Android export template compile SDK | 36 |
 | Godot Android export template target SDK | 36 |

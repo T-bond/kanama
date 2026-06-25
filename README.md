@@ -43,15 +43,16 @@ a separate release-readiness track.
 Android support is experimental for the v0.2.2 line: the current workflow builds
 a Godot Android plugin AAR, uses
 [PanamaPort](https://github.com/vova7878/PanamaPort) from Maven Central for the
-Android FFM layer, and keeps APK smoke validation as a separate gate. Godot 4.7
-stable Android export revalidation is pending before updating Android support
-claims.
+Android FFM layer, and keeps APK smoke validation as a separate gate. The Godot
+4.7 stable emulator smoke path has re-passed; Pixel 7 hardware validation remains
+the gate before a stronger Android support claim.
 
 iOS support is an experimental Kotlin/Native backend: a C GDExtension shim plus
 a Kotlin/Native static `.xcframework` run full Kanama project scripts through the
-same wrapper generator as desktop/Android, with no JVM on device. Match3 and the
-Kenney 3D platformer are device-validated end to end. iOS remains experimental,
-not a supported export — see the
+same wrapper generator as desktop/Android, with no JVM on device. The core iOS
+self-test and the current demo corpus have playable device runs, with FPS Audio
+autoload still tracked as a follow-up. iOS remains experimental, not a supported
+export — see the
 [iOS (Experimental)](docs/exporting/ios.md) and
 [iOS backend roadmap](docs/internals/ios-backend-roadmap.md).
 
@@ -89,7 +90,8 @@ Experimental Android export workflow:
 
 - Godot 4.7 stable Android export templates from the
   [Godot 4.7 stable archive](https://godotengine.org/download/archive/4.7-stable/);
-  Kanama's stable Android APK smoke matrix is pending revalidation
+  Kanama's stable emulator smoke path has re-passed, and Pixel 7 hardware
+  validation remains pending
 - Android SDK API 36, build-tools 36.1.0, and NDK 29.0.14206865 for Godot export
 - CMake 3.22.1 for the Kanama Android plugin native bootstrap
 - JDK 21 for Android Gradle/export tooling

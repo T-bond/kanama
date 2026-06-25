@@ -114,7 +114,7 @@ wrapper API as desktop/Android runs on device with the platform seam isolated in
 `ObjectCalls`. iOS remains experimental, not a supported export; see the
 [iOS (Experimental)](../exporting/ios.md) and
 [iOS backend architecture](../internals/ios-backend-architecture.md) for the
-audited-type and bridge gaps.
+current validation state and remaining support gates.
 
 ## Initialization (one-time, when Godot loads us)
 

@@ -9,7 +9,6 @@ AGENTS.md.)
 |---|---|
 | [ios-demo-port-tracker.md](./ios-demo-port-tracker.md) | **Start here for iOS demo work.** Status of each ported demo, resumable task cards (death plane, Racing steering, Bunnymark label, FPS, third-person), key iOS-backend facts + gotchas. |
 | [ios-backend-roadmap.md](./ios-backend-roadmap.md) | iOS backend status + the per-demo status table. |
-| [wrapper-coverage-roadmap.md](./wrapper-coverage-roadmap.md) | Master ordered plan to take the wrapper generator to full Godot 4 coverage on all targets. |
 | [wrapper-coverage-tracker.md](./wrapper-coverage-tracker.md) | Live execution state for the wrapper-coverage roadmap (update in the same commit as the work). |
 
 ## Reference — evergreen, read to understand the system
@@ -18,6 +17,7 @@ AGENTS.md.)
 | [ios-backend-architecture.md](./ios-backend-architecture.md) | How Kanama runs Kotlin scripts on iOS (C-shim ptrcall, the shared wrapper generator, script model). |
 | [ios-backend-handwritten.md](./ios-backend-handwritten.md) | **Generated report** (do not edit; run `scripts/ios_handwritten_report.py`) of hand-written/stub iOS classes. |
 | [architecture-review-2026-06.md](./architecture-review-2026-06.md) | Point-in-time architecture/performance review (June 2026). |
+| [wrapper-coverage-roadmap.md](./wrapper-coverage-roadmap.md) | Mostly-completed roadmap for full wrapper/iOS coverage; use the tracker for live state. |
 
 ## Historical — design records for completed phases (kept for context)
 | File | What it is |

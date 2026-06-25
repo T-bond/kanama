@@ -32,12 +32,21 @@ flowchart LR
 See [Architecture → iOS](../contributing/architecture.md#ios-experimental) for
 how this maps onto the desktop/Android runtime model.
 
-Match3 and the Kenney 3D platformer are device-validated end to end — live virtual-joystick
-input, signals (incl. the platformer coin scoring), animation, and scene reload — with a
-ptrcall self-test matrix and 0 guardrail hits, and ~0.63 ms/frame Kanama binding overhead on
-iPhone 12. iOS is still **experimental, not a supported export**: the audited type set is
-conservative (see the [iOS roadmap](../internals/ios-backend-roadmap.md) for the
-type/bridge gaps that gate broader demos).
+The core iOS self-test matrix is device-validated with 0 guardrail hits, and
+per-frame Kanama binding overhead measured ~0.63 ms/frame on iPhone 12. The current
+demo corpus has also reached playable device runs on iPhone 15 Pro (Match3, 3D
+Platformer, Bunnymark, dodge, squash, Racing, character-controller, FPS, and
+third-person). iOS is still **experimental, not a supported export**: the remaining
+work is export-workflow polish, broader validation, and the explicit backlog in the
+[iOS roadmap](../internals/ios-backend-roadmap.md).
+
+This covers the same Android-enabled public demo set currently listed for Android,
+plus Bunnymark. FPS is playable but still has an intermittent Audio autoload follow-up.
+
+This means iOS is not at desktop support level, and it should not be presented as a
+production mobile target. Treat it as a validated experimental backend: useful for
+Kanama development and demo/device testing, but not yet a release-supported export
+path for user projects.
 
 ## Build The iOS Artifacts
 
@@ -106,11 +115,10 @@ ios.release.arm64 = "res://addons/kanama/bin/ios/kanama_ios.release.xcframework"
 - Simulator startup is optional for compile/link debugging and should not be
   used to judge iOS frame rate or gameplay feel.
 - Hot reload is out of scope for the iOS backend.
-- The audited type set is intentionally conservative: shapes like Vector2i/3i,
-  Transform3D, Color/RID, and String-return ptrcall are gated, and full KSP
-  annotation parity and `commonMain` source sharing are still on the backlog.
-  See [ios-backend-roadmap.md](../internals/ios-backend-roadmap.md) for the live
-  gap list and per-demo readiness.
+- The audited type set and KSP registration path cover the current demo corpus.
+  Remaining support work is tracked explicitly in
+  [ios-backend-roadmap.md](../internals/ios-backend-roadmap.md), including export
+  workflow polish, `@Rpc` config delivery, and `commonMain` source sharing.
 - The runtime calls Godot through backend-neutral generated wrappers and prefers
   cached typed `ptrcall`s over Variant-heavy or allocation-heavy paths.
 
@@ -126,8 +134,10 @@ With `--kanama-script-probe`, it attaches a `.kt` script resource to a normal
 Godot script instance, enter Kotlin/Native from `_ready`, and call back into
 Godot through a cached typed `ptrcall`.
 
-These modes still do not prove general Kanama script execution, KSP-generated
-registrars, project-specific Kotlin/Native compilation, or hot reload.
+Use `--kanama-user-script-probe` when you need to prove general Kanama script
+execution through KSP-generated registrars and project-specific Kotlin/Native
+compilation. The lighter probes are still useful loader/render checks; none of
+the modes prove hot reload.
 
 ```sh
 KANAMA_IOS_DEVICE=00008101-000E109E3C63001E \
@@ -156,6 +166,17 @@ KANAMA_IOS_TEAM=DVZT29Q4QT \
 scripts/ios_visual_smoke.sh \
   --godot /Applications/Godot.app/Contents/MacOS/Godot \
   --kanama-script-probe \
+  --allow-provisioning-updates
+```
+
+Run the full user-script/KSP probe with:
+
+```sh
+KANAMA_IOS_DEVICE=00008101-000E109E3C63001E \
+KANAMA_IOS_TEAM=DVZT29Q4QT \
+scripts/ios_visual_smoke.sh \
+  --godot /Applications/Godot.app/Contents/MacOS/Godot \
+  --kanama-user-script-probe \
   --allow-provisioning-updates
 ```
 

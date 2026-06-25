@@ -1,5 +1,11 @@
 # Unified Script Model — Design (Phase 3.1)
 
+> **Historical design record:** Phase 3 is complete. The regex parser was deleted,
+> the shared KSP model now drives iOS registration, and generic per-signature
+> `callV` dispatch is in use. This page is kept for design context; use
+> [wrapper-coverage-tracker.md](./wrapper-coverage-tracker.md) for the final
+> implementation state.
+
 Design record for roadmap task 3.1 (`wrapper-coverage-roadmap.md`): make the
 KSP processor emit a **serialized, platform-neutral script model** that the iOS
 build consumes, so `@ScriptClass` registration has one source of truth instead

@@ -1,5 +1,11 @@
 # Wrapper Generator — Full Godot 4 Coverage Roadmap
 
+> **Current status:** this roadmap is now mostly historical. Phases 1, 2, 3, 4.1,
+> 4.2, 4.5, and 5 are complete; 4.3 (`commonMain` wrapper unification) remains a
+> deferred design/migration decision, and 4.4 (`GodotReal` centralization) remains
+> low priority. The live execution log is
+> [wrapper-coverage-tracker.md](./wrapper-coverage-tracker.md).
+
 Ordered plan to take the shared wrapper generator
 (`scripts/generate_api_wrapper.py`) to full Godot 4 API coverage on all
 three platforms (desktop, Android, iOS), and to retire the remaining
@@ -23,8 +29,8 @@ Each task carries a **model tag** for implementation sessions:
 | Skips: hand-shaped (GodotObject root, RefCounted lifetime) | 51 (deliberate, stays hand-shaped) |
 | Skips: unsupported helper shapes | ~60 (Array/Variant/Dictionary/RID/Packed* returns, `String+bitfield+int64` args, …) |
 | Skips: Callable args | 6 (ownership-sensitive, needs design) |
-| iOS | Same generator, gated by the **audited type set**; unaudited shapes skipped. 3 STUB / 10 HANDWRITTEN / 1 SUGAR marked sites (`ios-backend-handwritten.md`) — down from 12/10/5 after the Phase 2 audited-set widening |
-| iOS script registration | **Unified on the KSP model (Phase 3 DONE, 2026-06-16).** The regex parser is deleted; the shared processor emits the iOS registry + generic per-signature `callV`; all lifecycle/input virtuals wired. Device-validated on iPhone 12. |
+| iOS | Same generator, gated by the audited type set; unaudited shapes skipped. `ios-backend-handwritten.md` reports **0 STUB / 10 HANDWRITTEN / 0 SUGAR**; the remaining hand-written sites are platform/runtime glue, not silent API gaps. |
+| iOS script registration | **Unified on the KSP model (Phase 3 DONE).** The regex parser is deleted; the shared processor emits the iOS registry + generic per-signature `callV`; lifecycle/input and `@OverrideVirtual` paths are wired. Device-validated on iPhone 12. |
 
 "Full coverage" therefore decomposes into five ordered phases. Phases 1–2
 are independent streams (can interleave); 3 depends on 2; 4 on 3; 5 is the

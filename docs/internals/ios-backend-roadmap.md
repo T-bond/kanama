@@ -6,17 +6,40 @@ guardrails that protect it, and the remaining backlog. Deep design lives in
 hand-written sites is [ios-backend-handwritten.md](./ios-backend-handwritten.md). Phase history
 is in [wrapper-coverage-tracker.md](./wrapper-coverage-tracker.md).
 
-**Status (refreshed 2026-06-23):** experimental, but the engine-capability gap to desktop/Android
-is essentially closed. **222 wrapper classes** emitted — the full reachable Node|Resource runtime
-closure plus the networking/crypto subtree and the bare-`Object` utility floor (a BFS over emitted
-classes' Object args/returns reaches 0 not-yet-emitted in-scope classes). The audited type set is
-complete for runtime use; the KSP script-model is unified across all targets; arbitrary virtual
-overrides work. Device-validated on iPhone 12: self-test matrix **PTRCALL 54 / OBJECTCALLS 78, 0
-failed**, ~0.63 ms/frame Kanama overhead. **6 demos device-validated/playable** on iPhone 15 Pro
-(Bunnymark, Match3, 3D-Platformer, dodge, squash, character-controller — 2026-06-23) + **Racing
-runs** (steering joystick + camera-follow gaps, below); FPS + third-person still blocked by residual
-iOS wrapper gaps (now narrower — see table); 2 demos on hold (City-Builder, tps). The remaining distance to a *supported* iOS export
-is **widening the iOS wrapper surface** for the blocked demos + export-workflow polish.
+**Status (refreshed 2026-06-25):** experimental, but the engine-capability gap to desktop/Android
+is essentially closed for the current demo corpus. **222 wrapper classes** emitted — the full
+reachable Node|Resource runtime closure plus the networking/crypto subtree and the bare-`Object`
+utility floor (a BFS over emitted classes' Object args/returns reaches 0 not-yet-emitted in-scope
+classes). The audited type set is complete for runtime use; the KSP script-model is unified across
+all targets; arbitrary virtual overrides work. Device-validated on iPhone 12: self-test matrix
+**PTRCALL 54 / OBJECTCALLS 78, 0 failed**, ~0.63 ms/frame Kanama overhead. Device-validated/playable
+on iPhone 15 Pro: Bunnymark, Match3, 3D-Platformer, dodge, squash, character-controller, Racing,
+FPS, and third-person. FPS has one intermittent Audio autoload SIGSEGV follow-up. City-Builder and
+tps remain on hold. The remaining distance to a *supported* iOS export is mostly export-workflow
+polish, broader non-demo validation, and the remaining explicit backlog items below.
+
+That means iOS now covers the current Android-enabled public demo set (Match3, 3D-Platformer, dodge,
+squash, FPS, Racing, character-controller, and third-person), plus Bunnymark. The difference is support
+level, not demo breadth: Android still has a Pixel 7 gate pending on 4.7 stable, while iOS has broader
+recent physical-device demo playability but remains an experimental export path with the gates below.
+
+## Support Level
+
+iOS is **not supported at the same level as desktop**. Desktop is the primary validated runtime and
+package target for the 0.2.2 preview line. iOS is also **not a stronger claim than Android** yet:
+it has broader recent physical-device demo playability than Android's current 4.7 stable matrix, but
+it is still an experimental export path and has not gone through release-grade packaging/support
+gates.
+
+The roadmap to changing that claim is:
+
+1. Clear the known gameplay/runtime follow-up: FPS Audio autoload `_ready` intermittent SIGSEGV.
+2. Turn `docs/exporting/ios.md` into a complete user-facing export workflow, not just the smoke/demo
+   harness path.
+3. Re-run a broader physical-device matrix after export-workflow polish, including the current demo
+   corpus and at least one fresh project install path.
+4. Decide whether deferred gaps (`@Rpc` config delivery, `commonMain` wrapper sharing, long-tail
+   virtual return shapes) are support blockers or documented limitations.
 
 ## Architecture in one paragraph
 
@@ -115,7 +138,7 @@ target (no iOS-specific parser). See architecture.md for the ptrcall width table
   iOS-GDScript math to the ULP). To change later: add an iOS `UtilityCalls` path (C shim using
   `variant_get_ptr_utility_function` + cinterop + a Kotlin helper) and migrate `Mathf`/`GD` scalar fns.
 
-## Demo iOS coverage (per-demo readiness — re-assessed 2026-06-22)
+## Demo iOS coverage (per-demo readiness — re-assessed 2026-06-25)
 
 The old per-demo "tiers" were gated on Vector2i/3i, Transform3D, and the input annotations — **all
 now closed**, so the tiers are obsolete. Current readiness: most Android-enabled demos should port;
@@ -128,10 +151,10 @@ each port is **port + device-validate** (a port can still surface a residual gap
 | Bunnymark | 2D | **Device-validated** | device-validated on iPhone 12 (2026-06-23) |
 | godot-demo-2d-dodge-the-creeps | 2D | **Device-validated (playable)** | plays on iPhone 15 Pro: Start + touch controls. Fix: `emitSignal` dropped no-arg custom signals (Start→new_game). Plus `PathFollow2D` (generated), `Input.isActionPressed`, `Mathf.PI`, instance `SceneTree.delaySeconds`/`callGroup`, `AudioStreamPlayer.stop`, `Vector2.normalized`/`clamp` |
 | godot-demo-3d-squash-the-creeps | 3D | **Device-validated (playable)** | plays on iPhone 15 Pro + touch controls. Needed: `PathFollow3D`+`RenderingServer` (generated), `Mathf.PI`, `Vector3.FORWARD`, `Input.isActionPressed`, `Basis.lookingAt`, `Light3D.lightEnergy`, `GodotObject` AutoCloseable (getSlideCollision `.use`) |
-| Starter-Kit-Racing | 3D | **Runs (2 gaps)** | runs on device. GAPS: no steering — `VirtualJoystick` node type not on iOS; camera doesn't follow — `View.target` is a `node_paths` **object** `@ScriptProperty` (object refs from node_paths not delivered to Kotlin on iOS). Build needed: `RayCast3D` (generated), `GD.signf`/`lerpf`/`clampf`/`lerpAngle`/`remap`, `Vector3.signedAngleTo`/`moveToward`, `Transform3D.withBasis`/`withOrigin`, `Basis.withX`/`withY`/`withZ`+`*Vector3`, `@GlobalClass` |
-| Starter-Kit-FPS | 3D | **Playable (F1; Audio _ready SIGSEGV follow-up F2)** | added: `AnimatedSprite3D`+`SpriteBase3D` (generated), `Tween.bindNode`/`setEase`/`tweenCallback`/`EASE_OUT_IN` (tween_callback C shim), `Object.hasMethod`/`isQueuedForDeletion`, `Resource.loadPackedScene`, `AudioStreamPlayer.setStream(null)`, `Resource.fromHandle` (non-null), `GD.degToRad`/`radToDeg`. KSP emitter: arg-bearing `<Class>Methods` dispatchers + `List<UserScript>` @ScriptProperty delivery (was silently dropped — the crash root cause). Follow-up: intermittent SIGSEGV in Audio autoload `_ready` (pre-existing lambda-connect infra) |
+| Starter-Kit-Racing | 3D | **Device-validated (playable)** | steering joystick + camera-follow validated. `VirtualJoystick` is a built-in Godot 4.7 class and is in the iOS template; the required demo-side fix was making `MobileControls` visible on iOS. |
+| Starter-Kit-FPS | 3D | **Device-validated (playable; F2 follow-up)** | added: `AnimatedSprite3D`+`SpriteBase3D` (generated), `Tween.bindNode`/`setEase`/`tweenCallback`/`EASE_OUT_IN` (tween_callback C shim), `Object.hasMethod`/`isQueuedForDeletion`, `Resource.loadPackedScene`, `AudioStreamPlayer.setStream(null)`, `Resource.fromHandle` (non-null), `GD.degToRad`/`radToDeg`. KSP emitter: arg-bearing `<Class>Methods` dispatchers + `List<UserScript>` @ScriptProperty delivery. Follow-up: intermittent SIGSEGV in Audio autoload `_ready` (pre-existing lambda-connect infra) |
 | godot-4-3d-character-controller | 3D | **Device-validated (playable)** | plays on iPhone 15 Pro. Crash fix: `AnimationMixer.getStateMachinePlayback` must wrap the raw `MemorySegment` that iOS Variant-call decodes for OBJECT returns (was throwing in `SophiaSkin.ready`). Plus `AnimationNodeStateMachinePlayback`+`BaseMaterial3D` (generated), `@GlobalClass`/`PropertyHint`, `InputEventKey.KEY_*`, `InputEventMouseMotion.from`, `Viewport.getCamera3D`, `AnimationMixer.setParameter`/`getStateMachinePlayback`, `BaseMaterial3D.fromMaterial`, `SceneTree.setPaused`/`unloadCurrentScene`/`getRoot`, `MainThread.postAfterFrames`/`awaitNextFrame`, `Basis*Vector3`, `Mathf.moveToward`/`isEqualApprox`. Death-plane fix: the C per-frame hook (`kanama_ios_frame`) self-disabled after 30 frames, killing `MainThread.pumpNextFrame()` and all frame-deferred logic; made it persistent (`KillPlane3D` deferred respawn now works) |
-| godot-4-3d-third-person-controller | 3D | **Blocked (narrowed)** | now available: `RayCast3D`/`OS`, `AnimationNodeStateMachinePlayback`, `@GlobalClass`/`PropertyHint`, `Vector3.FORWARD`/`BACK`/`DOWN`/`RIGHT`/`signedAngleTo`/`moveToward`, `Input` mouse-mode/getVector/isActionPressed + `KEY_*`, `Transform3D.withBasis`/`withOrigin`, `SceneTree.unloadCurrentScene`/`getRoot`/`setPaused`, `MainThread.awaitNextFrame`/`postAfterFrames`, `GD.lerpAngle`. Still missing: `SpringArm3D`, `ShapeCast3D`, `MeshDataTool`, `SurfaceTool`, `MultiMeshInstance3D`, `WorldEnvironment`, `InputMap`, `ProjectSettings`, `Engine`, `PhysicsServer3D`, `Time`, `Quaternion.fromEuler`, `Object.hasMethod`/`call`/`isInstanceValid`/`getInstanceId`, `Resource.loadPackedScene`/`loadAudioStream`, `Tween.tweenCallback`/`tweenMethod`/`setPaused` |
+| godot-4-3d-third-person-controller | 3D | **Device-validated (playable)** | validated on iPhone 15 Pro. Fixed on-device: Vector3-in-Variant attack crash, Mobile/Vulkan rendering for the demo's Forward+-authored visuals, and `List<String>`/`PackedStringArray` `@ScriptProperty` delivery for looping enemy walk animations. |
 | Starter-Kit-City-Builder | 2D | Hold | GridMap + `List<custom-class>` `@ScriptProperty` (also not an Android demo) |
 | tps-demo-kanama | 3D | **Blocked** | `@Rpc` multiplayer config delivery (the one real backlog gate) |
 

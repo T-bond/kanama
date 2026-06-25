@@ -7,9 +7,10 @@ per-demo coverage see [ios-backend-roadmap.md](./ios-backend-roadmap.md); for th
 hand-written/stub registry see
 [ios-backend-handwritten.md](./ios-backend-handwritten.md).
 
-> **Status:** experimental but proven viable — Match3 and the Kenney 3D platformer
-> are device-validated end to end. iOS is not yet a supported export. This page
-> describes the shipped architecture; the backlog of gated types/features lives in
+> **Status:** experimental but proven viable — the core smoke matrix and the
+> main iOS demo ports are device-validated on real iPhones. iOS is not yet a
+> supported export. This page describes the shipped architecture; live demo
+> status and remaining support gates live in
 > [ios-backend-roadmap.md](./ios-backend-roadmap.md).
 
 ## Why iOS is different from desktop/Android
@@ -21,9 +22,13 @@ entry points and bridges to the Kotlin/Native runtime via `@CName` exports.
 
 What works today (verified on iPhone 12 + iPhone 15 Pro): script loading + lifecycle,
 `@OnReady`/`@OnProcess`/`@OnPhysicsProcess`/`@OnInput`/`@RegisterFunction`,
-`@ScriptProperty` (incl. List/object types), `@Signal` registration, named + lambda
-signal connections (custom Godot Callable), `await`, and AudioStreamPlayer playback.
-Match3 runs at 60fps.
+`@OverrideVirtual` for engine virtuals, `@ScriptProperty` (including value types,
+object lists, user-script lists, and `List<String>`/`PackedStringArray` delivery),
+`@Signal` registration, named + lambda signal connections (custom Godot Callable),
+`await`, scene reload, and AudioStreamPlayer playback. Match3, 3D Platformer,
+Bunnymark, dodge, squash, Racing, character-controller, FPS, and third-person have
+all reached playable device runs; FPS still has an intermittent Audio autoload
+SIGSEGV follow-up.
 
 ## Components
 

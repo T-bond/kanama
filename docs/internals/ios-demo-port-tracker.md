@@ -7,7 +7,7 @@ session without replaying prior history.
 > **Private bits (device UDIDs, exact local-path commands, raw logs) are kept in the loose private
 > handoff outside this public repo** (per AGENTS.md). This file stays public-safe.
 
-- **Repos / branch:** `kanama` and `kanama-demos`, both on `ios-demo-ports`.
+- **Repos / branch:** `kanama` and `kanama-demos`, both on `main` for the merged iOS demo-port work.
 - **Devices:** a paired iPhone 15 Pro (primary) + iPhone 12; UDIDs/team in the private handoff.
 - **Goal/scope:** parity-first — get the demos building + playable on iOS, fixing the underlying
   iOS-runtime/library bugs they expose (don't hack the demos). Prefer generation over hand-writing
@@ -123,7 +123,7 @@ file before copying. Generator + iOS custom sections: `scripts/generate_api_wrap
   `add_child`, so no Kotlin rebuild/dual-target needed. In landscape the safe-area *top* inset is tiny,
   hence the fixed margin. Device-validated on iPhone 15 Pro.
 
-## Remaining tasks (each resumable on its own)
+## Remaining / Follow-up Tasks
 
 ### F2. FPS Audio autoload `_ready` SIGSEGV (intermittent)
 FPS demo is otherwise playable (F1 done). The Audio autoload's `_ready` creates 12 `AudioStreamPlayer`s
@@ -134,7 +134,7 @@ intermittent — works after restart). Suspect the loop-captured `player` lambda
 lifetime under 12 rapid `connect`s. Pull the `.ips` for the native backtrace (idevicecrashreport could
 not see the network-paired device this session; try USB or `xcrun devicectl`).
 
-### T1. third-person (`godot-4-3d-third-person-controller`) — PLAYABLE on device (2026-06-24)
+### T1. third-person (`godot-4-3d-third-person-controller`) — DONE / reference notes (2026-06-24)
 **Device-validated on iPhone 15 Pro.** Runs, all script instances init, self-tests 54/78, gameplay
 works. Two on-device fixes landed after the first launch:
 - **Attack crash (FIXED, committed):** attacking passed a `Vector3` (knockback) through the Object

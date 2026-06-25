@@ -2,8 +2,10 @@
 
 External review of the Kanama runtime architecture, target support
 (Desktop/Android/iOS), and performance posture, performed against the
-0.2.2 preview line (Godot 4.7 rc 2 baseline). Findings F1–F2 were fixed
-in the same pass; F3–F4 are tracked follow-ups.
+0.2.2 preview line (now Godot 4.7 stable; originally reviewed against the
+4.7 rc 2 baseline). Findings F1–F2 were fixed in the same pass; F3–F4 have
+since been addressed as bounded follow-ups in
+[wrapper-coverage-tracker.md](./wrapper-coverage-tracker.md).
 
 ## Verdict
 
@@ -50,9 +52,9 @@ Strong points verified in code:
 
 Correct model: native bootstrap dylib/so/dll discovers `libjvm` via
 `JAVA_HOME` with platform fallbacks, embeds JDK 25+, loads `kanama.jar`
-found relative to the dylib. Windows/Linux being "pending rc 2
-revalidation" is process debt, not an architecture problem — the runtime
-path is platform-independent above the bootstrap.
+found relative to the dylib. Windows/Linux stable revalidation remains
+process debt, not an architecture problem — the runtime path is
+platform-independent above the bootstrap.
 
 ### Android (experimental)
 
@@ -116,13 +118,17 @@ destroy-after-read is required. Confined arena create/close is cheap
 individually, but it is measurable overhead on per-frame call chains
 (transform getters/setters, input polling).
 
-### F4 — Maintenance follow-up: scattered Godot version pins
+### F4 — Maintenance follow-up (fixed): scattered Godot version pins
 
 The Godot 4.7-rc2 pin appears independently in the iOS export template
 path (`build.gradle.kts`), CI (`.github/workflows/package.yml`
 `GODOT_VERSION`), and docs. Acceptable for a preview line, but a single
 source of truth (one Gradle property consumed everywhere) would prevent
 a partial-upgrade mismatch on the next baseline bump.
+
+Fixed after the review: `kanamaGodotVersion` in `gradle.properties` is now
+the source pin, with `scripts/check_godot_version_pin.py` guarding the CI dash
+form and API metadata.
 
 ### F5 — Observations (no action)
 
