@@ -198,7 +198,7 @@ deliberately-unscripted virtuals as gaps.
 3. **5.3 (iOS):** emit the broader set; implement `callV` return marshalling;
    **device-build check** — `ios_visual_smoke` on the iPhone, self-test matrix
    stays green, and a probe script overriding a value-returning virtual passes.
-   (Flag the user before the device launch — the phone auto-locks.)
+   (Warn before device launch.)
 4. **5.4:** coverage page reads virtual coverage; roadmap "done when" = skip report
    empty except the ~51 deliberately hand-shaped methods.
 
@@ -262,7 +262,7 @@ PT-tagged return *out* of the Kotlin call:
    supported return kinds; generate a `callV` branch that returns the value.
 6. **Device test**: an iOS probe overriding both a void and a value-returning
    virtual (e.g. on a `Control`), asserting both fire + the return reaches the
-   engine; self-test matrix stays 54/78. (Flag the user — the phone auto-locks.)
+   engine; self-test matrix stays 54/78. (Warn before device launch.)
 
 Also outstanding: **device validation of 5.3a** (void virtuals) needs an iOS
 script overriding an observable void virtual — fold it into the same device run.

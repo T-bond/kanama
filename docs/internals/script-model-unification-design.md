@@ -236,8 +236,8 @@ Steps:
    `parseIosScript` + `generateIosScriptRegistry` + the `IosScriptBridgeKind`
    heuristics + `IOS_UNWIRED_FUNCTION_ANNOTATIONS`.
 4. **Device-build check:** run `ios_visual_smoke` (iPhone) — confirm the probe
-   scripts pass KSP-on-iOS and the self-test matrix stays green. (Flag the user
-   before the device launch — the phone auto-locks.)
+   scripts pass KSP-on-iOS and the self-test matrix stays green. (Warn before
+   device launch.)
 5. **2.6 then falls out for free:** the emitter has full type fidelity, so
    value-type `@ScriptProperty` delivery (NodePath/Vector/Color) is just an emitter
    case over the Phase-2 type machinery — no separate 2.6 work.

@@ -1,165 +1,194 @@
-# iOS Backend — roadmap & sync guide
+# iOS Backend Roadmap
 
-How to keep the experimental iOS (Kotlin/Native) backend in sync with desktop/Android, the
-guardrails that protect it, and the remaining backlog. Deep design lives in
-[ios-backend-architecture.md](./ios-backend-architecture.md); the generated registry of
-hand-written sites is [ios-backend-handwritten.md](./ios-backend-handwritten.md). Phase history
-is in [wrapper-coverage-tracker.md](./wrapper-coverage-tracker.md).
+This is the public-safe plan for taking the iOS Kotlin/Native backend from demo parity to a supportable
+mobile backend, then folding the remaining mobile work back into the broader wrapper-generator roadmap.
+Deep implementation notes live in [ios-backend-architecture.md](./ios-backend-architecture.md);
+demo status lives in [ios-demo-port-tracker.md](./ios-demo-port-tracker.md); generated hand-written-site
+accounting lives in [ios-backend-handwritten.md](./ios-backend-handwritten.md).
 
-**Status (refreshed 2026-06-25):** experimental, but the engine-capability gap to desktop/Android
-is essentially closed for the current demo corpus. **222 wrapper classes** emitted — the full
-reachable Node|Resource runtime closure plus the networking/crypto subtree and the bare-`Object`
-utility floor (a BFS over emitted classes' Object args/returns reaches 0 not-yet-emitted in-scope
-classes). The audited type set is complete for runtime use; the KSP script-model is unified across
-all targets; arbitrary virtual overrides work. Device-validated on iPhone 12: self-test matrix
-**PTRCALL 54 / OBJECTCALLS 78, 0 failed**, ~0.63 ms/frame Kanama overhead. Device-validated/playable
-on iPhone 15 Pro: Bunnymark, Match3, 3D-Platformer, dodge, squash, character-controller, Racing,
-FPS, and third-person. City-Builder and tps remain on hold. The remaining distance to a *supported*
-iOS export is mostly export-workflow
-polish, broader non-demo validation, and the remaining explicit backlog items below.
+## Current Position
 
-That means iOS now covers the current Android-enabled public demo set (Match3, 3D-Platformer, dodge,
-squash, FPS, Racing, character-controller, and third-person), plus Bunnymark. The difference is support
-level, not demo breadth: Android still has a Pixel 7 gate pending on 4.7 stable, while iOS has broader
-recent physical-device demo playability but remains an experimental export path with the gates below.
+**Status refreshed 2026-06-25:** iOS is experimental but now covers the Android-enabled public demo set
+plus Bunnymark. The current physical-device demo corpus is playable on recent iPhones:
 
-## Support Level
+- Bunnymark
+- Starter-Kit-Match3
+- Starter-Kit-3D-Platformer
+- godot-demo-2d-dodge-the-creeps
+- godot-demo-3d-squash-the-creeps
+- godot-4-3d-character-controller
+- Starter-Kit-Racing
+- Starter-Kit-FPS
+- godot-4-3d-third-person-controller
 
-iOS is **not supported at the same level as desktop**. Desktop is the primary validated runtime and
-package target for the 0.2.2 preview line. iOS is also **not a stronger claim than Android** yet:
-it has broader recent physical-device demo playability than Android's current 4.7 stable matrix, but
-it is still an experimental export path and has not gone through release-grade packaging/support
-gates.
+This is **demo parity**, not desktop-level support. Desktop remains the primary supported runtime and
+package target for the 0.2.2 preview line. iOS should stay described as experimental until the export,
+validation, and maintainability gates below are complete.
 
-The roadmap to changing that claim is:
+## Why iOS Still Has Exceptions
 
-1. Turn `docs/exporting/ios.md` into a complete user-facing export workflow, not just the smoke/demo
-   harness path.
-2. Re-run a broader physical-device matrix after export-workflow polish, including the current demo
-   corpus and at least one fresh project install path.
-3. Decide whether deferred gaps (`@Rpc` config delivery, `commonMain` wrapper sharing, long-tail
-   virtual return shapes) are support blockers or documented limitations.
+The direction is still generated wrappers over hand-written bindings. The current exceptions are mostly
+platform/runtime glue:
 
-## Architecture in one paragraph
+- iOS cannot use JVM/Panama, so wrappers call a Kotlin/Native `ObjectCalls` backend over the C
+  GDExtension shim.
+- Some high-traffic iOS classes are still hand-written in `IosGodotApi.kt` because they mix singleton
+  access, coroutine/frame-loop behavior, Variant-call paths, or convenience APIs.
+- The FPS F2 fix is an example of a temporary exception: generated iOS `Node.createTween()` is now
+  `open` so the hand-written iOS `SceneTree` subclass can override it with the correct
+  `SceneTree.create_tween` method bind. This should disappear when SceneTree is generated or when the
+  generator can emit subclass-specific overrides for these collision cases.
 
-iOS forbids JIT, so there is no JVM/Panama. Instead: Kotlin/Native AOT + a C shim
-(`ios/bootstrap/kanama_ios_shim.c`) over the GDExtension ABI. Godot API wrappers are GENERATED
-(the desktop model) and call `ObjectCalls.<helper>(bind, receiver, args)`; on iOS the `ObjectCalls`
-backend is the C-shim generic ptrcall `kanama_ios_godot_ptrcall` (vs desktop Panama/FFM). A
-conservative **audited type set** gates which method shapes get emitted; everything else is skipped
-(never silently wrong). The KSP processor emits a platform-neutral script model consumed on every
-target (no iOS-specific parser). See architecture.md for the ptrcall width table and contract.
+The invariant remains: no silent no-op API stubs. `ios-backend-handwritten.md` and
+`scripts/check_ios_no_silent_stubs.py` are the guardrails.
 
-## What changed (Phases 2–5, this is what the old roadmap predated)
+## Roadmap To Stable iOS
 
-- **Audited types — complete for runtime use.** Vector2i/3i, Transform2D/3D, Basis, Color, Rect2/2i,
-  String/StringName/NodePath (args + returns), Variant scalars, typed object/builtin arrays,
-  Projection (+Vector4), Plane, AABB, RID, Quaternion. Value-type `@ScriptProperty` delivery
-  (NodePath/Vector/Color → script instance) works.
-- **KSP model unification (Phase 3).** The hand-rolled `parseIosScript` regex parser and the
-  enumerated `IosScriptBridgeKind` are **deleted**. KSP runs over the Kotlin/Native source too and
-  emits the same `ScriptModel` desktop uses (`IosScriptCodeEmitter`); dispatch is a generic
-  per-signature `callV`. All lifecycle/input annotations are wired (`IOS_UNWIRED` is empty).
-- **Phase 4 — 0 STUB / 0 SUGAR.** `GodotObject.call`/`setDeferred`/`disconnect`, bound + lambda
-  Callables, and `SignalConnection.close` are real. SUGAR is emitted as generator custom-sections,
-  so regeneration is lossless (no manual re-add).
-- **Phase 5 — arbitrary virtual overrides.** `@OverrideVirtual` (the Kotlin function name IS the
-  virtual name, GDScript-style `fun _draw()`) overrides any engine virtual; device-validated for
-  void and value-returning (Bool/Int/Float/Vector2/Vector2i) virtuals.
+### 1. Export Workflow
 
-## Guardrails (what keeps iOS correct + non-regressing)
+Turn `docs/exporting/ios.md` into a real user-facing workflow, not a maintainer smoke harness:
 
-- **Audited type set** — the generator emits only method shapes whose arg/return kinds are audited;
-  unaudited shapes go to the skip report, never a wrong call. Widen deliberately (see below).
-- **Self-test matrix + ObjectCalls probe** — on-device ptrcall round-trip matrix (**PTRCALL 54**) +
-  a Kotlin ObjectCalls probe (**OBJECTCALLS 78**), 0 guardrail hits
-  (`kanama_ios_check_call_error`/`check_variant_arg`). Run on every device validation; must stay
-  54/78.
-- **No-silent-stubs check** — `scripts/check_ios_no_silent_stubs.py` (in `local_ci.sh`) fails on an
-  un-annotated bare-default return. `scripts/ios_handwritten_report.py` regenerates the handwritten
-  registry (STUB=0, SUGAR=0, HANDWRITTEN=10, all justified bespoke).
-- **Cross-platform non-regression** — `installIosAddon` preserves a project's Android + desktop
-  `kanama.gdextension` entries; verify Match3 + 3D-Platformer still build on Android after iOS
-  changes.
-- **Generator fixture** — `scripts/check_wrapper_generator.py` includes an iOS fixture; iOS
-  generator changes are `IOS_AUDIT_ONLY`-gated so desktop fixtures stay green.
+- Required Xcode/Godot/JDK/Kotlin setup.
+- How to install the Kanama iOS addon into a project.
+- How to build the XCFramework and Godot iOS export.
+- Signing/provisioning expectations and common failures.
+- How existing desktop/Android project entries coexist with iOS entries.
 
-## How to stay in sync with desktop / Android
+Exit gate: a fresh project can follow the docs from checkout to an installed iOS app without relying on
+private handoff notes.
 
-- **Emit more classes (breadth)** — add the class names to the `--ios-emit-class` set and regenerate
-  (`scripts/generate_api_wrapper.py … --ios-output-dir … --ios-objectcalls … --ios-skip-report …`);
-  copy the NEW + CHANGED `api/*.kt` + `ObjectCallsGenerated.kt`. Verify parent chains resolve to an
-  emitted class and the name doesn't collide with a hand-written class in `IosGodotApi.kt`
-  (SceneTree, Tween, Input, Mathf, ResourceLoader, GD, AudioStreamPlayer, StaticBody3D,
-  InputEventMouseButton, …). Emit-only changes need no C/header change → plain
-  `compileKotlinIosArm64`, then a device regression run (matrix stays 54/78).
-- **Widen the audited set** (a genuinely new kind) — add the kind to `IOS_ARG_KINDS`/`IOS_RET_KOTLIN`
-  in the generator AND a width-sensitive self-test matrix row + an ObjectCalls probe row + (if a
-  value type) the iOS `types/` struct. Never widen without a matrix row — the ptrcall width is the
-  whole correctness story. (ABI gotchas: Packed*Array return slots are 16 bytes on 64-bit; builtin
-  scalar-float returns are 8-byte doubles in the ptr-ABI.)
-- **New Kanama annotation** — it flows through the shared KSP model. A FUNCTION annotation cannot
-  carry data the iOS path reads (KSP2-over-Native doesn't expose function-annotation args — encode
-  it in the function/param name or a class-level arg), and a new annotation must also be declared in
-  the iOS shadow `ios-runtime/src/iosMain/kotlin/net/multigesture/kanama/annotations/Annotations.kt`.
-- **C-shim ABI change** (new export / changed signature) — keep the Kotlin `@CName`, the C extern
-  decl, and the C call sites in agreement; touching `ios/include/kanama_ios.h` (cinterop C→Kotlin)
-  needs `DEVELOPER_DIR=…` on the gradle build. Always device-validate ABI changes.
+### 2. Physical-Device Gate
 
-## Remaining backlog (small; none block typical games)
+Create a repeatable iOS validation gate comparable to Android smoke work:
 
-- **iOS value-returning virtual returns beyond POD** — 5.3b covers Bool/Int/Float/Vector2/Vector2i;
-  String/Packed/Variant virtual returns are deferred (the C `pt_arg_to_variant` return path + the
-  Kotlin encode would extend the same way).
-- **`@Rpc` config delivery** — parse-side done; the multiplayer RPC config isn't delivered to the
-  engine yet (only matters for networked demos, e.g. tps-demo).
-- **Callable / vararg** — deferred on *all* platforms (matches desktop 1.4), not iOS-specific.
-- **`commonMain` unification (roadmap 4.3)** — move the iosMain wrapper copies toward `commonMain` +
-  `expect/actual ObjectCalls` to cut desktop/iOS drift. Maintainability, not capability; blocked on a
-  design decision (large cross-target migration).
-- **Supported-export workflow** — make `docs/exporting/ios.md` a real user-facing export path
-  (xcframework + Xcode steps), not just the `ios_visual_smoke.sh` harness. This + demo breadth is the
-  gap to dropping "experimental".
-- **Engine-bug / cosmetic** — AVAudioSession category workaround (Godot iOS audio is Ring/Silent-
-  silenced; optional shim fix); `Input.setCustomMouseCursor` (Texture2D arg, cosmetic);
-  `_get_script_signal_list` (editor-only introspection, irrelevant on-device); `real_t` centralization
-  (irrelevant while single-precision — iOS stores Double + converts at the boundary).
-- **Scalar-math backend divergence (KNOWN + DELIBERATE, decided 2026-06-24)** — iOS `Mathf`/`GD`
-  scalar math (`sqrt`/`sin`/`cos`/`lerp`/`randfn`/`degToRad`/…) is implemented in pure `kotlin.math` /
-  Kotlin, whereas **desktop/Android route through Godot's `UtilityFunctions`** (`GD.sqrt =
-  callDoubleOneArgUtility("sqrt", …)`). iOS has no UtilityFunctions call path wired (only the
-  GDExtension typedef exists), so this isn't a considered choice — it's "the engine path was never
-  built for iOS". Decision: **leave as-is, document it** (not worth the C-shim + cinterop + self-test
-  work now). Magnitude: `sqrt` and +−×÷ are IEEE-correctly-rounded → bit-identical everywhere regardless;
-  only transcendentals (`sin`/`cos`/`tan`/`log`/`exp`/`pow`) can differ ≤1 ULP — and they can differ
-  *across platforms even through the engine* (Godot's `Math::sin` is just platform `libm`), so routing
-  can't fully equalize them anyway. The only parity it would buy is *intra-platform* (iOS Kanama math ==
-  iOS-GDScript math to the ULP). To change later: add an iOS `UtilityCalls` path (C shim using
-  `variant_get_ptr_utility_function` + cinterop + a Kotlin helper) and migrate `Mathf`/`GD` scalar fns.
+- Re-run the full current demo matrix on at least one recent iPhone.
+- Include a fresh starter-project install path, not only existing demo repos.
+- Record self-test baselines in public docs without private device IDs.
+- Keep the device-run scripts private-value-safe and useful for batching.
 
-## Demo iOS coverage (per-demo readiness — re-assessed 2026-06-25)
+Exit gate: the iOS demo matrix and fresh-project path pass after a clean checkout/install flow.
 
-The old per-demo "tiers" were gated on Vector2i/3i, Transform3D, and the input annotations — **all
-now closed**, so the tiers are obsolete. Current readiness: most Android-enabled demos should port;
-each port is **port + device-validate** (a port can still surface a residual gap at runtime).
+### 3. Runtime Support Blockers
 
-| Demo | 2D/3D | iOS status | Notes |
-|---|---|---|---|
-| Starter-Kit-Match3 | 2D | **Device-validated** | reference port |
-| Starter-Kit-3D-Platformer | 3D | **Device-validated** | reference port; `view: NodePath` now delivered |
-| Bunnymark | 2D | **Device-validated** | device-validated on iPhone 12 (2026-06-23) |
-| godot-demo-2d-dodge-the-creeps | 2D | **Device-validated (playable)** | plays on iPhone 15 Pro: Start + touch controls. Fix: `emitSignal` dropped no-arg custom signals (Start→new_game). Plus `PathFollow2D` (generated), `Input.isActionPressed`, `Mathf.PI`, instance `SceneTree.delaySeconds`/`callGroup`, `AudioStreamPlayer.stop`, `Vector2.normalized`/`clamp` |
-| godot-demo-3d-squash-the-creeps | 3D | **Device-validated (playable)** | plays on iPhone 15 Pro + touch controls. Needed: `PathFollow3D`+`RenderingServer` (generated), `Mathf.PI`, `Vector3.FORWARD`, `Input.isActionPressed`, `Basis.lookingAt`, `Light3D.lightEnergy`, `GodotObject` AutoCloseable (getSlideCollision `.use`) |
-| Starter-Kit-Racing | 3D | **Device-validated (playable)** | steering joystick + camera-follow validated. `VirtualJoystick` is a built-in Godot 4.7 class and is in the iOS template; the required demo-side fix was making `MobileControls` visible on iOS. |
-| Starter-Kit-FPS | 3D | **Device-validated (playable)** | added: `AnimatedSprite3D`+`SpriteBase3D` (generated), `Tween.bindNode`/`setEase`/`tweenCallback`/`EASE_OUT_IN` (tween_callback C shim), `Object.hasMethod`/`isQueuedForDeletion`, `Resource.loadPackedScene`, `AudioStreamPlayer.setStream(null)`, `Resource.fromHandle` (non-null), `GD.degToRad`/`radToDeg`. KSP emitter: arg-bearing `<Class>Methods` dispatchers + `List<UserScript>` @ScriptProperty delivery. F2 fix: the apparent Audio `_ready` crash was actually `Player._ready` calling `getTree().createTween()` through inherited iOS `Node.createTween()`; iOS `SceneTree.createTween()` now uses the `SceneTree.create_tween` method bind and revalidates under the FPS smoke harness. |
-| godot-4-3d-character-controller | 3D | **Device-validated (playable)** | plays on iPhone 15 Pro. Crash fix: `AnimationMixer.getStateMachinePlayback` must wrap the raw `MemorySegment` that iOS Variant-call decodes for OBJECT returns (was throwing in `SophiaSkin.ready`). Plus `AnimationNodeStateMachinePlayback`+`BaseMaterial3D` (generated), `@GlobalClass`/`PropertyHint`, `InputEventKey.KEY_*`, `InputEventMouseMotion.from`, `Viewport.getCamera3D`, `AnimationMixer.setParameter`/`getStateMachinePlayback`, `BaseMaterial3D.fromMaterial`, `SceneTree.setPaused`/`unloadCurrentScene`/`getRoot`, `MainThread.postAfterFrames`/`awaitNextFrame`, `Basis*Vector3`, `Mathf.moveToward`/`isEqualApprox`. Death-plane fix: the C per-frame hook (`kanama_ios_frame`) self-disabled after 30 frames, killing `MainThread.pumpNextFrame()` and all frame-deferred logic; made it persistent (`KillPlane3D` deferred respawn now works) |
-| godot-4-3d-third-person-controller | 3D | **Device-validated (playable)** | validated on iPhone 15 Pro. Fixed on-device: Vector3-in-Variant attack crash, Mobile/Vulkan rendering for the demo's Forward+-authored visuals, and `List<String>`/`PackedStringArray` `@ScriptProperty` delivery for looping enemy walk animations. |
-| Starter-Kit-City-Builder | 2D | Hold | GridMap + `List<custom-class>` `@ScriptProperty` (also not an Android demo) |
-| tps-demo-kanama | 3D | **Blocked** | `@Rpc` multiplayer config delivery (the one real backlog gate) |
+Close or explicitly document the remaining runtime blockers:
 
-**Porting checklist per demo:** (1) confirm the demo's wrapper classes are emitted (else add to the
-`--ios-emit-class` set + regenerate); (2) configure the iOS export; (3) run
-`ios_visual_smoke.sh --physical-device … --kanama-<demo>-probe` on the iPhone; (4) confirm the matrix
-stays 54/78 and the scene runs (input, signals, scene reload). Flag the user before any device run
-(the phone auto-locks). The batch runner `kanama-demos/scripts/ios_smoke_all.sh` runs the probe +
-full device export for all 9 iOS-enabled demos in one command.
+- `@Rpc` config delivery to Godot, needed for `tps-demo-kanama` and real multiplayer workflows.
+- AVAudioSession Ring/Silent behavior, either as an iOS shim workaround or a documented engine limitation.
+- Any crash/regression surfaced by the full matrix after the export workflow is rebuilt.
+
+Exit gate: the remaining limitations are either fixed or intentionally listed in user docs.
+
+### 4. Hand-Written iOS Surface Reduction
+
+Keep `IosGodotApi.kt` small and justified:
+
+- Re-run `scripts/ios_handwritten_report.py` after moving any class from hand-written to generated.
+- Prefer generator custom sections or generated wrappers over adding methods directly to
+  `IosGodotApi.kt`.
+- Retire temporary class collisions such as hand-written `SceneTree` / `Tween` only when the generated
+  path can preserve the bespoke runtime behavior.
+
+Exit gate: 0 STUB / 0 SUGAR remains true, and remaining HANDWRITTEN entries are platform/runtime glue,
+not missing wrapper coverage.
+
+## Mobile Parity With Android
+
+Android and iOS should converge on the same public support story:
+
+- Both have a documented export path.
+- Both have a physical-device smoke gate on the current Godot baseline.
+- The Android-enabled public demo set passes on both.
+- Support wording distinguishes "mobile experimental" from desktop until packaging and validation are
+  release-grade.
+
+When both mobile backends meet that bar, mobile parity work should stop being demo-led and move back to
+the shared generator/runtime backlog.
+
+## Post-Mobile-Parity Generator Roadmap
+
+The generator still has important unfinished work after the demo corpus is green.
+
+### 1. Common Wrapper Source Set
+
+Unify generated wrappers toward `commonMain` plus `expect/actual ObjectCalls`.
+
+Why it matters:
+
+- Desktop wrappers currently live in the root JVM module while iOS wrappers live in `:ios-runtime`.
+- This allows wrapper drift, including temporary fixes like iOS-only `Node.createTween()` openness.
+- A common wrapper layer would make generated API shape identical across desktop, Android, and iOS.
+
+This is a high-blast-radius migration and needs a design pass before implementation.
+
+### 2. Long-Tail Method Shapes
+
+Finish the non-demo wrapper gaps:
+
+- Callable and vararg support across platforms.
+- Generic `Array` / `Dictionary` / `Variant` container semantics where policy is still conservative.
+- Remaining string/packed/typed-array returns and odd argument mixes as they become worth supporting.
+- Value-returning virtuals beyond the currently audited POD set, such as String/Packed/Variant returns.
+
+Rule: widen shapes only with generator fixtures, ABI audits, and iOS matrix/ObjectCalls coverage where
+the shape touches the C shim.
+
+### 3. Generator Policy Cleanup
+
+Reduce ad hoc exceptions:
+
+- Make generated class-collision handling explicit so hand-written classes do not silently block future
+  generated coverage.
+- Preserve subclass-specific overrides without manually editing generated files.
+- Keep custom companion/member sections documented and fixture-tested.
+- Refresh `api_wrapper_generator_report.py`, `api_wrapper_coverage.py`, and the wrapper coverage docs
+  whenever support claims change.
+
+### 4. Android Hardening
+
+Android still needs release-grade validation alongside iOS:
+
+- Pixel 7 / current-device smoke on Godot 4.7 stable.
+- R8-minified APK smoke gate for `consumer-rules.pro`.
+- Check that package/install flows remain intact after mobile generator changes.
+
+### 5. Release Support Decision
+
+Only after the above should docs move from "experimental mobile export" toward a stronger claim:
+
+- Decide whether iOS and Android are supported together or remain separate support tiers.
+- Define which device/OS/Godot/JDK matrix is required before a release tag.
+- Move relevant internal smoke knowledge into user docs, keeping private signing/device details out.
+
+## Demo Matrix
+
+| Demo | iOS status | Remaining relevance |
+|---|---|---|
+| Bunnymark | Playable | Performance/readout regression check. |
+| Match3 | Playable | Baseline 2D starter reference. |
+| 3D-Platformer | Playable | NodePath and 3D starter reference. |
+| dodge | Playable | Signals, timers, touch controls. |
+| squash | Playable | 3D physics/input/math regression check. |
+| character-controller | Playable | Frame-deferred work, reload/respawn, animation wrappers. |
+| Racing | Playable | Mobile controls and camera follow. |
+| FPS | Playable | User-script resource lists, Tween, audio player churn, generated AnimatedSprite3D. |
+| third-person | Playable | Variant Vector3, AnimationTree playback, PackedStringArray script properties. |
+| City-Builder | Hold | Later GridMap/custom-list coverage; not an Android-enabled public demo. |
+| tps-demo-kanama | Blocked | `@Rpc` config delivery / multiplayer support. |
+
+## Validation Commands
+
+Use the narrowest useful check while iterating, then a device gate for runtime changes:
+
+```sh
+DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer ./gradlew compileKotlinIosArm64
+DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer ./gradlew installIosAddon \
+  -PkanamaIosProjectDir=<demoDir> \
+  -PkanamaIosProjectScriptsDir=<demoDir>/kotlin-src \
+  -PkanamaXcodeDeveloperDir=/Applications/Xcode.app/Contents/Developer
+python3 scripts/ios_handwritten_report.py --markdown docs/internals/ios-backend-handwritten.md
+python3 scripts/api_wrapper_generator_report.py --markdown docs/reference/wrapper-generator-report.md
+python3 scripts/api_wrapper_coverage.py --markdown docs/reference/api-coverage.md
+```
+
+Device launch commands need private device/signing values from the private handoff and should not be
+copied into repo docs.
