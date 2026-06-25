@@ -144,7 +144,6 @@ hand-shaped methods; coverage page reads ≥99% with virtuals counted.
 | Extend `PtrcallScratch` thread-local pattern across generated wrappers (replace ~1,478 per-call `Arena.ofConfined()`) | **sonnet** (generator change), **opus** review | Architecture review F3 |
 | Single source of truth for the Godot version pin (Gradle property → CI, iOS template path, docs) | **sonnet** | Architecture review F4 |
 | R8-minified APK smoke gate (validate `consumer-rules.pro`) | **opus** | Architecture review F2 |
-| AVAudioSession category workaround in iOS shim (engine bug mitigation) | **sonnet** | ios-backend-roadmap |
 | Value-type `==` faithfulness to GDScript/C# (see below) | **sonnet** (generator change), **opus** review | 2026-06-15 session |
 
 ### Value-type equality divergence from GDScript/C# (all platforms)

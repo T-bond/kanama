@@ -82,7 +82,7 @@ These are the active forward-looking items. Keep the strategic ordering in
 5. **Long-tail shapes**: Callable/vararg, conservative container policies, and non-POD virtual returns.
 6. **Generator policy cleanup**: explicit class-collision handling, subclass override generation, and
    tighter fixture coverage for custom member/companion sections.
-7. **Optional iOS polish**: AVAudioSession category workaround and `GodotReal` centralization.
+7. **Optional iOS polish**: `GodotReal` centralization.
 
 ## Required Report Refreshes
 

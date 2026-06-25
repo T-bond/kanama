@@ -320,12 +320,17 @@ loader/render checks. None of the modes prove hot reload.
 - Physical-device export and launch are the first validation target.
 - Simulator startup is optional for compile/link debugging and should not be
   used to judge iOS frame rate or gameplay feel.
+- Kanama sets the iOS `AVAudioSession` category to `Ambient` when the iOS shim
+  starts. This makes game audio deterministic with the Ring/Silent switch:
+  audio plays when the device is in Ring mode, is muted by Silent mode, and can
+  mix with other app audio. Projects that intentionally need background/media
+  playback semantics should set their own iOS audio session category in native
+  platform code after startup.
 - Hot reload is out of scope for the iOS backend.
 - The audited type set and KSP registration path cover the current demo corpus.
   Remaining support work is tracked explicitly in
   [ios-backend-roadmap.md](../internals/ios-backend-roadmap.md), including export
-  workflow polish, `@Rpc` config delivery, AVAudioSession behavior, and
-  `commonMain` source sharing.
+  workflow polish, `@Rpc` config delivery, and `commonMain` source sharing.
 - The runtime calls Godot through backend-neutral generated wrappers and
   prefers cached typed `ptrcall`s over Variant-heavy or allocation-heavy paths.
 - The current playable demo set matches the Android-enabled public demo set plus

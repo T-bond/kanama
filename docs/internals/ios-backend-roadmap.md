@@ -73,7 +73,10 @@ Exit gate: the iOS demo matrix and fresh-project path pass after a clean checkou
 Close or explicitly document the remaining runtime blockers:
 
 - `@Rpc` config delivery to Godot, needed for `tps-demo-kanama` and real multiplayer workflows.
-- AVAudioSession Ring/Silent behavior, either as an iOS shim workaround or a documented engine limitation.
+- AVAudioSession Ring/Silent behavior: resolved in the iOS shim by setting
+  `AVAudioSessionCategoryAmbient` at startup, with the default and override guidance documented in
+  `docs/exporting/ios.md`. Device-validated on iPhone 12 with the FPS demo:
+  built-in speaker audio plays in Ring mode and is muted in Silent mode.
 - Any crash/regression surfaced by the full matrix after the export workflow is rebuilt.
 
 Exit gate: the remaining limitations are either fixed or intentionally listed in user docs.

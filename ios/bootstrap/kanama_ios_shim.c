@@ -7,6 +7,9 @@
  */
 
 #include <limits.h>
+#include <dlfcn.h>
+#include <objc/message.h>
+#include <objc/runtime.h>
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -181,6 +184,7 @@ typedef struct {
 } KanamaIosScriptInstance;
 
 static int g_kanama_ios_initialized = 0;
+static int g_kanama_ios_audio_session_configured = 0;
 static GDExtensionInterfaceGetProcAddress g_get_proc_address = NULL;
 static GDExtensionClassLibraryPtr g_library = NULL;
 static GDExtensionInterfaceCallableCustomCreate2 g_callable_custom_create2 = NULL;
@@ -219,6 +223,67 @@ static GDExtensionMethodBindPtr g_engine_register_script_language_bind = NULL;
 static GDExtensionMethodBindPtr g_engine_unregister_script_language_bind = NULL;
 static GDExtensionMethodBindPtr g_resource_loader_add_format_loader_bind = NULL;
 static GDExtensionMethodBindPtr g_resource_loader_remove_format_loader_bind = NULL;
+
+static void kanama_ios_configure_audio_session(void) {
+    if (g_kanama_ios_audio_session_configured) {
+        return;
+    }
+    g_kanama_ios_audio_session_configured = 1;
+
+    void *audio_framework = dlopen(
+        "/System/Library/Frameworks/AVFAudio.framework/AVFAudio",
+        RTLD_LAZY | RTLD_LOCAL
+    );
+    if (audio_framework == NULL) {
+        audio_framework = dlopen(
+            "/System/Library/Frameworks/AVFoundation.framework/AVFoundation",
+            RTLD_LAZY | RTLD_LOCAL
+        );
+    }
+
+    Class session_class = objc_getClass("AVAudioSession");
+    Class string_class = objc_getClass("NSString");
+    if (session_class == Nil || string_class == Nil) {
+        fprintf(stderr, "[kanama][ios][c] AVAudioSession unavailable; leaving Godot audio session unchanged\n");
+        fflush(stderr);
+        return;
+    }
+
+    id (*send_id)(id, SEL) = (id (*)(id, SEL))objc_msgSend;
+    id (*send_string)(id, SEL, const char *) = (id (*)(id, SEL, const char *))objc_msgSend;
+    signed char (*send_bool_id_ptr)(id, SEL, id, id *) =
+        (signed char (*)(id, SEL, id, id *))objc_msgSend;
+    signed char (*send_bool_bool_ptr)(id, SEL, signed char, id *) =
+        (signed char (*)(id, SEL, signed char, id *))objc_msgSend;
+
+    id session = send_id((id)session_class, sel_registerName("sharedInstance"));
+    id category = send_string(
+        (id)string_class,
+        sel_registerName("stringWithUTF8String:"),
+        "AVAudioSessionCategoryAmbient"
+    );
+    if (session == nil || category == nil) {
+        fprintf(stderr, "[kanama][ios][c] AVAudioSession setup skipped: session/category unavailable\n");
+        fflush(stderr);
+        return;
+    }
+
+    signed char category_ok = send_bool_id_ptr(
+        session,
+        sel_registerName("setCategory:error:"),
+        category,
+        NULL
+    );
+    if (!category_ok) {
+        fprintf(stderr, "[kanama][ios][c] AVAudioSessionCategoryAmbient setup failed\n");
+        fflush(stderr);
+        return;
+    }
+
+    (void)send_bool_bool_ptr(session, sel_registerName("setActive:error:"), 1, NULL);
+    fprintf(stderr, "[kanama][ios][c] AVAudioSession category set to Ambient\n");
+    fflush(stderr);
+}
 static GDExtensionMethodBindPtr g_scene_tree_get_first_node_in_group_bind = NULL;
 static GDExtensionMethodBindPtr g_label_set_text_bind = NULL;
 static GDExtensionMethodBindPtr g_node_add_child_bind = NULL;
@@ -7700,6 +7765,8 @@ GDExtensionBool kanama_entry(
         fprintf(stderr, "[kanama][ios][c] re-entry: runtime already initialized\n");
         return 1;
     }
+
+    kanama_ios_configure_audio_session();
 
     int32_t initialized = kanama_ios_runtime_entry(
         (uintptr_t)p_get_proc_address,
