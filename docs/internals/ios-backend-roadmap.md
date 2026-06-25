@@ -175,8 +175,8 @@ Only after the above should docs move from "experimental mobile export" toward a
 | Racing | Playable | Mobile controls and camera follow. |
 | FPS | Playable | User-script resource lists, Tween, audio player churn, generated AnimatedSprite3D. |
 | third-person | Playable | Variant Vector3, AnimationTree playback, PackedStringArray script properties. |
-| City-Builder | Hold | Later GridMap/custom-list coverage; not an Android-enabled public demo. |
-| tps-demo-kanama | Blocked | `@Rpc` config delivery / multiplayer support. |
+| City-Builder | Desktop-only by design | Desktop-focused controls (GridMap/custom-list); not a mobile target and not reassessed for mobile. |
+| tps-demo-kanama | API blocked on `@Rpc`; mobile UI deferred | `@Rpc` config delivery is task 03 in `kanama-tasks/`. Once landed, APIs work on all platforms; mobile playability (touch controls, mobile multiplayer UI) is deferred — see `kanama-tasks/DEFERRED.md`. |
 
 ## Validation Commands
 

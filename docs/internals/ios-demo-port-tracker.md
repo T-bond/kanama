@@ -19,8 +19,8 @@ experimental: this is demo parity, not desktop-level support.
 | Starter-Kit-Racing | Playable | Steering joystick and camera-follow validated; `VirtualJoystick` is built into Godot 4.7. |
 | Starter-Kit-FPS | Playable | F1/F2 complete. `List<Weapon>` delivery, AnimatedSprite3D generation, Tween glue, and SceneTree tween creation fixed. |
 | godot-4-3d-third-person-controller | Playable | Attack crash, Mobile/Vulkan visuals, and `List<String>` animation-loop delivery fixed. |
-| Starter-Kit-City-Builder | Hold | Not part of the Android-enabled demo set; still useful later for GridMap/custom-list coverage. |
-| tps-demo-kanama | Blocked | Needs `@Rpc` config delivery before the multiplayer demo is meaningful. |
+| Starter-Kit-City-Builder | Desktop-only by design | Desktop-focused controls (GridMap/custom-list); not a mobile target and not reassessed for mobile. |
+| tps-demo-kanama | API blocked on `@Rpc`; mobile UI deferred | Needs `@Rpc` config delivery (kanama-tasks task 03) before the multiplayer demo is meaningful at all. Once `@Rpc` lands, the APIs work on all platforms; mobile *playability* (touch controls, mobile multiplayer UI) is a separate UI effort — see `kanama-tasks/DEFERRED.md`. |
 
 ## Build / Deploy Pointers
 
@@ -145,8 +145,7 @@ Before copying regenerated files:
 
 ## Next Demo-Relevant Work
 
-- tps-demo-kanama: deliver `@Rpc` multiplayer config to Godot.
-- City-Builder: reassess only after the supported-demo/export work, because it is outside the current
-  Android-enabled public demo set.
+- tps-demo-kanama: deliver `@Rpc` multiplayer config to Godot (kanama-tasks task 03). Once landed, mobile *playability* (touch controls, mobile multiplayer UI) is a separate deferred UI effort — see `kanama-tasks/DEFERRED.md`.
+- City-Builder: desktop-only by design (GridMap/custom-list, desktop-focused controls); not a mobile target and not reassessed for mobile.
 - Re-run the full physical-device demo matrix after the iOS export workflow is documented and after
   any generator/commonMain migration.
