@@ -23,7 +23,7 @@ session without replaying prior history.
 | **character-controller** | playable; flag works; death plane respawns (V1 fixed) |
 | **Racing** | playable + camera-follow + steering joystick (R1 validated) |
 | **Bunnymark** | playable; FPS + Bunnies readouts safe-area-inset (E1 validated) |
-| **FPS** | playable; weapons `List<Weapon>` @ScriptProperty delivered + AnimatedSprite3D generated (F1). KNOWN: intermittent SIGSEGV in Audio autoload `_ready` (pre-existing lambda-connect infra, see F2) |
+| **FPS** | playable; weapons `List<Weapon>` @ScriptProperty delivered + AnimatedSprite3D generated (F1). F2 corrected the misleading Audio-autoload crash note: the native stack was `Player._ready` → `SceneTree.create_tween`, fixed by giving iOS `SceneTree` its own `createTween()` wrapper. |
 | third-person | **PLAYABLE on iPhone 15 Pro (T1), walk-anim fixed** — runs, all scripts init, self-tests 54/78. Fixed on-device: attack crash (Vector3 in Variant path) + visuals (Mobile renderer, not gl_compatibility) + enemy walk animation (`List<String>`/PackedStringArray `@ScriptProperty` delivery, see T1 card) |
 
 ## Build / deploy / debug (see private handoff for exact commands + UDIDs)
@@ -110,11 +110,12 @@ file before copying. Generator + iOS custom sections: `scripts/generate_api_wrap
     fixed a latent sibling: the engine-wrapper array case had an un-compiled lambda-inference shape; both
     now route via `.toList()` + explicit-typed lambda param (`LongArray` lacks `mapNotNull`). Device-confirmed:
     `property array set ... index=3 count=2`.
-  - **KNOWN-FOLLOWUP (F2):** intermittent **SIGSEGV in the Audio autoload `_ready`** (12× `AudioStreamPlayer.create`
-    + lambda `signal("finished").connect{…}` in a loop), hits *before* `Player._ready`. Pre-existing iOS
-    lambda-connect/AudioStreamPlayer-lifetime infra — **not** an F1 change. Repros under the
-    `KANAMA_FPS_SMOKE=1` harness; intermittent in normal play (works after restart). Suspect loop-captured
-    `player` in the lambda or ref-counting under 12 rapid connects.
+  - **F2 (FIXED, 2026-06-25):** the apparent Audio-autoload `_ready` SIGSEGV was misleading. The console
+    stopped after `Audio._ready`, but the native crash report showed `Player._ready` →
+    `Player.initiateChangeWeapon` → `SceneTree::create_tween` through the iOS inherited
+    `Node.createTween()` wrapper. iOS `SceneTree` now has its own `createTween()` method bind and
+    `Node.createTween()` is overridable. Revalidated with the `KANAMA_FPS_SMOKE=1` harness plus a console
+    relaunch: Audio and Player `_ready` completed, `change_weapon` ran, and the app stayed alive.
 - **E1 Bunnymark readout safe-area** — `Benchmarker.gd` now insets the top-left readouts on mobile by
   `DisplayServer.get_display_safe_area().position + SAFE_AREA_MARGIN(24,24)` (`_apply_safe_area()`).
   Stretch mode is disabled, so GUI coords == screen px. TWO readouts needed it: the scene `Panel/FPS`
@@ -125,14 +126,17 @@ file before copying. Generator + iOS custom sections: `scripts/generate_api_wrap
 
 ## Remaining / Follow-up Tasks
 
-### F2. FPS Audio autoload `_ready` SIGSEGV (intermittent)
-FPS demo is otherwise playable (F1 done). The Audio autoload's `_ready` creates 12 `AudioStreamPlayer`s
-and lambda-`connect`s each `"finished"` signal in a loop; intermittently SIGSEGVs (signal 11) *before*
-`Player._ready`. Pre-existing iOS lambda-connect / AudioStreamPlayer-lifetime infra (not an F1 change).
-Repro: launch with `KANAMA_FPS_SMOKE=1` (the smoke harness reliably hit it twice; normal play is
-intermittent — works after restart). Suspect the loop-captured `player` lambda capture or RefCounted
-lifetime under 12 rapid `connect`s. Pull the `.ips` for the native backtrace (idevicecrashreport could
-not see the network-paired device this session; try USB or `xcrun devicectl`).
+### F2. FPS `_ready` SIGSEGV — DONE (2026-06-25)
+The original note suspected Audio autoload lambda-connect / `AudioStreamPlayer` lifetime because the
+console stopped after `Audio._ready`. The crash report showed a different root: `Player._ready` calls
+`getTree().createTween()`, and iOS `SceneTree` inherited `Node.createTween()`, so the wrapper used the
+`Node.create_tween` method bind against a `SceneTree` handle. Fix: make the generated iOS
+`Node.createTween()` overridable and add a hand-written iOS `SceneTree.createTween()` using the
+`SceneTree.create_tween` method bind.
+
+Validation: `compileKotlinIosArm64`, FPS `installIosAddon`, `KANAMA_FPS_SMOKE=1` deploy/launch, and a
+console relaunch on iPhone 15 Pro. The app passed Audio and Player `_ready`, ran `change_weapon`, and
+kept processing gameplay callbacks until the console session was interrupted manually.
 
 ### T1. third-person (`godot-4-3d-third-person-controller`) — DONE / reference notes (2026-06-24)
 **Device-validated on iPhone 15 Pro.** Runs, all script instances init, self-tests 54/78, gameplay

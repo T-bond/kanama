@@ -554,7 +554,7 @@ open class Node(handle: MemorySegment) : GodotObject(handle) {
     fun <T : Node> getNodeAsOrNull(path: String, className: String, ctor: (MemorySegment) -> T): T? =
         getNodeOrNull(path)?.takeIf { it.isClass(className) }?.let { ctor(it.handle) }
 
-    fun createTween(): Tween? =
+    open fun createTween(): Tween? =
         IosGodot.nodeCreateTween(handle.address()).takeIf { it != 0L }?.let {
             Tween(MemorySegment.ofAddress(it))
         }

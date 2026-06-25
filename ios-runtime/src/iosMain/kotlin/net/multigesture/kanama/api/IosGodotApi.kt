@@ -411,6 +411,11 @@ class SceneTree(handle: MemorySegment) : Node(handle) {
     fun isPaused(): Boolean =
         ObjectCalls.ptrcallNoArgsRetBool(isPausedBind, handle)
 
+    override fun createTween(): Tween? =
+        ObjectCalls.ptrcallNoArgsRetObject(createTweenBind, handle)
+            .takeIf { it.address() != 0L }
+            ?.let { Tween(it) }
+
     // SceneTree.get_nodes_in_group(group) -> Array[Node]. The (StringName)->typed-object-array ptrcall
     // shape isn't wired, so this goes through the Variant call path; OBJECT elements surface as raw
     // handles (or wrapped objects), wrapped back to Node. A non-array/unsupported decode yields empty
@@ -441,6 +446,9 @@ class SceneTree(handle: MemorySegment) : Node(handle) {
             ObjectCalls.getMethodBind("SceneTree", "unload_current_scene", 3218959716L)
         }
         private val isPausedBind by lazy { ObjectCalls.getMethodBind("SceneTree", "is_paused", 36873697L) }
+        private val createTweenBind by lazy {
+            ObjectCalls.getMethodBind("SceneTree", "create_tween", 3426978995L)
+        }
         private val getRootBind by lazy { ObjectCalls.getMethodBind("SceneTree", "get_root", 1757182445L) }
 
         suspend fun delaySeconds(seconds: Double) {
