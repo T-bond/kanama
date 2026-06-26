@@ -195,8 +195,9 @@ Common failures:
 ## Export An iOS App
 
 Export from the Godot editor or with the CLI. The CLI form mirrors Godot's
-normal iOS export path and writes an Xcode project next to the requested `.ipa`
-path when the preset uses `application/export_project_only=true`:
+normal iOS export path. With `application/export_project_only=true`, Godot
+writes an Xcode project into the directory of the export path instead of
+producing an `.ipa`:
 
 ```sh
 godot --headless \
