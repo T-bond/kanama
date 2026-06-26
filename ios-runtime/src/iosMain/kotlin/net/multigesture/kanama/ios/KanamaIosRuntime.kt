@@ -19,6 +19,8 @@ import net.multigesture.kanama.ios.cinterop.kanama_ios_godot_get_method_bind
 import net.multigesture.kanama.ios.cinterop.kanama_ios_godot_ptrcall_string_arg
 import net.multigesture.kanama.ios.cinterop.kanama_ios_godot_set_first_node_in_group_text
 import net.multigesture.kanama.types.Color
+import net.multigesture.kanama.types.GodotReal
+import net.multigesture.kanama.types.GodotRealVar
 import net.multigesture.kanama.types.NodePath
 import net.multigesture.kanama.types.Vector2
 import net.multigesture.kanama.types.Vector2i
@@ -674,16 +676,16 @@ internal fun decodeIosCallArg(tag: Int, ptr: CPointer<ByteVar>?): Any? {
         IOS_PT_BOOL -> ptr[0].toInt() != 0
         IOS_PT_FLOAT64 -> ptr.reinterpret<DoubleVar>()[0]
         IOS_PT_VECTOR2 -> {
-            val f = ptr.reinterpret<FloatVar>()
-            Vector2(f[0].toDouble(), f[1].toDouble())
+            val f = ptr.reinterpret<GodotRealVar>()
+            Vector2(GodotReal.fromC(f[0]), GodotReal.fromC(f[1]))
         }
         IOS_PT_VECTOR2I -> {
             val n = ptr.reinterpret<IntVar>()
             Vector2i(n[0], n[1])
         }
         IOS_PT_VECTOR3 -> {
-            val f = ptr.reinterpret<FloatVar>()
-            Vector3(f[0].toDouble(), f[1].toDouble(), f[2].toDouble())
+            val f = ptr.reinterpret<GodotRealVar>()
+            Vector3(GodotReal.fromC(f[0]), GodotReal.fromC(f[1]), GodotReal.fromC(f[2]))
         }
         IOS_PT_COLOR -> {
             val f = ptr.reinterpret<FloatVar>()
@@ -703,12 +705,12 @@ internal fun decodeIosPropertyValue(ptTag: Int, bytes: CPointer<ByteVar>?, lengt
     return when (ptTag) {
         IOS_PT_NODE_PATH -> NodePath(bytes.readBytes(if (length >= 0) length else 0).decodeToString())
         IOS_PT_VECTOR2 -> {
-            val f = bytes.reinterpret<FloatVar>()
-            Vector2(f[0].toDouble(), f[1].toDouble())
+            val f = bytes.reinterpret<GodotRealVar>()
+            Vector2(GodotReal.fromC(f[0]), GodotReal.fromC(f[1]))
         }
         IOS_PT_VECTOR3 -> {
-            val f = bytes.reinterpret<FloatVar>()
-            Vector3(f[0].toDouble(), f[1].toDouble(), f[2].toDouble())
+            val f = bytes.reinterpret<GodotRealVar>()
+            Vector3(GodotReal.fromC(f[0]), GodotReal.fromC(f[1]), GodotReal.fromC(f[2]))
         }
         IOS_PT_COLOR -> {
             val f = bytes.reinterpret<FloatVar>()
@@ -771,8 +773,8 @@ private fun encodeIosReturn(value: Any?, retTag: CPointer<IntVar>?, retBuf: CPoi
         is Double -> { retBuf.reinterpret<DoubleVar>()[0] = value; retTag[0] = IOS_PT_FLOAT64 }
         is Float -> { retBuf.reinterpret<DoubleVar>()[0] = value.toDouble(); retTag[0] = IOS_PT_FLOAT64 }
         is Vector2 -> {
-            val f = retBuf.reinterpret<FloatVar>()
-            f[0] = value.x.toFloat(); f[1] = value.y.toFloat(); retTag[0] = IOS_PT_VECTOR2
+            val f = retBuf.reinterpret<GodotRealVar>()
+            f[0] = GodotReal.toC(value.x); f[1] = GodotReal.toC(value.y); retTag[0] = IOS_PT_VECTOR2
         }
         is Vector2i -> {
             val n = retBuf.reinterpret<IntVar>()

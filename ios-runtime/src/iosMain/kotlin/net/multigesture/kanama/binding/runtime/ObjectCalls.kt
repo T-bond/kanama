@@ -55,6 +55,7 @@ import net.multigesture.kanama.types.AABB
 import net.multigesture.kanama.types.Basis
 import net.multigesture.kanama.types.Color
 import net.multigesture.kanama.types.GodotReal
+import net.multigesture.kanama.types.GodotRealVar
 import net.multigesture.kanama.types.NodePath
 import net.multigesture.kanama.types.Plane
 import net.multigesture.kanama.types.Quaternion
@@ -76,8 +77,9 @@ import net.multigesture.kanama.types.Vector3i
  * Marshalling rules (see docs/internals/reference/ios-backend-architecture.md):
  * - SCALAR `float` args/returns are 8-byte `double` at ptrcall (PtrToArg<float> =
  *   convert<float,double>) — so a Godot `float` scalar uses the `*Double*` helpers.
- * - Vector/Color COMPONENTS are real_t = 4-byte float32 in single-precision builds —
- *   so Vector2/Vector3 marshal their Double components as float32.
+ * - Vector COMPONENTS are real_t (4-byte float32 in single-precision builds); they marshal
+ *   through [GodotReal]/[GodotRealVar] so a precision switch stays centralized. Color
+ *   components are always float32 (never real_t) and stay raw FloatVar.
  */
 object ObjectCalls {
     // ptrcall type tags — must match the KANAMA_IOS_PT_* enum in kanama_ios_shim.c.
@@ -167,16 +169,16 @@ object ObjectCalls {
 
     fun ptrcallNoArgsRetVector2(methodBind: MemorySegment, instance: MemorySegment): Vector2 =
         memScoped {
-            val ret = allocArray<FloatVar>(2)
+            val ret = allocArray<GodotRealVar>(2)
             kanama_ios_godot_ptrcall(methodBind.address(), instance.address(), null, null, 0, PT_VECTOR2, ret)
-            Vector2(ret[0].toDouble(), ret[1].toDouble())
+            Vector2(GodotReal.fromC(ret[0]), GodotReal.fromC(ret[1]))
         }
 
     fun ptrcallNoArgsRetVector3(methodBind: MemorySegment, instance: MemorySegment): Vector3 =
         memScoped {
-            val ret = allocArray<FloatVar>(3)
+            val ret = allocArray<GodotRealVar>(3)
             kanama_ios_godot_ptrcall(methodBind.address(), instance.address(), null, null, 0, PT_VECTOR3, ret)
-            Vector3(ret[0].toDouble(), ret[1].toDouble(), ret[2].toDouble())
+            Vector3(GodotReal.fromC(ret[0]), GodotReal.fromC(ret[1]), GodotReal.fromC(ret[2]))
         }
 
     // Vector2i (2x int32, 8 bytes total): components are int32 NOT widened — struct
@@ -209,9 +211,12 @@ object ObjectCalls {
     // Components are real_t = float32 on single-precision iOS (same convention as Vector2).
     fun ptrcallNoArgsRetRect2(methodBind: MemorySegment, instance: MemorySegment): Rect2 =
         memScoped {
-            val ret = allocArray<FloatVar>(4)
+            val ret = allocArray<GodotRealVar>(4)
             kanama_ios_godot_ptrcall(methodBind.address(), instance.address(), null, null, 0, PT_RECT2, ret)
-            Rect2(Vector2(ret[0].toDouble(), ret[1].toDouble()), Vector2(ret[2].toDouble(), ret[3].toDouble()))
+            Rect2(
+                Vector2(GodotReal.fromC(ret[0]), GodotReal.fromC(ret[1])),
+                Vector2(GodotReal.fromC(ret[2]), GodotReal.fromC(ret[3])),
+            )
         }
 
     // String return: a Godot String can't ride the fixed ret_out of the generic
@@ -488,10 +493,10 @@ object ObjectCalls {
         values: List<Vector2>,
     ) = memScoped {
         val n = values.size
-        val floats = allocArray<FloatVar>(if (n > 0) n * 2 else 1)
+        val floats = allocArray<GodotRealVar>(if (n > 0) n * 2 else 1)
         for (i in 0 until n) {
-            floats[i * 2] = values[i].x.toFloat()
-            floats[i * 2 + 1] = values[i].y.toFloat()
+            floats[i * 2] = GodotReal.toC(values[i].x)
+            floats[i * 2 + 1] = GodotReal.toC(values[i].y)
         }
         val desc = alloc<KanamaIosPackedArgDesc>()
         desc.count = n.toLong()
@@ -529,10 +534,10 @@ object ObjectCalls {
     // descriptor pointer for use as a PT_PACKED_VECTOR2_ARRAY arg in a multi-arg dispatch.
     private fun MemScope.packVector2Desc(values: List<Vector2>): CPointer<KanamaIosPackedArgDesc> {
         val n = values.size
-        val floats = allocArray<FloatVar>(if (n > 0) n * 2 else 1)
+        val floats = allocArray<GodotRealVar>(if (n > 0) n * 2 else 1)
         for (i in 0 until n) {
-            floats[i * 2] = values[i].x.toFloat()
-            floats[i * 2 + 1] = values[i].y.toFloat()
+            floats[i * 2] = GodotReal.toC(values[i].x)
+            floats[i * 2 + 1] = GodotReal.toC(values[i].y)
         }
         val desc = alloc<KanamaIosPackedArgDesc>()
         desc.count = n.toLong(); desc.data = floats.reinterpret()
@@ -669,10 +674,10 @@ object ObjectCalls {
             if (count <= 0L) {
                 emptyList()
             } else {
-                val buf = allocArray<FloatVar>(count * 2)
+                val buf = allocArray<GodotRealVar>(count * 2)
                 kanama_ios_godot_ptrcall_no_args_ret_packed_vector2_array(
                     methodBind.address(), instance.address(), buf, count)
-                List(count.toInt()) { Vector2(buf[it * 2], buf[it * 2 + 1]) }
+                List(count.toInt()) { Vector2(GodotReal.fromC(buf[it * 2]), GodotReal.fromC(buf[it * 2 + 1])) }
             }
         }
 
@@ -814,8 +819,8 @@ object ObjectCalls {
 
     fun ptrcallWithVector2Arg(methodBind: MemorySegment, instance: MemorySegment, value: Vector2) =
         memScoped {
-            val cell = allocArray<FloatVar>(2)
-            cell[0] = value.x.toFloat(); cell[1] = value.y.toFloat()
+            val cell = allocArray<GodotRealVar>(2)
+            cell[0] = GodotReal.toC(value.x); cell[1] = GodotReal.toC(value.y)
             val types = allocArray<IntVar>(1); types[0] = PT_VECTOR2
             val ptrs = allocArray<COpaquePointerVar>(1); ptrs[0] = cell.reinterpret<CPointed>()
             kanama_ios_godot_ptrcall(methodBind.address(), instance.address(), types, ptrs, 1, PT_VOID, null)
@@ -824,8 +829,8 @@ object ObjectCalls {
 
     fun ptrcallWithVector3Arg(methodBind: MemorySegment, instance: MemorySegment, value: Vector3) =
         memScoped {
-            val cell = allocArray<FloatVar>(3)
-            cell[0] = value.x.toFloat(); cell[1] = value.y.toFloat(); cell[2] = value.z.toFloat()
+            val cell = allocArray<GodotRealVar>(3)
+            cell[0] = GodotReal.toC(value.x); cell[1] = GodotReal.toC(value.y); cell[2] = GodotReal.toC(value.z)
             val types = allocArray<IntVar>(1); types[0] = PT_VECTOR3
             val ptrs = allocArray<COpaquePointerVar>(1); ptrs[0] = cell.reinterpret<CPointed>()
             kanama_ios_godot_ptrcall(methodBind.address(), instance.address(), types, ptrs, 1, PT_VOID, null)
@@ -864,9 +869,9 @@ object ObjectCalls {
 
     fun ptrcallWithRect2Arg(methodBind: MemorySegment, instance: MemorySegment, value: Rect2) =
         memScoped {
-            val cell = allocArray<FloatVar>(4)
-            cell[0] = value.position.x.toFloat(); cell[1] = value.position.y.toFloat()
-            cell[2] = value.size.x.toFloat(); cell[3] = value.size.y.toFloat()
+            val cell = allocArray<GodotRealVar>(4)
+            cell[0] = GodotReal.toC(value.position.x); cell[1] = GodotReal.toC(value.position.y)
+            cell[2] = GodotReal.toC(value.size.x); cell[3] = GodotReal.toC(value.size.y)
             val types = allocArray<IntVar>(1); types[0] = PT_RECT2
             val ptrs = allocArray<COpaquePointerVar>(1); ptrs[0] = cell.reinterpret<CPointed>()
             kanama_ios_godot_ptrcall(methodBind.address(), instance.address(), types, ptrs, 1, PT_VOID, null)
@@ -939,7 +944,7 @@ object ObjectCalls {
                 }
                 is String -> { tags[i] = PT_STRING; ptrs[i] = a.cstr.ptr.reinterpret<CPointed>() }
                 is Vector2 -> {
-                    val c = allocArray<FloatVar>(2); c[0] = a.x.toFloat(); c[1] = a.y.toFloat()
+                    val c = allocArray<GodotRealVar>(2); c[0] = GodotReal.toC(a.x); c[1] = GodotReal.toC(a.y)
                     tags[i] = PT_VECTOR2; ptrs[i] = c.reinterpret<CPointed>()
                 }
                 is Vector2i -> {
@@ -947,7 +952,8 @@ object ObjectCalls {
                     tags[i] = PT_VECTOR2I; ptrs[i] = c.reinterpret<CPointed>()
                 }
                 is Vector3 -> {
-                    val c = allocArray<FloatVar>(3); c[0] = a.x.toFloat(); c[1] = a.y.toFloat(); c[2] = a.z.toFloat()
+                    val c = allocArray<GodotRealVar>(3)
+                    c[0] = GodotReal.toC(a.x); c[1] = GodotReal.toC(a.y); c[2] = GodotReal.toC(a.z)
                     tags[i] = PT_VECTOR3; ptrs[i] = c.reinterpret<CPointed>()
                 }
                 is Color -> {
