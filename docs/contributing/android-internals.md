@@ -6,9 +6,10 @@ API/build flow is less settled than the desktop path.
 
 ## What Works
 
-Eight Kanama demo exports are Android smoke targets. The Godot 4.7 stable
-emulator smoke path has re-passed for Starter-Kit-Match3; Pixel 7 hardware
-coverage remains pending before a stronger Android claim:
+Eight Kanama demo exports are Android smoke targets. On 2026-06-26, the Godot
+4.7 stable demo matrix passed on Pixel 7 with debug APK exports, and
+Starter-Kit-Match3 also passed the R8-minified release smoke with Kanama's
+PanamaPort fork:
 
 - `godot-demo-2d-dodge-the-creeps`
 - `Starter-Kit-3D-Platformer`
@@ -33,17 +34,21 @@ The exported APK path:
 - reaches `OnGodotMainLoopStarted`, and
 - renders the 3D scene through Godot's OpenGL compatibility renderer.
 
-This proves the basic Kanama runtime path is viable on Android. Treat it as
-experimental support, not a production-ready mobile target.
+This proves the basic Kanama runtime path is viable on Android, including the
+current forked-PanamaPort minified path. Treat it as experimental support, not a
+production-ready mobile target.
 
 ## PanamaPort
 
-The current Android implementation did not require editing
-[PanamaPort](https://github.com/vova7878/PanamaPort). The Android build
-consumes `io.github.vova7878.panama:Core:v0.1.3` as a dependency.
+The Android implementation uses a forked
+[PanamaPort](https://github.com/vova7878/PanamaPort) artifact:
+`io.github.vova7878.panama:Core:0.1.3-kanama-r8.1`.
 
-A fork is not part of the current implementation. Kanama currently consumes the
-published artifact directly.
+Upstream PanamaPort `v0.1.3` miscompiles under Godot 4.7's R8 because its
+Android linker uses Java pattern switches over sealed storage/layout types. The
+fork rewrites the affected switch sites to explicit `instanceof` chains and is
+published to the configured local Maven repository for Android exports. Keep the
+fork diff small and retire it when the upstream artifact carries the fix.
 
 ## Desktop vs Android FFM
 

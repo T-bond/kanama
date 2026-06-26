@@ -9,6 +9,7 @@ pluginManagement {
 dependencyResolutionManagement {
     repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
     repositories {
+        mavenLocal()
         google()
         mavenCentral()
     }
@@ -18,4 +19,3 @@ rootProject.name = "kanama-godot-android-plugin"
 
 include(":godot-stubs")
 include(":plugin")
-

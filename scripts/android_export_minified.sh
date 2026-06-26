@@ -49,6 +49,7 @@ PACKAGE_NAME="$3"
 APK_PATH="${4:-/tmp/kanama-android-minified.apk}"
 LOG_FILE="${KANAMA_ANDROID_LOG:-/tmp/kanama_android_minified.log}"
 LAUNCH_WAIT="${KANAMA_ANDROID_LAUNCH_WAIT:-30}"
+PANAMAPORT_MAVEN_REPO="${KANAMA_PANAMAPORT_MAVEN_REPO:-file://$HOME/.m2/repository}"
 
 ANDROID_SDK_DIR="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-}}"
 if [[ -z "$ANDROID_SDK_DIR" ]]; then
@@ -110,6 +111,17 @@ check_log_absent() {
   fi
 }
 
+set_gradle_property() {
+  local file="$1"
+  local key="$2"
+  local value="$3"
+  if [[ -f "$file" ]] && grep -q "^$key=" "$file"; then
+    /usr/bin/sed -i '' "s|^$key=.*|$key=$value|" "$file"
+  else
+    printf '\n%s=%s\n' "$key" "$value" >>"$file"
+  fi
+}
+
 cleanup() {
   if [[ "${PACKAGE_LAUNCHED:-0}" == "1" ]]; then
     "$ADB_BIN" shell am force-stop "$PACKAGE_NAME" >/dev/null 2>&1 || true
@@ -151,11 +163,8 @@ fi
 # corrupts PanamaPort's LLVM downcall-stub type dispatch -> shouldNotReachHere at
 # nativeLinker().downcallHandle(). Force compat mode for the minified build.
 GP="$DEMO_DIR/android/build/gradle.properties"
-if [[ -f "$GP" ]] && grep -q "android.enableR8.fullMode" "$GP"; then
-  /usr/bin/sed -i '' 's/^android.enableR8.fullMode=.*/android.enableR8.fullMode=false/' "$GP"
-else
-  printf '\nandroid.enableR8.fullMode=false\n' >>"$GP"
-fi
+set_gradle_property "$GP" "android.enableR8.fullMode" "false"
+set_gradle_property "$GP" "plugins_maven_repos" "$PANAMAPORT_MAVEN_REPO"
 
 # Drop any stale rules file from earlier script versions.
 rm -f "$DEMO_DIR/android/build/kanama-minify.pro"
@@ -177,6 +186,12 @@ cat >>"$BUILD_GRADLE" <<'GRADLE'
 // AAR's consumer-rules.pro is applied automatically by R8. R8 compat mode is
 // forced via gradle.properties (android.enableR8.fullMode=false) so PanamaPort's
 // annotation-driven rules behave as designed.
+allprojects {
+    repositories {
+        mavenLocal()
+    }
+}
+
 android {
     buildTypes {
         release {

@@ -16,10 +16,11 @@ for testing Kanama games on Android.
 
 Eight public demo exports are Android smoke targets. On 2026-06-26, the full
 Godot 4.7 stable matrix passed on a Pixel 7 using debug APK exports, logcat
-startup checks, and screenshot smoke checks. Android remains experimental, and
-R8/minify is unsupported: the obfuscated release path is blocked upstream in
-PanamaPort (see "Current Boundaries"), so release builds must ship without
-minify for now.
+startup checks, and screenshot smoke checks. The R8-minified Match3 release APK
+also passed on Pixel 7 when built against Kanama's PanamaPort fork
+(`io.github.vova7878.panama:Core:0.1.3-kanama-r8.1`). Android remains
+experimental, and the minified-release claim is tied to that forked dependency,
+not upstream PanamaPort `v0.1.3`.
 
 | Demo | Current Result |
 |---|---|
@@ -32,9 +33,9 @@ minify for now.
 | `godot-4-3d-character-controller-tutorial` | APK exports, launches, initializes Kanama, reaches the main loop, and passes screenshot smoke checks with virtual joystick controls. |
 | `godot-4-3d-third-person-controller` | APK exports, launches, initializes Kanama, reaches the main loop, and passes screenshot smoke checks with virtual joystick controls. |
 
-The Pixel 7 debug matrix does not imply release-obfuscated support. R8/minify is
-blocked upstream in PanamaPort (see "Current Boundaries"); obfuscated-build
-support cannot be claimed until that is resolved upstream.
+The Pixel 7 debug matrix and minified Match3 gate do not imply a broad release
+support tier yet. They validate the current OpenGL Compatibility Android path
+and the forked-PanamaPort R8 path for the covered demos.
 
 The validated Android demos currently use Godot's OpenGL Compatibility renderer.
 Desktop demos can continue using their normal renderer. Vulkan/Mobile-renderer
@@ -193,31 +194,23 @@ before exiting.
 - Some unsupported ASTC textures may be converted at runtime by the emulator.
 - Godot 4.7 `VirtualJoystick` wrappers are available in Kanama, but demo-level
   touch-control polish remains a project-specific validation claim.
-- R8/ProGuard minification is **not supported** — blocked upstream in
-  PanamaPort, not by Kanama's keep rules. Root-caused on a Pixel 7 (2026-06-26):
-  a minified Match3 release APK builds and the GDExtension loads and runs
-  (`GodotPluginRegistry` initializes `KanamaAndroid`, `libkanama_bootstrap.so`
-  loads, `kanama_entry` runs, `KanamaBinding.init` executes), then crashes in
-  PanamaPort's FFI bootstrap at `nativeLinker().downcallHandle()` with
-  `AssertionError: Should not reach here`. The recurring
-  `No loader found for resource: res://kotlin-src/*.kt` (and the flickering
-  splash) is downstream of that crash — the `.kt` loader never registers.
-  Deobfuscated, PanamaPort's Android linker (`_AndroidLinkerImpl`) builds native
-  stubs with Java pattern-matching `switch`es over sealed types
-  (`_LLVMStorageDescriptor` storages and the `MemoryLayout` hierarchy), and
-  Godot 4.7's R8 (AGP 8.6.1) mis-optimizes those switches so they fall through
-  to `default -> Utils.shouldNotReachHere()`. This is unfixable from consumer
-  keep rules: keeping the sealed types (even no-shrink-only) blocks the
-  optimization PanamaPort's own `@CheckDiscard` rules require (scalarizing
-  `_ScopedMemoryAccess$SessionLock` in the VarHandle accessors), failing the
-  build; not keeping them leaves the switch broken at runtime. PanamaPort `Core`
-  tops out at `v0.1.3` on Maven Central, so there is no upgrade to pull; the fix
-  must come from upstream. Until then, ship Android release builds **without**
-  minify (debug-signed release or `minifyEnabled=false`). The plugin AAR's
-  `android/godot-plugin/plugin/consumer-rules.pro` covers the Kanama/Godot
-  surface and silences PanamaPort warnings but deliberately keeps **no**
-  `com.v7878.**` classes (any such keep breaks the build). The failure is
-  reproducible with `scripts/android_export_minified.sh` for an upstream report.
+- R8/ProGuard minification is validated only with Kanama's PanamaPort fork,
+  `io.github.vova7878.panama:Core:0.1.3-kanama-r8.1`. Root-caused on a Pixel 7
+  (2026-06-26), upstream PanamaPort `v0.1.3` crashes in the FFI bootstrap at
+  `nativeLinker().downcallHandle()` with `AssertionError: Should not reach
+  here`; the recurring `No loader found for resource: res://kotlin-src/*.kt`
+  and flickering splash are downstream of that crash. Deobfuscated, PanamaPort's
+  Android linker (`_AndroidLinkerImpl`) builds native stubs with Java
+  pattern-matching `switch`es over sealed types (`_LLVMStorageDescriptor`
+  storages and the `MemoryLayout` hierarchy), and Godot 4.7's R8 (AGP 8.6.1)
+  mis-optimizes those switches so they fall through to
+  `default -> Utils.shouldNotReachHere()`. This is unfixable from consumer keep
+  rules: keeping the sealed types blocks the optimization PanamaPort's own
+  `@CheckDiscard` rules require, failing the build; not keeping them leaves the
+  switch broken at runtime. The fork rewrites the affected source switch sites
+  to explicit `instanceof` branches and adds targeted R8 annotations/signing
+  mechanics. `scripts/android_export_minified.sh` now builds, installs, launches,
+  and verifies the minified Match3 release APK on Pixel 7.
 
 ## Validation Shape
 
@@ -228,10 +221,10 @@ unless broader physical-device and renderer coverage are added later.
 
 ## PanamaPort
 
-Kanama currently consumes
+Kanama's Android plugin currently consumes a forked
 [PanamaPort](https://github.com/vova7878/PanamaPort)
-`io.github.vova7878.panama:Core:v0.1.3` from Maven Central. The current Android
-work did not require PanamaPort edits, so Kanama does not need a fork today.
-
-Kanama can continue using the published PanamaPort artifact unless platform
-testing uncovers a dependency fix that cannot be handled upstream.
+artifact, `io.github.vova7878.panama:Core:0.1.3-kanama-r8.1`. The dependency can
+be overridden with `-PkanamaPanamaPortCore=...`, and the Android export scripts
+inject the configured local Maven repository into Godot's generated Gradle
+project. Upstream PanamaPort `v0.1.3` from Maven Central is not an R8-supported
+release path for Kanama.

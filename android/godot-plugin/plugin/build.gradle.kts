@@ -5,6 +5,8 @@ plugins {
 val kanamaRoot = rootProject.layout.projectDirectory.dir("../..")
 val demoDir = providers.gradleProperty("kanamaAndroidDemoDir").map { file(it) }
 val androidKanamaSources = layout.buildDirectory.dir("generated/kanamaAndroidSources")
+val panamaPortCoreDependency = providers.gradleProperty("kanamaPanamaPortCore")
+    .orElse("io.github.vova7878.panama:Core:0.1.3-kanama-r8.1")
 
 data class AndroidSourceRemapRule(
     val name: String,
@@ -277,6 +279,6 @@ tasks.named("preBuild") {
 
 dependencies {
     compileOnly(project(":godot-stubs"))
-    implementation("io.github.vova7878.panama:Core:v0.1.3")
+    implementation(panamaPortCoreDependency)
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.11.0")
 }
