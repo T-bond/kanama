@@ -180,6 +180,16 @@ argument order, Kotlin types, and return type must be generated into the
 contract. Manual additions to one platform actual without the matching generated
 `expect` declaration should fail review.
 
+Parameter names must be reconciled before the contract lands. The two existing
+backends already disagree: the desktop actual declares
+`getSingleton(name: String)` while the iOS actual declares
+`getSingleton(className: String)`. Kotlin requires identical parameter names
+across an `expect` and all its `actual` declarations, so the generator must emit
+one canonical name per parameter and both backends must adopt it. A pre-flight
+pass that normalizes parameter names in the current two wrapper sets should run
+before step 2 of the migration, so contract generation does not surface as
+dozens of `EXPECT_ACTUAL_INCOMPATIBLE_PARAMETER_NAMES` diagnostics.
+
 Backend mapping:
 
 - JVM actual keeps the current Panama implementation: lookup through `GodotFFI`,
@@ -200,6 +210,57 @@ throwing only during a temporary migration step, and only for wrappers that are
 not exposed to iOS. The final unified state has no platform-stubbed generated
 methods. A missing iOS helper means the common wrapper method must stay skipped
 until the C-shim and actual helper are audited.
+
+## Android Source-Remap Pipeline
+
+Android is the highest-risk consumer in this migration and needs more than
+"consume the JVM actual after the remap." Android does not depend on a published
+JVM artifact and is not a multiplatform target. It is a **plain Kotlin/Android
+compilation** in the separate `android/godot-plugin` composite build. It obtains
+Kanama by **textually copying source** in the `prepareAndroidKanamaSources`
+`Sync` task and rewriting it line-by-line (`androidSourceRemapRules`): `java.lang.foreign`
+→ `com.v7878.foreign`, `registerAll.invokeWithArguments` → `registerAll.invoke`,
+and others. The `Sync` `from(...)` list is hardcoded to
+`src/main/kotlin`, `annotations/src/main/kotlin`, and the demo sources. It even
+synthesizes its own `types/Real.kt`/`GodotReal` in a `doLast` block rather than
+copying the generated JVM `Real.kt`.
+
+Two concrete consequences the rest of this design must honor:
+
+1. **The copy task must learn the new source roots.** When wrappers and the
+   `expect object ObjectCalls` move to `:kanama-common-api/src/commonMain/kotlin`
+   and the JVM actual to `:kanama-common-api/src/jvmMain/kotlin`, the
+   `prepareAndroidKanamaSources` `from(...)` list must add both roots (with the
+   same `remapForeignImports()` filter). Removing `src/main/kotlin` wrapper
+   sources without adding the new roots silently drops classes from the Android
+   build. This rewire is a required migration step, not an afterthought.
+
+2. **`expect`/`actual` does not compile in a non-MPP Kotlin compilation.** If the
+   task copies `commonMain` (carrying `expect object ObjectCalls`) and `jvmMain`
+   (carrying `actual object ObjectCalls`) into the Android module as-is, the
+   Android compiler sees an `expect` keyword without multiplatform support and a
+   duplicate `ObjectCalls`. The remap pipeline must resolve this. Lowest-risk,
+   consistent with the existing textual approach: add remap rules that **drop the
+   `commonMain` `expect ObjectCalls` file and strip the `actual` modifier** from
+   the copied `jvmMain` actual, so Android compiles a single plain `object
+   ObjectCalls`. The alternative — enabling `-Xmulti-platform` on the Android
+   compile and feeding it a `commonMain`+`jvmMain` source pair — is a larger
+   change to the Android build and should be a deliberate decision, not a
+   side effect of wrapper unification. Whichever is chosen must be stated in the
+   implementation task; do not leave it to the implementer to discover at compile
+   time.
+
+3. **Reconcile the synthesized `GodotReal`.** Android writes its own
+   single-precision `GodotReal`/`real_t` in `doLast`. If `GodotReal` moves to
+   `commonMain` (see below), the Android synth step must either keep overriding
+   it (drop the common copy via a remap-exclude) or be deleted in favor of the
+   copied common source. Pick one explicitly so Android does not end up with two
+   `GodotReal` definitions.
+
+Android validation gate for this pipeline: after the source-root rewire, run
+`scripts/android_export_minified.sh` / `scripts/android_smoke.sh` and the source
+audit (`auditGeneratedAndroidKanamaSources`) so a missed `from(...)` root or an
+un-remapped `expect` keyword fails before it reaches a device.
 
 ## Migration Path
 
@@ -225,10 +286,15 @@ after each step.
      desktop and iOS.
    - Root JVM runtime and `:ios-runtime` depend on the common module and stop
      compiling their local copies for that slice.
+   - Rewire `prepareAndroidKanamaSources` to copy the new `commonMain`/`jvmMain`
+     source roots and apply the `expect`/`actual` strip-and-merge remap (see
+     [Android Source-Remap Pipeline](#android-source-remap-pipeline)) in the same
+     step the slice moves, so Android does not lose the moved classes.
    - Gate: `./gradlew jar`,
      `DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer ./gradlew compileKotlinIosArm64`,
-     `scripts/check_ios_no_silent_stubs.py`, and an API diff proving the moved
-     classes have identical public declarations.
+     `scripts/check_ios_no_silent_stubs.py`, an Android export/smoke run, and an
+     API diff proving the moved classes have identical public declarations on all
+     three platforms.
 
 4. Expand by audited shape families, not by class count.
    - Promote all methods using an already-implemented call shape together.
@@ -349,7 +415,11 @@ Main risks:
 - iOS helper gaps. A common wrapper method can compile but crash or corrupt data
   if its iOS actual uses the wrong ptrcall width or lifetime.
 - Android remap fragility. Common wrappers must not grow imports that bypass the
-  PanamaPort remap assumptions.
+  PanamaPort remap assumptions, and the textual `prepareAndroidKanamaSources`
+  copy must track every new source root and strip `expect`/`actual` (Android is
+  not a multiplatform compilation). A missed `from(...)` root drops classes
+  silently; an un-stripped `expect` keyword fails the Android compile. See
+  [Android Source-Remap Pipeline](#android-source-remap-pipeline).
 - Source-compatible but behavior-incompatible changes. Removing iOS-only
   exceptions may expose real subclass collision problems that need generator
   policy, not local edits.
