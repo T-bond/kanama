@@ -11,6 +11,8 @@ import net.multigesture.kanama.annotations.OnUnhandledInput
 import net.multigesture.kanama.annotations.OnUnhandledKeyInput
 import net.multigesture.kanama.annotations.RegisterFunction
 import net.multigesture.kanama.annotations.Rpc
+import net.multigesture.kanama.annotations.RpcMode
+import net.multigesture.kanama.annotations.RpcTransferMode
 import net.multigesture.kanama.annotations.ScriptClass
 import net.multigesture.kanama.annotations.ScriptProperty
 import net.multigesture.kanama.annotations.Signal
@@ -128,10 +130,11 @@ class GateFixtureScript(godotObject: MemorySegment) : KanamaScript<Label>(godotO
         score += 1L
     }
 
-    // Phase 3.4 @Rpc parse-side: @Rpc rides on a @RegisterFunction method; the processor captures
-    // its RpcModel and the method stays dispatchable on iOS via the generic callV (full
-    // _get_rpc_config delivery to Godot multiplayer is a later phase).
-    @Rpc(callLocal = true)
+    // @Rpc rides on a @RegisterFunction method; the processor captures its RpcModel, keeps the
+    // method dispatchable on iOS via generic callV, and delivers _get_rpc_config to Godot. Explicit,
+    // mutually-distinct mode/transferMode/channel values (rather than all-default) make this an
+    // honest delivery example whose fields are individually observable.
+    @Rpc(mode = RpcMode.ANY_PEER, callLocal = true, transferMode = RpcTransferMode.UNRELIABLE, channel = 4)
     @RegisterFunction("net_score")
     fun netScore(points: Long) {
         score += points
