@@ -154,11 +154,10 @@ Android still needs release-grade validation alongside iOS:
 
 - Pixel 7 / current-device smoke on Godot 4.7 stable. _(Debug matrix passed
   2026-06-26.)_
-- R8-minified APK smoke gate for `consumer-rules.pro`. _(Blocked upstream:
-  root-caused 2026-06-26 to PanamaPort's sealed-type switches being
-  mis-optimized by Godot 4.7's R8; not fixable from keep rules. R8/minify is
-  unsupported until upstream resolves it — see `docs/exporting/android.md` and
-  architecture-review F2. Release builds ship without minify.)_
+- R8-minified APK smoke gate for `consumer-rules.pro`. _(Passed 2026-06-26 on
+  Pixel 7 for Starter-Kit-Match3 using Kanama's PanamaPort fork
+  `com.github.falcon4ever.PanamaPort:Core:0.1.3-kanama-r8.2`; upstream PanamaPort
+  `v0.1.3` remains the unfixed sealed-switch path.)_
 - Check that package/install flows remain intact after mobile generator changes.
 
 ### 5. Release Support Decision

@@ -8,6 +8,8 @@ group = "net.multigesture.kanama"
 version = "0.2.2"
 
 val packageMavenRepositoryDir = layout.buildDirectory.dir("package/maven")
+val panamaPortCoreDependency = providers.gradleProperty("kanamaPanamaPortCore")
+    .orElse("com.github.falcon4ever.PanamaPort:Core:0.1.3-kanama-r8.2")
 
 fun PublishingExtension.addKanamaPackageRepository() {
     repositories {
@@ -1290,6 +1292,7 @@ tasks.register<Exec>("assembleAndroidPluginAar") {
             "android/godot-plugin",
             ":plugin:assembleDebug",
             "-PkanamaAndroidDemoDir=${kanamaAndroidDemoDir.get()}",
+            "-PkanamaPanamaPortCore=${panamaPortCoreDependency.get()}",
         )
     }
 }
@@ -1324,7 +1327,7 @@ tasks.register("installAndroidPluginAar") {
             |binary="KanamaAndroid.debug.aar"
             |
             |[dependencies]
-            |remote=["io.github.vova7878.panama:Core:v0.1.3"]
+            |remote=["${panamaPortCoreDependency.get()}"]
             |""".trimMargin(),
         )
 

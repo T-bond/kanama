@@ -38,6 +38,7 @@ APK_PATH="${4:-/tmp/kanama-android-smoke.apk}"
 LOG_FILE="${KANAMA_ANDROID_LOG:-/tmp/kanama_android_smoke.log}"
 SCREENSHOT="${KANAMA_ANDROID_SCREENSHOT:-/tmp/kanama_android_smoke.png}"
 LAUNCH_WAIT="${KANAMA_ANDROID_LAUNCH_WAIT:-30}"
+PANAMAPORT_MAVEN_REPO="${KANAMA_PANAMAPORT_MAVEN_REPO:-file://$HOME/.m2/repository}"
 
 ANDROID_SDK_DIR="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-}}"
 if [[ -z "$ANDROID_SDK_DIR" ]]; then
@@ -77,6 +78,17 @@ check_log_absent() {
     echo "[android_smoke] log tail:" >&2
     tail -n 160 "$LOG_FILE" >&2
     exit 1
+  fi
+}
+
+set_gradle_property() {
+  local file="$1"
+  local key="$2"
+  local value="$3"
+  if [[ -f "$file" ]] && grep -q "^$key=" "$file"; then
+    /usr/bin/sed -i '' "s|^$key=.*|$key=$value|" "$file"
+  else
+    printf '\n%s=%s\n' "$key" "$value" >>"$file"
   fi
 }
 
@@ -120,10 +132,42 @@ ANDROID_HOME="$ANDROID_SDK_DIR" ANDROID_SDK_ROOT="$ANDROID_SDK_DIR" \
   "$ROOT_DIR/gradlew" -p "$ROOT_DIR" installAndroidPluginAar \
   -PkanamaAndroidDemoDir="$DEMO_DIR"
 
-echo "[android_smoke] export: $APK_PATH"
+echo "[android_smoke] install android build template"
 "$GODOT_BIN" --headless \
   --path "$DEMO_DIR" \
   --install-android-build-template \
+  --quit >/dev/null 2>&1 || true
+
+BUILD_GRADLE="$DEMO_DIR/android/build/build.gradle"
+if [[ ! -f "$BUILD_GRADLE" ]]; then
+  echo "[android_smoke] generated build.gradle not found: $BUILD_GRADLE" >&2
+  echo "[android_smoke] is gradle_build/use_gradle_build=true in the export preset?" >&2
+  exit 1
+fi
+
+set_gradle_property "$DEMO_DIR/android/build/gradle.properties" \
+  "plugins_maven_repos" "$PANAMAPORT_MAVEN_REPO"
+
+MARKER="kanama-local-maven"
+if grep -q "$MARKER" "$BUILD_GRADLE"; then
+  /usr/bin/sed -i '' "/=== $MARKER /,\$d" "$BUILD_GRADLE"
+fi
+cat >>"$BUILD_GRADLE" <<'GRADLE'
+
+// === kanama-local-maven (injected by scripts/android_smoke.sh) ===
+// Make a locally published PanamaPort fork available to Godot's generated
+// Android Gradle build when the Kanama plugin .gdap points at that coordinate.
+allprojects {
+    repositories {
+        mavenLocal()
+        maven { url 'https://jitpack.io' }
+    }
+}
+GRADLE
+
+echo "[android_smoke] export: $APK_PATH"
+"$GODOT_BIN" --headless \
+  --path "$DEMO_DIR" \
   --export-debug Android "$APK_PATH"
 
 echo "[android_smoke] install: $PACKAGE_NAME"
