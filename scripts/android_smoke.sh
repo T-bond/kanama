@@ -160,6 +160,7 @@ cat >>"$BUILD_GRADLE" <<'GRADLE'
 allprojects {
     repositories {
         mavenLocal()
+        maven { url 'https://jitpack.io' }
     }
 }
 GRADLE

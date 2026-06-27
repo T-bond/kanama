@@ -6,7 +6,7 @@ val kanamaRoot = rootProject.layout.projectDirectory.dir("../..")
 val demoDir = providers.gradleProperty("kanamaAndroidDemoDir").map { file(it) }
 val androidKanamaSources = layout.buildDirectory.dir("generated/kanamaAndroidSources")
 val panamaPortCoreDependency = providers.gradleProperty("kanamaPanamaPortCore")
-    .orElse("io.github.vova7878.panama:Core:0.1.3-kanama-r8.1")
+    .orElse("com.github.falcon4ever.PanamaPort:Core:0.1.3-kanama-r8.2")
 
 data class AndroidSourceRemapRule(
     val name: String,

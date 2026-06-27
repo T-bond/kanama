@@ -6,7 +6,7 @@
 # classes free to be obfuscated by the game's own configuration.
 #
 # STATUS: R8 minification is validated with Kanama's PanamaPort fork
-# (`io.github.vova7878.panama:Core:0.1.3-kanama-r8.1`). Upstream PanamaPort
+# (`com.github.falcon4ever.PanamaPort:Core:0.1.3-kanama-r8.2`). Upstream PanamaPort
 # v0.1.3 still has the sealed-switch R8 issue documented below, so these rules
 # keep only the Kanama/Godot reflective surface and still avoid broad
 # `com.v7878.**` keeps.

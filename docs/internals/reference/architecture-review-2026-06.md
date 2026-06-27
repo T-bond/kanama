@@ -117,7 +117,7 @@ PanamaPort's own `@CheckDiscard` rules require, and not keeping them
 leaves the switch broken at runtime.
 
 Kanama now consumes a forked artifact,
-`io.github.vova7878.panama:Core:0.1.3-kanama-r8.1`, that rewrites the
+`com.github.falcon4ever.PanamaPort:Core:0.1.3-kanama-r8.2`, that rewrites the
 affected source switch sites to explicit `instanceof` chains and applies
 targeted R8 annotations. `consumer-rules.pro` keeps Kanama's own
 reflection/JNI surface, keeps no broad `com.v7878.**` classes, and only

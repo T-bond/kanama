@@ -9,7 +9,7 @@ version = "0.2.2"
 
 val packageMavenRepositoryDir = layout.buildDirectory.dir("package/maven")
 val panamaPortCoreDependency = providers.gradleProperty("kanamaPanamaPortCore")
-    .orElse("io.github.vova7878.panama:Core:0.1.3-kanama-r8.1")
+    .orElse("com.github.falcon4ever.PanamaPort:Core:0.1.3-kanama-r8.2")
 
 fun PublishingExtension.addKanamaPackageRepository() {
     repositories {

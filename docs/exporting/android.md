@@ -18,7 +18,7 @@ Eight public demo exports are Android smoke targets. On 2026-06-26, the full
 Godot 4.7 stable matrix passed on a Pixel 7 using debug APK exports, logcat
 startup checks, and screenshot smoke checks. The R8-minified Match3 release APK
 also passed on Pixel 7 when built against Kanama's PanamaPort fork
-(`io.github.vova7878.panama:Core:0.1.3-kanama-r8.1`). Android remains
+(`com.github.falcon4ever.PanamaPort:Core:0.1.3-kanama-r8.2`). Android remains
 experimental, and the minified-release claim is tied to that forked dependency,
 not upstream PanamaPort `v0.1.3`.
 
@@ -195,7 +195,7 @@ before exiting.
 - Godot 4.7 `VirtualJoystick` wrappers are available in Kanama, but demo-level
   touch-control polish remains a project-specific validation claim.
 - R8/ProGuard minification is validated only with Kanama's PanamaPort fork,
-  `io.github.vova7878.panama:Core:0.1.3-kanama-r8.1`. Root-caused on a Pixel 7
+  `com.github.falcon4ever.PanamaPort:Core:0.1.3-kanama-r8.2`. Root-caused on a Pixel 7
   (2026-06-26), upstream PanamaPort `v0.1.3` crashes in the FFI bootstrap at
   `nativeLinker().downcallHandle()` with `AssertionError: Should not reach
   here`; the recurring `No loader found for resource: res://kotlin-src/*.kt`
@@ -223,8 +223,9 @@ unless broader physical-device and renderer coverage are added later.
 
 Kanama's Android plugin currently consumes a forked
 [PanamaPort](https://github.com/vova7878/PanamaPort)
-artifact, `io.github.vova7878.panama:Core:0.1.3-kanama-r8.1`. The dependency can
-be overridden with `-PkanamaPanamaPortCore=...`, and the Android export scripts
-inject the configured local Maven repository into Godot's generated Gradle
-project. Upstream PanamaPort `v0.1.3` from Maven Central is not an R8-supported
-release path for Kanama.
+artifact, `com.github.falcon4ever.PanamaPort:Core:0.1.3-kanama-r8.2`, published
+via [JitPack](https://jitpack.io) from Kanama's PanamaPort fork. The dependency
+can be overridden with `-PkanamaPanamaPortCore=...`, and the Android export
+scripts inject the JitPack repository (alongside the local Maven repository, for
+fork iteration) into Godot's generated Gradle project. Upstream PanamaPort
+`v0.1.3` from Maven Central is not an R8-supported release path for Kanama.

@@ -154,7 +154,7 @@ Android still needs release-grade validation alongside iOS:
   2026-06-26.)_
 - R8-minified APK smoke gate for `consumer-rules.pro`. _(Passed 2026-06-26 on
   Pixel 7 for Starter-Kit-Match3 using Kanama's PanamaPort fork
-  `io.github.vova7878.panama:Core:0.1.3-kanama-r8.1`; upstream PanamaPort
+  `com.github.falcon4ever.PanamaPort:Core:0.1.3-kanama-r8.2`; upstream PanamaPort
   `v0.1.3` remains the unfixed sealed-switch path.)_
 - Check that package/install flows remain intact after mobile generator changes.
 
