@@ -93,6 +93,40 @@ Keep `IosGodotApi.kt` small and justified:
 - Retire temporary class collisions such as hand-written `SceneTree` / `Tween` only when the generated
   path can preserve the bespoke runtime behavior.
 
+2026-07 pass (task 10): once tasks 08 (long-tail shapes) and 09 (Callable/vararg) landed, the audited
+shapes made three hand-written singleton files clean generated supersets, so they were retired to
+generated wrappers (14 -> 11 HANDWRITTEN):
+
+- `Time` — `get_ticks_msec` (and the rest of the singleton) is a plain audited ptrcall.
+- `InputMap` — `has_action`/`add_action`/`action_add_event` are StringName/Object ptrcalls (task 08).
+  Note: generated `add_action` uses Godot's real default deadzone (0.2) instead of the legacy 0.5;
+  demo actions are keyboard-mapped, where deadzone is irrelevant.
+- `PhysicsServer3D` — `body_add_collision_exception` (two-RID) and the Callable-arg monitor callbacks
+  (task 09 PT_CALLABLE) are now generatable; the generated wrapper is a byte-identical superset for the
+  demo-used methods and needed no new `ObjectCallsGenerated.kt` helper (all RID/Callable shapes already
+  emitted by other union classes).
+
+Remaining hand-written singleton/glue exceptions are documented in-line as permanent, each blocked by a
+specific generator limitation rather than an un-audited shape:
+
+- `Engine` — `get_main_loop()` returns a `MainLoop`, which has no iOS wrapper class, so the generator
+  drops the method. `SceneTree.active()` needs it for the static `SceneTree.quit()`/`unloadCurrentScene()`
+  forms. Retire when `MainLoop` becomes a wrapper or the generator emits raw-handle object returns.
+- `ProjectSettings` — the only demo-used method is `getSettingDouble`, a bespoke `Variant -> Double`
+  coercion over `get_setting`; the generator emits no coercing helper.
+- `ResourceLoader` — demos use the typed loaders (`loadTexture2D`/`loadAudioStream`/`loadPackedScene`)
+  that pass a `type_hint` and wrap to the concrete type; the generator emits only the bare `load()`.
+- `SceneTree` / `Tween` — bespoke runtime (createTween F2 fix + `open` override, coroutine
+  `delaySeconds`, Variant `tween_property` path, static companion forms).
+
+Retiring the `Engine`/`ProjectSettings`/`ResourceLoader` sugar depends on generator custom sections
+(task 11) or a `MainLoop` wrapper, so they stay hand-written but documented.
+
+Device-validated on iPhone 15 Pro (iOS 26.5, Godot 4.7): Starter-Kit-FPS (the `SceneTree.createTween`
+F2 regression check) and godot-4-3d-third-person-controller (exercises all three retired singletons —
+`InputMap`, `Time`, `PhysicsServer3D`) both launch with self-tests green (`PTRCALL SELFTEST MATRIX:
+57 passed, 0 failed`; `OBJECTCALLS SELFTEST: 82 passed, 0 failed`) and no crash.
+
 Exit gate: 0 STUB / 0 SUGAR remains true, and remaining HANDWRITTEN entries are platform/runtime glue,
 not missing wrapper coverage.
 
