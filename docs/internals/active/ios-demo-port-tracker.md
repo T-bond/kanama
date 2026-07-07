@@ -20,7 +20,7 @@ experimental: this is demo parity, not desktop-level support.
 | Starter-Kit-FPS | Playable | F1/F2 complete. `List<Weapon>` delivery, AnimatedSprite3D generation, Tween glue, and SceneTree tween creation fixed. |
 | godot-4-3d-third-person-controller | Playable | Attack crash, Mobile/Vulkan visuals, and `List<String>` animation-loop delivery fixed. |
 | Starter-Kit-City-Builder | Desktop-only by design | Desktop-focused controls (GridMap/custom-list); not a mobile target and not reassessed for mobile. |
-| tps-demo-kanama | iOS not feasible yet (concrete gaps below); mobile UI deferred | `@Rpc` config delivery is wired on the shared desktop/Android path and the iOS C-shim path. iOS launch remains blocked — see the concrete gap list below. Mobile *playability* (touch controls) is tracked separately in `kanama-tasks/19-tps-mobile-virtual-joysticks.md` (Android-first). |
+| tps-demo-kanama | iOS in progress — compile 302→109 errors (2026-07-07); all 12 wrapper classes landed | `@Rpc` config delivery is wired on the shared desktop/Android path and the iOS C-shim path. All 12 missing wrapper classes now adopted; remaining blockers are non-wrapper method gaps + demo portability (see the 2026-07-07 progress note below). Mobile *playability* (touch controls) is tracked separately in `kanama-tasks/19-tps-mobile-virtual-joysticks.md` (Android-first). |
 
 ### tps-demo-kanama iOS gap list (measured 2026-07-04)
 
@@ -45,6 +45,37 @@ Net: bringing TPS to iOS is a sizeable iOS-coverage initiative (~13 classes + a 
 plus demo Native-portability work — its own task if TPS-on-iOS becomes a release goal, not a
 by-product of the audited-long-tail work. Feed this into the task-15 release-support decision
 (iOS "known limitations": heavy 3D + mobile-multiplayer demos are not an iOS support claim).
+
+### 2026-07-07 progress (compile-green push, task 24)
+
+TPS-on-iOS is now the active goal (user direction: stability + iOS parity). Progress
+in one session — script compile **302 → 109** unresolved references, base
+`compileKotlinIosArm64` green throughout:
+
+- **All 12 wrapper classes adopted** (drift-gate iOS 242 → 254). Each emitted with
+  full-object-types context so it matches the drift regen; `ObjectCallsGenerated.kt`
+  regenerated 496 → 532 ptrcall extension helpers (auto-generated Kotlin marshalling over
+  the generic C-shim ptrcall — **no new C/header** was needed for the emitted methods). The
+  earlier "un-audited per-shape audit" framing was over-stated: the helpers these classes
+  need were already generatable; the gap was purely that `ObjectCallsGenerated.kt` hadn't
+  been regenerated with the new classes in scope.
+- **iOS `GD` print facade + `Mathf.atan2/pow`** added (`IosGodotApi.kt`). iOS has no
+  utility-function call path, so `GD.print*`/`push{Error,Warning}` route to the K/N console
+  (device log), an approximation like `GD.isInstanceValid`.
+
+**Remaining (109 errors, all in TPS scripts, no wrapper-class errors left):**
+- Methods on hand-written iOS classes: `SceneTree.createTimer` (13), `Engine.maxFps` /
+  `getFramesPerSecond`, `ResourceLoader.loadThreaded*` + `THREAD_LOAD_*` enums.
+- Companion factories: `create` (9), `fromResource` (6), `fromApi` (1) on various classes.
+- `Node`/`Object` methods: `callDeferred` (3), `propagateCall`, `hasSignal`, `intersectRay`
+  (PhysicsDirectSpaceState3D), `Window.root`, `Material.nextPass`, `Vector3.lerp`.
+- `ShaderMaterial.setShaderParameter` (StringName, Variant → void — the one genuinely
+  un-audited ptrcall shape, iOS-skipped).
+- Demo Native-portability: `Level.kt` `java.io.File`/`readText` smoke marker.
+- `PlayerInputSynchronizerRpcs` (KSP-generated `@Rpc` class — verify iOS KSP emits it).
+
+After compile-green, the remaining step is **physical-device validation** on iPhone (the
+real "TPS runs on iOS" bar).
 
 ## Build / Deploy Pointers
 
