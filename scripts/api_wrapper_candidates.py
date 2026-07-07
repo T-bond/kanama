@@ -191,11 +191,10 @@ CALL_SHAPES: dict[tuple[tuple[str, ...], str], CallShape] = {
         "List<Any?>",
         "emptyList()",
     ),
-    (("Dictionary",), "Dictionary"): CallShape(
-        "ptrcallWithDictionaryArgRetDictionary",
-        "Map<String, Any?>",
-        "emptyMap()",
-    ),
+    # NOTE: no ('Dictionary',) -> 'Dictionary' shape. A Dictionary-in/Dictionary-out passthrough via
+    # the generic Map<String, Any?> helper silently drops non-String keys, so audit_generator_shape_policy
+    # keeps this shape out of CALL_SHAPES (must stay hand-audited). Task 22 briefly added it for
+    # GDScriptTextDocument.resolve/rename (editor LSP); reverted for stability — those methods are skipped.
     (("Object",), "void"): CallShape("ptrcallWithObjectArgs", "Unit"),
     (("Object",), "bool"): CallShape("ptrcallWithObjectArgRetBool", "Boolean", "false"),
     (("Object",), "int64"): CallShape("ptrcallWithObjectArgRetLong", "Long", "0L"),

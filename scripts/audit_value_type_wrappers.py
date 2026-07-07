@@ -32,6 +32,23 @@ API_PATH = ROOT / "extension_api.json"
 # other orientation/physics-sensitive helpers out of this list unless they have
 # focused parity coverage.
 REVIEWED_LOCAL_MATH = {
+    # isEqualApprox / isZeroApprox reimplement Godot's Math::is_equal_approx /
+    # is_zero_approx exactly (see types/ApproxMath.kt: CMP_EPSILON 0.00001, same
+    # a==b short-circuit + relative/absolute tolerance) so composite value-type
+    # comparisons match the engine without a per-component engine round-trip
+    # (task 14). Reviewed as faithful local math.
+    "AABB.isEqualApprox",
+    "Basis.isEqualApprox",
+    "Quaternion.isEqualApprox",
+    "Rect2.isEqualApprox",
+    "Transform2D.isEqualApprox",
+    "Transform3D.isEqualApprox",
+    "Vector2.isEqualApprox",
+    "Vector2.isZeroApprox",
+    "Vector3.isEqualApprox",
+    "Vector3.isZeroApprox",
+    "Vector4.isEqualApprox",
+    "Vector4.isZeroApprox",
     "AABB.hasPoint",
     "Plane.distanceTo",
     "Plane.intersectsRay",
