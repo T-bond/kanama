@@ -124,8 +124,8 @@ class ShapeCast3D(handle: MemorySegment) : Node3D(handle) {
         return ObjectCalls.ptrcallNoArgsRetBool(isCollidingBind, handle)
     }
 
-    fun getCollisionCount(): Long {
-        return ObjectCalls.ptrcallNoArgsRetLong(getCollisionCountBind, handle)
+    fun getCollisionCount(): Int {
+        return ObjectCalls.ptrcallNoArgsRetInt(getCollisionCountBind, handle)
     }
 
     fun forceShapecastUpdate() {

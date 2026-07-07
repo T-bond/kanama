@@ -43,8 +43,8 @@ class KinematicCollision3D(handle: MemorySegment) : RefCounted(handle) {
      *
      * Generated from Godot docs: KinematicCollision3D.get_collision_count
      */
-    fun getCollisionCount(): Long {
-        return ObjectCalls.ptrcallNoArgsRetLong(getCollisionCountBind, handle)
+    fun getCollisionCount(): Int {
+        return ObjectCalls.ptrcallNoArgsRetInt(getCollisionCountBind, handle)
     }
 
     /**

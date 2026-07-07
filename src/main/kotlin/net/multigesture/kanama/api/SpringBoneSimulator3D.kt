@@ -779,8 +779,8 @@ class SpringBoneSimulator3D(handle: MemorySegment) : SkeletonModifier3D(handle) 
      *
      * Generated from Godot docs: SpringBoneSimulator3D.get_collision_count
      */
-    fun getCollisionCount(index: Int): Long {
-        return ObjectCalls.ptrcallWithIntArgRetLong(getCollisionCountBind, handle, index)
+    fun getCollisionCount(index: Int): Int {
+        return ObjectCalls.ptrcallWithIntArgRetInt(getCollisionCountBind, handle, index)
     }
 
     /**
