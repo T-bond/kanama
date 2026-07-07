@@ -95,6 +95,7 @@ import net.multigesture.kanama.types.Vector3
 import kotlin.coroutines.CoroutineContext
 import kotlin.coroutines.resume
 import kotlin.math.PI
+import kotlin.math.pow
 import kotlin.random.Random
 
 @RequiresOptIn(
@@ -664,6 +665,11 @@ object Mathf {
     fun lerp(from: Double, to: Double, weight: Double): Double =
         from + (to - from) * weight
 
+    // Godot's @GlobalScope.atan2 / pow — pure math, matching the desktop Mathf helpers.
+    fun atan2(y: Double, x: Double): Double = kotlin.math.atan2(y, x)
+
+    fun pow(x: Double, y: Double): Double = x.pow(y)
+
     // Godot's @GlobalScope.move_toward: step [from] toward [to] by at most [delta].
     fun moveToward(from: Double, to: Double, delta: Double): Double =
         if (kotlin.math.abs(to - from) <= delta) to
@@ -739,6 +745,29 @@ object GD {
         val standard = kotlin.math.sqrt(-2.0 * kotlin.math.ln(u1)) * kotlin.math.cos(2.0 * Mathf.PI * u2)
         return mean + deviation * standard
     }
+
+    // @GlobalScope print facade. iOS has no utility-function call path (see the isInstanceValid note
+    // + roadmap), so these route to the Kotlin/Native console (device log / xcrun devicectl --console)
+    // instead of Godot's print stream. Output is APPROXIMATE — right text, different sink — matching
+    // the demos' debug-logging use. Godot's print() concatenates its args with no separator.
+    private fun joinValues(values: Array<out Any?>): String =
+        values.joinToString("") { it?.toString() ?: "<null>" }
+
+    fun print(vararg values: Any?) = println(joinValues(values))
+
+    fun printRich(vararg values: Any?) = println(joinValues(values))
+
+    fun printErr(vararg values: Any?) = println(joinValues(values))
+
+    fun printS(vararg values: Any?) = println(values.joinToString(" ") { it?.toString() ?: "<null>" })
+
+    fun printRaw(vararg values: Any?) = kotlin.io.print(joinValues(values))
+
+    fun printVerbose(vararg values: Any?) = println(joinValues(values))
+
+    fun pushWarning(vararg values: Any?) = println("WARNING: " + joinValues(values))
+
+    fun pushError(vararg values: Any?) = println("ERROR: " + joinValues(values))
 
     // @GlobalScope math facade (pure-Kotlin, matching the desktop GD utility helpers).
     fun signf(value: Double): Double = kotlin.math.sign(value)
