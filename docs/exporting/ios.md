@@ -23,11 +23,13 @@ device `arm64` and optional Apple Silicon simulator `arm64` slices, and runs
 full Kanama project scripts through generated Godot API wrappers over a C-shim
 generic `ptrcall`.
 
-The core iOS self-test matrix is device-validated with 0 guardrail hits, and
-per-frame Kanama binding overhead measured about 0.63 ms/frame on iPhone 12. The
-current demo corpus has also reached playable device runs on iPhone 15 Pro
-(Match3, 3D Platformer, Bunnymark, dodge, squash, Racing,
-character-controller, FPS, and third-person).
+The **full 9-demo device gate** (`scripts/ios_device_gate.sh`, plus the
+fresh-project install path) is validated on **iPhone 12** (iOS 26.5) with 0
+guardrail hits; per-frame Kanama binding overhead measured about 0.63 ms/frame
+there. **iPhone 15 Pro** (iOS 26.5) has separately validated the *playable demo
+corpus* and the singleton/virtual self-tests (Match3, 3D Platformer, Bunnymark,
+dodge, squash, Racing, character-controller, FPS, and third-person) — it is not
+the full-gate elapsed baseline. "Recent iPhones" is not yet a proven claim.
 
 iOS is still **experimental, not a supported export**. It should not be
 presented as a production mobile target or desktop-level support claim. Treat it

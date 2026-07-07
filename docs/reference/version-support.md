@@ -1,18 +1,18 @@
 # Version Support
 
-Kanama `0.2.2` is the current public preview line. This page records the
+Kanama `0.3.0` is the current public preview line. This page records the
 platforms and engine versions validated for the current preview.
 
 ## Current Support Claims
 
 | Target | Status | Notes |
 | --- | --- | --- |
-| Godot 4.7 stable, macOS arm64 | Validated baseline | API/header inputs, generated wrappers, KDoc, local CI, and desktop demo smokes target this baseline; `runtime_smoke.sh` passed against the 4.7 stable binary (2026-06-21). |
-| Android export, Godot 4.7 stable | Emulator-validated (4.7 stable); Pixel 7 pending | `scripts/android_smoke.sh` passed on the API 36 emulator with Starter-Kit-Match3 (2026-06-21): plugin AAR build, 4.7 stable APK export, install/launch, Kanama script-language registration (`Error=0`), non-blank frame. Android toolchain: SDK API 36, build-tools 36.1.0, NDK 29.0.14206865. Pixel 7 hardware smoke remains the gate before a full Android support claim. |
-| Linux arm64 | Pending 4.7 stable revalidation | Last local runtime, editor, and demo smoke validation passed with the 4.7 beta 2 ARM64 binary. Packaged desktop exports remain a separate release-readiness track. |
-| Linux x86_64 | Pending 4.7 stable revalidation | Last local runtime, editor, and demo smoke validation passed with the 4.7 beta 2 x64 binary. Packaged desktop exports remain a separate release-readiness track. |
-| Windows x86_64 | Pending 4.7 stable revalidation | Last local runtime/editor smoke validation passed with the 4.7 beta 2 console binary. PowerShell Gradle commands and Git Bash smoke marker checks are the documented path. |
-| iOS | Experimental (Kotlin/Native backend); not a supported export | The iOS backend runs full Kanama project scripts via a C shim + Kotlin/Native static `.xcframework`, using the same wrapper generator as desktop/Android. The iPhone 12 self-test (PTRCALL 54 / OBJECTCALLS 78, 0 failed) passed against the 4.7 stable iOS export template (2026-06-21). The current demo corpus has playable iPhone 15 Pro runs, with one FPS Audio autoload follow-up still tracked. Still experimental — see the [iOS roadmap](../internals/active/ios-backend-roadmap.md) for remaining support/export gates. |
+| Godot 4.7 stable, macOS arm64 | Supported (4.7 stable) | API/header inputs, generated wrappers, KDoc, local CI, and desktop demo smokes target this baseline; `runtime_smoke.sh` passed against the 4.7 stable binary (2026-06-21). Primary supported runtime and package target. |
+| Android export, Godot 4.7 stable | Experimental; device-validated on 4.7 stable | Device-validated (4.7 stable): Pixel 7 debug demo matrix + R8-minified Match3 release APK (2026-06-26); OpenGL Compatibility renderer. `scripts/android_smoke.sh` also passes on the API 36 emulator (plugin AAR build, APK export, install/launch, script-language registration `Error=0`, non-blank frame). Android toolchain: SDK API 36, build-tools 36.1.0, NDK 29.0.14206865. The R8/minified claim is tied to the PanamaPort fork `com.github.falcon4ever.PanamaPort:Core:0.1.3-kanama-r8.2`, not upstream. Still experimental. |
+| Linux arm64 | Supported pending 4.7 stable revalidation | Last local runtime, editor, and demo smoke validation passed with the 4.7 beta 2 ARM64 binary. Packaged desktop exports remain a separate release-readiness track. |
+| Linux x86_64 | Supported pending 4.7 stable revalidation | Last local runtime, editor, and demo smoke validation passed with the 4.7 beta 2 x64 binary. Packaged desktop exports remain a separate release-readiness track. |
+| Windows x86_64 | Supported pending 4.7 stable revalidation | Last local runtime/editor smoke validation passed with the 4.7 beta 2 console binary. PowerShell Gradle commands and Git Bash smoke marker checks are the documented path. |
+| iOS | Experimental (Kotlin/Native backend); not a supported export | The iOS backend runs full Kanama project scripts via a C shim + Kotlin/Native static `.xcframework`, using the same wrapper generator as desktop/Android. Full device gate on iPhone 12 (iOS 26.5): 9-demo matrix + fresh-project install path, 0 guardrail failures. Playable demo corpus + singleton/virtual self-tests on iPhone 15 Pro (iOS 26.5); both on 4.7 stable iOS templates. One FPS Audio autoload follow-up is tracked as non-blocking. Still experimental — see the [iOS roadmap](../internals/active/ios-backend-roadmap.md) for remaining support/export gates. |
 | Web | Not planned | Kanama depends on a JVM/FFM-style runtime path. |
 
 Validated support is only claimed after the matching smoke path passes.
@@ -35,13 +35,14 @@ unchanged and the rc 2 validation carries over. `scripts/runtime_smoke.sh`
 passed against the macOS arm64 4.7 stable binary
 (`4.7.stable.official.5b4e0cb0f`) on 2026-06-21. iOS (iPhone 12 self-test) and
 Android (`android_smoke.sh` on the API 36 emulator, Starter-Kit-Match3) also
-re-passed against 4.7 stable templates the same day. Linux/Windows remain
-pending revalidation (no local binaries); Pixel 7 hardware remains the Android
-gate.
+re-passed against 4.7 stable templates the same day. The Pixel 7 hardware
+device gate (debug demo matrix + R8-minified Match3 release APK) has passed
+(2026-06-26); Linux/Windows remain pending 4.7-stable revalidation (no local
+binaries).
 
 ## Kanama Version
 
-The current Gradle artifact version is `0.2.2`.
+The current Gradle artifact version is `0.3.0`.
 
 Release version changes should be paired with matching Gradle coordinates, docs
 snippets, demo project versions, badges, changelog headings, and a passing
@@ -65,11 +66,13 @@ uses:
 - Android ART,
 - [PanamaPort](https://github.com/vova7878/PanamaPort),
 - emulator smoke tests, and
-- Pixel 7 smoke and playability checks for the Android-enabled demos.
+- Pixel 7 device smoke and playability checks for the Android-enabled demos.
 
-The Godot 4.7 stable Android emulator smoke path has re-passed; keep Android
-support wording experimental until the Pixel 7 hardware smoke/playability gate
-passes again.
+The Godot 4.7 stable Android emulator smoke path and the Pixel 7 device gate
+(debug demo matrix + R8-minified Match3 release APK) have both passed. Android
+support stays labeled **experimental, device-validated**: the validated renderer
+is OpenGL Compatibility only, and the R8/minified path depends on Kanama's
+PanamaPort fork rather than upstream.
 
 See [Android Experimental](../exporting/android.md) for the build/export
 workflow and [Android Internals](../contributing/android-internals.md) for

@@ -5,7 +5,7 @@ plugins {
 }
 
 group = "net.multigesture.kanama"
-version = "0.2.2"
+version = "0.3.0"
 
 val packageMavenRepositoryDir = layout.buildDirectory.dir("package/maven")
 val panamaPortCoreDependency = providers.gradleProperty("kanamaPanamaPortCore")

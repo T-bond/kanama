@@ -7,6 +7,20 @@ versioning once public releases begin.
 
 ## Unreleased
 
+_No user-facing changes yet._
+
+## 0.3.0 - 2026-07-06
+
+This release closes Kanama's mobile + convergence phase. The headline is
+**mobile demo parity**: a full experimental iOS Kotlin/Native backend and a
+device-validated Android path, both running the same generated Godot API
+wrappers as desktop under a cross-platform drift gate. Wrapper coverage reached
+~99% of classes/methods, the docs were reorganized into consumer/maintainer/
+internal tracks, and the support tiers were formalized (desktop supported;
+iOS + Android experimental but device-validated). See
+`docs/internals/release-support-decision.md` for the grounded support matrix and
+`docs/internals/post-release-direction.md` for what's next.
+
 ### Added
 
 - Added an experimental iOS Kotlin/Native backend that runs full Kanama project
@@ -25,6 +39,34 @@ versioning once public releases begin.
   debugging only.
 - Made the iOS install path build device-only xcframeworks by default, with an
   explicit `kanamaIosXcframeworkMode=full` escape hatch for simulator work.
+- Reached iOS demo parity: the public demo corpus runs on device (full 9-demo
+  device gate on iPhone 12, playable corpus + singleton/virtual self-tests on
+  iPhone 15 Pro, both on Godot 4.7 stable). Landed the iOS long-tail wrapper
+  shapes (Transform2D, NodePath/StringName returns, `Packed*`/`Typed*` arrays,
+  Variant scalars), `Callable`/vararg support (object+method callables, varargs),
+  and non-POD virtual returns (`String`, `PackedStringArray`, `Variant`/`Any?`)
+  across desktop/Android/iOS.
+- Added `@Rpc` config delivery so Godot receives RPC configuration on all three
+  platform backends (desktop, Android, iOS).
+- Hardened the Android path: the Godot 4.7 stable debug demo matrix and an
+  R8-minified Match3 release APK both pass on a physical Pixel 7. R8 minification
+  is validated against Kanama's PanamaPort fork, which fixes an upstream
+  sealed-switch miscompile that crashed the FFI bootstrap under R8.
+- Grew the generated Godot API wrapper surface to ~99% coverage (classes
+  1032/1036 = 99.6%, callable methods 15274/15385 = 99.3%); engine virtuals are
+  overridable across POD plus `String`/`PackedStringArray`/`Variant` returns.
+  Residual exotic shapes are documented as promote-on-demand.
+- Added a full cross-platform wrapper drift gate (`check_full_drift_gate`):
+  committed wrappers are byte-identical to a fresh regeneration per platform
+  (desktop 985 / iOS 242), making silent cross-platform wrapper drift
+  structurally impossible.
+- Extended `isEqualApprox` to composite value types (Transform3D, Basis, AABB,
+  Rect2, Transform2D, Projection).
+- Added a Godot-version pin as a single source of truth (`kanamaGodotVersion`)
+  plus a KDoc sync tool and drift check wired into local CI, so a Godot upgrade
+  is a repeatable process.
+- Added `MobileControls` (virtual joysticks + on-screen buttons) to the
+  `tps-demo-kanama` companion demo for Android/iOS touch play.
 
 ### Changed
 
@@ -48,6 +90,31 @@ versioning once public releases begin.
   `kanama.gdextension` library entries instead of overwriting them, so installing
   the iOS addon no longer regresses Android support (it mirrors `installAddonJar`'s
   Android-metadata preservation and asserts the entries survive).
+- Reorganized the documentation into consumer / maintainer / internal tracks and
+  refreshed the agent-facing guides (`AGENTS.md`, `CLAUDE.md`) so a fresh session
+  can orient quickly.
+- Refreshed generated wrapper KDoc against Godot 4.7 stable `doc/classes`
+  (comment-only; verified zero code change).
+- Updated the public support wording: macOS is now labeled **Supported (4.7
+  stable)**; Android is **experimental, device-validated on Pixel 7** (previously
+  under-claimed as "Pixel 7 pending"); iOS names both validated devices
+  (iPhone 12 full gate / iPhone 15 Pro corpus). Linux and Windows remain
+  **Supported pending 4.7-stable revalidation**.
+
+### Known Limitations
+
+- **Mobile is experimental, not desktop-level support.** iOS and Android are
+  co-tiered as experimental (device-validated). No hot reload on mobile.
+- **iOS heavy-3D / mobile-multiplayer gap.** The `tps-demo-kanama` demo does not
+  run on iOS yet (un-audited wrapper classes, a few method gaps, and JVM-only
+  stdlib usage in the demo). Tracked as a Phase 4 goal.
+- **Android renderer + minification caveats.** The validated Android renderer is
+  OpenGL Compatibility only; Vulkan/Mobile is unproven. R8-minified release APKs
+  are validated only against Kanama's PanamaPort fork, not upstream.
+- **Linux/Windows pending revalidation.** Last full validation was on Godot 4.7
+  beta 2; the metadata-only bump to 4.7 stable carries over API/wrapper shape,
+  but the runtime/demo smoke has not been re-run on stable Linux/Windows
+  binaries.
 
 ## 0.2.2 - 2026-06-05
 

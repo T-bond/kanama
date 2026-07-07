@@ -72,6 +72,7 @@ nav:
           - iOS Demo Port Tracker: internals/active/ios-demo-port-tracker.md
           - Wrapper Coverage Tracker: internals/active/wrapper-coverage-tracker.md
           - Release Support Decision: internals/release-support-decision.md
+          - Post-Release Direction (0.3.0): internals/post-release-direction.md
       - Reference:
           - iOS Backend Architecture: internals/reference/ios-backend-architecture.md
           - iOS Backend Hand-written Registry: internals/reference/ios-backend-handwritten.md

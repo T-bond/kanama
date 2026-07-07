@@ -1,11 +1,13 @@
 # Release Support Decision
 
-> **Status: recommendation, awaiting human sign-off.** This is a decision-matrix
-> document, not the decision. It synthesizes what the smoke and device gates
-> actually proved into a proposed support-tier story and proposed public wording.
-> A maintainer signs off, then the wording is applied to the public docs as a
-> separate step (post-sign-off, likely task 18 — see
-> [Out of scope](#out-of-scope)).
+> **Status: signed off and applied (0.3.0, 2026-07-06).** The maintainer adopted
+> this recommendation for the 0.3.0 release: macOS is labeled **Supported (4.7
+> stable)**, Linux/Windows **Supported pending 4.7-stable revalidation**, iOS and
+> Android **co-tiered Experimental (device-validated)**. The §4 wording is live in
+> `docs/index.md`, `docs/reference/version-support.md`, and
+> `docs/exporting/{android,ios}.md`. See
+> [post-release-direction.md](./post-release-direction.md) for the release outcome
+> and next phase.
 
 This document answers four questions for the 0.2.x release line:
 
