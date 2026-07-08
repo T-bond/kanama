@@ -20,7 +20,7 @@ experimental: this is demo parity, not desktop-level support.
 | Starter-Kit-FPS | Playable | F1/F2 complete. `List<Weapon>` delivery, AnimatedSprite3D generation, Tween glue, and SceneTree tween creation fixed. |
 | godot-4-3d-third-person-controller | Playable | Attack crash, Mobile/Vulkan visuals, and `List<String>` animation-loop delivery fixed. |
 | Starter-Kit-City-Builder | Desktop-only by design | Desktop-focused controls (GridMap/custom-list); not a mobile target and not reassessed for mobile. |
-| tps-demo-kanama | iOS in progress — compile 302→109 errors (2026-07-07); all 12 wrapper classes landed | `@Rpc` config delivery is wired on the shared desktop/Android path and the iOS C-shim path. All 12 missing wrapper classes now adopted; remaining blockers are non-wrapper method gaps + demo portability (see the 2026-07-07 progress note below). Mobile *playability* (touch controls) is tracked separately in `kanama-tasks/19-tps-mobile-virtual-joysticks.md` (Android-first). |
+| tps-demo-kanama | **iOS COMPILES** (`compileKotlinIosArm64` BUILD SUCCESSFUL, 2026-07-07) — 302 → 0 script errors | The full `tps-demo-kanama` script set compiles against the iOS runtime. Two behaviors are documented iOS **stubs** pending C-shim work (device-validate first): `PhysicsDirectSpaceState3D.intersectRay` (Dictionary return — the robot laser-clip raycast is inert) and the `java.io.File` smoke marker (inert on device). Next: **run on a physical iPhone** and see what actually works. |
 
 ### tps-demo-kanama iOS gap list (measured 2026-07-04)
 
@@ -81,26 +81,21 @@ drift-gate green).
 
 **Remaining (29 errors) — the genuine C-shim / demo-portability tail:**
 
-*Hard — need C-shim / new marshalling (verify on device):*
-- **`intersectRay` chain (10)** → `PhysicsDirectSpaceState3D.intersectRay` returns a **Dictionary**,
-  and iOS `callWithVariantArgs` decodes bool/int/float/string/object but **not Dictionary** (→ null),
-  so it needs a real C-shim Dictionary-return path. Plus `PhysicsRayQueryParameters3D.create`
-  (RID-list arg). (The `K`/`V` type-inference errors are this cascading.)
-- **`ResourceLoader.loadThreaded*` + `THREAD_LOAD_*` (7)** → threaded-load state machine + status
-  enum + progress out-param on the hand-written iOS ResourceLoader.
-- **`LightmapGI.lightData` + `ResourceLoader.loadLightmapGIData` (2)** → `LightmapGIData` typed
-  resource + typed loader.
+**302 → 0 (compile-green, 2026-07-07).** All of the above landed. Cleared in the final push:
+`ResourceLoader.loadThreaded*` + `THREAD_LOAD_*` (via the Variant call path), `LightmapGI` typed
+loading (`LightmapGIData` + `loadLightmapGIData`), `PhysicsRayQueryParameters3D.create`,
+`java.io.File` iOS shim + portable `twoDecimals` + `AnimationMixer.Signals.animationFinished`, and
+the **`@Rpc` `<Class>Rpcs` helper emitter** for iOS (`IosScriptCodeEmitter` + `Node.callLocalRpc` —
+the KSP codegen previously ran for JVM only).
 
-*Demo-side Kotlin/Native portability (6):* `Level.kt` `java.io.File`/`readText`/`exists` smoke
-marker; `DebugLabel` `"%.2f".format(...)` (JVM `String.format`). Need portable rewrites (careful not
-to change desktop-smoke behavior).
+**Two documented iOS stubs remain (functional gaps, not compile gaps) — fill after the device baseline:**
+- **`PhysicsDirectSpaceState3D.intersectRay`** returns `emptyMap()` (iOS has no Dictionary-return
+  decode — needs a `kanama_ios_godot_ptrcall_ret_dictionary_blob` C-shim + `PhysicsRayQueryParameters3D.exclude`
+  RID-list). Effect: the robot laser-clip raycast doesn't register hits on iOS.
+- **`java.io.File`** smoke-marker shim is inert on iOS (the marker is desktop-smoke-only, never set on device).
 
-*Small (3):* `AnimationPlayer.Signals.animationFinished` (inherited signal not redeclared);
-`PlayerInputSynchronizerRpcs` (KSP-generated `@Rpc` class — verify iOS KSP emits it).
-
-Everything tractable without new C-shim work is done. The hard remainder is ABI/memory-sensitive
-marshalling that should be **validated on a physical iPhone** as it lands — the real "TPS runs on
-iOS" bar.
+**Next: run `tps-demo-kanama` on a physical iPhone** (device gate) and see what actually works —
+the real "TPS runs on iOS" bar. Everything achievable without new C-shim work is done and committed.
 
 ## Build / Deploy Pointers
 
