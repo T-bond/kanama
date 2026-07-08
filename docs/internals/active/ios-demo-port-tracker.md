@@ -75,24 +75,32 @@ drift-gate green).
 `call()` Variant path), and companion factories `ConfigFile`/`OfflineMultiplayerPeer`/
 `ENetMultiplayerPeer`/`ButtonGroup.create` + `ShaderMaterial.fromResource`.
 
-**Remaining (67 errors) — two classes:**
+**Signature-delta batch landed** (67 → 29): `ConfigFile.getValue`/`setValue` (via `call()`),
+`Node` String overloads of `hasNode`/`getNode`/`hasNodeAndResource`, `Node3D.lookAtFromPosition`
+`up` default, and a demo-side `Int==Long` widen. Cleared the whole `Menu.kt`/`Settings.kt` cluster.
 
-*Hard features (new marshalling/infrastructure, device-gated):*
-- **`intersectRay` chain** → `PhysicsDirectSpaceState3D.intersectRay` (Dictionary return — iOS has
-  **no Dictionary-return path**) + `PhysicsRayQueryParameters3D.create` (RID-list arg). The big one.
-- **`ResourceLoader.loadThreaded*` + `THREAD_LOAD_*` enums** → threaded-load state machine on the
-  hand-written iOS ResourceLoader (status enum + progress out-param).
-- Demo `java.io.File`/`readText`/`exists` smoke-marker (needs a portable file API or iOS `java.io`
-  shim); `LightmapGI.loadLightmapGIData`; `AnimationPlayer.Signals.animationFinished` (inherited
-  signal the generator doesn't redeclare); `PlayerInputSynchronizerRpcs` (KSP `@Rpc` class).
+**Remaining (29 errors) — the genuine C-shim / demo-portability tail:**
 
-*iOS-wrapper signature deltas (newly surfaced, ~33, concentrated in `Menu.kt`/`Settings.kt`):*
-- "None of the following candidates" + "cannot infer type parameter" on `ConfigFile.getValue`/
-  `setValue` (generic value type), missing `Window.MODE_*` enum constants, `NodePath`-vs-`String`
-  arg mismatches, `Int`-vs-`Long?` comparisons. These are per-method signature reconciliations
-  between the generated iOS wrappers and desktop (not missing classes).
+*Hard — need C-shim / new marshalling (verify on device):*
+- **`intersectRay` chain (10)** → `PhysicsDirectSpaceState3D.intersectRay` returns a **Dictionary**,
+  and iOS `callWithVariantArgs` decodes bool/int/float/string/object but **not Dictionary** (→ null),
+  so it needs a real C-shim Dictionary-return path. Plus `PhysicsRayQueryParameters3D.create`
+  (RID-list arg). (The `K`/`V` type-inference errors are this cascading.)
+- **`ResourceLoader.loadThreaded*` + `THREAD_LOAD_*` (7)** → threaded-load state machine + status
+  enum + progress out-param on the hand-written iOS ResourceLoader.
+- **`LightmapGI.lightData` + `ResourceLoader.loadLightmapGIData` (2)** → `LightmapGIData` typed
+  resource + typed loader.
 
-After compile-green, **physical-device validation** on iPhone is the real "TPS runs on iOS" bar.
+*Demo-side Kotlin/Native portability (6):* `Level.kt` `java.io.File`/`readText`/`exists` smoke
+marker; `DebugLabel` `"%.2f".format(...)` (JVM `String.format`). Need portable rewrites (careful not
+to change desktop-smoke behavior).
+
+*Small (3):* `AnimationPlayer.Signals.animationFinished` (inherited signal not redeclared);
+`PlayerInputSynchronizerRpcs` (KSP-generated `@Rpc` class — verify iOS KSP emits it).
+
+Everything tractable without new C-shim work is done. The hard remainder is ABI/memory-sensitive
+marshalling that should be **validated on a physical iPhone** as it lands — the real "TPS runs on
+iOS" bar.
 
 ## Build / Deploy Pointers
 
