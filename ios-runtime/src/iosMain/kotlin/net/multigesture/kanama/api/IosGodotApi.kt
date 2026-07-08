@@ -781,11 +781,15 @@ object ResourceLoader {
             null,
         )
 
+    // After a threaded load completes the resource is in the ResourceLoader cache, so fetch it
+    // through the same synchronous C-shim as load() (which references the RefCounted resource
+    // correctly). The generic Variant-call path returned a handle whose PackedScene.instantiate()
+    // silently yielded null on device.
     fun loadThreadedGet(path: String): Resource? =
-        (ObjectCalls.callWithVariantArgs(loadThreadedGetBind, singleton, listOf(path)) as? MemorySegment)?.let { Resource(it) }
+        IosGodot.resourceLoaderLoad(path, "").takeIf { it != 0L }?.let { Resource(MemorySegment.ofAddress(it)) }
 
     fun loadThreadedGetPackedScene(path: String): PackedScene? =
-        (ObjectCalls.callWithVariantArgs(loadThreadedGetBind, singleton, listOf(path)) as? MemorySegment)?.let { PackedScene(it) }
+        IosGodot.resourceLoaderLoad(path, "PackedScene").takeIf { it != 0L }?.let { PackedScene(MemorySegment.ofAddress(it)) }
 
     private val singleton by lazy { ObjectCalls.getSingleton("ResourceLoader") }
     private val loadThreadedRequestBind by lazy { ObjectCalls.getMethodBind("ResourceLoader", "load_threaded_request", 3614384323L) }
