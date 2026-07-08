@@ -17,6 +17,10 @@ class OfflineMultiplayerPeer(handle: MemorySegment) : MultiplayerPeer(handle) {
         internal fun wrap(handle: MemorySegment): OfflineMultiplayerPeer? =
             if (handle.address() == 0L) null else OfflineMultiplayerPeer(handle)
 
+        // Instantiate an OfflineMultiplayerPeer (single-player multiplayer stub).
+        fun create(): OfflineMultiplayerPeer =
+            OfflineMultiplayerPeer(MemorySegment.ofAddress(IosGodot.constructObject("OfflineMultiplayerPeer")))
+
         // No MethodBinds emitted yet.
     }
 }

@@ -34,6 +34,10 @@ class ShaderMaterial(handle: MemorySegment) : Material(handle) {
         internal fun wrap(handle: MemorySegment): ShaderMaterial? =
             if (handle.address() == 0L) null else ShaderMaterial(handle)
 
+        // Downcast a Resource to ShaderMaterial (null if not), mirroring the desktop helper.
+        fun fromResource(value: Resource?): ShaderMaterial? =
+            value?.takeIf { it.isClass("ShaderMaterial") }?.let { ShaderMaterial(it.handle) }
+
         private const val SET_SHADER_HASH = 3341921675L
         private val setShaderBind by lazy {
             ObjectCalls.getMethodBind("ShaderMaterial", "set_shader", SET_SHADER_HASH)

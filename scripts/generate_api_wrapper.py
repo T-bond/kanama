@@ -664,6 +664,31 @@ IOS_CUSTOM_COMPANION_MEMBER_SECTIONS = {
         fun fromApi(api: MultiplayerAPI?): SceneMultiplayer? =
             api?.takeIf { it.isClass("SceneMultiplayer") }?.let { SceneMultiplayer(it.handle) }
 """.strip("\n"),
+    "ConfigFile": """
+        // Instantiate a ConfigFile (RefCounted key/value store).
+        fun create(): ConfigFile =
+            ConfigFile(MemorySegment.ofAddress(IosGodot.constructObject("ConfigFile")))
+""".strip("\n"),
+    "OfflineMultiplayerPeer": """
+        // Instantiate an OfflineMultiplayerPeer (single-player multiplayer stub).
+        fun create(): OfflineMultiplayerPeer =
+            OfflineMultiplayerPeer(MemorySegment.ofAddress(IosGodot.constructObject("OfflineMultiplayerPeer")))
+""".strip("\n"),
+    "ENetMultiplayerPeer": """
+        // Instantiate an ENetMultiplayerPeer.
+        fun create(): ENetMultiplayerPeer =
+            ENetMultiplayerPeer(MemorySegment.ofAddress(IosGodot.constructObject("ENetMultiplayerPeer")))
+""".strip("\n"),
+    "ButtonGroup": """
+        // Instantiate a ButtonGroup (RefCounted radio-button grouping).
+        fun create(): ButtonGroup =
+            ButtonGroup(MemorySegment.ofAddress(IosGodot.constructObject("ButtonGroup")))
+""".strip("\n"),
+    "ShaderMaterial": """
+        // Downcast a Resource to ShaderMaterial (null if not), mirroring the desktop helper.
+        fun fromResource(value: Resource?): ShaderMaterial? =
+            value?.takeIf { it.isClass("ShaderMaterial") }?.let { ShaderMaterial(it.handle) }
+""".strip("\n"),
 }
 
 
