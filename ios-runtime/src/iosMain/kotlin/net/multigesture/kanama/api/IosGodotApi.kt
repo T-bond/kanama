@@ -411,6 +411,19 @@ class SceneTree(handle: MemorySegment) : Node(handle) {
         delay((seconds * 1000.0).toLong().coerceAtLeast(0L))
     }
 
+    // SceneTree.create_timer — a one-shot SceneTreeTimer that emits `timeout` after timeSec. Demo
+    // code awaits it: getTree().createTimer(t)?.signal(Timer.Signals.timeout)?.await(self).
+    fun createTimer(
+        timeSec: Double,
+        processAlways: Boolean = true,
+        processInPhysics: Boolean = false,
+        ignoreTimeScale: Boolean = false,
+    ): SceneTreeTimer? = SceneTreeTimer.wrap(
+        ObjectCalls.ptrcallWithDoubleAndThreeBoolArgsRetObject(
+            createTimerBind, handle, timeSec, processAlways, processInPhysics, ignoreTimeScale,
+        ),
+    )
+
     fun setPaused(paused: Boolean) {
         ObjectCalls.ptrcallWithBoolArg(setPausedBind, handle, paused)
     }
@@ -449,6 +462,7 @@ class SceneTree(handle: MemorySegment) : Node(handle) {
 
     companion object {
         private val quitBind by lazy { ObjectCalls.getMethodBind("SceneTree", "quit", 1995695955L) }
+        private val createTimerBind by lazy { ObjectCalls.getMethodBind("SceneTree", "create_timer", 2709170273L) }
         private val reloadCurrentSceneBind by lazy {
             ObjectCalls.getMethodBind("SceneTree", "reload_current_scene", 166280745L)
         }

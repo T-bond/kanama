@@ -300,6 +300,8 @@ IOS_HANDWRITTEN_HELPERS = {
     "ptrcallNoArgsRetPlaneList",
     "ptrcallNoArgsRetArray",
     "ptrcallWithNodePathArgRetArray",
+    # hand-written in ObjectCalls.kt to host SceneTree.create_timer (hand-written collision class)
+    "ptrcallWithDoubleAndThreeBoolArgsRetObject",
 }
 PARAMETER_NAME_OVERRIDES = {
     ("Time", "get_datetime_dict_from_unix_time", "unix_time_val"): "unixTime",

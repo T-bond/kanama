@@ -821,6 +821,31 @@ object ObjectCalls {
             Unit
         }
 
+    // (double, bool, bool, bool) -> Object. Hosts SceneTree.create_timer (SceneTree is a hand-written
+    // collision class, so this shape isn't emitted by the generator; registered in
+    // IOS_HANDWRITTEN_HELPERS so the generator won't also emit it).
+    fun ptrcallWithDoubleAndThreeBoolArgsRetObject(
+        methodBind: MemorySegment,
+        instance: MemorySegment,
+        a0: Double,
+        a1: Boolean,
+        a2: Boolean,
+        a3: Boolean,
+    ): MemorySegment =
+        memScoped {
+            val ret = alloc<LongVar>(); ret.value = 0
+            val c0 = alloc<DoubleVar>(); c0.value = a0
+            val c1 = alloc<ByteVar>(); c1.value = if (a1) 1 else 0
+            val c2 = alloc<ByteVar>(); c2.value = if (a2) 1 else 0
+            val c3 = alloc<ByteVar>(); c3.value = if (a3) 1 else 0
+            val types = allocArray<IntVar>(4); types[0] = PT_FLOAT64; types[1] = PT_BOOL; types[2] = PT_BOOL; types[3] = PT_BOOL
+            val ptrs = allocArray<COpaquePointerVar>(4)
+            ptrs[0] = c0.ptr.reinterpret<CPointed>(); ptrs[1] = c1.ptr.reinterpret<CPointed>()
+            ptrs[2] = c2.ptr.reinterpret<CPointed>(); ptrs[3] = c3.ptr.reinterpret<CPointed>()
+            kanama_ios_godot_ptrcall(methodBind.address(), instance.address(), types, ptrs, 4, PT_OBJECT, ret.ptr)
+            MemorySegment.ofAddress(ret.value)
+        }
+
     fun ptrcallWithVector2Arg(methodBind: MemorySegment, instance: MemorySegment, value: Vector2) =
         memScoped {
             val cell = allocArray<GodotRealVar>(2)
