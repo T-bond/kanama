@@ -747,6 +747,45 @@ object ResourceLoader {
         IosGodot.resourceLoaderLoad(path, "PackedScene").takeIf { it != 0L }?.let {
             PackedScene(MemorySegment.ofAddress(it))
         }
+
+    const val THREAD_LOAD_INVALID_RESOURCE = 0L
+    const val THREAD_LOAD_IN_PROGRESS = 1L
+    const val THREAD_LOAD_FAILED = 2L
+    const val THREAD_LOAD_LOADED = 3L
+    const val CACHE_MODE_REUSE = 1L
+
+    data class ThreadLoadStatus(val status: Long, val progress: Double?)
+
+    // Threaded loading through the generic Variant call path: int/object returns decode cleanly, so
+    // no new ptrcall shape is needed. load_threaded_get_status's optional progress out-array is not
+    // read back on iOS (progress = null; the demo treats null as 0.0). The status drives the loading
+    // state machine, which is what matters.
+    fun loadThreadedRequest(
+        path: String,
+        typeHint: String = "",
+        useSubThreads: Boolean = false,
+        cacheMode: Long = CACHE_MODE_REUSE,
+    ): Long =
+        (ObjectCalls.callWithVariantArgs(loadThreadedRequestBind, singleton, listOf(path, typeHint, useSubThreads, cacheMode)) as? Number)?.toLong()
+            ?: THREAD_LOAD_INVALID_RESOURCE
+
+    fun loadThreadedGetStatusWithProgress(path: String): ThreadLoadStatus =
+        ThreadLoadStatus(
+            (ObjectCalls.callWithVariantArgs(loadThreadedGetStatusBind, singleton, listOf(path)) as? Number)?.toLong()
+                ?: THREAD_LOAD_INVALID_RESOURCE,
+            null,
+        )
+
+    fun loadThreadedGet(path: String): Resource? =
+        (ObjectCalls.callWithVariantArgs(loadThreadedGetBind, singleton, listOf(path)) as? MemorySegment)?.let { Resource(it) }
+
+    fun loadThreadedGetPackedScene(path: String): PackedScene? =
+        (ObjectCalls.callWithVariantArgs(loadThreadedGetBind, singleton, listOf(path)) as? MemorySegment)?.let { PackedScene(it) }
+
+    private val singleton by lazy { ObjectCalls.getSingleton("ResourceLoader") }
+    private val loadThreadedRequestBind by lazy { ObjectCalls.getMethodBind("ResourceLoader", "load_threaded_request", 3614384323L) }
+    private val loadThreadedGetStatusBind by lazy { ObjectCalls.getMethodBind("ResourceLoader", "load_threaded_get_status", 4137685479L) }
+    private val loadThreadedGetBind by lazy { ObjectCalls.getMethodBind("ResourceLoader", "load_threaded_get", 1748875256L) }
 }
 
 // KANAMA-IOS-HANDWRITTEN: [platform] GD global helpers (rand*, print) — Kotlin/native impls, bespoke.
