@@ -353,6 +353,7 @@ DEFAULT_VALUE_OVERRIDES = {
 # and rely on the named Vector3.UP default, so reproduce it here rather than dropping it on regen.
 KOTLIN_DEFAULT_EXPRESSION_OVERRIDES = {
     ("Node3D", "look_at", "up"): "Vector3.UP",
+    ("Node3D", "look_at_from_position", "up"): "Vector3.UP",
 }
 CUSTOM_MEMBER_SECTIONS = {
     "AnimationMixer": """
