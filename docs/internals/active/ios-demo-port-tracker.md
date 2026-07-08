@@ -63,19 +63,32 @@ in one session — script compile **302 → 109** unresolved references, base
   utility-function call path, so `GD.print*`/`push{Error,Warning}` route to the K/N console
   (device log), an approximation like `GD.isInstanceValid`.
 
-**Remaining (109 errors, all in TPS scripts, no wrapper-class errors left):**
-- Methods on hand-written iOS classes: `SceneTree.createTimer` (13), `Engine.maxFps` /
-  `getFramesPerSecond`, `ResourceLoader.loadThreaded*` + `THREAD_LOAD_*` enums.
-- Companion factories: `create` (9), `fromResource` (6), `fromApi` (1) on various classes.
-- `Node`/`Object` methods: `callDeferred` (3), `propagateCall`, `hasSignal`, `intersectRay`
-  (PhysicsDirectSpaceState3D), `Window.root`, `Material.nextPass`, `Vector3.lerp`.
-- `ShaderMaterial.setShaderParameter` (StringName, Variant → void — the one genuinely
-  un-audited ptrcall shape, iOS-skipped).
-- Demo Native-portability: `Level.kt` `java.io.File`/`readText` smoke marker.
-- `PlayerInputSynchronizerRpcs` (KSP-generated `@Rpc` class — verify iOS KSP emits it).
+**Also landed this session** (302 → 93 errors): `Engine.maxFps`/`getFramesPerSecond`,
+`Vector2.lerp`, `GodotObject.callDeferred`/`hasSignal`, iOS `GD` print facade,
+`Mathf.atan2`/`pow`, and companion factories `FastNoiseLite.create` / `LightmapGI.create` /
+`Material.fromResource` / `SceneMultiplayer.fromApi` (via `IOS_CUSTOM_COMPANION_MEMBER_SECTIONS`,
+drift-gate green).
 
-After compile-green, the remaining step is **physical-device validation** on iPhone (the
-real "TPS runs on iOS" bar).
+**Remaining (93 errors, all in TPS scripts, no wrapper-class errors) — the genuinely hard tail:**
+- **`SceneTree.createTimer` (13)** → needs the absent `SceneTreeTimer` class + its `signal`/`await`
+  chain. The single biggest item; one feature, many call sites.
+- **`intersectRay` chain (3+)** → `Node3D.getWorld3d` + `World3D.directSpaceState` +
+  `PhysicsDirectSpaceState3D.intersectRay` (Dictionary return) + `PhysicsRayQueryParameters3D.create`
+  (RID-list arg). Dictionary + RID-list marshalling on iOS.
+- **`ResourceLoader.loadThreaded*` (3) + `THREAD_LOAD_*` enums (4)** → threaded-load state machine on
+  the hand-written iOS ResourceLoader.
+- **`ShaderMaterial.setShaderParameter` (2)** → `(StringName, Variant) → void` — the one genuinely
+  un-audited ptrcall shape (iOS-skipped); needs the Variant-arg path.
+- **`SceneTree.root` (2)** → `Window` root + `getCamera3d`/`addChild` on it.
+- Smaller: `Material.nextPass`, `propagateCall` (Array variant), `LightmapGI.loadLightmapGIData`,
+  `animationFinished` signal, remaining `create`/`fromResource` factories.
+- **Demo Native-portability:** `Level.kt` `java.io.File`/`readText`/`exists` smoke-marker code
+  (env-gated `KANAMA_TPS_SMOKE_*`; needs a portable file API or an iOS `java.io` shim).
+- **`PlayerInputSynchronizerRpcs`** (KSP-generated `@Rpc` class — verify iOS KSP emits it).
+
+These are the device-gated per-shape/feature audits (new classes, Dictionary/RID/Variant
+marshalling, threaded loading). After compile-green, **physical-device validation** on iPhone is
+the real "TPS runs on iOS" bar.
 
 ## Build / Deploy Pointers
 
