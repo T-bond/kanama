@@ -529,6 +529,25 @@ IOS_CUSTOM_MEMBER_SECTIONS = {
     fun propagateCall(method: String, args: List<Any?> = emptyList(), parentFirst: Boolean = false) {
         call("propagate_call", method, args, parentFirst)
     }
+
+    // String overloads for the NodePath-typed accessors (desktop exposes both), so demo code can
+    // pass a plain path literal.
+    fun hasNode(path: String): Boolean = hasNode(NodePath(path))
+
+    fun getNode(path: String): Node? = getNode(NodePath(path))
+
+    fun hasNodeAndResource(path: String): Boolean = hasNodeAndResource(NodePath(path))
+""".strip("\n"),
+    "ConfigFile": """
+    // ConfigFile.set_value / get_value are (StringName, StringName, Variant) methods the generator
+    // skips on iOS (Variant value); route through the call() Variant path. Matches desktop's
+    // hand-written Variant-coercion helpers.
+    fun setValue(section: String, key: String, value: Any?) {
+        call("set_value", section, key, value)
+    }
+
+    fun getValue(section: String, key: String, default: Any? = null): Any? =
+        call("get_value", section, key, default)
 """.strip("\n"),
     "ShaderMaterial": """
     // ShaderMaterial.set_shader_parameter(param, value) via the Variant call path (iOS has no

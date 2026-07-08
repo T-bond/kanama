@@ -584,6 +584,14 @@ open class Node(handle: MemorySegment) : GodotObject(handle) {
         call("propagate_call", method, args, parentFirst)
     }
 
+    // String overloads for the NodePath-typed accessors (desktop exposes both), so demo code can
+    // pass a plain path literal.
+    fun hasNode(path: String): Boolean = hasNode(NodePath(path))
+
+    fun getNode(path: String): Node? = getNode(NodePath(path))
+
+    fun hasNodeAndResource(path: String): Boolean = hasNodeAndResource(NodePath(path))
+
     object Signals {
         const val ready: String = "ready"
         const val renamed: String = "renamed"
