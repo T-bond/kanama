@@ -523,6 +523,19 @@ IOS_CUSTOM_MEMBER_SECTIONS = {
         IosGodot.nodeCreateTween(handle.address()).takeIf { it != 0L }?.let {
             Tween(MemorySegment.ofAddress(it))
         }
+
+    // Node.propagate_call(method, args, parent_first) via the Variant call path (Array arg boxed
+    // through callWithVariantArgs). Matches desktop Node.propagateCall.
+    fun propagateCall(method: String, args: List<Any?> = emptyList(), parentFirst: Boolean = false) {
+        call("propagate_call", method, args, parentFirst)
+    }
+""".strip("\n"),
+    "ShaderMaterial": """
+    // ShaderMaterial.set_shader_parameter(param, value) via the Variant call path (iOS has no
+    // (StringName, Variant) ptrcall shape; call() boxes the value). Matches desktop.
+    fun setShaderParameter(param: String, value: Any?) {
+        call("set_shader_parameter", param, value)
+    }
 """.strip("\n"),
     "ShapeCast3D": """
     // Long-index overload (desktop ShapeCast3D exposes both Int and Long), so loops over the now-Long

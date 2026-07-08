@@ -424,6 +424,10 @@ class SceneTree(handle: MemorySegment) : Node(handle) {
         ),
     )
 
+    // SceneTree.root — the root Window (Viewport). Always present in a running tree.
+    val root: Window
+        get() = Window(ObjectCalls.ptrcallNoArgsRetObject(getRootBind, handle))
+
     fun setPaused(paused: Boolean) {
         ObjectCalls.ptrcallWithBoolArg(setPausedBind, handle, paused)
     }

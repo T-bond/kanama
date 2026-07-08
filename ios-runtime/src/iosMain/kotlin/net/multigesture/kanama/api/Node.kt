@@ -578,6 +578,12 @@ open class Node(handle: MemorySegment) : GodotObject(handle) {
             Tween(MemorySegment.ofAddress(it))
         }
 
+    // Node.propagate_call(method, args, parent_first) via the Variant call path (Array arg boxed
+    // through callWithVariantArgs). Matches desktop Node.propagateCall.
+    fun propagateCall(method: String, args: List<Any?> = emptyList(), parentFirst: Boolean = false) {
+        call("propagate_call", method, args, parentFirst)
+    }
+
     object Signals {
         const val ready: String = "ready"
         const val renamed: String = "renamed"
