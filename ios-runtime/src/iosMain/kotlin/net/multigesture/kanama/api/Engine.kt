@@ -20,10 +20,32 @@ object Engine {
     fun getMainLoop(): MemorySegment =
         ObjectCalls.ptrcallNoArgsRetObject(getMainLoopBind, singleton)
 
+    var maxFps: Int
+        get() = getMaxFps()
+        set(value) = setMaxFps(value)
+
+    fun setMaxFps(maxFps: Int) =
+        ObjectCalls.ptrcallWithIntArg(setMaxFpsBind, singleton, maxFps)
+
+    fun getMaxFps(): Int =
+        ObjectCalls.ptrcallNoArgsRetInt(getMaxFpsBind, singleton)
+
+    fun getFramesPerSecond(): Double =
+        ObjectCalls.ptrcallNoArgsRetDouble(getFramesPerSecondBind, singleton)
+
     private val isEditorHintBind by lazy {
         ObjectCalls.getMethodBind("Engine", "is_editor_hint", 36873697L)
     }
     private val getMainLoopBind by lazy {
         ObjectCalls.getMethodBind("Engine", "get_main_loop", 1016888095L)
+    }
+    private val setMaxFpsBind by lazy {
+        ObjectCalls.getMethodBind("Engine", "set_max_fps", 1286410249L)
+    }
+    private val getMaxFpsBind by lazy {
+        ObjectCalls.getMethodBind("Engine", "get_max_fps", 3905245786L)
+    }
+    private val getFramesPerSecondBind by lazy {
+        ObjectCalls.getMethodBind("Engine", "get_frames_per_second", 1740695150L)
     }
 }

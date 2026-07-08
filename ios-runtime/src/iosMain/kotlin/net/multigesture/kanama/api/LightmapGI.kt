@@ -337,6 +337,10 @@ class LightmapGI(handle: MemorySegment) : VisualInstance3D(handle) {
         internal fun wrap(handle: MemorySegment): LightmapGI? =
             if (handle.address() == 0L) null else LightmapGI(handle)
 
+        // Instantiate a LightmapGI node.
+        fun create(): LightmapGI =
+            LightmapGI(MemorySegment.ofAddress(IosGodot.constructObject("LightmapGI")))
+
         private const val SET_BAKE_QUALITY_HASH = 1192215803L
         private val setBakeQualityBind by lazy {
             ObjectCalls.getMethodBind("LightmapGI", "set_bake_quality", SET_BAKE_QUALITY_HASH)

@@ -141,6 +141,10 @@ class SceneMultiplayer(handle: MemorySegment) : MultiplayerAPI(handle) {
         internal fun wrap(handle: MemorySegment): SceneMultiplayer? =
             if (handle.address() == 0L) null else SceneMultiplayer(handle)
 
+        // Downcast a MultiplayerAPI to SceneMultiplayer (null if not), mirroring the desktop helper.
+        fun fromApi(api: MultiplayerAPI?): SceneMultiplayer? =
+            api?.takeIf { it.isClass("SceneMultiplayer") }?.let { SceneMultiplayer(it.handle) }
+
         private const val SET_ROOT_PATH_HASH = 1348162250L
         private val setRootPathBind by lazy {
             ObjectCalls.getMethodBind("SceneMultiplayer", "set_root_path", SET_ROOT_PATH_HASH)

@@ -55,6 +55,10 @@ open class Material(handle: MemorySegment) : Resource(handle) {
         internal fun wrap(handle: MemorySegment): Material? =
             if (handle.address() == 0L) null else Material(handle)
 
+        // Downcast a Resource to Material (null if not), mirroring the desktop helper.
+        fun fromResource(value: Resource?): Material? =
+            value?.takeIf { it.isClass("Material") }?.let { Material(it.handle) }
+
         private const val SET_NEXT_PASS_HASH = 2757459619L
         private val setNextPassBind by lazy {
             ObjectCalls.getMethodBind("Material", "set_next_pass", SET_NEXT_PASS_HASH)

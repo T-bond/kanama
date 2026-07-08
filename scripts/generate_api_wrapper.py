@@ -642,6 +642,26 @@ IOS_CUSTOM_COMPANION_MEMBER_SECTIONS = {
         fun fromMaterial(value: Material): BaseMaterial3D? =
             if (value.isClass("BaseMaterial3D")) BaseMaterial3D(value.handle) else null
 """.strip("\n"),
+    "FastNoiseLite": """
+        // Instantiate a FastNoiseLite (RefCounted noise generator).
+        fun create(): FastNoiseLite =
+            FastNoiseLite(MemorySegment.ofAddress(IosGodot.constructObject("FastNoiseLite")))
+""".strip("\n"),
+    "LightmapGI": """
+        // Instantiate a LightmapGI node.
+        fun create(): LightmapGI =
+            LightmapGI(MemorySegment.ofAddress(IosGodot.constructObject("LightmapGI")))
+""".strip("\n"),
+    "Material": """
+        // Downcast a Resource to Material (null if not), mirroring the desktop helper.
+        fun fromResource(value: Resource?): Material? =
+            value?.takeIf { it.isClass("Material") }?.let { Material(it.handle) }
+""".strip("\n"),
+    "SceneMultiplayer": """
+        // Downcast a MultiplayerAPI to SceneMultiplayer (null if not), mirroring the desktop helper.
+        fun fromApi(api: MultiplayerAPI?): SceneMultiplayer? =
+            api?.takeIf { it.isClass("SceneMultiplayer") }?.let { SceneMultiplayer(it.handle) }
+""".strip("\n"),
 }
 
 
