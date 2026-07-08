@@ -115,6 +115,22 @@ class PhysicsRayQueryParameters3D(handle: MemorySegment) : RefCounted(handle) {
         internal fun wrap(handle: MemorySegment): PhysicsRayQueryParameters3D? =
             if (handle.address() == 0L) null else PhysicsRayQueryParameters3D(handle)
 
+        // Build a ray query. Godot's static create() also takes an exclude RID-list; iOS omits it
+        // (RID-list marshalling not wired yet) — harmless while intersectRay is stubbed. Instantiate
+        // and set the scalar/Vector3 properties.
+        fun create(
+            from: Vector3,
+            to: Vector3,
+            collisionMask: Long = 4294967295L,
+            exclude: List<net.multigesture.kanama.types.RID> = emptyList(),
+        ): PhysicsRayQueryParameters3D {
+            val query = PhysicsRayQueryParameters3D(MemorySegment.ofAddress(IosGodot.constructObject("PhysicsRayQueryParameters3D")))
+            query.from = from
+            query.to = to
+            query.collisionMask = collisionMask
+            return query
+        }
+
         private const val SET_FROM_HASH = 3460891852L
         private val setFromBind by lazy {
             ObjectCalls.getMethodBind("PhysicsRayQueryParameters3D", "set_from", SET_FROM_HASH)

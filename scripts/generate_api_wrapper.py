@@ -557,6 +557,14 @@ IOS_CUSTOM_MEMBER_SECTIONS = {
         call("set_shader_parameter", param, value)
     }
 """.strip("\n"),
+    "PhysicsDirectSpaceState3D": """
+    // intersect_ray returns a Godot Dictionary. iOS has no Dictionary-return decode path yet (only
+    // scalar/Array — see ObjectCalls.retVariantArrayBlob), so this is an iOS STUB that returns empty
+    // until a dictionary-blob C-shim lands. Effect on iOS: the robot laser-clip raycast never
+    // registers a hit (laser clips at max range). TODO: kanama_ios_godot_ptrcall_ret_dictionary_blob
+    // + wire PhysicsRayQueryParameters3D.exclude (RID-list) at the same time.
+    fun intersectRay(parameters: PhysicsRayQueryParameters3D?): Map<String, Any?> = emptyMap()
+""".strip("\n"),
     "ShapeCast3D": """
     // Long-index overload (desktop ShapeCast3D exposes both Int and Long), so loops over the now-Long
     // getCollisionCount() (`for (i in 0 until getCollisionCount())`) pass a Long index straight through.
@@ -721,6 +729,23 @@ IOS_CUSTOM_COMPANION_MEMBER_SECTIONS = {
         // Downcast a Resource to ShaderMaterial (null if not), mirroring the desktop helper.
         fun fromResource(value: Resource?): ShaderMaterial? =
             value?.takeIf { it.isClass("ShaderMaterial") }?.let { ShaderMaterial(it.handle) }
+""".strip("\n"),
+    "PhysicsRayQueryParameters3D": """
+        // Build a ray query. Godot's static create() also takes an exclude RID-list; iOS omits it
+        // (RID-list marshalling not wired yet) — harmless while intersectRay is stubbed. Instantiate
+        // and set the scalar/Vector3 properties.
+        fun create(
+            from: Vector3,
+            to: Vector3,
+            collisionMask: Long = 4294967295L,
+            exclude: List<net.multigesture.kanama.types.RID> = emptyList(),
+        ): PhysicsRayQueryParameters3D {
+            val query = PhysicsRayQueryParameters3D(MemorySegment.ofAddress(IosGodot.constructObject("PhysicsRayQueryParameters3D")))
+            query.from = from
+            query.to = to
+            query.collisionMask = collisionMask
+            return query
+        }
 """.strip("\n"),
 }
 
