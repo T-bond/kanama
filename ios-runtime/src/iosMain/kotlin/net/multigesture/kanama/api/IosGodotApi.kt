@@ -205,6 +205,14 @@ open class GodotObject(
         ObjectCalls.callWithVariantArgs(setDeferredBind, handle, listOf(property, value))
     }
 
+    // Object.call_deferred(method, *args) via the Variant path; runs on the next idle frame.
+    fun callDeferred(method: String, vararg args: Any?): Any? =
+        ObjectCalls.callWithVariantArgs(callDeferredBind, handle, listOf(method, *args))
+
+    // Object.has_signal(signal) — true if the object declares the named signal.
+    fun hasSignal(signal: String): Boolean =
+        ObjectCalls.ptrcallWithStringNameArgRetBool(hasSignalBind, handle, signal)
+
     // Object.set_script(resource) via the Variant call path. Signature matches desktop
     // GodotObject.setScript(Resource?). NOTE: desktop also calls ScriptBridge.noteSetScript to
     // arm pre-instance script-property buffering; iOS does not mirror that buffering (see set()).
@@ -295,6 +303,8 @@ open class GodotObject(
 
         // Variant-call binds (resolved once) for the dynamic Object.call / set_deferred path.
         private val callBind by lazy { ObjectCalls.getMethodBind("Object", "call", 3400424181L) }
+        private val callDeferredBind by lazy { ObjectCalls.getMethodBind("Object", "call_deferred", 3400424181L) }
+        private val hasSignalBind by lazy { ObjectCalls.getMethodBind("Object", "has_signal", 2619796661L) }
         private val setDeferredBind by lazy { ObjectCalls.getMethodBind("Object", "set_deferred", 3776071444L) }
         private val hasMethodBind by lazy { ObjectCalls.getMethodBind("Object", "has_method", 2619796661L) }
         private val isQueuedForDeletionBind by lazy { ObjectCalls.getMethodBind("Object", "is_queued_for_deletion", 36873697L) }
