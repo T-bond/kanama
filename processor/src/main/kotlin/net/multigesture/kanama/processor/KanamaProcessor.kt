@@ -898,6 +898,7 @@ class KanamaProcessor(
             "net.multigesture.kanama.api.GPUParticles3D",
             "net.multigesture.kanama.api.CPUParticles3D",
             "net.multigesture.kanama.api.Timer",
+            "net.multigesture.kanama.api.WorldEnvironment",
             "net.multigesture.kanama.api.PackedScene",
             "net.multigesture.kanama.api.Texture2D",
             "net.multigesture.kanama.api.NoiseTexture2D",
@@ -1034,6 +1035,7 @@ class KanamaProcessor(
             "net.multigesture.kanama.api.GPUParticles3D",
             "net.multigesture.kanama.api.CPUParticles3D",
             "net.multigesture.kanama.api.Timer",
+            "net.multigesture.kanama.api.WorldEnvironment",
         )
 
         private fun godotClassName(fqName: String): String =
