@@ -538,6 +538,14 @@ IOS_CUSTOM_MEMBER_SECTIONS = {
     fun getNode(path: String): Node? = getNode(NodePath(path))
 
     fun hasNodeAndResource(path: String): Boolean = hasNodeAndResource(NodePath(path))
+
+    // Node.callLocalRpc — send the RPC and also run it locally if the send was a no-op (matches
+    // desktop; used by the generated <Class>Rpcs.callLocal* helpers).
+    fun callLocalRpc(method: String, vararg extraArgs: Any?) {
+        if (rpc(method, *extraArgs) != 0L) {
+            call(method, *extraArgs)
+        }
+    }
 """.strip("\n"),
     "ConfigFile": """
     // ConfigFile.set_value / get_value are (StringName, StringName, Variant) methods the generator

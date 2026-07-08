@@ -748,6 +748,11 @@ object ResourceLoader {
             PackedScene(MemorySegment.ofAddress(it))
         }
 
+    fun loadLightmapGIData(path: String): LightmapGIData? =
+        IosGodot.resourceLoaderLoad(path, "LightmapGIData").takeIf { it != 0L }?.let {
+            LightmapGIData(MemorySegment.ofAddress(it))
+        }
+
     const val THREAD_LOAD_INVALID_RESOURCE = 0L
     const val THREAD_LOAD_IN_PROGRESS = 1L
     const val THREAD_LOAD_FAILED = 2L

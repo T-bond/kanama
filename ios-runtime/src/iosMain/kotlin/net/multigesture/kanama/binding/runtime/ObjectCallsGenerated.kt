@@ -1609,6 +1609,17 @@ fun ObjectCalls.ptrcallWithNodePathArgRetObject(methodBind: MemorySegment, insta
         MemorySegment.ofAddress(ret.value)
     }
 
+fun ObjectCalls.ptrcallWithNodePathRect2TwoIntArgs(methodBind: MemorySegment, instance: MemorySegment, a0: NodePath, a1: Rect2, a2: Int, a3: Int) =
+    memScoped {
+        val c1 = allocArray<GodotRealVar>(4); c1[0] = GodotReal.toC(a1.position.x); c1[1] = GodotReal.toC(a1.position.y); c1[2] = GodotReal.toC(a1.size.x); c1[3] = GodotReal.toC(a1.size.y)
+        val c2 = alloc<LongVar>(); c2.value = a2.toLong()
+        val c3 = alloc<LongVar>(); c3.value = a3.toLong()
+        val types = allocArray<IntVar>(4); types[0] = PT_NODE_PATH; types[1] = PT_RECT2; types[2] = PT_INT64; types[3] = PT_INT64
+        val ptrs = allocArray<COpaquePointerVar>(4); ptrs[0] = a0.path.cstr.ptr.reinterpret<CPointed>(); ptrs[1] = c1.reinterpret<CPointed>(); ptrs[2] = c2.ptr.reinterpret<CPointed>(); ptrs[3] = c3.ptr.reinterpret<CPointed>()
+        kanama_ios_godot_ptrcall(methodBind.address(), instance.address(), types, ptrs, 4, PT_VOID, null)
+        Unit
+    }
+
 fun ObjectCalls.ptrcallWithObjectAndBoolArg(methodBind: MemorySegment, instance: MemorySegment, a0: MemorySegment, a1: Boolean) =
     memScoped {
         val c0 = alloc<LongVar>(); c0.value = a0.address()

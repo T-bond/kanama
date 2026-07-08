@@ -136,6 +136,20 @@ class LightmapGI(handle: MemorySegment) : VisualInstance3D(handle) {
         @JvmName("setGenerateProbesSubdivProperty")
         set(value) = setGenerateProbes(value)
 
+    var lightData: LightmapGIData?
+        @JvmName("lightDataProperty")
+        get() = getLightData()
+        @JvmName("setLightDataProperty")
+        set(value) = setLightData(value)
+
+    fun setLightData(data: LightmapGIData?) {
+        ObjectCalls.ptrcallWithObjectArgs(setLightDataBind, handle, listOf(data?.requireOpenHandle() ?: MemorySegment.NULL))
+    }
+
+    fun getLightData(): LightmapGIData? {
+        return LightmapGIData.wrap(ObjectCalls.ptrcallNoArgsRetObject(getLightDataBind, handle))
+    }
+
     fun setBakeQuality(bakeQuality: Long) {
         ObjectCalls.ptrcallWithLongArg(setBakeQualityBind, handle, bakeQuality)
     }
@@ -340,6 +354,16 @@ class LightmapGI(handle: MemorySegment) : VisualInstance3D(handle) {
         // Instantiate a LightmapGI node.
         fun create(): LightmapGI =
             LightmapGI(MemorySegment.ofAddress(IosGodot.constructObject("LightmapGI")))
+
+        private const val SET_LIGHT_DATA_HASH = 1790597277L
+        private val setLightDataBind by lazy {
+            ObjectCalls.getMethodBind("LightmapGI", "set_light_data", SET_LIGHT_DATA_HASH)
+        }
+
+        private const val GET_LIGHT_DATA_HASH = 290354153L
+        private val getLightDataBind by lazy {
+            ObjectCalls.getMethodBind("LightmapGI", "get_light_data", GET_LIGHT_DATA_HASH)
+        }
 
         private const val SET_BAKE_QUALITY_HASH = 1192215803L
         private val setBakeQualityBind by lazy {
