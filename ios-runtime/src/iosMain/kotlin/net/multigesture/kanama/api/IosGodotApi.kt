@@ -196,7 +196,8 @@ open class GodotObject(
         GodotSignal(this, name)
 
     // Variant Object.call dispatch: [method, *args] boxed into Variants, called via the
-    // Variant path (the varargs path ptrcall can't express). Scalar return decoded to Any?.
+    // Variant path (the varargs path ptrcall can't express). Scalar and small fixed-size
+    // (Vector2/Vector2i/Vector3/Color) returns decoded to Any?; other types surface null.
     fun call(method: String, vararg args: Any?): Any? =
         ObjectCalls.callWithVariantArgs(callBind, handle, listOf(method, *args))
 
@@ -761,10 +762,9 @@ object ResourceLoader {
 
     data class ThreadLoadStatus(val status: Long, val progress: Double?)
 
-    // Threaded loading through the generic Variant call path: int/object returns decode cleanly, so
-    // no new ptrcall shape is needed. load_threaded_get_status's optional progress out-array is not
-    // read back on iOS (progress = null; the demo treats null as 0.0). The status drives the loading
-    // state machine, which is what matters.
+    // Threaded loading: the request goes through the generic Variant call path (int return decodes
+    // cleanly). The status poll ptrcalls load_threaded_get_status with the optional progress
+    // out-Array supplied C-side, so progress is a real [0,1] value on iOS too.
     fun loadThreadedRequest(
         path: String,
         typeHint: String = "",
@@ -774,12 +774,14 @@ object ResourceLoader {
         (ObjectCalls.callWithVariantArgs(loadThreadedRequestBind, singleton, listOf(path, typeHint, useSubThreads, cacheMode)) as? Number)?.toLong()
             ?: THREAD_LOAD_INVALID_RESOURCE
 
-    fun loadThreadedGetStatusWithProgress(path: String): ThreadLoadStatus =
-        ThreadLoadStatus(
-            (ObjectCalls.callWithVariantArgs(loadThreadedGetStatusBind, singleton, listOf(path)) as? Number)?.toLong()
-                ?: THREAD_LOAD_INVALID_RESOURCE,
-            null,
-        )
+    fun loadThreadedGetStatusWithProgress(path: String): ThreadLoadStatus {
+        val (status, progress) = ObjectCalls.ptrcallLoadStatusWithProgress(loadThreadedGetStatusBind, singleton, path)
+        return if (status < 0) {
+            ThreadLoadStatus(THREAD_LOAD_INVALID_RESOURCE, null)
+        } else {
+            ThreadLoadStatus(status, progress)
+        }
+    }
 
     // After a threaded load completes the resource is in the ResourceLoader cache, so fetch it
     // through the same synchronous C-shim as load() (which references the RefCounted resource

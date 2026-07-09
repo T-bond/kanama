@@ -10,12 +10,17 @@ import net.multigesture.kanama.binding.runtime.*
 open class PhysicsDirectSpaceState3D(handle: MemorySegment) : GodotObject(handle) {
     // No conservative instance methods emitted yet.
 
-    // intersect_ray returns a Godot Dictionary. iOS has no Dictionary-return decode path yet (only
-    // scalar/Array — see ObjectCalls.retVariantArrayBlob), so this is an iOS STUB that returns empty
-    // until a dictionary-blob C-shim lands. Effect on iOS: the robot laser-clip raycast never
-    // registers a hit (laser clips at max range). TODO: kanama_ios_godot_ptrcall_ret_dictionary_blob
-    // + wire PhysicsRayQueryParameters3D.exclude (RID-list) at the same time.
-    fun intersectRay(parameters: PhysicsRayQueryParameters3D?): Map<String, Any?> = emptyMap()
+    // intersect_ray returns a Godot Dictionary, decoded via the fixed-schema raycast C-shim
+    // (kanama_ios_godot_ptrcall_ret_raycast_dict). Empty map = no hit. "collider" is wrapped from the
+    // raw handle into a GodotObject so scripts can `hit["collider"] as? GodotObject`.
+    fun intersectRay(parameters: PhysicsRayQueryParameters3D?): Map<String, Any?> {
+        val query = parameters ?: return emptyMap()
+        val raw = ObjectCalls.ptrcallIntersectRay(intersectRayBind, handle, query.handle)
+        if (raw.isEmpty()) return emptyMap()
+        val result = raw.toMutableMap()
+        (raw["collider"] as? MemorySegment)?.let { result["collider"] = GodotObject(it) }
+        return result
+    }
 
     companion object {
         fun fromHandle(handle: MemorySegment): PhysicsDirectSpaceState3D? =
@@ -23,6 +28,11 @@ open class PhysicsDirectSpaceState3D(handle: MemorySegment) : GodotObject(handle
 
         internal fun wrap(handle: MemorySegment): PhysicsDirectSpaceState3D? =
             if (handle.address() == 0L) null else PhysicsDirectSpaceState3D(handle)
+
+        private const val INTERSECT_RAY_HASH = 3957970750L
+        private val intersectRayBind by lazy {
+            ObjectCalls.getMethodBind("PhysicsDirectSpaceState3D", "intersect_ray", INTERSECT_RAY_HASH)
+        }
 
         // No MethodBinds emitted yet.
     }

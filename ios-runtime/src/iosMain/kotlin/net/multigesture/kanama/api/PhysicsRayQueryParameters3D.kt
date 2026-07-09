@@ -108,6 +108,12 @@ class PhysicsRayQueryParameters3D(handle: MemorySegment) : RefCounted(handle) {
         return ObjectCalls.ptrcallNoArgsRetBool(isHitBackFacesEnabledBind, handle)
     }
 
+    // The RID list excluded from collisions (e.g. the caster's own body). Marshalled to a Godot
+    // Array[RID] by the C-shim. set_exclude takes an Array[RID] arg the generator otherwise skips.
+    fun setExclude(exclude: List<net.multigesture.kanama.types.RID>) {
+        ObjectCalls.ptrcallWithRIDListArg(setExcludeBind, handle, exclude)
+    }
+
     companion object {
         fun fromHandle(handle: MemorySegment): PhysicsRayQueryParameters3D? =
             wrap(handle)
@@ -115,9 +121,8 @@ class PhysicsRayQueryParameters3D(handle: MemorySegment) : RefCounted(handle) {
         internal fun wrap(handle: MemorySegment): PhysicsRayQueryParameters3D? =
             if (handle.address() == 0L) null else PhysicsRayQueryParameters3D(handle)
 
-        // Build a ray query. Godot's static create() also takes an exclude RID-list; iOS omits it
-        // (RID-list marshalling not wired yet) — harmless while intersectRay is stubbed. Instantiate
-        // and set the scalar/Vector3 properties.
+        // Build a ray query: instantiate and set the scalar/Vector3 properties + the exclude RID-list
+        // (marshalled through the Array[RID] C-shim so intersect_ray skips the caster's own collider).
         fun create(
             from: Vector3,
             to: Vector3,
@@ -128,7 +133,13 @@ class PhysicsRayQueryParameters3D(handle: MemorySegment) : RefCounted(handle) {
             query.from = from
             query.to = to
             query.collisionMask = collisionMask
+            if (exclude.isNotEmpty()) query.setExclude(exclude)
             return query
+        }
+
+        private const val SET_EXCLUDE_HASH = 381264803L
+        private val setExcludeBind by lazy {
+            ObjectCalls.getMethodBind("PhysicsRayQueryParameters3D", "set_exclude", SET_EXCLUDE_HASH)
         }
 
         private const val SET_FROM_HASH = 3460891852L

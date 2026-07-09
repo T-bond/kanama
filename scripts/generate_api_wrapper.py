@@ -566,12 +566,24 @@ IOS_CUSTOM_MEMBER_SECTIONS = {
     }
 """.strip("\n"),
     "PhysicsDirectSpaceState3D": """
-    // intersect_ray returns a Godot Dictionary. iOS has no Dictionary-return decode path yet (only
-    // scalar/Array — see ObjectCalls.retVariantArrayBlob), so this is an iOS STUB that returns empty
-    // until a dictionary-blob C-shim lands. Effect on iOS: the robot laser-clip raycast never
-    // registers a hit (laser clips at max range). TODO: kanama_ios_godot_ptrcall_ret_dictionary_blob
-    // + wire PhysicsRayQueryParameters3D.exclude (RID-list) at the same time.
-    fun intersectRay(parameters: PhysicsRayQueryParameters3D?): Map<String, Any?> = emptyMap()
+    // intersect_ray returns a Godot Dictionary, decoded via the fixed-schema raycast C-shim
+    // (kanama_ios_godot_ptrcall_ret_raycast_dict). Empty map = no hit. "collider" is wrapped from the
+    // raw handle into a GodotObject so scripts can `hit["collider"] as? GodotObject`.
+    fun intersectRay(parameters: PhysicsRayQueryParameters3D?): Map<String, Any?> {
+        val query = parameters ?: return emptyMap()
+        val raw = ObjectCalls.ptrcallIntersectRay(intersectRayBind, handle, query.handle)
+        if (raw.isEmpty()) return emptyMap()
+        val result = raw.toMutableMap()
+        (raw["collider"] as? MemorySegment)?.let { result["collider"] = GodotObject(it) }
+        return result
+    }
+""".strip("\n"),
+    "PhysicsRayQueryParameters3D": """
+    // The RID list excluded from collisions (e.g. the caster's own body). Marshalled to a Godot
+    // Array[RID] by the C-shim. set_exclude takes an Array[RID] arg the generator otherwise skips.
+    fun setExclude(exclude: List<net.multigesture.kanama.types.RID>) {
+        ObjectCalls.ptrcallWithRIDListArg(setExcludeBind, handle, exclude)
+    }
 """.strip("\n"),
     "ShapeCast3D": """
     // Long-index overload (desktop ShapeCast3D exposes both Int and Long), so loops over the now-Long
@@ -739,9 +751,8 @@ IOS_CUSTOM_COMPANION_MEMBER_SECTIONS = {
             value?.takeIf { it.isClass("ShaderMaterial") }?.let { ShaderMaterial(it.handle) }
 """.strip("\n"),
     "PhysicsRayQueryParameters3D": """
-        // Build a ray query. Godot's static create() also takes an exclude RID-list; iOS omits it
-        // (RID-list marshalling not wired yet) — harmless while intersectRay is stubbed. Instantiate
-        // and set the scalar/Vector3 properties.
+        // Build a ray query: instantiate and set the scalar/Vector3 properties + the exclude RID-list
+        // (marshalled through the Array[RID] C-shim so intersect_ray skips the caster's own collider).
         fun create(
             from: Vector3,
             to: Vector3,
@@ -752,7 +763,19 @@ IOS_CUSTOM_COMPANION_MEMBER_SECTIONS = {
             query.from = from
             query.to = to
             query.collisionMask = collisionMask
+            if (exclude.isNotEmpty()) query.setExclude(exclude)
             return query
+        }
+
+        private const val SET_EXCLUDE_HASH = 381264803L
+        private val setExcludeBind by lazy {
+            ObjectCalls.getMethodBind("PhysicsRayQueryParameters3D", "set_exclude", SET_EXCLUDE_HASH)
+        }
+""".strip("\n"),
+    "PhysicsDirectSpaceState3D": """
+        private const val INTERSECT_RAY_HASH = 3957970750L
+        private val intersectRayBind by lazy {
+            ObjectCalls.getMethodBind("PhysicsDirectSpaceState3D", "intersect_ray", INTERSECT_RAY_HASH)
         }
 """.strip("\n"),
 }
