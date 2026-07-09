@@ -233,6 +233,7 @@ static GDExtensionInterfaceVariantGetPtrKeyedSetter g_variant_get_ptr_keyed_sett
 // Keyed getter is used only by the debug self-test (kanama_ios_ptrcall_selftest) to read back
 // the rpc-config Dictionary; it is intentionally NOT part of the mandatory init gate.
 static GDExtensionInterfaceVariantGetPtrKeyedGetter g_variant_get_ptr_keyed_getter = NULL;
+static GDExtensionInterfaceVariantGetPtrKeyedChecker g_variant_get_ptr_keyed_checker = NULL;
 static GDExtensionInterfaceGetVariantFromTypeConstructor g_get_variant_from_type_constructor = NULL;
 static GDExtensionInterfaceGetVariantToTypeConstructor g_get_variant_to_type_constructor = NULL;
 static GDExtensionInterfaceVariantDestroy g_variant_destroy = NULL;
@@ -339,6 +340,12 @@ static GDExtensionPtrConstructor g_dictionary_constructor = NULL;
 static GDExtensionPtrKeyedSetter g_dictionary_keyed_setter = NULL;
 // Debug-self-test only (read-back of the rpc-config Dictionary); not in the mandatory init gate.
 static GDExtensionPtrKeyedGetter g_dictionary_keyed_getter = NULL;
+// Dictionary key-presence test (raw Dictionary base, Variant key — the header typedef's
+// GDExtensionConstVariantPtr p_base is misleading). Used by intersect_ray to distinguish an
+// empty result (no hit) from a populated one without the ptr keyed getter's crash-on-missing-key.
+static GDExtensionPtrKeyedChecker g_dictionary_keyed_checker = NULL;
+// RID -> Variant, for building the Array[RID] exclude list (PhysicsRayQueryParameters3D.set_exclude).
+static GDExtensionVariantFromTypeConstructorFunc g_variant_from_rid = NULL;
 static GDExtensionTypeFromVariantConstructorFunc g_variant_to_dictionary = NULL;
 static GDExtensionPtrDestructor g_node_path_destructor = NULL;
 static GDExtensionPtrDestructor g_dictionary_destructor = NULL;
@@ -599,6 +606,7 @@ enum {
     KANAMA_IOS_VARIANT_TYPE_COLOR = 20,
     KANAMA_IOS_VARIANT_TYPE_STRING_NAME = 21,
     KANAMA_IOS_VARIANT_TYPE_NODE_PATH = 22,
+    KANAMA_IOS_VARIANT_TYPE_RID = 23,
     KANAMA_IOS_VARIANT_TYPE_OBJECT = 24,
     KANAMA_IOS_VARIANT_TYPE_CALLABLE = 25,
     KANAMA_IOS_VARIANT_TYPE_DICTIONARY = 27,
@@ -732,6 +740,9 @@ static int kanama_ios_resolve_godot_api(void) {
     g_variant_get_ptr_keyed_getter = (GDExtensionInterfaceVariantGetPtrKeyedGetter)kanama_ios_lookup(
         "variant_get_ptr_keyed_getter"
     );
+    g_variant_get_ptr_keyed_checker = (GDExtensionInterfaceVariantGetPtrKeyedChecker)kanama_ios_lookup(
+        "variant_get_ptr_keyed_checker"
+    );
     g_get_variant_from_type_constructor = (GDExtensionInterfaceGetVariantFromTypeConstructor)kanama_ios_lookup(
         "get_variant_from_type_constructor"
     );
@@ -824,6 +835,12 @@ static int kanama_ios_resolve_godot_api(void) {
     if (g_variant_get_ptr_keyed_getter != NULL) {
         g_dictionary_keyed_getter = g_variant_get_ptr_keyed_getter(KANAMA_IOS_VARIANT_TYPE_DICTIONARY);
     }
+    if (g_variant_get_ptr_keyed_checker != NULL) {
+        g_dictionary_keyed_checker = g_variant_get_ptr_keyed_checker(KANAMA_IOS_VARIANT_TYPE_DICTIONARY);
+    }
+    // intersect_ray return decode + Array[RID] exclude arg. Opportunistic (off the required gate)
+    // so a runtime missing the RID constructor still loads; the raycast/exclude helpers NULL-check.
+    g_variant_from_rid = g_get_variant_from_type_constructor(KANAMA_IOS_VARIANT_TYPE_RID);
     g_variant_to_dictionary = g_get_variant_to_type_constructor(KANAMA_IOS_VARIANT_TYPE_DICTIONARY);
     g_variant_to_bool = g_get_variant_to_type_constructor(KANAMA_IOS_VARIANT_TYPE_BOOL);
     g_variant_to_string = g_get_variant_to_type_constructor(KANAMA_IOS_VARIANT_TYPE_STRING);
@@ -2599,6 +2616,249 @@ int64_t kanama_ios_godot_ptrcall_ret_variant_array_blob(
     return total;
 }
 
+// Keyed-get the Variant value for [key] from the raw Dictionary [dict_storage] into [out_value]
+// (24 bytes). Gated on the keyed checker, so an absent key leaves out_value NIL (returns 0).
+// Returns the value's Variant type. The caller must g_variant_destroy(out_value).
+static int32_t kanama_ios_raycast_dict_get(
+    uint64_t *dict_storage, const char *key, uint8_t *out_value) {
+    memset(out_value, 0, 24);  // NIL by default (skipped if key absent)
+    uint64_t key_string = 0;
+    kanama_ios_init_string(&key_string, key);
+    uint8_t key_variant[24];
+    memset(key_variant, 0, sizeof(key_variant));
+    g_variant_from_string((GDExtensionUninitializedVariantPtr)key_variant, (GDExtensionTypePtr)&key_string);
+    int32_t vt = 0;
+    // The ptr keyed getter dereferences a missing key (crash) — gate every get on the checker so a
+    // result missing an expected key can never segfault. Despite the header typedef
+    // (GDExtensionConstVariantPtr p_base), the checker Godot registers for Dictionary is
+    // VariantKeyedSetGetDictionary::ptr_has, whose base is the RAW Dictionary — same as the
+    // getter. Passing a Variant here reads its type tag as the Dictionary pointer and segfaults.
+    if (g_dictionary_keyed_checker != NULL &&
+        g_dictionary_keyed_checker(
+            (GDExtensionConstVariantPtr)dict_storage, (GDExtensionConstVariantPtr)key_variant)) {
+        g_dictionary_keyed_getter(
+            (GDExtensionConstTypePtr)dict_storage,
+            (GDExtensionConstTypePtr)key_variant,
+            (GDExtensionUninitializedTypePtr)out_value);
+        vt = (int32_t)g_variant_get_type((GDExtensionConstVariantPtr)out_value);
+    }
+    kanama_ios_destroy_string(&key_string);
+    g_variant_destroy((GDExtensionVariantPtr)key_variant);
+    return vt;
+}
+
+/*
+ * PhysicsDirectSpaceState3D.intersect_ray-style call: (PhysicsRayQueryParameters3D object arg) ->
+ * a result Dictionary, decoded into a fixed blob:
+ *   [int32 hit]  (0 = empty dictionary / no hit; nothing else written)
+ *   if hit: [3x float32 position][3x float32 normal][int64 collider handle][int64 collider_id][int64 shape]
+ * (Vector3 is 3 real_t; iOS real_t is float32.) A hit is detected via the "collider" key using the
+ * keyed CHECKER (raw Dictionary base, Variant key) so an empty result never trips the ptr keyed
+ * getter. Returns the byte count written (4 for no hit, 52 for a hit), or -1 on error. out_buf
+ * must hold >= 52 bytes.
+ */
+int64_t kanama_ios_godot_ptrcall_ret_raycast_dict(
+    int64_t method_bind,
+    int64_t instance,
+    const int32_t *arg_types,
+    const void *const *arg_ptrs,
+    int32_t arg_count,
+    char *out_buf,
+    int64_t buf_size
+) {
+    if (!kanama_ios_resolve_godot_api() || method_bind == 0 || instance == 0) {
+        return -1;
+    }
+    if (out_buf == NULL || buf_size < 4) {
+        return -1;
+    }
+    if (g_dictionary_keyed_getter == NULL || g_dictionary_keyed_checker == NULL ||
+        g_variant_from_string == NULL ||
+        g_variant_to_vector3 == NULL || g_variant_to_object == NULL ||
+        g_variant_to_int == NULL || g_variant_get_type == NULL ||
+        g_variant_destroy == NULL || g_dictionary_destructor == NULL) {
+        return -1;
+    }
+
+    // intersect_ray -> raw Dictionary (8-byte opaque). Generic dispatch marshals the query object arg.
+    uint64_t dict_storage = 0;
+    kanama_ios_godot_ptrcall(
+        method_bind, instance, arg_types, arg_ptrs, arg_count,
+        KANAMA_IOS_PT_OBJECT /* non-void ret tag -> ret_out used */, &dict_storage);
+
+    uint64_t collider_key_string = 0;
+    kanama_ios_init_string(&collider_key_string, "collider");
+    uint8_t collider_key_variant[24];
+    memset(collider_key_variant, 0, sizeof(collider_key_variant));
+    g_variant_from_string(
+        (GDExtensionUninitializedVariantPtr)collider_key_variant, (GDExtensionTypePtr)&collider_key_string);
+    // Checker base is the raw Dictionary (see kanama_ios_raycast_dict_get), key is a Variant.
+    uint32_t present = g_dictionary_keyed_checker(
+        (GDExtensionConstVariantPtr)&dict_storage, (GDExtensionConstVariantPtr)collider_key_variant);
+    kanama_ios_destroy_string(&collider_key_string);
+    g_variant_destroy((GDExtensionVariantPtr)collider_key_variant);
+
+    int32_t hit = present ? 1 : 0;
+    int64_t total = 4;
+
+    if (hit && buf_size >= 52) {
+        uint8_t val[24];
+        float zero3[3] = { 0.0f, 0.0f, 0.0f };
+        memcpy(out_buf + 4, zero3, 12);
+        memcpy(out_buf + 16, zero3, 12);
+        int64_t collider = 0, collider_id = 0, shape = 0;
+
+        if (kanama_ios_raycast_dict_get(&dict_storage, "position", val) == KANAMA_IOS_VARIANT_TYPE_VECTOR3) {
+            float v3[3] = { 0.0f, 0.0f, 0.0f };
+            g_variant_to_vector3((GDExtensionUninitializedTypePtr)v3, (GDExtensionVariantPtr)val);
+            memcpy(out_buf + 4, v3, 12);
+        }
+        g_variant_destroy((GDExtensionVariantPtr)val);
+        if (kanama_ios_raycast_dict_get(&dict_storage, "normal", val) == KANAMA_IOS_VARIANT_TYPE_VECTOR3) {
+            float v3[3] = { 0.0f, 0.0f, 0.0f };
+            g_variant_to_vector3((GDExtensionUninitializedTypePtr)v3, (GDExtensionVariantPtr)val);
+            memcpy(out_buf + 16, v3, 12);
+        }
+        g_variant_destroy((GDExtensionVariantPtr)val);
+        if (kanama_ios_raycast_dict_get(&dict_storage, "collider", val) == KANAMA_IOS_VARIANT_TYPE_OBJECT) {
+            GDExtensionObjectPtr o = NULL;
+            g_variant_to_object(&o, (GDExtensionVariantPtr)val);
+            collider = (int64_t)(intptr_t)o;
+        }
+        g_variant_destroy((GDExtensionVariantPtr)val);
+        if (kanama_ios_raycast_dict_get(&dict_storage, "collider_id", val) == KANAMA_IOS_VARIANT_TYPE_INT) {
+            g_variant_to_int(&collider_id, (GDExtensionVariantPtr)val);
+        }
+        g_variant_destroy((GDExtensionVariantPtr)val);
+        if (kanama_ios_raycast_dict_get(&dict_storage, "shape", val) == KANAMA_IOS_VARIANT_TYPE_INT) {
+            g_variant_to_int(&shape, (GDExtensionVariantPtr)val);
+        }
+        g_variant_destroy((GDExtensionVariantPtr)val);
+
+        memcpy(out_buf + 28, &collider, 8);
+        memcpy(out_buf + 36, &collider_id, 8);
+        memcpy(out_buf + 44, &shape, 8);
+        total = 52;
+    }
+    memcpy(out_buf, &hit, 4);
+
+    g_dictionary_destructor(&dict_storage);
+    return total;
+}
+
+/*
+ * Build a Godot Array of RIDs from [rids]/[count] and pass it as the single ptrcall argument
+ * (PhysicsRayQueryParameters3D.set_exclude, a TypedArray<RID> that is a plain Array at ptrcall).
+ * Each RID is a uint64 id. Best-effort: if the Array/RID primitives are unavailable the exclude
+ * is simply not applied.
+ */
+void kanama_ios_godot_ptrcall_with_rid_array_arg(
+    int64_t method_bind,
+    int64_t instance,
+    const int64_t *rids,
+    int32_t count
+) {
+    if (!kanama_ios_resolve_godot_api() || method_bind == 0 || instance == 0) {
+        return;
+    }
+    kanama_ios_cache_array_methods();  // resolves g_array_destructor
+    if (g_array_push_back == NULL && g_variant_get_ptr_builtin_method != NULL) {
+        uint64_t name_storage = 0;
+        kanama_ios_init_string_name(&name_storage, "push_back");
+        g_array_push_back = g_variant_get_ptr_builtin_method(
+            KANAMA_IOS_VARIANT_TYPE_ARRAY,
+            (GDExtensionConstStringNamePtr)&name_storage,
+            (GDExtensionInt)KANAMA_IOS_ARRAY_PUSH_BACK_HASH);
+        kanama_ios_destroy_string_name(&name_storage);
+    }
+    if (g_array_constructor == NULL || g_array_push_back == NULL ||
+        g_variant_from_rid == NULL || g_array_destructor == NULL) {
+        return;
+    }
+
+    uint64_t array_storage = 0;
+    g_array_constructor((GDExtensionUninitializedTypePtr)&array_storage, NULL);
+    for (int32_t i = 0; i < count; i++) {
+        uint64_t rid_value = (uint64_t)rids[i];
+        uint8_t rid_variant[24];
+        memset(rid_variant, 0, sizeof(rid_variant));
+        g_variant_from_rid((GDExtensionUninitializedVariantPtr)rid_variant, (GDExtensionTypePtr)&rid_value);
+        const GDExtensionConstTypePtr push_args[1] = { (GDExtensionConstTypePtr)rid_variant };
+        // r_ret must be a valid buffer, not NULL — the ptr builtin method writes the return slot
+        // (matches every other push_back call in this shim). Passing NULL segfaults.
+        uint8_t push_ret[24];
+        memset(push_ret, 0, sizeof(push_ret));
+        g_array_push_back(&array_storage, push_args, push_ret, 1);
+        g_variant_destroy((GDExtensionVariantPtr)rid_variant);
+    }
+
+    const void *const call_args[1] = { (const void *)&array_storage };
+    g_object_method_bind_ptrcall(
+        (GDExtensionMethodBindPtr)(intptr_t)method_bind,
+        (GDExtensionObjectPtr)(intptr_t)instance,
+        call_args, NULL);
+    g_array_destructor(&array_storage);
+}
+
+/*
+ * ResourceLoader.load_threaded_get_status(path, progress) ptrcall with the optional progress
+ * out-Array actually supplied (ptrcall passes all args; the engine appends a float in [0,1] to
+ * the Array). Element 0 is written to *out_progress when present. Returns the ThreadLoadStatus
+ * enum, or -1 on error / unresolved primitives (caller treats -1 as no-progress-available).
+ */
+int64_t kanama_ios_godot_ptrcall_load_status_with_progress(
+    int64_t method_bind,
+    int64_t instance,
+    const char *path,
+    double *out_progress
+) {
+    if (out_progress != NULL) {
+        *out_progress = 0.0;
+    }
+    if (!kanama_ios_resolve_godot_api() || method_bind == 0 || instance == 0 || path == NULL) {
+        return -1;
+    }
+    kanama_ios_cache_array_methods();
+    if (g_object_method_bind_ptrcall == NULL || g_array_constructor == NULL ||
+        g_array_destructor == NULL || g_array_size_method == NULL ||
+        g_array_get_method == NULL || g_variant_to_float == NULL ||
+        g_variant_destroy == NULL) {
+        return -1;
+    }
+
+    uint64_t path_string = 0;
+    kanama_ios_init_string(&path_string, path);
+    uint64_t array_storage = 0;
+    g_array_constructor((GDExtensionUninitializedTypePtr)&array_storage, NULL);
+
+    int64_t status = 0;
+    const void *const call_args[2] = { (const void *)&path_string, (const void *)&array_storage };
+    g_object_method_bind_ptrcall(
+        (GDExtensionMethodBindPtr)(intptr_t)method_bind,
+        (GDExtensionObjectPtr)(intptr_t)instance,
+        call_args, &status);
+
+    if (out_progress != NULL) {
+        int64_t count = 0;
+        g_array_size_method(&array_storage, NULL, &count, 0);
+        if (count > 0) {
+            uint8_t elem_variant[24];
+            memset(elem_variant, 0, sizeof(elem_variant));
+            int64_t idx = 0;
+            const GDExtensionConstTypePtr get_args[1] = { (GDExtensionConstTypePtr)&idx };
+            g_array_get_method(&array_storage, get_args, elem_variant, 1);
+            double v = 0.0;
+            g_variant_to_float(&v, elem_variant);
+            *out_progress = v;
+            g_variant_destroy((GDExtensionVariantPtr)elem_variant);
+        }
+    }
+
+    kanama_ios_destroy_string(&path_string);
+    g_array_destructor(&array_storage);
+    return status;
+}
+
 static GDExtensionMethodBindPtr kanama_ios_get_method_bind_cached(
     GDExtensionMethodBindPtr *cache,
     const char *class_name,
@@ -4180,7 +4440,8 @@ static void kanama_ios_pt_return_to_variant(int32_t tag, const void *ret_buf, ui
 // invokes method_bind via object_method_bind_call (the Variant path, for varargs /
 // dynamic dispatch the ptrcall path can't express — Object::call, set_deferred,
 // set_custom_mouse_cursor, …), and decodes a SCALAR return (nil/bool/int/float/
-// String/Object) back through the out params. Returns the decoded Variant type tag
+// String/Object) or small fixed-size return (Vector2/Vector2i/Vector3/Color, raw
+// component bytes via out_str) back through the out params. Returns the decoded Variant type tag
 // (KANAMA_IOS_VARIANT_TYPE_*), or -1 if the call did not dispatch. Marshalling is
 // concentrated here and guarded by check_call_error so the boxing bug class stays
 // in one place (see docs/internals/reference/ios-backend-architecture.md).
@@ -4316,6 +4577,45 @@ int32_t kanama_ios_godot_object_call(
                 GDExtensionObjectPtr obj = NULL;
                 g_variant_to_object(&obj, ret_variant);
                 if (out_int != NULL) *out_int = (int64_t)(intptr_t)obj;
+                break;
+            }
+            // Small fixed-size types ship their raw component bytes via out_str/out_str_len
+            // (float32 components; Vector2i is 2x int32), same convention as the array-blob
+            // payloads. Kotlin decodes by ret_type + byte count; out_str_len 0 surfaces null.
+            case KANAMA_IOS_VARIANT_TYPE_VECTOR2: {
+                float v2[2] = { 0.0f, 0.0f };
+                if (g_variant_to_vector2 != NULL && out_str != NULL && out_str_size >= 8) {
+                    g_variant_to_vector2((GDExtensionUninitializedTypePtr)v2, ret_variant);
+                    memcpy(out_str, v2, 8);
+                    if (out_str_len != NULL) *out_str_len = 8;
+                }
+                break;
+            }
+            case KANAMA_IOS_VARIANT_TYPE_VECTOR2I: {
+                int32_t v2i[2] = { 0, 0 };
+                if (g_variant_to_vector2i != NULL && out_str != NULL && out_str_size >= 8) {
+                    g_variant_to_vector2i((GDExtensionUninitializedTypePtr)v2i, ret_variant);
+                    memcpy(out_str, v2i, 8);
+                    if (out_str_len != NULL) *out_str_len = 8;
+                }
+                break;
+            }
+            case KANAMA_IOS_VARIANT_TYPE_VECTOR3: {
+                float v3[3] = { 0.0f, 0.0f, 0.0f };
+                if (g_variant_to_vector3 != NULL && out_str != NULL && out_str_size >= 12) {
+                    g_variant_to_vector3((GDExtensionUninitializedTypePtr)v3, ret_variant);
+                    memcpy(out_str, v3, 12);
+                    if (out_str_len != NULL) *out_str_len = 12;
+                }
+                break;
+            }
+            case KANAMA_IOS_VARIANT_TYPE_COLOR: {
+                float c4[4] = { 0.0f, 0.0f, 0.0f, 0.0f };
+                if (g_variant_to_color != NULL && out_str != NULL && out_str_size >= 16) {
+                    g_variant_to_color((GDExtensionUninitializedTypePtr)c4, ret_variant);
+                    memcpy(out_str, c4, 16);
+                    if (out_str_len != NULL) *out_str_len = 16;
+                }
                 break;
             }
             default:

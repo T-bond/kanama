@@ -39,6 +39,11 @@ DESKTOP_HANDSHAPED = frozenset({
     "SurfaceTool",
     # hand-written Tween/SceneTree runtime glue (bespoke sites, task 10 registry)
     "CallbackTweener", "PropertyTweener", "SceneTree", "Tween", "ResourceLoader",
+    # hand-written singleton: registerSingleton keeps a RefCounted-rejection lifetime guard the
+    # generator does not emit (audit_singleton_refcounted_policy). Already iOS-hand-written via
+    # IOS_HANDWRITTEN_COLLISION_CLASSES; task 21 wrongly re-adopted the desktop copy as generated,
+    # dropping the guard. Restored + exempted here.
+    "Engine",
 })
 # iOS carries the same generator (audited subset). It currently has no iOS-only hand-shaped
 # wrapper (the iOS custom sections make its helpers regeneratable); the collision-registry

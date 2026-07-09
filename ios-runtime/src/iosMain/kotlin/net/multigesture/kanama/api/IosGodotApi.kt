@@ -95,6 +95,7 @@ import net.multigesture.kanama.types.Vector3
 import kotlin.coroutines.CoroutineContext
 import kotlin.coroutines.resume
 import kotlin.math.PI
+import kotlin.math.pow
 import kotlin.random.Random
 
 @RequiresOptIn(
@@ -195,7 +196,8 @@ open class GodotObject(
         GodotSignal(this, name)
 
     // Variant Object.call dispatch: [method, *args] boxed into Variants, called via the
-    // Variant path (the varargs path ptrcall can't express). Scalar return decoded to Any?.
+    // Variant path (the varargs path ptrcall can't express). Scalar and small fixed-size
+    // (Vector2/Vector2i/Vector3/Color) returns decoded to Any?; other types surface null.
     fun call(method: String, vararg args: Any?): Any? =
         ObjectCalls.callWithVariantArgs(callBind, handle, listOf(method, *args))
 
@@ -203,6 +205,14 @@ open class GodotObject(
     fun setDeferred(property: String, value: Any?) {
         ObjectCalls.callWithVariantArgs(setDeferredBind, handle, listOf(property, value))
     }
+
+    // Object.call_deferred(method, *args) via the Variant path; runs on the next idle frame.
+    fun callDeferred(method: String, vararg args: Any?): Any? =
+        ObjectCalls.callWithVariantArgs(callDeferredBind, handle, listOf(method, *args))
+
+    // Object.has_signal(signal) — true if the object declares the named signal.
+    fun hasSignal(signal: String): Boolean =
+        ObjectCalls.ptrcallWithStringNameArgRetBool(hasSignalBind, handle, signal)
 
     // Object.set_script(resource) via the Variant call path. Signature matches desktop
     // GodotObject.setScript(Resource?). NOTE: desktop also calls ScriptBridge.noteSetScript to
@@ -294,6 +304,8 @@ open class GodotObject(
 
         // Variant-call binds (resolved once) for the dynamic Object.call / set_deferred path.
         private val callBind by lazy { ObjectCalls.getMethodBind("Object", "call", 3400424181L) }
+        private val callDeferredBind by lazy { ObjectCalls.getMethodBind("Object", "call_deferred", 3400424181L) }
+        private val hasSignalBind by lazy { ObjectCalls.getMethodBind("Object", "has_signal", 2619796661L) }
         private val setDeferredBind by lazy { ObjectCalls.getMethodBind("Object", "set_deferred", 3776071444L) }
         private val hasMethodBind by lazy { ObjectCalls.getMethodBind("Object", "has_method", 2619796661L) }
         private val isQueuedForDeletionBind by lazy { ObjectCalls.getMethodBind("Object", "is_queued_for_deletion", 36873697L) }
@@ -400,6 +412,23 @@ class SceneTree(handle: MemorySegment) : Node(handle) {
         delay((seconds * 1000.0).toLong().coerceAtLeast(0L))
     }
 
+    // SceneTree.create_timer — a one-shot SceneTreeTimer that emits `timeout` after timeSec. Demo
+    // code awaits it: getTree().createTimer(t)?.signal(Timer.Signals.timeout)?.await(self).
+    fun createTimer(
+        timeSec: Double,
+        processAlways: Boolean = true,
+        processInPhysics: Boolean = false,
+        ignoreTimeScale: Boolean = false,
+    ): SceneTreeTimer? = SceneTreeTimer.wrap(
+        ObjectCalls.ptrcallWithDoubleAndThreeBoolArgsRetObject(
+            createTimerBind, handle, timeSec, processAlways, processInPhysics, ignoreTimeScale,
+        ),
+    )
+
+    // SceneTree.root — the root Window (Viewport). Always present in a running tree.
+    val root: Window
+        get() = Window(ObjectCalls.ptrcallNoArgsRetObject(getRootBind, handle))
+
     fun setPaused(paused: Boolean) {
         ObjectCalls.ptrcallWithBoolArg(setPausedBind, handle, paused)
     }
@@ -438,6 +467,7 @@ class SceneTree(handle: MemorySegment) : Node(handle) {
 
     companion object {
         private val quitBind by lazy { ObjectCalls.getMethodBind("SceneTree", "quit", 1995695955L) }
+        private val createTimerBind by lazy { ObjectCalls.getMethodBind("SceneTree", "create_timer", 2709170273L) }
         private val reloadCurrentSceneBind by lazy {
             ObjectCalls.getMethodBind("SceneTree", "reload_current_scene", 166280745L)
         }
@@ -664,6 +694,11 @@ object Mathf {
     fun lerp(from: Double, to: Double, weight: Double): Double =
         from + (to - from) * weight
 
+    // Godot's @GlobalScope.atan2 / pow — pure math, matching the desktop Mathf helpers.
+    fun atan2(y: Double, x: Double): Double = kotlin.math.atan2(y, x)
+
+    fun pow(x: Double, y: Double): Double = x.pow(y)
+
     // Godot's @GlobalScope.move_toward: step [from] toward [to] by at most [delta].
     fun moveToward(from: Double, to: Double, delta: Double): Double =
         if (kotlin.math.abs(to - from) <= delta) to
@@ -713,6 +748,55 @@ object ResourceLoader {
         IosGodot.resourceLoaderLoad(path, "PackedScene").takeIf { it != 0L }?.let {
             PackedScene(MemorySegment.ofAddress(it))
         }
+
+    fun loadLightmapGIData(path: String): LightmapGIData? =
+        IosGodot.resourceLoaderLoad(path, "LightmapGIData").takeIf { it != 0L }?.let {
+            LightmapGIData(MemorySegment.ofAddress(it))
+        }
+
+    const val THREAD_LOAD_INVALID_RESOURCE = 0L
+    const val THREAD_LOAD_IN_PROGRESS = 1L
+    const val THREAD_LOAD_FAILED = 2L
+    const val THREAD_LOAD_LOADED = 3L
+    const val CACHE_MODE_REUSE = 1L
+
+    data class ThreadLoadStatus(val status: Long, val progress: Double?)
+
+    // Threaded loading: the request goes through the generic Variant call path (int return decodes
+    // cleanly). The status poll ptrcalls load_threaded_get_status with the optional progress
+    // out-Array supplied C-side, so progress is a real [0,1] value on iOS too.
+    fun loadThreadedRequest(
+        path: String,
+        typeHint: String = "",
+        useSubThreads: Boolean = false,
+        cacheMode: Long = CACHE_MODE_REUSE,
+    ): Long =
+        (ObjectCalls.callWithVariantArgs(loadThreadedRequestBind, singleton, listOf(path, typeHint, useSubThreads, cacheMode)) as? Number)?.toLong()
+            ?: THREAD_LOAD_INVALID_RESOURCE
+
+    fun loadThreadedGetStatusWithProgress(path: String): ThreadLoadStatus {
+        val (status, progress) = ObjectCalls.ptrcallLoadStatusWithProgress(loadThreadedGetStatusBind, singleton, path)
+        return if (status < 0) {
+            ThreadLoadStatus(THREAD_LOAD_INVALID_RESOURCE, null)
+        } else {
+            ThreadLoadStatus(status, progress)
+        }
+    }
+
+    // After a threaded load completes the resource is in the ResourceLoader cache, so fetch it
+    // through the same synchronous C-shim as load() (which references the RefCounted resource
+    // correctly). The generic Variant-call path returned a handle whose PackedScene.instantiate()
+    // silently yielded null on device.
+    fun loadThreadedGet(path: String): Resource? =
+        IosGodot.resourceLoaderLoad(path, "").takeIf { it != 0L }?.let { Resource(MemorySegment.ofAddress(it)) }
+
+    fun loadThreadedGetPackedScene(path: String): PackedScene? =
+        IosGodot.resourceLoaderLoad(path, "PackedScene").takeIf { it != 0L }?.let { PackedScene(MemorySegment.ofAddress(it)) }
+
+    private val singleton by lazy { ObjectCalls.getSingleton("ResourceLoader") }
+    private val loadThreadedRequestBind by lazy { ObjectCalls.getMethodBind("ResourceLoader", "load_threaded_request", 3614384323L) }
+    private val loadThreadedGetStatusBind by lazy { ObjectCalls.getMethodBind("ResourceLoader", "load_threaded_get_status", 4137685479L) }
+    private val loadThreadedGetBind by lazy { ObjectCalls.getMethodBind("ResourceLoader", "load_threaded_get", 1748875256L) }
 }
 
 // KANAMA-IOS-HANDWRITTEN: [platform] GD global helpers (rand*, print) — Kotlin/native impls, bespoke.
@@ -739,6 +823,29 @@ object GD {
         val standard = kotlin.math.sqrt(-2.0 * kotlin.math.ln(u1)) * kotlin.math.cos(2.0 * Mathf.PI * u2)
         return mean + deviation * standard
     }
+
+    // @GlobalScope print facade. iOS has no utility-function call path (see the isInstanceValid note
+    // + roadmap), so these route to the Kotlin/Native console (device log / xcrun devicectl --console)
+    // instead of Godot's print stream. Output is APPROXIMATE — right text, different sink — matching
+    // the demos' debug-logging use. Godot's print() concatenates its args with no separator.
+    private fun joinValues(values: Array<out Any?>): String =
+        values.joinToString("") { it?.toString() ?: "<null>" }
+
+    fun print(vararg values: Any?) = println(joinValues(values))
+
+    fun printRich(vararg values: Any?) = println(joinValues(values))
+
+    fun printErr(vararg values: Any?) = println(joinValues(values))
+
+    fun printS(vararg values: Any?) = println(values.joinToString(" ") { it?.toString() ?: "<null>" })
+
+    fun printRaw(vararg values: Any?) = kotlin.io.print(joinValues(values))
+
+    fun printVerbose(vararg values: Any?) = println(joinValues(values))
+
+    fun pushWarning(vararg values: Any?) = println("WARNING: " + joinValues(values))
+
+    fun pushError(vararg values: Any?) = println("ERROR: " + joinValues(values))
 
     // @GlobalScope math facade (pure-Kotlin, matching the desktop GD utility helpers).
     fun signf(value: Double): Double = kotlin.math.sign(value)

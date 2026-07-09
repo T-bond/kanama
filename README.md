@@ -32,34 +32,35 @@ separate project with a different runtime and export model.
 
 ## Status
 
-Kanama is experimental and desktop-first. The `0.2.2` preview baseline is
-Godot 4.7 stable. Use the
+Kanama is desktop-first. The `0.3.0` preview baseline is
+Godot 4.7 stable. macOS arm64 is **supported** on 4.7 stable; Linux and Windows
+are supported pending 4.7-stable revalidation. Use the
 [Godot 4.7 stable archive](https://godotengine.org/download/archive/4.7-stable/)
 for compatible editor/player binaries and Android export templates. Desktop
 release kits and store add-ons are package artifacts that can be built from
 source today and are the intended release path; exported-game packaging remains
 a separate release-readiness track.
 
-Android support is experimental for the v0.2.2 line: the current workflow builds
-a Godot Android plugin AAR, uses
-[PanamaPort](https://github.com/vova7878/PanamaPort) from Maven Central for the
-Android FFM layer, and keeps APK smoke validation as a separate gate. The Godot
-4.7 stable emulator smoke path has re-passed; Pixel 7 hardware validation remains
-the gate before a stronger Android support claim.
+Android support is experimental but **device-validated** for the v0.3.0 line: the
+workflow builds a Godot Android plugin AAR and uses
+[PanamaPort](https://github.com/vova7878/PanamaPort) for the Android FFM layer.
+The Godot 4.7 stable debug demo matrix and an R8-minified Match3 release APK both
+pass on a physical Pixel 7 (OpenGL Compatibility renderer). The R8/minified path
+is validated against Kanama's PanamaPort fork, not upstream.
 
 iOS support is an experimental Kotlin/Native backend: a C GDExtension shim plus
 a Kotlin/Native static `.xcframework` run full Kanama project scripts through the
-same wrapper generator as desktop/Android, with no JVM on device. The core iOS
-self-test and the current demo corpus have playable device runs, with FPS Audio
-autoload still tracked as a follow-up. iOS remains experimental, not a supported
-export — see the
+same wrapper generator as desktop/Android, with no JVM on device. The demo
+corpus is device-validated (full 9-demo gate on iPhone 12; playable corpus +
+self-tests on iPhone 15 Pro), with one FPS Audio autoload follow-up tracked as
+non-blocking. iOS remains experimental, not a supported export — see the
 [iOS (Experimental)](docs/exporting/ios.md) and
 [iOS backend roadmap](docs/internals/active/ios-backend-roadmap.md).
 
 Web export is not planned.
 
 See [Version Support](docs/reference/version-support.md) for the current test matrix and
-the `0.2.2` public preview criteria.
+the `0.3.0` public preview criteria.
 
 ## Highlights
 
@@ -90,8 +91,8 @@ Experimental Android export workflow:
 
 - Godot 4.7 stable Android export templates from the
   [Godot 4.7 stable archive](https://godotengine.org/download/archive/4.7-stable/);
-  Kanama's stable emulator smoke path has re-passed, and Pixel 7 hardware
-  validation remains pending
+  Kanama's stable emulator smoke path and the Pixel 7 device gate (debug demo
+  matrix + R8-minified Match3 release APK) have both passed
 - Android SDK API 36, build-tools 36.1.0, and NDK 29.0.14206865 for Godot export
 - CMake 3.22.1 for the Kanama Android plugin native bootstrap
 - JDK 21 for Android Gradle/export tooling

@@ -16,4 +16,12 @@ class DefaultProbeScript(godotObject: MemorySegment) : KanamaScript<Node>(godotO
 
 	@ScriptProperty
 	var target: NodePath = NodePath("../SceneTarget3D")
+
+	// Narrow scalars: the Variant slot stays 64-bit, the registrar widens on
+	// get and narrows on set (NarrowScalar in the processor).
+	@ScriptProperty
+	var narrowRatio: Float = 0.5f
+
+	@ScriptProperty
+	var narrowCount: Int = 42
 }

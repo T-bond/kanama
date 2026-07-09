@@ -44,6 +44,10 @@ data class Vector2(
     operator fun div(scale: Number): Vector2 =
         Vector2(x.toDouble() / scale.toDouble(), y.toDouble() / scale.toDouble())
 
+    // Godot Vector2.lerp — component-wise linear interpolation (matches the engine exactly).
+    fun lerp(to: Vector2, weight: Double): Vector2 =
+        this + (to - this) * weight
+
     operator fun unaryMinus(): Vector2 =
         Vector2(-x, -y)
 

@@ -20,7 +20,7 @@ experimental: this is demo parity, not desktop-level support.
 | Starter-Kit-FPS | Playable | F1/F2 complete. `List<Weapon>` delivery, AnimatedSprite3D generation, Tween glue, and SceneTree tween creation fixed. |
 | godot-4-3d-third-person-controller | Playable | Attack crash, Mobile/Vulkan visuals, and `List<String>` animation-loop delivery fixed. |
 | Starter-Kit-City-Builder | Desktop-only by design | Desktop-focused controls (GridMap/custom-list); not a mobile target and not reassessed for mobile. |
-| tps-demo-kanama | iOS not feasible yet (concrete gaps below); mobile UI deferred | `@Rpc` config delivery is wired on the shared desktop/Android path and the iOS C-shim path. iOS launch remains blocked — see the concrete gap list below. Mobile *playability* (touch controls) is tracked separately in `kanama-tasks/19-tps-mobile-virtual-joysticks.md` (Android-first). |
+| tps-demo-kanama | **RUNS on iPhone 15 Pro** (device-validated 2026-07-08) — level loads + gameplay playable | Compiles + **runs on device**: menu, threaded level load, 3D level, player movement/camera/animation all work on Kotlin/Native. Device-enablement: added the iOS export preset; `loadThreadedRequest useSubThreads=false` (iOS K/N⇄Godot bridge deadlocks on multi-worker-thread `.kt` loads); `loadThreadedGet*` fetch via the synchronous C-shim (Variant-path handle failed `PackedScene.instantiate()`). **Remaining functional gap:** `intersectRay` is stubbed (empty Dictionary) so robot line-of-sight/laser-clip raycasts don't register — needs the Dictionary-return C-shim (`kanama_ios_godot_ptrcall_ret_dictionary_blob`) + `PhysicsRayQueryParameters3D.exclude` RID-list. |
 
 ### tps-demo-kanama iOS gap list (measured 2026-07-04)
 
@@ -45,6 +45,57 @@ Net: bringing TPS to iOS is a sizeable iOS-coverage initiative (~13 classes + a 
 plus demo Native-portability work — its own task if TPS-on-iOS becomes a release goal, not a
 by-product of the audited-long-tail work. Feed this into the task-15 release-support decision
 (iOS "known limitations": heavy 3D + mobile-multiplayer demos are not an iOS support claim).
+
+### 2026-07-07 progress (compile-green push, task 24)
+
+TPS-on-iOS is now the active goal (user direction: stability + iOS parity). Progress
+in one session — script compile **302 → 109** unresolved references, base
+`compileKotlinIosArm64` green throughout:
+
+- **All 12 wrapper classes adopted** (drift-gate iOS 242 → 254). Each emitted with
+  full-object-types context so it matches the drift regen; `ObjectCallsGenerated.kt`
+  regenerated 496 → 532 ptrcall extension helpers (auto-generated Kotlin marshalling over
+  the generic C-shim ptrcall — **no new C/header** was needed for the emitted methods). The
+  earlier "un-audited per-shape audit" framing was over-stated: the helpers these classes
+  need were already generatable; the gap was purely that `ObjectCallsGenerated.kt` hadn't
+  been regenerated with the new classes in scope.
+- **iOS `GD` print facade + `Mathf.atan2/pow`** added (`IosGodotApi.kt`). iOS has no
+  utility-function call path, so `GD.print*`/`push{Error,Warning}` route to the K/N console
+  (device log), an approximation like `GD.isInstanceValid`.
+
+**Also landed this session** (302 → 93 errors): `Engine.maxFps`/`getFramesPerSecond`,
+`Vector2.lerp`, `GodotObject.callDeferred`/`hasSignal`, iOS `GD` print facade,
+`Mathf.atan2`/`pow`, and companion factories `FastNoiseLite.create` / `LightmapGI.create` /
+`Material.fromResource` / `SceneMultiplayer.fromApi` (via `IOS_CUSTOM_COMPANION_MEMBER_SECTIONS`,
+drift-gate green).
+
+**Landed since** (compile 93 → 67): `SceneTree.createTimer` + adopted `SceneTreeTimer`
+(+ hand-hosted `ptrcallWithDoubleAndThreeBoolArgsRetObject` in `ObjectCalls.kt`),
+`SceneTree.root`→`Window`, `ShaderMaterial.setShaderParameter` + `Node.propagateCall` (via the
+`call()` Variant path), and companion factories `ConfigFile`/`OfflineMultiplayerPeer`/
+`ENetMultiplayerPeer`/`ButtonGroup.create` + `ShaderMaterial.fromResource`.
+
+**Signature-delta batch landed** (67 → 29): `ConfigFile.getValue`/`setValue` (via `call()`),
+`Node` String overloads of `hasNode`/`getNode`/`hasNodeAndResource`, `Node3D.lookAtFromPosition`
+`up` default, and a demo-side `Int==Long` widen. Cleared the whole `Menu.kt`/`Settings.kt` cluster.
+
+**Remaining (29 errors) — the genuine C-shim / demo-portability tail:**
+
+**302 → 0 (compile-green, 2026-07-07).** All of the above landed. Cleared in the final push:
+`ResourceLoader.loadThreaded*` + `THREAD_LOAD_*` (via the Variant call path), `LightmapGI` typed
+loading (`LightmapGIData` + `loadLightmapGIData`), `PhysicsRayQueryParameters3D.create`,
+`java.io.File` iOS shim + portable `twoDecimals` + `AnimationMixer.Signals.animationFinished`, and
+the **`@Rpc` `<Class>Rpcs` helper emitter** for iOS (`IosScriptCodeEmitter` + `Node.callLocalRpc` —
+the KSP codegen previously ran for JVM only).
+
+**Two documented iOS stubs remain (functional gaps, not compile gaps) — fill after the device baseline:**
+- **`PhysicsDirectSpaceState3D.intersectRay`** returns `emptyMap()` (iOS has no Dictionary-return
+  decode — needs a `kanama_ios_godot_ptrcall_ret_dictionary_blob` C-shim + `PhysicsRayQueryParameters3D.exclude`
+  RID-list). Effect: the robot laser-clip raycast doesn't register hits on iOS.
+- **`java.io.File`** smoke-marker shim is inert on iOS (the marker is desktop-smoke-only, never set on device).
+
+**Next: run `tps-demo-kanama` on a physical iPhone** (device gate) and see what actually works —
+the real "TPS runs on iOS" bar. Everything achievable without new C-shim work is done and committed.
 
 ## Build / Deploy Pointers
 

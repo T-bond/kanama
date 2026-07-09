@@ -31,7 +31,7 @@ plus Bunnymark. The current physical-device demo corpus is playable on recent iP
 - godot-4-3d-third-person-controller
 
 This is **demo parity**, not desktop-level support. Desktop remains the primary supported runtime and
-package target for the 0.2.2 preview line. iOS should stay described as experimental until the export,
+package target for the 0.3.0 preview line. iOS should stay described as experimental until the export,
 validation, and maintainability gates below are complete.
 
 ## Why iOS Still Has Exceptions

@@ -11,7 +11,8 @@ outside this repo; this directory is the public strategic log.
 | [ios-backend-roadmap.md](./active/ios-backend-roadmap.md) | **Start here for iOS strategy.** Stable-iOS gates, mobile parity with Android, and the post-parity generator/runtime roadmap. |
 | [ios-demo-port-tracker.md](./active/ios-demo-port-tracker.md) | Public-safe status of each iOS demo port, validation pointers, generator gotchas, and demo-relevant fixed bugs. |
 | [wrapper-coverage-tracker.md](./active/wrapper-coverage-tracker.md) | Condensed current state for wrapper coverage and remaining generator work. |
-| [release-support-decision.md](./release-support-decision.md) | Support-tier recommendation (desktop supported; iOS+Android experimental, device-validated) + required release-gate matrix. Awaiting human sign-off before the wording lands in public docs. |
+| [release-support-decision.md](./release-support-decision.md) | Support-tier decision (desktop supported; iOS+Android experimental, device-validated) + required release-gate matrix. Signed off and applied at 0.3.0. |
+| [post-release-direction.md](./post-release-direction.md) | **The 0.3.0 capstone re-evaluation.** What landed (01–23), the `0.3.0` versioning decision, the Phase 4 strategic cycle (mobile-to-parity + Godot-upgrade cadence), the `DEFERRED.md` triage, and the released support matrix. |
 
 ## Reference — evergreen, read to understand the system
 | File | What it is |

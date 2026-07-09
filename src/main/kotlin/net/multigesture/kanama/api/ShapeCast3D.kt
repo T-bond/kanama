@@ -195,8 +195,8 @@ class ShapeCast3D(handle: MemorySegment) : Node3D(handle) {
      *
      * Generated from Godot docs: ShapeCast3D.get_collision_count
      */
-    fun getCollisionCount(): Long {
-        return ObjectCalls.ptrcallNoArgsRetLong(getCollisionCountBind, handle)
+    fun getCollisionCount(): Int {
+        return ObjectCalls.ptrcallNoArgsRetInt(getCollisionCountBind, handle)
     }
 
     /**

@@ -477,8 +477,13 @@ object Engine {
      * Generated from Godot docs: Engine.register_singleton
      */
     @JvmStatic
-    fun registerSingleton(name: String, instance: GodotObject) {
-        ObjectCalls.ptrcallWithStringNameAndObjectArg(registerSingletonBind, singleton, name, instance.handle)
+    fun registerSingleton(name: String, objectArg: MemorySegment) {
+        // Godot 4.7 warns that RefCounted singletons leak/double-free (the singleton table holds no
+        // reference). Reject them here before Godot sees the instance; use an Object-derived singleton.
+        if (objectArg.address() != 0L && GodotObject(objectArg).isClass("RefCounted")) {
+            error("Engine.registerSingleton does not accept RefCounted instances; use an Object-derived singleton")
+        }
+        ObjectCalls.ptrcallWithStringNameAndObjectArg(registerSingletonBind, singleton, name, objectArg)
     }
 
     /**

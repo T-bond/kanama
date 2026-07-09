@@ -603,7 +603,7 @@ class KanamaProcessor(
                         usage = PROPERTY_USAGE_CATEGORY,
                     )
                 }
-            val defaultLiteral = scriptPropertyDefaultLiteral(prop, scriptType.type)
+            val defaultLiteral = scriptPropertyDefaultLiteral(prop, scriptType.type, scriptType.narrow)
             val exportGroup = prop.annotations.firstOrNull { it.shortName.asString() == "ExportGroup" }
                 ?.let { group ->
                     ScriptPropertyGroupModel(
@@ -640,6 +640,7 @@ class KanamaProcessor(
                 scriptType.arrayElementCustomScriptIsResource,
                 scriptType.arrayElementString,
                 resolvedType.nullability == Nullability.NULLABLE,
+                scriptType.narrow,
             )
         }
 
@@ -898,6 +899,7 @@ class KanamaProcessor(
             "net.multigesture.kanama.api.GPUParticles3D",
             "net.multigesture.kanama.api.CPUParticles3D",
             "net.multigesture.kanama.api.Timer",
+            "net.multigesture.kanama.api.WorldEnvironment",
             "net.multigesture.kanama.api.PackedScene",
             "net.multigesture.kanama.api.Texture2D",
             "net.multigesture.kanama.api.NoiseTexture2D",
@@ -916,6 +918,12 @@ class KanamaProcessor(
             scriptClassTypes: Map<String, ScriptClassTypeInfo>,
         ): ScriptPropertyTypeModel {
             val fq = type.declaration.qualifiedName?.asString()
+            // Narrow Kotlin scalars widen to Godot's 64-bit Variant slots; the
+            // JVM emitter inserts the conversions at get/set.
+            when (fq) {
+                "kotlin.Float" -> return ScriptPropertyTypeModel(TypeMapping.FLOAT, narrow = NarrowScalar.FLOAT32)
+                "kotlin.Int" -> return ScriptPropertyTypeModel(TypeMapping.INT, narrow = NarrowScalar.INT32)
+            }
             val objectWrapper = fq?.takeIf { it in SUPPORTED_OBJECT_WRAPPERS }
             if (objectWrapper != null) {
                 return ScriptPropertyTypeModel(
@@ -1034,6 +1042,7 @@ class KanamaProcessor(
             "net.multigesture.kanama.api.GPUParticles3D",
             "net.multigesture.kanama.api.CPUParticles3D",
             "net.multigesture.kanama.api.Timer",
+            "net.multigesture.kanama.api.WorldEnvironment",
         )
 
         private fun godotClassName(fqName: String): String =
@@ -1308,7 +1317,11 @@ private const val PROPERTY_HINT_TOOL_BUTTON = 39
 
 private val kotlinStringLiteralPattern = "\"(?:\\\\.|[^\"\\\\])*\""
 
-private fun scriptPropertyDefaultLiteral(prop: KSPropertyDeclaration, type: TypeMapping): String? {
+private fun scriptPropertyDefaultLiteral(
+    prop: KSPropertyDeclaration,
+    type: TypeMapping,
+    narrow: NarrowScalar? = null,
+): String? {
     val location = prop.location as? FileLocation ?: return null
     val sourceLines = runCatching { File(location.filePath).readLines() }.getOrNull() ?: return null
     if (sourceLines.isEmpty()) return null
@@ -1318,7 +1331,20 @@ private fun scriptPropertyDefaultLiteral(prop: KSPropertyDeclaration, type: Type
     val declarationLine = findPropertyDeclarationLine(sourceLines, start, propertyName) ?: return null
     val declaration = collectPropertyDeclaration(sourceLines, declarationLine)
     val initializer = extractPropertyInitializer(declaration) ?: return null
+    narrow?.let { return normalizeNarrowDefaultLiteral(initializer, it) }
     return normalizeScriptPropertyDefaultLiteral(initializer, type)
+}
+
+/**
+ * Default literals for kotlin.Float / kotlin.Int properties. The literal is
+ * kept in its source (narrow) form — the generated default field is typed
+ * Float/Int, and the emitter widens when reporting it to Godot.
+ */
+private fun normalizeNarrowDefaultLiteral(initializer: String, narrow: NarrowScalar): String? = when (narrow) {
+    NarrowScalar.FLOAT32 ->
+        initializer.takeIf { Regex("""[-+]?(?:\d+\.\d*|\.\d+|\d+)(?:[eE][-+]?\d+)?[fF]""").matches(it) }
+    NarrowScalar.INT32 ->
+        initializer.takeIf { Regex("""[-+]?\d+""").matches(it) }
 }
 
 private fun findPropertyDeclarationLine(lines: List<String>, start: Int, propertyName: String): Int? {
@@ -2599,7 +2625,7 @@ internal class ScriptCodeEmitter(
         sb.appendLine("    private fun writePropertyDefault(name: Long, ret: MemorySegment): Boolean = when (name) {")
         for (p in model.properties) {
             sb.appendLine("        ${nameVar(p.godotName)} -> {")
-            sb.appendLine("            ${variantWritePropertyRetExpr(p, "default${p.kotlinName.replaceFirstChar { it.uppercase() }}")}")
+            sb.appendLine("            ${variantWritePropertyRetExpr(p, "default${p.kotlinName.replaceFirstChar { it.uppercase() }}${p.narrow?.toWide ?: ""}")}")
             sb.appendLine("            true")
             sb.appendLine("        }")
         }
@@ -2748,7 +2774,7 @@ internal class ScriptCodeEmitter(
             sb.appendLine("                    ${nameVar(p.godotName)} -> {")
             sb.appendLine("                        ${variantReadPropertyExpr(p, "value", "v")}")
             sb.appendLine("                        ${cleanupPropertyExpr(p, "kt.${p.kotlinName}", "mutableSetOf()")}")
-            sb.appendLine("                        kt.${p.kotlinName} = v")
+            sb.appendLine("                        kt.${p.kotlinName} = v${p.narrow?.fromWide ?: ""}")
             sb.appendLine("                        true")
             sb.appendLine("                    }")
         }
@@ -2814,7 +2840,7 @@ internal class ScriptCodeEmitter(
         sb.appendLine("                when (name) {")
         for (p in model.properties) {
             sb.appendLine("                    ${nameVar(p.godotName)} -> {")
-            sb.appendLine("                        ${variantWritePropertyRetExpr(p, "kt.${p.kotlinName}")}")
+            sb.appendLine("                        ${variantWritePropertyRetExpr(p, "kt.${p.kotlinName}${p.narrow?.toWide ?: ""}")}")
             sb.appendLine("                        true")
             sb.appendLine("                    }")
         }
@@ -2975,7 +3001,7 @@ internal class ScriptCodeEmitter(
             property.customScriptFqName != null -> "${property.customScriptFqName}?"
             property.arrayElementCustomScriptFqName != null -> "List<${property.arrayElementCustomScriptFqName}>"
             property.arrayElementString -> "List<String>"
-            else -> property.type.kotlinType
+            else -> property.narrow?.kotlinType ?: property.type.kotlinType
         }
 
     private fun scriptPropertyZeroLiteral(property: ScriptPropertyModel): String =
@@ -2985,7 +3011,7 @@ internal class ScriptCodeEmitter(
             property.customScriptFqName != null -> "null"
             property.arrayElementCustomScriptFqName != null -> "emptyList()"
             property.arrayElementString -> "emptyList()"
-            else -> property.type.kotlinLiteralZero
+            else -> property.narrow?.zeroLiteral ?: property.type.kotlinLiteralZero
         }
 
     companion object {

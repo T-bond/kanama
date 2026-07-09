@@ -213,6 +213,45 @@ int64_t kanama_ios_godot_ptrcall_ret_variant_array_blob(
 );
 
 /*
+ * PhysicsDirectSpaceState3D.intersect_ray-style call (one PhysicsRayQueryParameters3D object arg,
+ * laid out as for kanama_ios_godot_ptrcall) -> the result Dictionary decoded into a fixed blob:
+ *   [int32 hit]; if hit: [3x float32 position][3x float32 normal][int64 collider][int64 collider_id][int64 shape].
+ * Returns bytes written (4 no-hit, 52 hit) or -1. out_buf must hold >= 52 bytes.
+ */
+int64_t kanama_ios_godot_ptrcall_ret_raycast_dict(
+    int64_t method_bind,
+    int64_t instance,
+    const int32_t *arg_types,
+    const void *const *arg_ptrs,
+    int32_t arg_count,
+    char *out_buf,
+    int64_t buf_size
+);
+
+/*
+ * Build a Godot Array of RIDs (each a uint64 id) and pass it as the single ptrcall argument, e.g.
+ * PhysicsRayQueryParameters3D.set_exclude. Best-effort: no-op if the Array/RID primitives are missing.
+ */
+void kanama_ios_godot_ptrcall_with_rid_array_arg(
+    int64_t method_bind,
+    int64_t instance,
+    const int64_t *rids,
+    int32_t count
+);
+
+/*
+ * ResourceLoader.load_threaded_get_status(path, progress) ptrcall with the optional progress
+ * out-Array actually supplied; the engine's element 0 (a float in [0,1]) is written to
+ * *out_progress when present. Returns the ThreadLoadStatus enum, or -1 on error.
+ */
+int64_t kanama_ios_godot_ptrcall_load_status_with_progress(
+    int64_t method_bind,
+    int64_t instance,
+    const char *path,
+    double *out_progress
+);
+
+/*
  * Descriptor for a BUILD-tagged Packed*Array argument passed through the generic ptrcall
  * dispatcher (KANAMA_IOS_PT_PACKED_* tags). `data` is a flat element buffer: float32 pairs
  * for Vector2 (count*2 floats), float32 quads for Color (count*4 floats). The dispatch

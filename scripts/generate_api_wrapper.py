@@ -300,6 +300,8 @@ IOS_HANDWRITTEN_HELPERS = {
     "ptrcallNoArgsRetPlaneList",
     "ptrcallNoArgsRetArray",
     "ptrcallWithNodePathArgRetArray",
+    # hand-written in ObjectCalls.kt to host SceneTree.create_timer (hand-written collision class)
+    "ptrcallWithDoubleAndThreeBoolArgsRetObject",
 }
 PARAMETER_NAME_OVERRIDES = {
     ("Time", "get_datetime_dict_from_unix_time", "unix_time_val"): "unixTime",
@@ -351,6 +353,7 @@ DEFAULT_VALUE_OVERRIDES = {
 # and rely on the named Vector3.UP default, so reproduce it here rather than dropping it on regen.
 KOTLIN_DEFAULT_EXPRESSION_OVERRIDES = {
     ("Node3D", "look_at", "up"): "Vector3.UP",
+    ("Node3D", "look_at_from_position", "up"): "Vector3.UP",
 }
 CUSTOM_MEMBER_SECTIONS = {
     "AnimationMixer": """
@@ -521,6 +524,66 @@ IOS_CUSTOM_MEMBER_SECTIONS = {
         IosGodot.nodeCreateTween(handle.address()).takeIf { it != 0L }?.let {
             Tween(MemorySegment.ofAddress(it))
         }
+
+    // Node.propagate_call(method, args, parent_first) via the Variant call path (Array arg boxed
+    // through callWithVariantArgs). Matches desktop Node.propagateCall.
+    fun propagateCall(method: String, args: List<Any?> = emptyList(), parentFirst: Boolean = false) {
+        call("propagate_call", method, args, parentFirst)
+    }
+
+    // String overloads for the NodePath-typed accessors (desktop exposes both), so demo code can
+    // pass a plain path literal.
+    fun hasNode(path: String): Boolean = hasNode(NodePath(path))
+
+    fun getNode(path: String): Node? = getNode(NodePath(path))
+
+    fun hasNodeAndResource(path: String): Boolean = hasNodeAndResource(NodePath(path))
+
+    // Node.callLocalRpc — send the RPC and also run it locally if the send was a no-op (matches
+    // desktop; used by the generated <Class>Rpcs.callLocal* helpers).
+    fun callLocalRpc(method: String, vararg extraArgs: Any?) {
+        if (rpc(method, *extraArgs) != 0L) {
+            call(method, *extraArgs)
+        }
+    }
+""".strip("\n"),
+    "ConfigFile": """
+    // ConfigFile.set_value / get_value are (StringName, StringName, Variant) methods the generator
+    // skips on iOS (Variant value); route through the call() Variant path. Matches desktop's
+    // hand-written Variant-coercion helpers.
+    fun setValue(section: String, key: String, value: Any?) {
+        call("set_value", section, key, value)
+    }
+
+    fun getValue(section: String, key: String, default: Any? = null): Any? =
+        call("get_value", section, key, default)
+""".strip("\n"),
+    "ShaderMaterial": """
+    // ShaderMaterial.set_shader_parameter(param, value) via the Variant call path (iOS has no
+    // (StringName, Variant) ptrcall shape; call() boxes the value). Matches desktop.
+    fun setShaderParameter(param: String, value: Any?) {
+        call("set_shader_parameter", param, value)
+    }
+""".strip("\n"),
+    "PhysicsDirectSpaceState3D": """
+    // intersect_ray returns a Godot Dictionary, decoded via the fixed-schema raycast C-shim
+    // (kanama_ios_godot_ptrcall_ret_raycast_dict). Empty map = no hit. "collider" is wrapped from the
+    // raw handle into a GodotObject so scripts can `hit["collider"] as? GodotObject`.
+    fun intersectRay(parameters: PhysicsRayQueryParameters3D?): Map<String, Any?> {
+        val query = parameters ?: return emptyMap()
+        val raw = ObjectCalls.ptrcallIntersectRay(intersectRayBind, handle, query.handle)
+        if (raw.isEmpty()) return emptyMap()
+        val result = raw.toMutableMap()
+        (raw["collider"] as? MemorySegment)?.let { result["collider"] = GodotObject(it) }
+        return result
+    }
+""".strip("\n"),
+    "PhysicsRayQueryParameters3D": """
+    // The RID list excluded from collisions (e.g. the caster's own body). Marshalled to a Godot
+    // Array[RID] by the C-shim. set_exclude takes an Array[RID] arg the generator otherwise skips.
+    fun setExclude(exclude: List<net.multigesture.kanama.types.RID>) {
+        ObjectCalls.ptrcallWithRIDListArg(setExcludeBind, handle, exclude)
+    }
 """.strip("\n"),
     "ShapeCast3D": """
     // Long-index overload (desktop ShapeCast3D exposes both Int and Long), so loops over the now-Long
@@ -641,6 +704,79 @@ IOS_CUSTOM_COMPANION_MEMBER_SECTIONS = {
         // Downcast a Material to BaseMaterial3D (null if not), mirroring the desktop helper.
         fun fromMaterial(value: Material): BaseMaterial3D? =
             if (value.isClass("BaseMaterial3D")) BaseMaterial3D(value.handle) else null
+""".strip("\n"),
+    "FastNoiseLite": """
+        // Instantiate a FastNoiseLite (RefCounted noise generator).
+        fun create(): FastNoiseLite =
+            FastNoiseLite(MemorySegment.ofAddress(IosGodot.constructObject("FastNoiseLite")))
+""".strip("\n"),
+    "LightmapGI": """
+        // Instantiate a LightmapGI node.
+        fun create(): LightmapGI =
+            LightmapGI(MemorySegment.ofAddress(IosGodot.constructObject("LightmapGI")))
+""".strip("\n"),
+    "Material": """
+        // Downcast a Resource to Material (null if not), mirroring the desktop helper.
+        fun fromResource(value: Resource?): Material? =
+            value?.takeIf { it.isClass("Material") }?.let { Material(it.handle) }
+""".strip("\n"),
+    "SceneMultiplayer": """
+        // Downcast a MultiplayerAPI to SceneMultiplayer (null if not), mirroring the desktop helper.
+        fun fromApi(api: MultiplayerAPI?): SceneMultiplayer? =
+            api?.takeIf { it.isClass("SceneMultiplayer") }?.let { SceneMultiplayer(it.handle) }
+""".strip("\n"),
+    "ConfigFile": """
+        // Instantiate a ConfigFile (RefCounted key/value store).
+        fun create(): ConfigFile =
+            ConfigFile(MemorySegment.ofAddress(IosGodot.constructObject("ConfigFile")))
+""".strip("\n"),
+    "OfflineMultiplayerPeer": """
+        // Instantiate an OfflineMultiplayerPeer (single-player multiplayer stub).
+        fun create(): OfflineMultiplayerPeer =
+            OfflineMultiplayerPeer(MemorySegment.ofAddress(IosGodot.constructObject("OfflineMultiplayerPeer")))
+""".strip("\n"),
+    "ENetMultiplayerPeer": """
+        // Instantiate an ENetMultiplayerPeer.
+        fun create(): ENetMultiplayerPeer =
+            ENetMultiplayerPeer(MemorySegment.ofAddress(IosGodot.constructObject("ENetMultiplayerPeer")))
+""".strip("\n"),
+    "ButtonGroup": """
+        // Instantiate a ButtonGroup (RefCounted radio-button grouping).
+        fun create(): ButtonGroup =
+            ButtonGroup(MemorySegment.ofAddress(IosGodot.constructObject("ButtonGroup")))
+""".strip("\n"),
+    "ShaderMaterial": """
+        // Downcast a Resource to ShaderMaterial (null if not), mirroring the desktop helper.
+        fun fromResource(value: Resource?): ShaderMaterial? =
+            value?.takeIf { it.isClass("ShaderMaterial") }?.let { ShaderMaterial(it.handle) }
+""".strip("\n"),
+    "PhysicsRayQueryParameters3D": """
+        // Build a ray query: instantiate and set the scalar/Vector3 properties + the exclude RID-list
+        // (marshalled through the Array[RID] C-shim so intersect_ray skips the caster's own collider).
+        fun create(
+            from: Vector3,
+            to: Vector3,
+            collisionMask: Long = 4294967295L,
+            exclude: List<net.multigesture.kanama.types.RID> = emptyList(),
+        ): PhysicsRayQueryParameters3D {
+            val query = PhysicsRayQueryParameters3D(MemorySegment.ofAddress(IosGodot.constructObject("PhysicsRayQueryParameters3D")))
+            query.from = from
+            query.to = to
+            query.collisionMask = collisionMask
+            if (exclude.isNotEmpty()) query.setExclude(exclude)
+            return query
+        }
+
+        private const val SET_EXCLUDE_HASH = 381264803L
+        private val setExcludeBind by lazy {
+            ObjectCalls.getMethodBind("PhysicsRayQueryParameters3D", "set_exclude", SET_EXCLUDE_HASH)
+        }
+""".strip("\n"),
+    "PhysicsDirectSpaceState3D": """
+        private const val INTERSECT_RAY_HASH = 3957970750L
+        private val intersectRayBind by lazy {
+            ObjectCalls.getMethodBind("PhysicsDirectSpaceState3D", "intersect_ray", INTERSECT_RAY_HASH)
+        }
 """.strip("\n"),
 }
 

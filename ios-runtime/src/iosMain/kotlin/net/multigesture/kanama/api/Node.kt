@@ -578,6 +578,28 @@ open class Node(handle: MemorySegment) : GodotObject(handle) {
             Tween(MemorySegment.ofAddress(it))
         }
 
+    // Node.propagate_call(method, args, parent_first) via the Variant call path (Array arg boxed
+    // through callWithVariantArgs). Matches desktop Node.propagateCall.
+    fun propagateCall(method: String, args: List<Any?> = emptyList(), parentFirst: Boolean = false) {
+        call("propagate_call", method, args, parentFirst)
+    }
+
+    // String overloads for the NodePath-typed accessors (desktop exposes both), so demo code can
+    // pass a plain path literal.
+    fun hasNode(path: String): Boolean = hasNode(NodePath(path))
+
+    fun getNode(path: String): Node? = getNode(NodePath(path))
+
+    fun hasNodeAndResource(path: String): Boolean = hasNodeAndResource(NodePath(path))
+
+    // Node.callLocalRpc — send the RPC and also run it locally if the send was a no-op (matches
+    // desktop; used by the generated <Class>Rpcs.callLocal* helpers).
+    fun callLocalRpc(method: String, vararg extraArgs: Any?) {
+        if (rpc(method, *extraArgs) != 0L) {
+            call(method, *extraArgs)
+        }
+    }
+
     object Signals {
         const val ready: String = "ready"
         const val renamed: String = "renamed"

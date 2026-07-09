@@ -44,6 +44,9 @@ import net.multigesture.kanama.ios.cinterop.kanama_ios_godot_ptrcall
 import net.multigesture.kanama.ios.cinterop.kanama_ios_godot_ptrcall_ret_object_array
 import net.multigesture.kanama.ios.cinterop.kanama_ios_godot_ptrcall_no_args_ret_typed_array_blob
 import net.multigesture.kanama.ios.cinterop.kanama_ios_godot_ptrcall_ret_variant_array_blob
+import net.multigesture.kanama.ios.cinterop.kanama_ios_godot_ptrcall_ret_raycast_dict
+import net.multigesture.kanama.ios.cinterop.kanama_ios_godot_ptrcall_with_rid_array_arg
+import net.multigesture.kanama.ios.cinterop.kanama_ios_godot_ptrcall_load_status_with_progress
 import net.multigesture.kanama.ios.cinterop.kanama_ios_godot_ptrcall_no_args_ret_packed_color_array
 import net.multigesture.kanama.ios.cinterop.kanama_ios_godot_ptrcall_no_args_ret_packed_float32_array
 import net.multigesture.kanama.ios.cinterop.kanama_ios_godot_ptrcall_no_args_ret_packed_int32_array
@@ -113,6 +116,10 @@ object ObjectCalls {
     private const val VT_INT = 2
     private const val VT_FLOAT = 3
     private const val VT_STRING = 4
+    private const val VT_VECTOR2 = 5
+    private const val VT_VECTOR2I = 6
+    private const val VT_VECTOR3 = 9
+    private const val VT_COLOR = 20
     private const val VT_STRING_NAME = 21
     private const val VT_NODE_PATH = 22
     private const val VT_OBJECT = 24
@@ -407,11 +414,12 @@ object ObjectCalls {
             v
         }
 
+    private fun i32LE(b: ByteArray, o: Int): Int =
+        (b[o].toInt() and 0xFF) or ((b[o + 1].toInt() and 0xFF) shl 8) or
+            ((b[o + 2].toInt() and 0xFF) shl 16) or ((b[o + 3].toInt() and 0xFF) shl 24)
+
     private fun realLE(b: ByteArray, o: Int) =
-        GodotReal.fromFloat(Float.fromBits(
-            (b[o].toInt() and 0xFF) or ((b[o + 1].toInt() and 0xFF) shl 8) or
-                ((b[o + 2].toInt() and 0xFF) shl 16) or ((b[o + 3].toInt() and 0xFF) shl 24),
-        ))
+        GodotReal.fromFloat(Float.fromBits(i32LE(b, o)))
 
     // Array[Plane] -> List<Plane> (e.g. Camera3D.get_frustum). Each record is 4 float32 LE
     // (normal.x, normal.y, normal.z, d). Phase 2.7i.
@@ -821,6 +829,31 @@ object ObjectCalls {
             Unit
         }
 
+    // (double, bool, bool, bool) -> Object. Hosts SceneTree.create_timer (SceneTree is a hand-written
+    // collision class, so this shape isn't emitted by the generator; registered in
+    // IOS_HANDWRITTEN_HELPERS so the generator won't also emit it).
+    fun ptrcallWithDoubleAndThreeBoolArgsRetObject(
+        methodBind: MemorySegment,
+        instance: MemorySegment,
+        a0: Double,
+        a1: Boolean,
+        a2: Boolean,
+        a3: Boolean,
+    ): MemorySegment =
+        memScoped {
+            val ret = alloc<LongVar>(); ret.value = 0
+            val c0 = alloc<DoubleVar>(); c0.value = a0
+            val c1 = alloc<ByteVar>(); c1.value = if (a1) 1 else 0
+            val c2 = alloc<ByteVar>(); c2.value = if (a2) 1 else 0
+            val c3 = alloc<ByteVar>(); c3.value = if (a3) 1 else 0
+            val types = allocArray<IntVar>(4); types[0] = PT_FLOAT64; types[1] = PT_BOOL; types[2] = PT_BOOL; types[3] = PT_BOOL
+            val ptrs = allocArray<COpaquePointerVar>(4)
+            ptrs[0] = c0.ptr.reinterpret<CPointed>(); ptrs[1] = c1.ptr.reinterpret<CPointed>()
+            ptrs[2] = c2.ptr.reinterpret<CPointed>(); ptrs[3] = c3.ptr.reinterpret<CPointed>()
+            kanama_ios_godot_ptrcall(methodBind.address(), instance.address(), types, ptrs, 4, PT_OBJECT, ret.ptr)
+            MemorySegment.ofAddress(ret.value)
+        }
+
     fun ptrcallWithVector2Arg(methodBind: MemorySegment, instance: MemorySegment, value: Vector2) =
         memScoped {
             val cell = allocArray<GodotRealVar>(2)
@@ -909,12 +942,82 @@ object ObjectCalls {
             Unit
         }
 
+    // PhysicsDirectSpaceState3D.intersect_ray: (query object arg) -> the result Dictionary decoded
+    // into a Map. Empty map = no hit. "collider" is a raw object handle (MemorySegment; 0 dropped) —
+    // the api layer wraps it as GodotObject. "position"/"normal" are Vector3; "collider_id"/"shape" Long.
+    fun ptrcallIntersectRay(
+        methodBind: MemorySegment,
+        instance: MemorySegment,
+        query: MemorySegment,
+    ): Map<String, Any?> =
+        memScoped {
+            val cells = allocArray<LongVar>(1); cells[0] = query.address()
+            val types = allocArray<IntVar>(1); types[0] = PT_OBJECT
+            val ptrs = allocArray<COpaquePointerVar>(1); ptrs[0] = cells.reinterpret<CPointed>()
+            val buf = allocArray<ByteVar>(64)
+            val total = kanama_ios_godot_ptrcall_ret_raycast_dict(
+                methodBind.address(), instance.address(), types, ptrs, 1, buf, 64L)
+            if (total < 52L) {
+                emptyMap()
+            } else {
+                val bytes = buf.readBytes(total.toInt())
+                fun i32(o: Int): Int =
+                    (bytes[o].toInt() and 0xFF) or ((bytes[o + 1].toInt() and 0xFF) shl 8) or
+                        ((bytes[o + 2].toInt() and 0xFF) shl 16) or ((bytes[o + 3].toInt() and 0xFF) shl 24)
+                fun i64(o: Int): Long {
+                    var v = 0L
+                    for (k in 7 downTo 0) v = (v shl 8) or (bytes[o + k].toLong() and 0xFF)
+                    return v
+                }
+                fun f32(o: Int): Float = Float.fromBits(i32(o))
+                if (i32(0) == 0) {
+                    emptyMap()
+                } else {
+                    val result = HashMap<String, Any?>()
+                    result["position"] = Vector3(GodotReal.fromC(f32(4)), GodotReal.fromC(f32(8)), GodotReal.fromC(f32(12)))
+                    result["normal"] = Vector3(GodotReal.fromC(f32(16)), GodotReal.fromC(f32(20)), GodotReal.fromC(f32(24)))
+                    val colliderHandle = i64(28)
+                    if (colliderHandle != 0L) result["collider"] = MemorySegment.ofAddress(colliderHandle)
+                    result["collider_id"] = i64(36)
+                    result["shape"] = i64(44)
+                    result
+                }
+            }
+        }
+
+    // PhysicsRayQueryParameters3D.set_exclude(Array[RID]): pass the RID ids as a flat int64 buffer;
+    // the C side builds the Godot Array of RID variants and ptrcalls the setter.
+    fun ptrcallWithRIDListArg(methodBind: MemorySegment, instance: MemorySegment, rids: List<RID>) =
+        memScoped {
+            val n = rids.size
+            val arr = allocArray<LongVar>(if (n > 0) n else 1)
+            for (i in 0 until n) arr[i] = rids[i].value
+            kanama_ios_godot_ptrcall_with_rid_array_arg(methodBind.address(), instance.address(), arr, n)
+            Unit
+        }
+
+    // ResourceLoader.load_threaded_get_status(path, progress): the C side supplies the progress
+    // out-Array and reads back element 0. Returns status (-1 on error) to progress [0,1].
+    fun ptrcallLoadStatusWithProgress(
+        methodBind: MemorySegment,
+        instance: MemorySegment,
+        path: String,
+    ): Pair<Long, Double> =
+        memScoped {
+            val progress = alloc<DoubleVar>()
+            val status = kanama_ios_godot_ptrcall_load_status_with_progress(
+                methodBind.address(), instance.address(), path, progress.ptr)
+            status to progress.value
+        }
+
     // Generic Variant Object.call dispatch (mirrors desktop ObjectCalls.callWithVariantArgs):
     // boxes each arg into a Variant C-side and invokes [methodBind] via the Variant path,
     // for the varargs / dynamic methods ptrcall can't express (Object.call, set_deferred,
-    // set_custom_mouse_cursor). Returns the decoded SCALAR result (Boolean/Long/Double/
-    // String/object MemorySegment) or null (nil / non-scalar return). String returns over
-    // 1 KiB are truncated (the value is captured once — the call is not re-issued).
+    // set_custom_mouse_cursor). Returns the decoded result — scalar (Boolean/Long/Double/
+    // String/object MemorySegment) or small fixed-size (Vector2/Vector2i/Vector3/Color,
+    // raw component bytes via out_str) — or null (nil / un-decoded return, e.g. Dictionary/
+    // Array/Transform). String returns over 1 KiB are truncated (the value is captured
+    // once — the call is not re-issued).
     // Lay out a List<Any?> into parallel PT-tag + payload-pointer arrays inside the given MemScope.
     // Shared by the Variant Object.call dispatch and the bound-Callable connect/disconnect path.
     private fun MemScope.encodeVariantArgs(
@@ -1043,6 +1146,29 @@ object ObjectCalls {
                     outStr.readBytes(len).decodeToString()
                 }
                 VT_OBJECT -> if (outInt.value != 0L) MemorySegment.ofAddress(outInt.value) else null
+                // Small fixed-size returns arrive as raw component bytes in out_str (see
+                // kanama_ios_godot_object_call); zero length = the C side could not decode.
+                VT_VECTOR2 -> if (outStrLen.value >= 8L) {
+                    val b = outStr.readBytes(8)
+                    Vector2(realLE(b, 0), realLE(b, 4))
+                } else null
+                VT_VECTOR2I -> if (outStrLen.value >= 8L) {
+                    val b = outStr.readBytes(8)
+                    Vector2i(i32LE(b, 0), i32LE(b, 4))
+                } else null
+                VT_VECTOR3 -> if (outStrLen.value >= 12L) {
+                    val b = outStr.readBytes(12)
+                    Vector3(realLE(b, 0), realLE(b, 4), realLE(b, 8))
+                } else null
+                VT_COLOR -> if (outStrLen.value >= 16L) {
+                    val b = outStr.readBytes(16)
+                    Color(
+                        Float.fromBits(i32LE(b, 0)),
+                        Float.fromBits(i32LE(b, 4)),
+                        Float.fromBits(i32LE(b, 8)),
+                        Float.fromBits(i32LE(b, 12)),
+                    )
+                } else null
                 else -> null
             }
         }

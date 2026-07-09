@@ -402,6 +402,32 @@ internal class IosScriptCodeEmitter(
                 }
                 builder.appendLine("}")
             }
+            if (script.rpcConfigs.isNotEmpty()) {
+                val fqClassName = "${script.packageName}.${script.className}"
+                builder.appendLine()
+                builder.appendLine("object ${script.className}Rpcs {")
+                script.rpcConfigs.forEach { rpc ->
+                    val method = script.methods.firstOrNull { it.godotName == rpc.godotName }
+                    val suffix = constantIdentifier(rpc.godotName).removeSurrounding("`").replaceFirstChar { it.uppercase() }
+                    val args = method?.args ?: emptyList()
+                    val typedParams = args.joinToString("") { ", ${it.name}: ${it.kotlinType}" }
+                    val forwardArgs = args.joinToString("") { ", ${it.name}" }
+                    val godotLit = kotlinString(rpc.godotName)
+                    builder.appendLine("    fun rpc$suffix(instance: $fqClassName$typedParams): Long =")
+                    builder.appendLine("        net.multigesture.kanama.api.Node(instance.godotObject).rpc($godotLit$forwardArgs)")
+                    builder.appendLine()
+                    builder.appendLine("    fun rpcId$suffix(instance: $fqClassName, peerId: Long$typedParams): Long =")
+                    builder.appendLine("        net.multigesture.kanama.api.Node(instance.godotObject).rpcId(peerId, $godotLit$forwardArgs)")
+                    if (rpc.callLocal) {
+                        builder.appendLine()
+                        builder.appendLine("    fun callLocal$suffix(instance: $fqClassName$typedParams) {")
+                        builder.appendLine("        net.multigesture.kanama.api.Node(instance.godotObject).callLocalRpc($godotLit$forwardArgs)")
+                        builder.appendLine("    }")
+                    }
+                    builder.appendLine()
+                }
+                builder.appendLine("}")
+            }
             val methods = script.methods
             val properties = script.properties
             val signals = script.signals
@@ -577,6 +603,13 @@ internal class IosScriptCodeEmitter(
             isObject -> objectWrapperFqName.substringAfterLast('.')
             isList -> ""
             customScript.isNotEmpty() -> ""
+            // Narrow Kotlin scalars (Float/Int) need a conversion the iOS
+            // set-property path doesn't have yet: keep the Kotlin default,
+            // same boundary as the unsupported value types below.
+            narrow != null -> {
+                warn("[kanama-ios] $className.$kotlinName (${narrow.kotlinType}) — no iOS @ScriptProperty narrowing path yet, will keep its Kotlin default")
+                ""
+            }
             else -> when (type) {
                 TypeMapping.INT -> "Long"
                 TypeMapping.FLOAT -> "Double"

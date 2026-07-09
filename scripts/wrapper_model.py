@@ -61,13 +61,15 @@ class ApiMethod:
             for arg_type, meta in zip(self.argument_types, self.argument_metas, strict=True)
         )
 
-    # Godot ints are 64-bit; the `int32` meta is only a storage hint, and desktop/Android wrappers
-    # return Long for int32-meta returns. Full parity (widening ALL int32 returns -> Long) is a tracked
-    # task: it widens 341 returns cleanly but drops 23 arg-bearing int32 returns that lack a Long-return
-    # ptrcall helper (e.g. getCellSourceId, Animation track-inserts), so those helpers must be added
-    # first to stay non-regressing. Until then, widen only the no-arg count getters the demos need (each
-    # already has ptrcallNoArgsRetLong, so it's additive). See ios-demo-port-tracker.md.
-    _INT32_RETURN_WIDEN_TO_LONG = frozenset({"get_collision_count"})
+    # `int32`-meta returns map to Kotlin `Int` and read exactly 4 bytes (`...RetInt`). Do NOT widen
+    # them to `Long`/`...RetLong`: on the ptrcall return ABI an `int32` return writes only 4 bytes, so
+    # an 8-byte read pulls 4 bytes of return-scratch. That is benign on desktop (JVM arenas are
+    # zero-filled) but not guaranteed on the mobile ptrcall scratch, and both the signature and exact
+    # ABI-policy audits reject it. A prior widening of `get_collision_count` -> Long (task 21) tripped
+    # those audits and the fresh-clone pre-release gate; it was reverted for 0.3.0 to keep the return
+    # width exact. (Any future "widen all int32 returns to Long" idea needs zero-extending helpers first,
+    # audited per platform — it is not ABI-safe as a bare cast.)
+    _INT32_RETURN_WIDEN_TO_LONG: frozenset[str] = frozenset()
 
     def logical_return_kind(self, object_types: set[str]) -> str:
         kind = logical_type(self.return_type, self.return_meta, object_types)

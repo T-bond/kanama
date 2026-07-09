@@ -7,7 +7,7 @@ release shape.
 
 ## Current Baseline
 
-- Kanama preview line: `0.2.2`.
+- Kanama preview line: `0.3.0`.
 - Godot baseline: Godot `4.7 stable`.
 - Desktop runtime/build JDK: JDK `25+`.
 - Android remains experimental; Godot `4.7 stable` Android APK smoke
