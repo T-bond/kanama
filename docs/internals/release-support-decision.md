@@ -89,7 +89,7 @@ notes per AGENTS.md.
 | Windows (desktop) | x86_64 | — | project renderer | **Pending 4.7-stable revalidation** (last green on 4.7 beta 2 console binary) | [Version Support](../reference/version-support.md) |
 | Android | **Pixel 7** (physical) + API 36 emulator | Android | **OpenGL Compatibility only** | Full 4.7-stable debug APK demo matrix + R8-minified Match3 release APK, both on Pixel 7 (2026-06-26) | [exporting/android.md](../exporting/android.md), [architecture-review-2026-06.md](./reference/architecture-review-2026-06.md) |
 | iOS (full gate) | **iPhone 12** (physical) | iOS 26.5 | Godot iOS | Full 9-demo device gate + fresh-project install path, 0 guardrail failures; ~0.63 ms/frame binding overhead | [ios-demo-port-tracker.md](./active/ios-demo-port-tracker.md) (baseline 2026-06-25) |
-| iOS (latest device) | **iPhone 15 Pro** (physical) | iOS 26.5 | Godot iOS | Playable demo corpus + singleton/virtual self-tests green (PTRCALL 59/0, OBJECTCALLS 91/0) | [ios-backend-roadmap.md](./active/ios-backend-roadmap.md), coverage PRs #29–31 |
+| iOS (latest device) | **iPhone 15 Pro** (physical) | iOS 26.5 | Godot iOS | Playable demo corpus + singleton/virtual self-tests green (PTRCALL 59/0, OBJECTCALLS 91/0) | [ios-demo-port-tracker.md](./active/ios-demo-port-tracker.md), coverage PRs #29–31 |
 
 **Android SDK/NDK for the matching 4.7-stable export templates:** SDK API 36,
 build-tools 36.1.0, NDK 29.0.14206865 ([Version Support](../reference/version-support.md)).
@@ -129,8 +129,8 @@ the generated API across desktop, Android, and iOS.
 **Recommendation: the same tier (Tier 2 — Experimental, device-validated), not
 separate tiers.**
 
-The [iOS backend roadmap](./active/ios-backend-roadmap.md) ("Mobile Parity With
-Android") defines the convergence bar: both mobile backends should have a
+The iOS sub-track's "Mobile Parity With Android" bar defines the convergence
+criteria: both mobile backends should have a
 documented export path, a physical-device smoke gate on the current Godot
 baseline, and the Android-enabled public demo set passing on both. Both now meet
 that bar:
@@ -358,9 +358,8 @@ Per the task spec, this document only **recommends**. It does not:
 
 ## References
 
-- [iOS Backend Roadmap](./active/ios-backend-roadmap.md) — step 5 (this decision) + mobile-parity bar
 - [iOS Demo Port Tracker](./active/ios-demo-port-tracker.md) — iOS device gate baselines + demo matrix
-- [Wrapper Coverage Tracker](./active/wrapper-coverage-tracker.md) — generator/coverage state
+- [API Coverage](../contributing/api-coverage.md) — generator/coverage state
 - [Architecture Review 2026-06](./reference/architecture-review-2026-06.md) — Android R8 root-cause (F-items), F3 perf deferral
 - [Version Support](../reference/version-support.md) — current public support claims
 - [API Coverage](../contributing/api-coverage.md) — 99.6% class / 99.3% method promoted coverage

@@ -233,7 +233,6 @@ first was fixed in the release).
 ## References
 
 - [Release Support Decision](./release-support-decision.md) — the support-tier matrix this release implements
-- [iOS Backend Roadmap](./active/ios-backend-roadmap.md) — iOS sub-track (largely complete)
 - [Version Support](../reference/version-support.md) — public support claims (0.3.0)
 - `kanama-tasks/README.md` — Phase 4 task table
 - `kanama-tasks/DEFERRED.md` — parking lot (post-triage)

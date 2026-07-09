@@ -2,16 +2,16 @@
 
 How Kanama runs Kotlin game scripts on iOS: generated Godot API wrappers over a
 C-shim generic `ptrcall`, the same wrapper generator as desktop/Android. For live
-status, guardrails, how to stay in sync with desktop/Android, the backlog, and
-per-demo coverage see [ios-backend-roadmap.md](../active/ios-backend-roadmap.md); for the
+per-demo status and device-gate baselines see
+[ios-demo-port-tracker.md](../active/ios-demo-port-tracker.md); for the
 hand-written/stub registry see
 [ios-backend-handwritten.md](./ios-backend-handwritten.md).
 
 > **Status:** experimental but proven viable — the core smoke matrix and the
 > main iOS demo ports are device-validated on real iPhones. iOS is not yet a
 > supported export. This page describes the shipped architecture; live demo
-> status and remaining support gates live in
-> [ios-backend-roadmap.md](../active/ios-backend-roadmap.md).
+> status lives in [ios-demo-port-tracker.md](../active/ios-demo-port-tracker.md)
+> and support claims in [version-support.md](../../reference/version-support.md).
 
 ## Why iOS is different from desktop/Android
 

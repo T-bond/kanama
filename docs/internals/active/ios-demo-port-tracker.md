@@ -20,7 +20,7 @@ experimental: this is demo parity, not desktop-level support.
 | Starter-Kit-FPS | Playable | F1/F2 complete. `List<Weapon>` delivery, AnimatedSprite3D generation, Tween glue, and SceneTree tween creation fixed. |
 | godot-4-3d-third-person-controller | Playable | Attack crash, Mobile/Vulkan visuals, and `List<String>` animation-loop delivery fixed. |
 | Starter-Kit-City-Builder | Desktop-only by design | Desktop-focused controls (GridMap/custom-list); not a mobile target and not reassessed for mobile. |
-| tps-demo-kanama | **RUNS on iPhone 15 Pro** (device-validated 2026-07-08) — level loads + gameplay playable | Compiles + **runs on device**: menu, threaded level load, 3D level, player movement/camera/animation all work on Kotlin/Native. Device-enablement: added the iOS export preset; `loadThreadedRequest useSubThreads=false` (iOS K/N⇄Godot bridge deadlocks on multi-worker-thread `.kt` loads); `loadThreadedGet*` fetch via the synchronous C-shim (Variant-path handle failed `PackedScene.instantiate()`). **Remaining functional gap:** `intersectRay` is stubbed (empty Dictionary) so robot line-of-sight/laser-clip raycasts don't register — needs the Dictionary-return C-shim (`kanama_ios_godot_ptrcall_ret_dictionary_blob`) + `PhysicsRayQueryParameters3D.exclude` RID-list. |
+| tps-demo-kanama | **RUNS on iPhone 15 Pro** (device-validated 2026-07-09) — playable, robots fully functional | Compiles + **runs on device**: menu, threaded level load (with loading-bar progress), 3D level, player movement/camera/animation, aim, and robot line-of-sight/laser raycasts all work on Kotlin/Native. Device-enablement: added the iOS export preset; `loadThreadedRequest useSubThreads=false` (iOS K/N⇄Godot bridge deadlocks on multi-worker-thread `.kt` loads); `loadThreadedGet*` fetch via the synchronous C-shim (Variant-path handle failed `PackedScene.instantiate()`). The earlier `intersectRay` stub is **filled**: `intersect_ray`/`set_exclude` C-shim + Vector2/3/Color variant returns landed 2026-07-09. Follow-up scope (touch/multiplayer UI polish) is `kanama-tasks/26-tps-demo-mobile-ui-port.md`. |
 
 ### tps-demo-kanama iOS gap list (measured 2026-07-04)
 
@@ -88,14 +88,15 @@ loading (`LightmapGIData` + `loadLightmapGIData`), `PhysicsRayQueryParameters3D.
 the **`@Rpc` `<Class>Rpcs` helper emitter** for iOS (`IosScriptCodeEmitter` + `Node.callLocalRpc` —
 the KSP codegen previously ran for JVM only).
 
-**Two documented iOS stubs remain (functional gaps, not compile gaps) — fill after the device baseline:**
-- **`PhysicsDirectSpaceState3D.intersectRay`** returns `emptyMap()` (iOS has no Dictionary-return
-  decode — needs a `kanama_ios_godot_ptrcall_ret_dictionary_blob` C-shim + `PhysicsRayQueryParameters3D.exclude`
-  RID-list). Effect: the robot laser-clip raycast doesn't register hits on iOS.
-- **`java.io.File`** smoke-marker shim is inert on iOS (the marker is desktop-smoke-only, never set on device).
+**Stub status (2026-07-09):**
+- **`PhysicsDirectSpaceState3D.intersectRay`** — **filled.** The `intersect_ray`/`set_exclude` C-shim
+  landed with Vector2/3/Color variant returns; robot line-of-sight/laser raycasts register on device.
+- **`java.io.File`** smoke-marker shim remains inert on iOS by design (the marker is
+  desktop-smoke-only, never set on device).
 
-**Next: run `tps-demo-kanama` on a physical iPhone** (device gate) and see what actually works —
-the real "TPS runs on iOS" bar. Everything achievable without new C-shim work is done and committed.
+**Device baseline reached:** `tps-demo-kanama` is playable on iPhone 15 Pro (2026-07-09) — the
+"TPS runs on iOS" bar. Remaining TPS work is mobile-UI polish (task 26) and the task-24 close-out
+gates (drift-gate/no-silent-stubs checks + tracker/README status flips).
 
 ## Build / Deploy Pointers
 
@@ -226,9 +227,9 @@ Before copying regenerated files:
 
 ## Next Demo-Relevant Work
 
-- tps-demo-kanama: run focused multiplayer smoke checks after runtime changes. Full iOS launch still
-  needs task 08 wrapper coverage; mobile *playability* (touch controls, mobile multiplayer UI) is
-  tracked in `kanama-tasks/19-tps-mobile-virtual-joysticks.md`.
+- tps-demo-kanama: runs on device (see the status row above); run focused multiplayer smoke checks
+  after runtime changes. Mobile *playability* polish (touch controls, mobile multiplayer UI) is
+  tracked in `kanama-tasks/26-tps-demo-mobile-ui-port.md`.
 - City-Builder: desktop-only by design (GridMap/custom-list, desktop-focused controls); not a mobile target and not reassessed for mobile.
 - Re-run the full physical-device demo matrix after the iOS export workflow is documented and after
   any generator/commonMain migration.

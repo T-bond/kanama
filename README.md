@@ -54,8 +54,8 @@ same wrapper generator as desktop/Android, with no JVM on device. The demo
 corpus is device-validated (full 9-demo gate on iPhone 12; playable corpus +
 self-tests on iPhone 15 Pro), with one FPS Audio autoload follow-up tracked as
 non-blocking. iOS remains experimental, not a supported export — see the
-[iOS (Experimental)](docs/exporting/ios.md) and
-[iOS backend roadmap](docs/internals/active/ios-backend-roadmap.md).
+[iOS (Experimental)](docs/exporting/ios.md) export guide and
+[Version Support](docs/reference/version-support.md).
 
 Web export is not planned.
 

@@ -9,7 +9,7 @@ versioning once public releases begin.
 
 _No user-facing changes yet._
 
-## 0.3.0 - 2026-07-06
+## 0.3.0 - unreleased preview line (merged 2026-07-06, not tagged)
 
 This release closes Kanama's mobile + convergence phase. The headline is
 **mobile demo parity**: a full experimental iOS Kotlin/Native backend and a

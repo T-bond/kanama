@@ -12,7 +12,7 @@ platforms and engine versions validated for the current preview.
 | Linux arm64 | Supported pending 4.7 stable revalidation | Last local runtime, editor, and demo smoke validation passed with the 4.7 beta 2 ARM64 binary. Packaged desktop exports remain a separate release-readiness track. |
 | Linux x86_64 | Supported pending 4.7 stable revalidation | Last local runtime, editor, and demo smoke validation passed with the 4.7 beta 2 x64 binary. Packaged desktop exports remain a separate release-readiness track. |
 | Windows x86_64 | Supported pending 4.7 stable revalidation | Last local runtime/editor smoke validation passed with the 4.7 beta 2 console binary. PowerShell Gradle commands and Git Bash smoke marker checks are the documented path. |
-| iOS | Experimental (Kotlin/Native backend); not a supported export | The iOS backend runs full Kanama project scripts via a C shim + Kotlin/Native static `.xcframework`, using the same wrapper generator as desktop/Android. Full device gate on iPhone 12 (iOS 26.5): 9-demo matrix + fresh-project install path, 0 guardrail failures. Playable demo corpus + singleton/virtual self-tests on iPhone 15 Pro (iOS 26.5); both on 4.7 stable iOS templates. One FPS Audio autoload follow-up is tracked as non-blocking. Still experimental — see the [iOS roadmap](../internals/active/ios-backend-roadmap.md) for remaining support/export gates. |
+| iOS | Experimental (Kotlin/Native backend); not a supported export | The iOS backend runs full Kanama project scripts via a C shim + Kotlin/Native static `.xcframework`, using the same wrapper generator as desktop/Android. Full device gate on iPhone 12 (iOS 26.5): 9-demo matrix + fresh-project install path, 0 guardrail failures. Playable demo corpus + singleton/virtual self-tests on iPhone 15 Pro (iOS 26.5); both on 4.7 stable iOS templates. One FPS Audio autoload follow-up is tracked as non-blocking. Still experimental — see [exporting/ios.md](../exporting/ios.md) for the export flow and remaining caveats. |
 | Web | Not planned | Kanama depends on a JVM/FFM-style runtime path. |
 
 Validated support is only claimed after the matching smoke path passes.
@@ -92,9 +92,10 @@ Do not describe iOS as supported at desktop level. The support claim stays below
 until the export workflow is user-facing, the known FPS Audio follow-up is closed or
 documented as a non-blocking limitation, and a broader physical-device matrix has passed.
 
-See the [iOS export workflow](../exporting/ios.md) and the
-[iOS backend roadmap](../internals/active/ios-backend-roadmap.md) (guardrails, how to stay in sync
-with desktop/Android, backlog, per-demo coverage).
+See the [iOS export workflow](../exporting/ios.md), the
+[iOS backend architecture](../internals/reference/ios-backend-architecture.md) (guardrails, how it
+stays in sync with desktop/Android), and the
+[iOS demo port tracker](../internals/active/ios-demo-port-tracker.md) (per-demo coverage).
 
 ## Local Validation
 

@@ -1,6 +1,6 @@
 # Callable Arguments in Generated Wrappers — Design (Phase 1.4)
 
-Design record for roadmap task 1.4 (`wrapper-coverage-roadmap.md`): how
+Design record (coverage-roadmap task 1.4): how
 generated desktop/Android wrappers pass `Callable` arguments to engine
 methods, who owns what for how long, and what the iOS counterpart will
 need later.
