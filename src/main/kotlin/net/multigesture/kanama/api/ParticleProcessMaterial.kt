@@ -1606,12 +1606,12 @@ class ParticleProcessMaterial(handle: MemorySegment) : Material(handle) {
         fun fromHandle(handle: MemorySegment): ParticleProcessMaterial? =
             wrap(handle)
 
+        internal fun wrap(handle: MemorySegment): ParticleProcessMaterial? =
+            if (handle.address() == 0L) null else ParticleProcessMaterial(handle)
+
         @JvmStatic
         fun fromResource(value: Resource): ParticleProcessMaterial? =
             if (value.isClass("ParticleProcessMaterial")) ParticleProcessMaterial(value.handle) else null
-
-        internal fun wrap(handle: MemorySegment): ParticleProcessMaterial? =
-            if (handle.address() == 0L) null else ParticleProcessMaterial(handle)
 
         private const val SET_DIRECTION_HASH = 3460891852L
         private val setDirectionBind by lazy {

@@ -469,10 +469,20 @@ CUSTOM_COMPANION_MEMBER_SECTIONS = {
         fun create(): OfflineMultiplayerPeer =
             OfflineMultiplayerPeer(ObjectCalls.constructObject("OfflineMultiplayerPeer"))
 """.strip("\n"),
+    "ParticleProcessMaterial": """
+        @JvmStatic
+        fun fromResource(value: Resource): ParticleProcessMaterial? =
+            if (value.isClass("ParticleProcessMaterial")) ParticleProcessMaterial(value.handle) else null
+""".strip("\n"),
     "PlaneMesh": """
         @JvmStatic
         fun fromResource(value: Resource): PlaneMesh? =
             if (value.isClass("PlaneMesh")) PlaneMesh(value.handle) else null
+""".strip("\n"),
+    "ProceduralSkyMaterial": """
+        @JvmStatic
+        fun fromResource(value: Resource): ProceduralSkyMaterial? =
+            if (value.isClass("ProceduralSkyMaterial")) ProceduralSkyMaterial(value.handle) else null
 """.strip("\n"),
     "SphereMesh": """
         @JvmStatic

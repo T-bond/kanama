@@ -366,12 +366,12 @@ class ProceduralSkyMaterial(handle: MemorySegment) : Material(handle) {
         fun fromHandle(handle: MemorySegment): ProceduralSkyMaterial? =
             wrap(handle)
 
+        internal fun wrap(handle: MemorySegment): ProceduralSkyMaterial? =
+            if (handle.address() == 0L) null else ProceduralSkyMaterial(handle)
+
         @JvmStatic
         fun fromResource(value: Resource): ProceduralSkyMaterial? =
             if (value.isClass("ProceduralSkyMaterial")) ProceduralSkyMaterial(value.handle) else null
-
-        internal fun wrap(handle: MemorySegment): ProceduralSkyMaterial? =
-            if (handle.address() == 0L) null else ProceduralSkyMaterial(handle)
 
         private const val SET_SKY_TOP_COLOR_HASH = 2920490490L
         private val setSkyTopColorBind by lazy {
