@@ -115,6 +115,39 @@ object BuiltinTypes {
         )
     }
 
+    // Direct data pointers for bulk packed-array transfers. Per-element
+    // builtin calls cost ~microseconds each on the desktop JVM but ~100x
+    // more on the Android ART/PanamaPort path — a 1 MB PackedByteArray was
+    // measured at ~85 s there (snowplow heightmap, Pixel 7). Payloads move
+    // as single MemorySegment copies instead.
+    private val packedByteArrayOperatorIndexConst by lazy {
+        GodotFFI.lookup(
+            "packed_byte_array_operator_index_const",
+            FunctionDescriptor.of(ADDRESS, ADDRESS, JAVA_LONG),
+        )
+    }
+
+    private val packedByteArrayOperatorIndex by lazy {
+        GodotFFI.lookup(
+            "packed_byte_array_operator_index",
+            FunctionDescriptor.of(ADDRESS, ADDRESS, JAVA_LONG),
+        )
+    }
+
+    private val packedFloat32ArrayOperatorIndexConst by lazy {
+        GodotFFI.lookup(
+            "packed_float32_array_operator_index_const",
+            FunctionDescriptor.of(ADDRESS, ADDRESS, JAVA_LONG),
+        )
+    }
+
+    private val packedFloat32ArrayOperatorIndex by lazy {
+        GodotFFI.lookup(
+            "packed_float32_array_operator_index",
+            FunctionDescriptor.of(ADDRESS, ADDRESS, JAVA_LONG),
+        )
+    }
+
     private val variantDestroy by lazy {
         GodotFFI.lookup(
             "variant_destroy",
@@ -447,23 +480,10 @@ object BuiltinTypes {
     fun initPackedByteArray(dest: MemorySegment, values: ByteArray) {
         construct(VariantType.PACKED_BYTE_ARRAY, dest, constructorIndex = 0)
         if (values.isEmpty()) return
-        // PackedByteArray.push_back(int) -> bool
-        val pushBackHash = 694024632L
-        Arena.ofConfined().use { arena ->
-            val byteArg = arena.allocate(JAVA_LONG)
-            val boolRet = arena.allocate(JAVA_BYTE)
-            for (v in values) {
-                byteArg.set(JAVA_LONG, 0, (v.toInt() and 0xff).toLong())
-                call(
-                    type = VariantType.PACKED_BYTE_ARRAY,
-                    method = "push_back",
-                    hash = pushBackHash,
-                    base = dest,
-                    args = listOf(byteArg),
-                    rReturn = boolRet,
-                )
-            }
-        }
+        resizePackedArray(VariantType.PACKED_BYTE_ARRAY, dest, values.size)
+        val data = (packedByteArrayOperatorIndex.invoke(dest, 0L) as MemorySegment)
+            .reinterpret(values.size.toLong())
+        MemorySegment.copy(values, 0, data, JAVA_BYTE, 0L, values.size)
     }
 
     /**
@@ -522,23 +542,10 @@ object BuiltinTypes {
     fun initPackedFloat32Array(dest: MemorySegment, values: List<Float>) {
         construct(VariantType.PACKED_FLOAT32_ARRAY, dest, constructorIndex = 0)
         if (values.isEmpty()) return
-        // PackedFloat32Array.push_back(float) -> bool
-        val pushBackHash = 4094791666L
-        Arena.ofConfined().use { arena ->
-            val floatArg = arena.allocate(JAVA_DOUBLE)
-            val boolRet = arena.allocate(JAVA_BYTE)
-            for (value in values) {
-                floatArg.set(JAVA_DOUBLE, 0, value.toDouble())
-                call(
-                    type = VariantType.PACKED_FLOAT32_ARRAY,
-                    method = "push_back",
-                    hash = pushBackHash,
-                    base = dest,
-                    args = listOf(floatArg),
-                    rReturn = boolRet,
-                )
-            }
-        }
+        resizePackedArray(VariantType.PACKED_FLOAT32_ARRAY, dest, values.size)
+        val data = (packedFloat32ArrayOperatorIndex.invoke(dest, 0L) as MemorySegment)
+            .reinterpret(values.size * 4L)
+        MemorySegment.copy(values.toFloatArray(), 0, data, JAVA_FLOAT, 0L, values.size)
     }
 
     /**
@@ -860,39 +867,33 @@ object BuiltinTypes {
      * Read all values from an initialized PackedByteArray value pointer.
      */
     fun readPackedByteArray(src: MemorySegment): ByteArray {
-        // PackedByteArray.size() -> int
+        val size = packedArraySize(VariantType.PACKED_BYTE_ARRAY, src)
+        if (size <= 0) return ByteArray(0)
+        val data = (packedByteArrayOperatorIndexConst.invoke(src, 0L) as MemorySegment)
+            .reinterpret(size.toLong())
+        val values = ByteArray(size)
+        MemorySegment.copy(data, JAVA_BYTE, 0L, values, 0, size)
+        return values
+    }
+
+    /** Packed*Array.size() -> int; the hash is shared across packed types. */
+    private fun packedArraySize(type: VariantType, base: MemorySegment): Int {
         val sizeHash = 3173160232L
-        // PackedByteArray.get(int) -> int
-        val getHash = 4103005248L
         Arena.ofConfined().use { arena ->
             val sizeRet = arena.allocate(JAVA_LONG)
-            call(
-                type = VariantType.PACKED_BYTE_ARRAY,
-                method = "size",
-                hash = sizeHash,
-                base = src,
-                args = emptyList(),
-                rReturn = sizeRet,
-            )
-            val size = sizeRet.get(JAVA_LONG, 0).toInt()
-            if (size <= 0) return ByteArray(0)
+            call(type = type, method = "size", hash = sizeHash, base = base, args = emptyList(), rReturn = sizeRet)
+            return sizeRet.get(JAVA_LONG, 0).toInt()
+        }
+    }
 
-            val values = ByteArray(size)
-            val indexArg = arena.allocate(JAVA_LONG)
-            val valueRet = arena.allocate(JAVA_LONG)
-            for (i in 0 until size) {
-                indexArg.set(JAVA_LONG, 0, i.toLong())
-                call(
-                    type = VariantType.PACKED_BYTE_ARRAY,
-                    method = "get",
-                    hash = getHash,
-                    base = src,
-                    args = listOf(indexArg),
-                    rReturn = valueRet,
-                )
-                values[i] = valueRet.get(JAVA_LONG, 0).toByte()
-            }
-            return values
+    /** Packed*Array.resize(int) -> int; the hash is shared across packed types. */
+    private fun resizePackedArray(type: VariantType, base: MemorySegment, size: Int) {
+        val resizeHash = 848867239L
+        Arena.ofConfined().use { arena ->
+            val sizeArg = arena.allocate(JAVA_LONG)
+            sizeArg.set(JAVA_LONG, 0, size.toLong())
+            val intRet = arena.allocate(JAVA_LONG)
+            call(type = type, method = "resize", hash = resizeHash, base = base, args = listOf(sizeArg), rReturn = intRet)
         }
     }
 
@@ -980,40 +981,13 @@ object BuiltinTypes {
      * Read all values from an initialized PackedFloat32Array value pointer.
      */
     fun readPackedFloat32Array(src: MemorySegment): List<Float> {
-        // PackedFloat32Array.size() -> int
-        val sizeHash = 3173160232L
-        // PackedFloat32Array.get(int) -> float
-        val getHash = 1401583798L
-        Arena.ofConfined().use { arena ->
-            val sizeRet = arena.allocate(JAVA_LONG)
-            call(
-                type = VariantType.PACKED_FLOAT32_ARRAY,
-                method = "size",
-                hash = sizeHash,
-                base = src,
-                args = emptyList(),
-                rReturn = sizeRet,
-            )
-            val size = sizeRet.get(JAVA_LONG, 0).toInt()
-            if (size <= 0) return emptyList()
-
-            val values = ArrayList<Float>(size)
-            val indexArg = arena.allocate(JAVA_LONG)
-            val valueRet = arena.allocate(JAVA_DOUBLE)
-            for (i in 0 until size) {
-                indexArg.set(JAVA_LONG, 0, i.toLong())
-                call(
-                    type = VariantType.PACKED_FLOAT32_ARRAY,
-                    method = "get",
-                    hash = getHash,
-                    base = src,
-                    args = listOf(indexArg),
-                    rReturn = valueRet,
-                )
-                values += valueRet.get(JAVA_DOUBLE, 0).toFloat()
-            }
-            return values
-        }
+        val size = packedArraySize(VariantType.PACKED_FLOAT32_ARRAY, src)
+        if (size <= 0) return emptyList()
+        val data = (packedFloat32ArrayOperatorIndexConst.invoke(src, 0L) as MemorySegment)
+            .reinterpret(size * 4L)
+        val values = FloatArray(size)
+        MemorySegment.copy(data, JAVA_FLOAT, 0L, values, 0, size)
+        return values.toList()
     }
 
     /**
