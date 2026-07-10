@@ -8,6 +8,7 @@ import com.google.devtools.ksp.processing.Resolver
 import com.google.devtools.ksp.processing.SymbolProcessor
 import com.google.devtools.ksp.processing.SymbolProcessorEnvironment
 import com.google.devtools.ksp.processing.SymbolProcessorProvider
+import com.google.devtools.ksp.symbol.ClassKind
 import com.google.devtools.ksp.symbol.KSAnnotated
 import com.google.devtools.ksp.symbol.KSClassDeclaration
 import com.google.devtools.ksp.symbol.FileLocation
@@ -603,7 +604,13 @@ class KanamaProcessor(
                         usage = PROPERTY_USAGE_CATEGORY,
                     )
                 }
-            val defaultLiteral = scriptPropertyDefaultLiteral(prop, scriptType.type, scriptType.narrow)
+            val defaultLiteral = scriptPropertyDefaultLiteral(
+                prop,
+                scriptType.type,
+                scriptType.narrow,
+                scriptType.enumFqName,
+                scriptType.enumEntries,
+            )
             val exportGroup = prop.annotations.firstOrNull { it.shortName.asString() == "ExportGroup" }
                 ?.let { group ->
                     ScriptPropertyGroupModel(
@@ -641,6 +648,8 @@ class KanamaProcessor(
                 scriptType.arrayElementString,
                 resolvedType.nullability == Nullability.NULLABLE,
                 scriptType.narrow,
+                scriptType.enumFqName,
+                scriptType.enumEntries,
             )
         }
 
@@ -954,6 +963,30 @@ class KanamaProcessor(
                 "kotlin.Float" -> return ScriptPropertyTypeModel(TypeMapping.FLOAT, narrow = NarrowScalar.FLOAT32)
                 "kotlin.Int" -> return ScriptPropertyTypeModel(TypeMapping.INT, narrow = NarrowScalar.INT32)
             }
+            // Kotlin enum class (task 32, issue #37): C# export parity — an INT Variant
+            // slot carrying the ordinal, registered with PROPERTY_HINT_ENUM and the entry
+            // names so the inspector renders a dropdown.
+            val enumDecl = (type.declaration as? KSClassDeclaration)
+                ?.takeIf { it.classKind == ClassKind.ENUM_CLASS }
+            if (enumDecl != null && fq != null) {
+                val entries = enumDecl.declarations
+                    .filterIsInstance<KSClassDeclaration>()
+                    .filter { it.classKind == ClassKind.ENUM_ENTRY }
+                    .map { it.simpleName.asString() }
+                    .toList()
+                if (entries.isEmpty()) {
+                    throw IllegalArgumentException(
+                        "$className.$propertyName: enum class '$fq' has no entries to export",
+                    )
+                }
+                return ScriptPropertyTypeModel(
+                    type = TypeMapping.INT,
+                    hint = PROPERTY_HINT_ENUM,
+                    hintString = entries.joinToString(","),
+                    enumFqName = fq,
+                    enumEntries = entries,
+                )
+            }
             val objectWrapper = fq?.takeIf { it in SUPPORTED_OBJECT_WRAPPERS }
             if (objectWrapper != null) {
                 return ScriptPropertyTypeModel(
@@ -1020,6 +1053,7 @@ class KanamaProcessor(
                 ?: throw IllegalArgumentException("$className.$propertyName: unsupported ScriptProperty type '$fq'")
         }
 
+        private const val PROPERTY_HINT_ENUM = 2
         private const val PROPERTY_HINT_RESOURCE_TYPE = 17
         private const val PROPERTY_HINT_TYPE_STRING = 23
         private const val PROPERTY_HINT_NODE_TYPE = 34
@@ -1351,6 +1385,8 @@ private fun scriptPropertyDefaultLiteral(
     prop: KSPropertyDeclaration,
     type: TypeMapping,
     narrow: NarrowScalar? = null,
+    enumFqName: String? = null,
+    enumEntries: List<String> = emptyList(),
 ): String? {
     val location = prop.location as? FileLocation ?: return null
     val sourceLines = runCatching { File(location.filePath).readLines() }.getOrNull() ?: return null
@@ -1361,8 +1397,25 @@ private fun scriptPropertyDefaultLiteral(
     val declarationLine = findPropertyDeclarationLine(sourceLines, start, propertyName) ?: return null
     val declaration = collectPropertyDeclaration(sourceLines, declarationLine)
     val initializer = extractPropertyInitializer(declaration) ?: return null
+    enumFqName?.let { return normalizeEnumDefaultLiteral(initializer, it, enumEntries) }
     narrow?.let { return normalizeNarrowDefaultLiteral(initializer, it) }
     return normalizeScriptPropertyDefaultLiteral(initializer, type)
+}
+
+/**
+ * Default literals for enum-typed properties: a `MyEnum.ENTRY` (or fully qualified)
+ * initializer, normalized to the fully qualified entry reference. The generated default
+ * field is typed as the enum; the emitter reports the ordinal to Godot.
+ */
+private fun normalizeEnumDefaultLiteral(
+    initializer: String,
+    enumFqName: String,
+    entries: List<String>,
+): String? {
+    val simpleName = enumFqName.substringAfterLast('.')
+    val entryRef = Regex("""(?:${Regex.escape(enumFqName)}|${Regex.escape(simpleName)})\.(\w+)""")
+    val entry = entryRef.matchEntire(initializer)?.groupValues?.get(1) ?: return null
+    return if (entry in entries) "$enumFqName.$entry" else null
 }
 
 /**
@@ -2701,7 +2754,7 @@ internal class ScriptCodeEmitter(
         sb.appendLine("    private fun writePropertyDefault(name: Long, ret: MemorySegment): Boolean = when (name) {")
         for (p in model.properties) {
             sb.appendLine("        ${nameVar(p.godotName)} -> {")
-            sb.appendLine("            ${variantWritePropertyRetExpr(p, "default${p.kotlinName.replaceFirstChar { it.uppercase() }}${p.narrow?.toWide ?: ""}")}")
+            sb.appendLine("            ${variantWritePropertyRetExpr(p, "default${p.kotlinName.replaceFirstChar { it.uppercase() }}${scriptPropertyToWideSuffix(p)}")}")
             sb.appendLine("            true")
             sb.appendLine("        }")
         }
@@ -2850,7 +2903,7 @@ internal class ScriptCodeEmitter(
             sb.appendLine("                    ${nameVar(p.godotName)} -> {")
             sb.appendLine("                        ${variantReadPropertyExpr(p, "value", "v")}")
             sb.appendLine("                        ${cleanupPropertyExpr(p, "kt.${p.kotlinName}", "mutableSetOf()")}")
-            sb.appendLine("                        kt.${p.kotlinName} = v${p.narrow?.fromWide ?: ""}")
+            sb.appendLine("                        kt.${p.kotlinName} = v${scriptPropertyFromWideSuffix(p)}")
             sb.appendLine("                        true")
             sb.appendLine("                    }")
         }
@@ -2916,7 +2969,7 @@ internal class ScriptCodeEmitter(
         sb.appendLine("                when (name) {")
         for (p in model.properties) {
             sb.appendLine("                    ${nameVar(p.godotName)} -> {")
-            sb.appendLine("                        ${variantWritePropertyRetExpr(p, "kt.${p.kotlinName}${p.narrow?.toWide ?: ""}")}")
+            sb.appendLine("                        ${variantWritePropertyRetExpr(p, "kt.${p.kotlinName}${scriptPropertyToWideSuffix(p)}")}")
             sb.appendLine("                        true")
             sb.appendLine("                    }")
         }
@@ -3111,6 +3164,20 @@ internal class ScriptCodeEmitter(
     private fun variantWriteToolButtonRetExpr(button: ToolButtonModel): String =
         "Arena.ofConfined().use { a -> val callable = BuiltinTypes.allocateCallable(a); BuiltinTypes.initCallable(callable, godotObject, \"${kotlinStringLiteral(button.method.godotName)}\"); VariantConverters.variantFromType(VariantType.CALLABLE).invoke(ret, callable); BuiltinTypes.destroyTyped(VariantType.CALLABLE, callable) }"
 
+    /** Conversion appended when the property's Kotlin value flows out to its 64-bit Variant slot. */
+    private fun scriptPropertyToWideSuffix(p: ScriptPropertyModel): String =
+        p.narrow?.toWide
+            ?: p.enumFqName?.let { ".ordinal.toLong()" }
+            ?: ""
+
+    /** Conversion appended when a 64-bit Variant slot value is assigned into the Kotlin field. */
+    private fun scriptPropertyFromWideSuffix(p: ScriptPropertyModel): String =
+        p.narrow?.fromWide
+            // Stale `.tscn` ints (e.g. after entry removal) must not crash script
+            // load: clamp the ordinal into the entry range instead of indexing raw.
+            ?: p.enumFqName?.let { fq -> ".toInt().let { i -> $fq.entries[i.coerceIn(0, $fq.entries.lastIndex)] }" }
+            ?: ""
+
     private fun scriptPropertyKotlinType(property: ScriptPropertyModel): String =
         when {
             property.objectWrapperFqName != null -> "${property.objectWrapperFqName}?"
@@ -3118,6 +3185,7 @@ internal class ScriptCodeEmitter(
             property.customScriptFqName != null -> "${property.customScriptFqName}?"
             property.arrayElementCustomScriptFqName != null -> "List<${property.arrayElementCustomScriptFqName}>"
             property.arrayElementString -> "List<String>"
+            property.enumFqName != null -> property.enumFqName
             else -> property.narrow?.kotlinType ?: property.type.kotlinType
         }
 
@@ -3128,6 +3196,7 @@ internal class ScriptCodeEmitter(
             property.customScriptFqName != null -> "null"
             property.arrayElementCustomScriptFqName != null -> "emptyList()"
             property.arrayElementString -> "emptyList()"
+            property.enumFqName != null -> "${property.enumFqName}.entries.first()"
             else -> property.narrow?.zeroLiteral ?: property.type.kotlinLiteralZero
         }
 

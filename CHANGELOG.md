@@ -9,6 +9,16 @@ versioning once public releases begin.
 
 ### Added
 
+- `@Export` / `@ScriptProperty` now works on Kotlin `enum class` properties
+  ([#37](https://github.com/falcon4ever/kanama/issues/37)). Matching C# enum
+  exports, the property registers as an `int` with `PROPERTY_HINT_ENUM` and the
+  entry names as the hint string, so the inspector renders a dropdown; values
+  are stored as entry ordinals, `.tscn`-stored ints deserialize back into the
+  enum slot, and out-of-range stored values clamp to a valid entry instead of
+  crashing. Enum-entry initializers (`var mode = MyEnum.NORMAL`) are preserved
+  as inspector defaults. `@ScriptClass` scripts on desktop/Android; the iOS
+  property delivery is a documented deferral (warn-skips, keeps the Kotlin
+  default).
 - `@OverrideVirtual` now supports **every Variant-expressible return type** in
   the Godot 4.7 virtual surface (170 additional virtuals). New Kotlin return
   types: all fixed-element packed arrays (`ByteArray`, `IntArray`, `LongArray`,

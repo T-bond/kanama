@@ -613,6 +613,13 @@ internal class IosScriptCodeEmitter(
             isObject -> objectWrapperFqName.substringAfterLast('.')
             isList -> ""
             customScript.isNotEmpty() -> ""
+            // Enum exports (task 32) ride the INT slot with an ordinal <-> entry
+            // conversion the iOS set-property path doesn't have yet: keep the
+            // Kotlin default, same boundary as the narrow scalars below.
+            enumFqName != null -> {
+                warn("[kanama-ios] $className.$kotlinName (enum ${enumFqName.substringAfterLast('.')}) — no iOS @ScriptProperty enum path yet, will keep its Kotlin default")
+                ""
+            }
             // Narrow Kotlin scalars (Float/Int) need a conversion the iOS
             // set-property path doesn't have yet: keep the Kotlin default,
             // same boundary as the unsupported value types below.

@@ -166,6 +166,14 @@ internal data class ScriptPropertyModel(
     val nullable: Boolean = false,
     /** Set for kotlin.Float / kotlin.Int properties (Variant slot stays 64-bit). */
     val narrow: NarrowScalar? = null,
+    /**
+     * Set for Kotlin `enum class` properties (task 32, issue #37). The Variant slot is
+     * INT carrying the ordinal (C# export parity); registration adds PROPERTY_HINT_ENUM
+     * with [enumEntries] as the hint string so the inspector renders a dropdown.
+     */
+    val enumFqName: String? = null,
+    /** Ordered entry names of the enum class (ordinal order). Empty unless [enumFqName] is set. */
+    val enumEntries: List<String> = emptyList(),
 )
 
 internal data class ScriptPropertyGroupModel(
@@ -186,6 +194,8 @@ internal data class ScriptPropertyTypeModel(
     val arrayElementCustomScriptIsResource: Boolean = false,
     val arrayElementString: Boolean = false,
     val narrow: NarrowScalar? = null,
+    val enumFqName: String? = null,
+    val enumEntries: List<String> = emptyList(),
 )
 
 internal data class ScriptClassTypeInfo(

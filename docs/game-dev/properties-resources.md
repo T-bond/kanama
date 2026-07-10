@@ -32,8 +32,35 @@ inspector behavior, but ordinary exported gameplay data should keep the
 default usage.
 
 Simple source-literal defaults are preserved in generated script registrars:
-numeric, boolean, string, `NodePath("...")`, and `Math.toRadians(<number>)`
-initializers show up as inspector defaults.
+numeric, boolean, string, enum entry, `NodePath("...")`, and
+`Math.toRadians(<number>)` initializers show up as inspector defaults.
+
+## Exporting Enums
+
+Kotlin `enum class` properties export directly and render as an inspector
+dropdown of the entry names:
+
+```kotlin
+enum class Difficulty { EASY, NORMAL, HARD }
+
+@ScriptClass(attachTo = "Node")
+class GameRules(godotObject: MemorySegment) :
+    KanamaScript<Node>(godotObject, ::Node) {
+    @ScriptProperty
+    var difficulty = Difficulty.NORMAL
+}
+```
+
+This mirrors C# enum exports: the property registers as an `int` with
+`PROPERTY_HINT_ENUM`, the stored value is the entry ordinal, and `.tscn`-stored
+ints deserialize back into the enum slot (out-of-range values clamp to a valid
+entry instead of crashing). Because storage is ordinal-based, reordering or
+removing enum entries silently remaps values already saved in scenes — append
+new entries at the end, the same trade-off C# has with implicit enum values.
+
+Enum exports are supported on `@ScriptClass` scripts (`@ScriptProperty` /
+`@Export`); `@RegisterProperty` on `@RegisterClass` classes does not accept
+enum types yet.
 
 ## Inspector Buttons
 

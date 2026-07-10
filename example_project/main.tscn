@@ -78,6 +78,7 @@ offset_bottom = 72.0
 [node name="ScriptNode" type="Node" parent="." unique_id=812352978]
 script = ExtResource("2")
 label = "from_tscn"
+smoke_difficulty = 2
 target_path = NodePath("../SceneTarget3D")
 
 [node name="NonToolScriptNode" type="Node" parent="." unique_id=193847562]

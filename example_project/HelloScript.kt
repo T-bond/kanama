@@ -92,6 +92,8 @@ import java.lang.foreign.MemorySegment
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.launch
 
+enum class SmokeDifficulty { EASY, NORMAL, HARD }
+
 @ScriptClass(attachTo = "Node")
 @GlobalClass
 @Tool
@@ -110,6 +112,11 @@ class HelloScript(godotObject: MemorySegment) : KanamaScript<Node>(godotObject, 
 
 	@ScriptProperty(hint = PropertyHint.ENUM, hintString = "Easy,Normal,Hard")
 	var metadataMode: String = "Normal"
+
+	// task 32 — custom enum export: registers as INT + PROPERTY_HINT_ENUM
+	// ("EASY,NORMAL,HARD"), stored as the ordinal; main.tscn overrides it to 2 (HARD).
+	@ScriptProperty
+	var smokeDifficulty = SmokeDifficulty.NORMAL
 
 	@ScriptProperty
 	var label: String = "hello"
@@ -1278,7 +1285,7 @@ class HelloScript(godotObject: MemorySegment) : KanamaScript<Node>(godotObject, 
 		} else {
 			0L
 		}
-		System.err.println("[kanama:kt] HelloScript(file)._ready health=$health speed=$speed label=$label")
+		System.err.println("[kanama:kt] HelloScript(file)._ready health=$health speed=$speed label=$label difficulty=$smokeDifficulty")
 		System.err.println(
 			"[kanama:kt] Mathf lerp=$mathLerp clamp=$mathClamp wrap=$mathWrap approx=$mathApprox round=$mathRound lerpf=$mathLerpF clampf=$mathClampF sinf=$mathSinF sqrtf=$mathSqrtF"
 		)

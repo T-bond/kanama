@@ -61,6 +61,7 @@ func _ready() -> void:
 		print("[kanama:gd] kt script export groups group=", has_export_group, " subgroup=", has_export_subgroup)
 		if not has_export_group or not has_export_subgroup:
 			push_error("Kanama script export group/subgroup metadata missing")
+		_kanama_enum_export_smoke(properties)
 		var replace_smoke_scene = $ScriptNode.replace_smoke_scene()
 		print("[kanama:gd] kt script replace_smoke_scene = ", replace_smoke_scene)
 		if not replace_smoke_scene:
@@ -87,6 +88,34 @@ func _ready() -> void:
 	_kanama_virtual_return_families_smoke()
 
 	#get_tree().quit()
+
+# task 32 — custom enum exports. A Kotlin `enum class` @ScriptProperty must register
+# as an INT property with PROPERTY_HINT_ENUM and the entry names as hint_string
+# (C# export parity), round-trip ordinals through set/get, and clamp out-of-range
+# stored ints to a valid entry instead of crashing.
+func _kanama_enum_export_smoke(properties: Array) -> void:
+	var enum_type := false
+	var enum_hint := false
+	var enum_hint_string := false
+	for property in properties:
+		if property.get("name", "") == "smoke_difficulty":
+			enum_type = int(property.get("type", -1)) == TYPE_INT
+			enum_hint = int(property.get("hint", -1)) == PROPERTY_HINT_ENUM
+			enum_hint_string = str(property.get("hint_string", "")) == "EASY,NORMAL,HARD"
+	var tscn_value = $ScriptNode.smoke_difficulty
+	$ScriptNode.smoke_difficulty = 0
+	var roundtrip = $ScriptNode.smoke_difficulty
+	$ScriptNode.smoke_difficulty = 99
+	var clamped = $ScriptNode.smoke_difficulty
+	$ScriptNode.smoke_difficulty = tscn_value
+	print("[kanama:gd] kt script enum export type=", enum_type,
+		" hint=", enum_hint,
+		" hint_string=", enum_hint_string,
+		" tscn=", tscn_value == 2,
+		" roundtrip=", roundtrip == 0,
+		" clamp=", clamped == 2)
+	if not (enum_type and enum_hint and enum_hint_string and tscn_value == 2 and roundtrip == 0 and clamped == 2):
+		push_error("Kanama enum export metadata or round-trip failed")
 
 # task 29 — virtual-return families. Calling an @OverrideVirtual method by name on a
 # script-attached host routes through the script instance dispatch (the same path the

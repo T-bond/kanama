@@ -51,10 +51,14 @@ check_absent() {
 }
 
 check "ResourceFormatLoader\\._load path=res://HelloScript\\.kt"
-check "HelloScript\\(file\\)\\._ready health=99 speed=5\\.1 label=from_tscn"
+check "HelloScript\\(file\\)\\._ready health=99 speed=5\\.1 label=from_tscn difficulty=HARD"
 check "ResourceOwnerSmoke payload=from_tscn present=true"
 check "SelfSmoke self_class=Node3D same_object=true"
 check "kt script export groups group=true subgroup=true"
+# task 32 — custom enum exports: INT + PROPERTY_HINT_ENUM metadata, ordinal
+# round-trip via set/get, tscn-stored int deserialized into the enum slot, and
+# out-of-range stored ints clamped to a valid entry (no crash).
+check "kt script enum export type=true hint=true hint_string=true tscn=true roundtrip=true clamp=true"
 check "Mathf lerp=2\\.5 clamp=10 wrap=1 approx=true round=3 lerpf=2\\.5 clampf=10\\.0 sinf=0\\.0 sqrtf=3\\.0"
 check "Generated name constants ok=true"
 check "ProjectSettings string_list=alpha\\|beta"
@@ -153,7 +157,7 @@ check "DisplayServer passive clipboard=(true|false) image=(true|false) clipboard
 check "DisplayServer tts speaking=(true|false) paused=(true|false) voices=[0-9]+ vk_height=[0-9]+ active_popup=-?[0-9]+ window_instance=-?[0-9]+ window_screen=-?[0-9]+ can_draw=(true|false) focused=(true|false) maximize_allowed=(true|false) max_dbl=(true|false) min_dbl=(true|false)"
 check "DisplayServer accessibility screen_reader=-?[0-9]+ contrast=-?[0-9]+ reduce_animation=-?[0-9]+ reduce_transparency=-?[0-9]+ window_max=-?[0-9]+,-?[0-9]+ window_min=-?[0-9]+,-?[0-9]+ window_pos=-?[0-9]+,-?[0-9]+ window_pos_decorated=-?[0-9]+,-?[0-9]+ window_size=-?[0-9]+,-?[0-9]+ window_size_decorated=-?[0-9]+,-?[0-9]+"
 check "kt script methods size = 9"
-check "kt script properties size = 13"
+check "kt script properties size = 14"
 check "kt script signals size = 1"
 check "kt script replace_smoke_scene = true"
 check "kt script rpc config ok = true"
