@@ -33,7 +33,7 @@ ownership, signals, and wrapper coverage. For existing GDScript projects, use
 | macOS | Supported (4.7 stable) |
 | Linux | Supported pending 4.7 stable revalidation |
 | Windows | Supported pending 4.7 stable revalidation |
-| Android | Experimental; device-validated on 4.7 stable (Pixel 7, OpenGL Compatibility) |
+| Android | Experimental; device-validated on 4.7 stable (Pixel 7, OpenGL Compatibility + Vulkan/Mobile smoke) |
 | iOS | Experimental (Kotlin/Native); device-validated on 4.7 stable (iPhone 12 / 15 Pro) |
 | Web | Not planned |
 

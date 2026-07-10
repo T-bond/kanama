@@ -8,7 +8,7 @@ platforms and engine versions validated for the current preview.
 | Target | Status | Notes |
 | --- | --- | --- |
 | Godot 4.7 stable, macOS arm64 | Supported (4.7 stable) | API/header inputs, generated wrappers, KDoc, local CI, and desktop demo smokes target this baseline; `runtime_smoke.sh` passed against the 4.7 stable binary (2026-06-21). Primary supported runtime and package target. |
-| Android export, Godot 4.7 stable | Experimental; device-validated on 4.7 stable | Device-validated (4.7 stable): Pixel 7 debug demo matrix + R8-minified Match3 release APK (2026-06-26); OpenGL Compatibility renderer. `scripts/android_smoke.sh` also passes on the API 36 emulator (plugin AAR build, APK export, install/launch, script-language registration `Error=0`, non-blank frame). Android toolchain: SDK API 36, build-tools 36.1.0, NDK 29.0.14206865. The R8/minified claim is tied to the PanamaPort fork `com.github.falcon4ever.PanamaPort:Core:0.1.3-kanama-r8.2`, not upstream. Still experimental. |
+| Android export, Godot 4.7 stable | Experimental; device-validated on 4.7 stable | Device-validated (4.7 stable): Pixel 7 debug demo matrix + R8-minified Match3 release APK (2026-06-26, OpenGL Compatibility), plus the nine-demo **Vulkan/Mobile renderer** smoke matrix with per-demo renderer-init assertion (2026-07-10). Demos ship OpenGL Compatibility as the default mobile renderer. `scripts/android_smoke.sh` also passes on the API 36 emulator (plugin AAR build, APK export, install/launch, script-language registration `Error=0`, non-blank frame). Android toolchain: SDK API 36, build-tools 36.1.0, NDK 29.0.14206865. The R8/minified claim is tied to the PanamaPort fork `com.github.falcon4ever.PanamaPort:Core:0.1.3-kanama-r8.2`, not upstream. Still experimental. |
 | Linux arm64 | Supported pending 4.7 stable revalidation | Last local runtime, editor, and demo smoke validation passed with the 4.7 beta 2 ARM64 binary. Packaged desktop exports remain a separate release-readiness track. |
 | Linux x86_64 | Supported pending 4.7 stable revalidation | Last local runtime, editor, and demo smoke validation passed with the 4.7 beta 2 x64 binary. Packaged desktop exports remain a separate release-readiness track. |
 | Windows x86_64 | Supported pending 4.7 stable revalidation | Last local runtime/editor smoke validation passed with the 4.7 beta 2 console binary. PowerShell Gradle commands and Git Bash smoke marker checks are the documented path. |
@@ -69,10 +69,11 @@ uses:
 - Pixel 7 device smoke and playability checks for the Android-enabled demos.
 
 The Godot 4.7 stable Android emulator smoke path and the Pixel 7 device gate
-(debug demo matrix + R8-minified Match3 release APK) have both passed. Android
-support stays labeled **experimental, device-validated**: the validated renderer
-is OpenGL Compatibility only, and the R8/minified path depends on Kanama's
-PanamaPort fork rather than upstream.
+(debug demo matrix + R8-minified Match3 release APK) have both passed, and the
+nine-demo Vulkan/Mobile renderer smoke matrix passed on Pixel 7 (2026-07-10)
+with a per-demo renderer-init assertion. Android support stays labeled
+**experimental, device-validated**: the device matrix is a single model, and
+the R8/minified path depends on Kanama's PanamaPort fork rather than upstream.
 
 See [Android Experimental](../exporting/android.md) for the build/export
 workflow and [Android Internals](../contributing/android-internals.md) for

@@ -23,6 +23,10 @@ Optional environment:
   KANAMA_ANDROID_LOG=/path/to/logcat.txt
   KANAMA_ANDROID_SCREENSHOT=/path/to/screenshot.png
   KANAMA_ANDROID_LAUNCH_WAIT=30
+  KANAMA_ANDROID_RENDERER=mobile|gl_compatibility|forward_plus
+      Temporarily overrides the demo's rendering_method.mobile project setting
+      for this run (restored afterwards) and asserts in logcat that the
+      requested renderer actually initialized — a silent GL fallback fails.
 EOF
 }
 
@@ -39,6 +43,16 @@ LOG_FILE="${KANAMA_ANDROID_LOG:-/tmp/kanama_android_smoke.log}"
 SCREENSHOT="${KANAMA_ANDROID_SCREENSHOT:-/tmp/kanama_android_smoke.png}"
 LAUNCH_WAIT="${KANAMA_ANDROID_LAUNCH_WAIT:-30}"
 PANAMAPORT_MAVEN_REPO="${KANAMA_PANAMAPORT_MAVEN_REPO:-file://$HOME/.m2/repository}"
+RENDERER_OVERRIDE="${KANAMA_ANDROID_RENDERER:-}"
+PROJECT_GODOT_BACKUP=""
+
+case "$RENDERER_OVERRIDE" in
+  ""|mobile|gl_compatibility|forward_plus) ;;
+  *)
+    echo "[android_smoke] unsupported KANAMA_ANDROID_RENDERER: $RENDERER_OVERRIDE" >&2
+    exit 2
+    ;;
+esac
 
 ANDROID_SDK_DIR="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-}}"
 if [[ -z "$ANDROID_SDK_DIR" ]]; then
@@ -115,8 +129,26 @@ cleanup() {
   if [[ "${PACKAGE_LAUNCHED:-0}" == "1" ]]; then
     "$ADB_BIN" shell am force-stop "$PACKAGE_NAME" >/dev/null 2>&1 || true
   fi
+  if [[ -n "$PROJECT_GODOT_BACKUP" && -f "$PROJECT_GODOT_BACKUP" ]]; then
+    cp "$PROJECT_GODOT_BACKUP" "$DEMO_DIR/project.godot"
+    rm -f "$PROJECT_GODOT_BACKUP"
+  fi
 }
 trap cleanup EXIT
+
+if [[ -n "$RENDERER_OVERRIDE" ]]; then
+  PROJECT_GODOT="$DEMO_DIR/project.godot"
+  if ! grep -q '^renderer/rendering_method.mobile=' "$PROJECT_GODOT"; then
+    echo "[android_smoke] demo has no renderer/rendering_method.mobile setting to override: $PROJECT_GODOT" >&2
+    exit 1
+  fi
+  PROJECT_GODOT_BACKUP="$(mktemp "${TMPDIR:-/tmp}/kanama_project_godot.XXXXXX")"
+  cp "$PROJECT_GODOT" "$PROJECT_GODOT_BACKUP"
+  /usr/bin/sed -i '' \
+    "s|^renderer/rendering_method.mobile=.*|renderer/rendering_method.mobile=\"$RENDERER_OVERRIDE\"|" \
+    "$PROJECT_GODOT"
+  echo "[android_smoke] renderer override for this run: rendering_method.mobile=\"$RENDERER_OVERRIDE\""
+fi
 
 echo "[android_smoke] demo: $DEMO_DIR"
 if [[ -x "$DEMO_DIR/gradlew" ]]; then
@@ -172,9 +204,22 @@ echo "[android_smoke] export: $APK_PATH"
 
 echo "[android_smoke] install: $PACKAGE_NAME"
 adb_retry start-server >/dev/null
-adb_retry install -r "$APK_PATH" >/dev/null
+if ! "$ADB_BIN" install -r "$APK_PATH" >/dev/null 2>&1; then
+  # A leftover install from an older run may carry a different debug-keystore
+  # signature (INSTALL_FAILED_UPDATE_INCOMPATIBLE). Smoke installs hold no user
+  # data, so drop the stale package and install fresh.
+  echo "[android_smoke] install -r failed; uninstalling stale $PACKAGE_NAME and retrying"
+  "$ADB_BIN" uninstall "$PACKAGE_NAME" >/dev/null 2>&1 || true
+  adb_retry install "$APK_PATH" >/dev/null
+fi
 adb_retry logcat -c
 adb_retry shell am force-stop "$PACKAGE_NAME" >/dev/null 2>&1 || true
+# A dozing/locked screen fails renderer surface creation at launch (seen as
+# "Failed to create vulkan window" under the Mobile renderer). Wake the device
+# and dismiss a non-secure keyguard before launching; a PIN-locked keyguard
+# still needs a human unlock.
+adb_retry shell input keyevent KEYCODE_WAKEUP >/dev/null 2>&1 || true
+adb_retry shell wm dismiss-keyguard >/dev/null 2>&1 || true
 adb_retry shell monkey -p "$PACKAGE_NAME" -c android.intent.category.LAUNCHER 1 >/dev/null
 PACKAGE_LAUNCHED=1
 sleep "$LAUNCH_WAIT"
@@ -190,6 +235,23 @@ check_log "registered KanamaScriptLanguage"
 check_log "registered KanamaResourceFormatLoader for \\.kt"
 check_log "ResourceFormatLoader\\._load bound kotlinClass="
 check_log "OnGodotMainLoopStarted"
+
+# Renderer assertion: the override must have actually initialized on device.
+# Godot logs the active driver + method at startup (e.g. "Vulkan 1.x - Forward
+# Mobile - Using Device ..."); a silent fallback to another renderer fails here.
+case "$RENDERER_OVERRIDE" in
+  mobile)
+    check_log "Vulkan"
+    check_log "Forward Mobile"
+    ;;
+  forward_plus)
+    check_log "Vulkan"
+    check_log "Forward\\+"
+    ;;
+  gl_compatibility)
+    check_log "OpenGL|Compatibility"
+    ;;
+esac
 
 check_log_absent "No loader found for resource: res://kotlin-src"
 check_log_absent "ClassNotFoundException"

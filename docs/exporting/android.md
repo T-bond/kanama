@@ -34,13 +34,18 @@ not upstream PanamaPort `v0.1.3`.
 | `godot-4-3d-character-controller-tutorial` | APK exports, launches, initializes Kanama, reaches the main loop, and passes screenshot smoke checks with virtual joystick controls. |
 | `godot-4-3d-third-person-controller` | APK exports, launches, initializes Kanama, reaches the main loop, and passes screenshot smoke checks with virtual joystick controls. |
 
-The Pixel 7 debug matrix and minified Match3 gate do not imply a broad release
-support tier yet. They validate the current OpenGL Compatibility Android path
-and the forked-PanamaPort R8 path for the covered demos.
+On 2026-07-10, the same nine-demo matrix also passed under Godot's
+**Vulkan/Mobile renderer** on the Pixel 7 (Mali-G710, Android 16): each demo was
+exported with `rendering_method.mobile="mobile"`, and the smoke asserted the
+renderer actually initialized (`Vulkan 1.4.305 - Forward Mobile` in logcat — a
+silent OpenGL fallback fails the check) alongside the normal Kanama startup and
+screenshot checks.
 
-The validated Android demos currently use Godot's OpenGL Compatibility renderer.
-Desktop demos can continue using their normal renderer. Vulkan/Mobile-renderer
-validation is a separate support claim.
+The Pixel 7 debug matrix, the minified Match3 gate, and the Vulkan/Mobile
+renderer pass do not imply a broad release support tier yet. The demo corpus
+ships OpenGL Compatibility as its default mobile renderer; both renderers are
+now smoke-validated on Pixel 7, while gameplay/visual parity under Vulkan
+beyond the smoke bar remains per-demo validation.
 
 ## Runtime Shape
 
@@ -169,6 +174,14 @@ debug APK, installs and launches it with `adb`, checks logcat for Kanama startup
 signals, verifies a captured screenshot is not blank, and force-stops the app
 before exiting.
 
+To run the same smoke under a different renderer, set
+`KANAMA_ANDROID_RENDERER` (`mobile`, `gl_compatibility`, or `forward_plus`).
+The script temporarily overrides the project's `rendering_method.mobile`
+setting for the run (restored afterwards) and asserts in logcat that the
+requested renderer actually initialized, so a silent fallback fails the smoke.
+The device screen must be on and unlocked — a secure lock screen fails renderer
+surface creation at launch.
+
 ## Current Boundaries
 
 - Android source remapping is guarded by audits, but it is still a generated
@@ -179,8 +192,8 @@ before exiting.
   low-level `MethodHandle.invoke(...)`.
 - Android hot reload is not designed and should be considered disabled.
 - Current validation remains experimental even when Pixel 7 smoke checks pass;
-  broader physical-device, renderer, and input coverage would be stronger
-  platform claims.
+  broader physical-device and input coverage would be stronger platform claims
+  (the device matrix is still a single model).
 - Several action demos include Android-only touch overlays, D-pad controls, or
   `VirtualJoystick` controls so smoke runs can exercise real gameplay input on
   a phone. Mobile polish is still per demo: orientation, screen size, touch

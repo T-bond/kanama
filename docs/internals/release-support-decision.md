@@ -94,7 +94,8 @@ notes per AGENTS.md.
 | macOS (desktop) | Apple Silicon arm64 | — | project renderer / OpenGL Compat (demo smokes) | `runtime_smoke.sh` green vs 4.7 stable `4.7.stable.official.5b4e0cb0f` (2026-06-21) | [Version Support](../reference/version-support.md) |
 | Linux (desktop) | arm64 + x86_64 | — | project renderer | **Pending 4.7-stable revalidation** (last green on 4.7 beta 2) | [Version Support](../reference/version-support.md) |
 | Windows (desktop) | x86_64 | — | project renderer | **Pending 4.7-stable revalidation** (last green on 4.7 beta 2 console binary) | [Version Support](../reference/version-support.md) |
-| Android | **Pixel 7** (physical) + API 36 emulator | Android | **OpenGL Compatibility only** | Full 4.7-stable debug APK demo matrix + R8-minified Match3 release APK, both on Pixel 7 (2026-06-26) | [exporting/android.md](../exporting/android.md), [architecture-review-2026-06.md](./reference/architecture-review-2026-06.md) |
+| Android | **Pixel 7** (physical) + API 36 emulator | Android | OpenGL Compatibility (demo default) | Full 4.7-stable debug APK demo matrix + R8-minified Match3 release APK, both on Pixel 7 (2026-06-26) | [exporting/android.md](../exporting/android.md), [architecture-review-2026-06.md](./reference/architecture-review-2026-06.md) |
+| Android (Vulkan/Mobile renderer) | **Pixel 7** (physical, Mali-G710) | Android 16 | **Vulkan Forward Mobile** | Nine-demo smoke matrix, all green with a renderer-init assertion (`Vulkan 1.4.305 - Forward Mobile - Using Device #0: ARM - Mali-G710` + Kanama startup markers + non-blank frame per demo), 2026-07-10 via `KANAMA_ANDROID_RENDERER=mobile` | [exporting/android.md](../exporting/android.md) |
 | iOS (full gate) | **iPhone 12** (physical) | iOS 26.5 | Godot iOS | Full 9-demo device gate + fresh-project install path, 0 guardrail failures; ~0.63 ms/frame binding overhead | [ios-demo-port-tracker.md](./active/ios-demo-port-tracker.md) (baseline 2026-06-25) |
 | iOS (full gate, second model) | **iPhone 15 Pro** (physical) | iOS 26.5 | Godot iOS | Full ten-step device gate (fresh-project install + 9-demo matrix) on the **full-breadth runtime** (task 30, 1017 generated classes), all steps passed 2026-07-10; same-runtime self-tests PTRCALL 70/0, OBJECTCALLS 111/0 | [ios-demo-port-tracker.md](./active/ios-demo-port-tracker.md) (refresh 2026-07-10) |
 | iOS (heavy demo) | **iPhone 15 Pro** (physical) | iOS 26.5 | Godot iOS | `tps-demo-kanama` runs playable on device (menu, threaded level load, movement/camera/animation, aim, robot raycasts), 2026-07-09 (task 24) | [ios-demo-port-tracker.md](./active/ios-demo-port-tracker.md) |
@@ -271,9 +272,13 @@ tiering; each is a bounded, disclosed gap.
 
 ### Android
 
-- **OpenGL Compatibility renderer only.** The validated Android path uses Godot's
-  OpenGL Compatibility renderer. **Vulkan/Mobile-renderer validation is a separate,
-  unproven support claim.**
+- **Renderer defaults vs. validation.** The demo corpus ships
+  `gl_compatibility` as its mobile renderer default. The **Vulkan/Mobile
+  renderer smoke matrix passed on Pixel 7 (2026-07-10)** — all nine demos with
+  a renderer-init assertion (§7 B2) — so the Android claim is no longer
+  renderer-restricted at the smoke level. Gameplay/visual parity under Vulkan
+  beyond the smoke bar (startup, Kanama markers, non-blank frame) remains
+  per-demo validation.
 - **R8/minification depends on the PanamaPort fork.** Minified release APKs are
   validated only with `com.github.falcon4ever.PanamaPort:Core:0.1.3-kanama-r8.2`.
   Upstream PanamaPort `v0.1.3` crashes in the FFI bootstrap under R8 (root-caused
@@ -370,7 +375,7 @@ mobile-specific ones measurable:
 | # | Criterion | Definition of green | iOS (2026-07-10) | Android (2026-07-10) |
 |---|---|---|---|---|
 | **B1** | Device matrix breadth | ≥ 2 physical device models per platform pass that platform's full repeatable gate on the current Godot baseline | ✅ **MET** — iPhone 12 (2026-06-25) + iPhone 15 Pro (2026-07-10) full ten-step gates (§2) | ❌ Pixel 7 only. Needs a second model through the debug demo matrix + the R8-minified release gate |
-| **B2** | Renderer coverage | Android: Vulkan/Mobile renderer smoke across the demo corpus, green on a physical device (promotes DEFERRED #2). iOS: the Godot iOS renderer exercised by the full gate | ✅ by construction (the full gate runs the Godot iOS renderer) | ❌ **not run** — OpenGL Compatibility remains the only validated Android renderer |
+| **B2** | Renderer coverage | Android: Vulkan/Mobile renderer smoke across the demo corpus, green on a physical device (promotes DEFERRED #2). iOS: the Godot iOS renderer exercised by the full gate | ✅ by construction (the full gate runs the Godot iOS renderer) | ✅ **MET (2026-07-10)** — nine-demo Vulkan/Mobile smoke matrix green on Pixel 7 (Mali-G710, Android 16), renderer-asserted per demo (§2 row) |
 | **B3** | Release-grade packaging | The platform export path meets the desktop packaging standard: user-facing docs, reproducible from a clean checkout, a **packaged install artifact** (no Kanama source checkout required), and an install-smoke validating that artifact | ❌ source-checkout only (assessment below) | ❌ source-checkout only (assessment below) |
 | **B4** | Heavy-demo coverage | `tps-demo-kanama` runs on-device on both platforms | ✅ **MET** — iPhone 15 Pro (2026-07-09, task 24) | ✅ **MET** — Pixel 7 (task 19, mobile controls validated) |
 
@@ -422,9 +427,9 @@ What's missing, concretely:
   must carry these as long as they exist.
 
 **Assessment:** B3 is the farthest criterion from green, and it is *design
-work* (artifact shape + install-smoke), not device-lab work. B1-Android and B2
-are device-lab work (a second Android model; a Vulkan/Mobile renderer pass on
-physical hardware).
+work* (artifact shape + install-smoke), not device-lab work. B2 cleared
+2026-07-10; the only remaining device-lab item is B1-Android (a second Android
+model through the debug matrix + R8-minified gate).
 
 ### Promotion procedure (when all green)
 
