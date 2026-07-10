@@ -53,6 +53,17 @@ check_absent() {
 check "ResourceFormatLoader\\._load path=res://HelloScript\\.kt"
 check "HelloScript\\(file\\)\\._ready health=99 speed=5\\.1 label=from_tscn difficulty=HARD"
 check "ResourceOwnerSmoke payload=from_tscn present=true"
+# task 33 — resource-typed exports on a @ScriptClass(attachTo = "Resource") class:
+# base-typed slots (AudioStream/Mesh/Shape3D) deserialize .tscn-stored subtypes
+# (AudioStreamWAV/BoxMesh/BoxShape3D), stay callable while held, and release on
+# cleanup (the check_absent Leaked instance rows below).
+check "ResourceOwnerSmoke resource_slots int=7 stream_present=true stream_length=0\\.0 mesh_present=true shape_present=true"
+check "script property cleanup stream type=AudioStream"
+check "script property cleanup mesh type=Mesh"
+check "script property cleanup shape type=Shape3D"
+check_absent "Leaked instance: AudioStreamWAV"
+check_absent "Leaked instance: BoxMesh"
+check_absent "Leaked instance: BoxShape3D"
 check "SelfSmoke self_class=Node3D same_object=true"
 check "kt script export groups group=true subgroup=true"
 # task 32 — custom enum exports: INT + PROPERTY_HINT_ENUM metadata, ordinal

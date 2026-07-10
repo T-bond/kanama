@@ -16,6 +16,7 @@ import com.google.devtools.ksp.symbol.KSFile
 import com.google.devtools.ksp.symbol.KSFunctionDeclaration
 import com.google.devtools.ksp.symbol.KSPropertyDeclaration
 import com.google.devtools.ksp.symbol.KSType
+import com.google.devtools.ksp.symbol.Modifier
 import com.google.devtools.ksp.symbol.Nullability
 import java.io.File
 
@@ -234,6 +235,7 @@ class KanamaProcessor(
 
     private fun buildClassModel(cls: KSClassDeclaration, fqName: String): ClassModel {
         val simpleName = cls.simpleName.asString()
+        failOnGeneratedWrapperSupertype(cls, simpleName)
         val parent = cls.annotations
             .firstOrNull { it.shortName.asString() == "RegisterClass" }
             ?.arguments
@@ -497,6 +499,7 @@ class KanamaProcessor(
 
     private fun buildScriptModel(cls: KSClassDeclaration, fqName: String): ScriptModel {
         val simpleName = cls.simpleName.asString()
+        failOnGeneratedWrapperSupertype(cls, simpleName)
         val attachTo = cls.annotations
             .firstOrNull { it.shortName.asString() == "ScriptClass" }
             ?.arguments
@@ -574,6 +577,15 @@ class KanamaProcessor(
         for (prop in cls.getDeclaredProperties()) {
             if (prop.annotations.none { it.shortName.asString() == "ScriptProperty" || it.shortName.asString() == "Export" }) continue
             val kotlinName = prop.simpleName.asString()
+            if (Modifier.LATEINIT in prop.modifiers) {
+                // A lateinit export has no inspector default, and a get before the field
+                // is assigned throws UninitializedPropertyAccessException into the engine.
+                env.logger.warn(
+                    "[kanama:ksp] $simpleName.$kotlinName: lateinit @ScriptProperty has no default and " +
+                        "crashes if Godot reads it before assignment; prefer a nullable type with '= null'.",
+                    prop,
+                )
+            }
             val ann = prop.annotations.firstOrNull {
                 it.shortName.asString() == "ScriptProperty" || it.shortName.asString() == "Export"
             }
@@ -694,6 +706,30 @@ class KanamaProcessor(
                 kind = MethodKind.REGULAR,
             ),
         )
+    }
+
+    // Generated wrappers are non-owning views with internal constructors — subclassing one
+    // would drift the wrapper surface from the script surface (issue #36). Without this check
+    // the user only sees Kotlin's "cannot access '<init>': it is internal" error, which does
+    // not name the supported pattern.
+    private fun failOnGeneratedWrapperSupertype(cls: KSClassDeclaration, simpleName: String) {
+        for (superTypeRef in cls.superTypes) {
+            val superDecl = runCatching { superTypeRef.resolve() }.getOrNull()?.declaration ?: continue
+            val superFq = superDecl.qualifiedName?.asString() ?: continue
+            if (!superFq.startsWith("net.multigesture.kanama.api.")) continue
+            // KanamaScript is the supported script base; api-package interfaces
+            // (e.g. KanamaCoroutineOwner) are implementable by design.
+            if (superFq == KANAMA_API_SCRIPT_FQN) continue
+            if ((superDecl as? KSClassDeclaration)?.classKind != ClassKind.CLASS) continue
+            val wrapperName = superDecl.simpleName.asString()
+            throw IllegalArgumentException(
+                "$simpleName extends the generated wrapper $superFq. Generated wrappers are " +
+                    "non-owning views and cannot be subclassed. Declare a plain class and attach " +
+                    "it instead: @ScriptClass(attachTo = \"$wrapperName\") @GlobalClass " +
+                    "class $simpleName(val godotObject: MemorySegment) { @Export var ... }. " +
+                    "See the \"Custom Resources\" section of docs/game-dev/properties-resources.md.",
+            )
+        }
     }
 
     private fun warnOnKanamaScriptSelfMismatch(cls: KSClassDeclaration, attachTo: String) {
@@ -948,6 +984,15 @@ class KanamaProcessor(
             "net.multigesture.kanama.api.Material",
             "net.multigesture.kanama.api.ButtonGroup",
             "net.multigesture.kanama.api.FastNoiseLite",
+            // task 33 (issue #36): common resource-slot base classes.
+            "net.multigesture.kanama.api.AudioStream",
+            "net.multigesture.kanama.api.Texture",
+            "net.multigesture.kanama.api.Mesh",
+            "net.multigesture.kanama.api.Shape3D",
+            "net.multigesture.kanama.api.Shape2D",
+            "net.multigesture.kanama.api.Font",
+            "net.multigesture.kanama.api.Animation",
+            "net.multigesture.kanama.api.StyleBox",
         )
 
         private fun scriptPropertyTypeModel(
@@ -1068,6 +1113,15 @@ class KanamaProcessor(
             "net.multigesture.kanama.api.Material",
             "net.multigesture.kanama.api.ButtonGroup",
             "net.multigesture.kanama.api.FastNoiseLite",
+            // task 33 (issue #36): common resource-slot base classes.
+            "net.multigesture.kanama.api.AudioStream",
+            "net.multigesture.kanama.api.Texture",
+            "net.multigesture.kanama.api.Mesh",
+            "net.multigesture.kanama.api.Shape3D",
+            "net.multigesture.kanama.api.Shape2D",
+            "net.multigesture.kanama.api.Font",
+            "net.multigesture.kanama.api.Animation",
+            "net.multigesture.kanama.api.StyleBox",
         )
 
         private val SUPPORTED_NODE_WRAPPERS = setOf(
@@ -1140,6 +1194,16 @@ internal val RESOURCE_WRAPPERS_WITH_FROM_HANDLE = setOf(
     "net.multigesture.kanama.api.Material",
     "net.multigesture.kanama.api.ButtonGroup",
     "net.multigesture.kanama.api.FastNoiseLite",
+    // task 33 (issue #36): common resource-slot base classes. Base-typed slots
+    // accept engine subtypes (an AudioStreamWAV lands in an AudioStream slot).
+    "net.multigesture.kanama.api.AudioStream",
+    "net.multigesture.kanama.api.Texture",
+    "net.multigesture.kanama.api.Mesh",
+    "net.multigesture.kanama.api.Shape3D",
+    "net.multigesture.kanama.api.Shape2D",
+    "net.multigesture.kanama.api.Font",
+    "net.multigesture.kanama.api.Animation",
+    "net.multigesture.kanama.api.StyleBox",
 )
 
 // JVM-emitter codegen for ArgModel — string-builds MemorySegment/ptrcall read expressions.

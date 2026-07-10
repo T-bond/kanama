@@ -47,6 +47,13 @@ private val node3d = selfAs(::Node3D)
 
 See [Kotlin Style — `self` And `selfAs` Caching](style-guide.md#self-and-selfas-caching).
 
+`KanamaScript<T>` is the only Kanama API class meant for subclassing. Never
+extend a generated wrapper (`Node`, `Resource`, `AudioStream`, ...) — wrappers
+are non-owning views with internal constructors, and the build fails with a
+pointer to the `@ScriptClass(attachTo = ...)` pattern. For custom resources
+specifically, see
+[Exports and Resources — Custom Resources](properties-resources.md#custom-resources).
+
 ## Scalar Types
 
 | GDScript | Kanama | Note |

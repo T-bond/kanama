@@ -13,5 +13,11 @@ class ResourceOwnerSmoke(val godotObject: MemorySegment) {
 	@OnReady
 	fun ready() {
 		System.err.println("[kanama:kt] ResourceOwnerSmoke payload=${smokeResource?.payload} present=${smokeResource != null}")
+		val res = smokeResource
+		System.err.println(
+			"[kanama:kt] ResourceOwnerSmoke resource_slots int=${res?.customIntValue} " +
+				"stream_present=${res?.stream != null} stream_length=${res?.stream?.getLength()} " +
+				"mesh_present=${res?.mesh != null} shape_present=${res?.shape != null}"
+		)
 	}
 }

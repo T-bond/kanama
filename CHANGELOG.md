@@ -9,6 +9,19 @@ versioning once public releases begin.
 
 ### Added
 
+- Resource-typed exports widened
+  ([#36](https://github.com/falcon4ever/kanama/issues/36)): `@Export` /
+  `@ScriptProperty` slots now accept `AudioStream`, `Texture`, `Mesh`,
+  `Shape2D`, `Shape3D`, `Font`, `Animation`, and `StyleBox` (base-typed slots
+  accept engine subtypes). Reads stay ownership-managed: retained while held,
+  released exactly once on script cleanup.
+- Subclassing a generated wrapper (e.g. `class X(...) : Resource(...)`) now
+  fails the build with a Kanama error naming the supported pattern
+  (`@ScriptClass(attachTo = "Resource")` on a plain class) instead of Kotlin's
+  opaque internal-constructor error. `lateinit` exports now warn (no inspector
+  default; crashes if read before assignment) and point to the nullable
+  `= null` shape. Docs: "Resource Slots" + expanded "Custom Resources" in the
+  exports guide.
 - `@Export` / `@ScriptProperty` now works on Kotlin `enum class` properties
   ([#37](https://github.com/falcon4ever/kanama/issues/37)). Matching C# enum
   exports, the property registers as an `int` with `PROPERTY_HINT_ENUM` and the

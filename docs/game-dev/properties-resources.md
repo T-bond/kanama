@@ -116,16 +116,62 @@ ResourceLoader.loadAudioStream("res://sounds/jump.ogg")?.use { stream ->
 
 For more detail, see [Calling Godot APIs](godot-api.md#resource-ownership).
 
+## Resource Slots
+
+Exported properties can hold engine resources. Use a nullable wrapper type
+with a `= null` default; base-typed slots accept engine subtypes (an
+`AudioStreamWAV` or `AudioStreamOggVorbis` lands in an `AudioStream` slot):
+
+```kotlin
+@ScriptProperty
+var stream: AudioStream? = null
+
+@ScriptProperty
+var icons: List<Texture2D> = emptyList()
+```
+
+Supported resource slot types: `PackedScene`, `Texture`, `Texture2D`,
+`NoiseTexture2D`, `Material`, `ShaderMaterial`, `Curve`, `FastNoiseLite`,
+`ButtonGroup`, `LightmapGIData`, `AudioStream`, `Mesh`, `Shape2D`, `Shape3D`,
+`Font`, `Animation`, and `StyleBox`. Resource-typed reads are
+ownership-managed (retained while the script holds them, released on script
+cleanup), so the set is a deliberate allowlist — file an issue when a common
+slot type you need is missing.
+
+Avoid `lateinit var` for exports: it has no inspector default, and a read
+before assignment crashes into the engine. The build warns and points to the
+nullable `= null` shape.
+
 ## Custom Resources
 
-Declare same-project resource scripts as global classes when another script
-needs to export them:
+To create your own resource type (the Kotlin equivalent of GDScript's
+`extends Resource` / C#'s `[GlobalClass] public partial class X : Resource`),
+declare a **plain class** — do not subclass the `Resource` wrapper — and
+attach it with `@ScriptClass(attachTo = "Resource")`:
 
 ```kotlin
 @ScriptClass(attachTo = "Resource")
 @GlobalClass
-class Weapon(godotObject: MemorySegment)
+class Weapon(val godotObject: MemorySegment) {
+    @Export
+    var damage: Long = 10
+
+    @Export
+    var displayName: String = "Sword"
+
+    @Export
+    var swingSound: AudioStream? = null
+}
 ```
 
-Another script can then export `Weapon?` or `List<Weapon>`, and Kanama resolves
-the live Kotlin resource script instances when reading the property.
+`@GlobalClass` makes `Weapon` show up in the editor's resource pickers.
+Another script can then export `Weapon?` or `List<Weapon>`, and Kanama
+resolves the live Kotlin resource script instances when reading the property;
+values (including nested resource slots like `swingSound`) round-trip through
+`.tscn`/`.tres` storage.
+
+Generated wrappers (`net.multigesture.kanama.api.Resource`, `AudioStream`,
+...) are non-owning views with internal constructors and **cannot be
+subclassed** — attempting it fails the build with a pointer to the pattern
+above. The wrapper surface would otherwise drift from the script surface;
+`KanamaScript<T>` is the only supported base class.
