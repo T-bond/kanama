@@ -405,6 +405,54 @@ static GDExtensionPtrConstructor g_packed_vector2_array_constructor = NULL;
 static GDExtensionPtrBuiltInMethod g_packed_vector2_array_push_back = NULL;
 static GDExtensionPtrConstructor g_packed_color_array_constructor = NULL;
 static GDExtensionPtrBuiltInMethod g_packed_color_array_push_back = NULL;
+// task 29 — packed-array virtual-return builders (constructor + push_back + destructor per
+// remaining fixed-element family) and read-back (size + operator_index_const, self-test only).
+static GDExtensionPtrConstructor g_packed_byte_array_constructor = NULL;
+static GDExtensionPtrBuiltInMethod g_packed_byte_array_push_back = NULL;
+static GDExtensionPtrDestructor g_packed_byte_array_destructor = NULL;
+static GDExtensionPtrBuiltInMethod g_packed_byte_array_size_method = NULL;
+static GDExtensionInterfacePackedByteArrayOperatorIndexConst
+    g_packed_byte_array_operator_index_const = NULL;
+static GDExtensionPtrConstructor g_packed_int32_array_constructor = NULL;
+static GDExtensionPtrBuiltInMethod g_packed_int32_array_push_back = NULL;
+static GDExtensionPtrConstructor g_packed_int64_array_constructor = NULL;
+static GDExtensionPtrBuiltInMethod g_packed_int64_array_push_back = NULL;
+static GDExtensionPtrDestructor g_packed_int64_array_destructor = NULL;
+static GDExtensionPtrBuiltInMethod g_packed_int64_array_size_method = NULL;
+static GDExtensionInterfacePackedInt64ArrayOperatorIndexConst
+    g_packed_int64_array_operator_index_const = NULL;
+static GDExtensionPtrConstructor g_packed_float64_array_constructor = NULL;
+static GDExtensionPtrBuiltInMethod g_packed_float64_array_push_back = NULL;
+static GDExtensionPtrDestructor g_packed_float64_array_destructor = NULL;
+static GDExtensionPtrBuiltInMethod g_packed_float64_array_size_method = NULL;
+static GDExtensionInterfacePackedFloat64ArrayOperatorIndexConst
+    g_packed_float64_array_operator_index_const = NULL;
+static GDExtensionPtrConstructor g_packed_vector3_array_constructor = NULL;
+static GDExtensionPtrBuiltInMethod g_packed_vector3_array_push_back = NULL;
+static GDExtensionPtrDestructor g_packed_vector3_array_destructor = NULL;
+static GDExtensionPtrBuiltInMethod g_packed_vector3_array_size_method = NULL;
+static GDExtensionInterfacePackedVector3ArrayOperatorIndexConst
+    g_packed_vector3_array_operator_index_const = NULL;
+// task 29 — Variant boxing for the packed/array return families (lazily resolved; the
+// mandatory init gate is unchanged).
+static GDExtensionVariantFromTypeConstructorFunc g_variant_from_packed_byte_array = NULL;
+static GDExtensionVariantFromTypeConstructorFunc g_variant_from_packed_int32_array = NULL;
+static GDExtensionVariantFromTypeConstructorFunc g_variant_from_packed_int64_array = NULL;
+static GDExtensionVariantFromTypeConstructorFunc g_variant_from_packed_float32_array = NULL;
+static GDExtensionVariantFromTypeConstructorFunc g_variant_from_packed_float64_array = NULL;
+static GDExtensionVariantFromTypeConstructorFunc g_variant_from_packed_vector2_array = NULL;
+static GDExtensionVariantFromTypeConstructorFunc g_variant_from_packed_vector3_array = NULL;
+static GDExtensionVariantFromTypeConstructorFunc g_variant_from_packed_color_array = NULL;
+static GDExtensionVariantFromTypeConstructorFunc g_variant_from_array = NULL;
+// task 29 — self-test read-back for packed byte/int64/float64/vector3 + Dictionary/Array returns.
+static GDExtensionTypeFromVariantConstructorFunc g_variant_to_packed_byte_array = NULL;
+static GDExtensionTypeFromVariantConstructorFunc g_variant_to_packed_int32_array = NULL;
+static GDExtensionTypeFromVariantConstructorFunc g_variant_to_packed_int64_array = NULL;
+static GDExtensionTypeFromVariantConstructorFunc g_variant_to_packed_float32_array = NULL;
+static GDExtensionTypeFromVariantConstructorFunc g_variant_to_packed_float64_array = NULL;
+static GDExtensionTypeFromVariantConstructorFunc g_variant_to_packed_vector3_array = NULL;
+static GDExtensionTypeFromVariantConstructorFunc g_variant_to_packed_vector2_array = NULL;
+static GDExtensionTypeFromVariantConstructorFunc g_variant_to_packed_color_array = NULL;
 static GDExtensionVariantFromTypeConstructorFunc g_variant_from_vector2i = NULL;
 static GDExtensionPtrConstructor g_callable_object_method_constructor = NULL;
 static GDExtensionVariantFromTypeConstructorFunc g_variant_from_callable = NULL;
@@ -571,6 +619,27 @@ enum {
     // PackedStringArray and destroys the temporary. Appended last so no prior tag is renumbered;
     // value (28) must match IOS_PT_PACKED_STRING_ARRAY in KanamaIosRuntime.kt.
     KANAMA_IOS_PT_PACKED_STRING_ARRAY,
+    // RETURN-only (task 29, remaining virtual-return families). All values must match the
+    // IOS_PT_* constants in KanamaIosRuntime.kt.
+    //
+    // DICTIONARY/ARRAY: the PT return scratch holds a pointer to a length-prefixed blob —
+    // Dictionary: [int32 count]([int32 key_len][key utf8][int32 val_tag][int32 val_len][val bytes])*
+    // Array:      [int32 count]([int32 elem_tag][int32 elem_len][elem bytes])*
+    // where each tagged value uses the audited scalar encodings of
+    // kanama_ios_pt_blob_value_to_variant (unaudited tags box as nil).
+    KANAMA_IOS_PT_DICTIONARY,           // 29
+    KANAMA_IOS_PT_ARRAY,                // 30
+    // Fixed-element packed-array returns: the PT return scratch holds a pointer to a
+    // KanamaIosPackedArgDesc {count, data} — the SAME desc the BUILD-tagged packed args use —
+    // with data a flat element buffer (byte = 1B, int32 = 4B, int64 = 8B, float32 = 4B,
+    // float64 = 8B, Vector3 = 3x float32). PackedVector2Array/PackedColorArray returns reuse
+    // the existing arg tags (23/24) with the same desc layout.
+    KANAMA_IOS_PT_PACKED_BYTE_ARRAY,    // 31
+    KANAMA_IOS_PT_PACKED_INT32_ARRAY,   // 32
+    KANAMA_IOS_PT_PACKED_INT64_ARRAY,   // 33
+    KANAMA_IOS_PT_PACKED_FLOAT32_ARRAY, // 34
+    KANAMA_IOS_PT_PACKED_FLOAT64_ARRAY, // 35
+    KANAMA_IOS_PT_PACKED_VECTOR3_ARRAY, // 36
 };
 
 // Descriptor for a BUILD-tagged Packed*Array arg (mirrors KanamaIosPackedArgDesc in
@@ -611,10 +680,14 @@ enum {
     KANAMA_IOS_VARIANT_TYPE_CALLABLE = 25,
     KANAMA_IOS_VARIANT_TYPE_DICTIONARY = 27,
     KANAMA_IOS_VARIANT_TYPE_ARRAY = 28,
+    KANAMA_IOS_VARIANT_TYPE_PACKED_BYTE_ARRAY = 29,
     KANAMA_IOS_VARIANT_TYPE_PACKED_INT32_ARRAY = 30,
+    KANAMA_IOS_VARIANT_TYPE_PACKED_INT64_ARRAY = 31,
     KANAMA_IOS_VARIANT_TYPE_PACKED_FLOAT32_ARRAY = 32,
+    KANAMA_IOS_VARIANT_TYPE_PACKED_FLOAT64_ARRAY = 33,
     KANAMA_IOS_VARIANT_TYPE_PACKED_STRING_ARRAY = 34,
     KANAMA_IOS_VARIANT_TYPE_PACKED_VECTOR2_ARRAY = 35,
+    KANAMA_IOS_VARIANT_TYPE_PACKED_VECTOR3_ARRAY = 36,
     KANAMA_IOS_VARIANT_TYPE_PACKED_COLOR_ARRAY = 37,
     KANAMA_IOS_OBJECT_NOTIFICATION_HASH = 4023243586U,
     KANAMA_IOS_ENGINE_GET_MAIN_LOOP_HASH = 1016888095U,
@@ -698,6 +771,17 @@ enum {
     KANAMA_IOS_PACKED_COLOR_ARRAY_SIZE_HASH = 3173160232U,
     KANAMA_IOS_PACKED_VECTOR2_ARRAY_PUSH_BACK_HASH = 4188891560U,
     KANAMA_IOS_PACKED_COLOR_ARRAY_PUSH_BACK_HASH = 1007858200U,
+    // task 29 — packed-array virtual-return builders. push_back hashes are signature-derived:
+    // (int)->bool arrays share 694024632, (float)->bool share 4094791666 (same as float32).
+    KANAMA_IOS_PACKED_BYTE_ARRAY_PUSH_BACK_HASH = 694024632U,
+    KANAMA_IOS_PACKED_INT32_ARRAY_PUSH_BACK_HASH = 694024632U,
+    KANAMA_IOS_PACKED_INT64_ARRAY_PUSH_BACK_HASH = 694024632U,
+    KANAMA_IOS_PACKED_FLOAT64_ARRAY_PUSH_BACK_HASH = 4094791666U,
+    KANAMA_IOS_PACKED_VECTOR3_ARRAY_PUSH_BACK_HASH = 3295363524U,
+    KANAMA_IOS_PACKED_BYTE_ARRAY_SIZE_HASH = 3173160232U,
+    KANAMA_IOS_PACKED_INT64_ARRAY_SIZE_HASH = 3173160232U,
+    KANAMA_IOS_PACKED_FLOAT64_ARRAY_SIZE_HASH = 3173160232U,
+    KANAMA_IOS_PACKED_VECTOR3_ARRAY_SIZE_HASH = 3173160232U,
     KANAMA_IOS_NOTIFICATION_POSTINITIALIZE = 0,
     KANAMA_IOS_NOTIFICATION_ENTER_TREE = 10,
     KANAMA_IOS_NOTIFICATION_EXIT_TREE = 11,
@@ -1437,6 +1521,12 @@ int64_t kanama_ios_godot_get_method_bind(
 // packed cache functions. Returns 1 on success (so the dispatch destroys only what it built).
 static int kanama_ios_build_packed_arg(int32_t tag, const KanamaIosPackedArgDesc *desc, uint64_t *cell);
 static void kanama_ios_destroy_packed_arg(int32_t tag, uint64_t *cell);
+// Dictionary builders (task 29 virtual-return path uses them before their definitions).
+static void kanama_ios_init_empty_dictionary(GDExtensionTypePtr out);
+static void kanama_ios_dictionary_set_variant(
+    GDExtensionTypePtr dictionary,
+    const char *key,
+    GDExtensionConstVariantPtr value_variant);
 
 void kanama_ios_godot_ptrcall(
     int64_t method_bind,
@@ -1842,6 +1932,21 @@ static void kanama_ios_cache_packed_int32_methods(void) {
             (GDExtensionInterfacePackedInt32ArrayOperatorIndexConst)kanama_ios_lookup(
                 "packed_int32_array_operator_index_const");
     }
+    // task 29 — build path (virtual-return desc -> PackedInt32Array).
+    if (g_packed_int32_array_constructor == NULL && g_variant_get_ptr_constructor != NULL) {
+        g_packed_int32_array_constructor =
+            g_variant_get_ptr_constructor(KANAMA_IOS_VARIANT_TYPE_PACKED_INT32_ARRAY, 0);
+    }
+    if (g_packed_int32_array_push_back == NULL && g_variant_get_ptr_builtin_method != NULL) {
+        uint64_t name_storage = 0;
+        kanama_ios_init_string_name(&name_storage, "push_back");
+        g_packed_int32_array_push_back = g_variant_get_ptr_builtin_method(
+            KANAMA_IOS_VARIANT_TYPE_PACKED_INT32_ARRAY,
+            (GDExtensionConstStringNamePtr)&name_storage,
+            (GDExtensionInt)KANAMA_IOS_PACKED_INT32_ARRAY_PUSH_BACK_HASH
+        );
+        kanama_ios_destroy_string_name(&name_storage);
+    }
 }
 
 // PackedInt32Array no-arg getter return. ptrcall writes the returned array (an 8-byte
@@ -2204,12 +2309,166 @@ int64_t kanama_ios_godot_ptrcall_no_args_ret_packed_color_array(
 // Build a BUILD-tagged Packed*Array arg (Vector2/Color) into a 16-byte cell from a flat float
 // descriptor (Vector2 = 2 float32 per element, Color = 4 float32; value types, NOT scalar-widened).
 // Returns 1 if it constructed an array the caller must destroy. Used only by the generic dispatch.
+// task 29 — lazy build/read-back trios for the remaining fixed-element packed families
+// (mirror of kanama_ios_cache_packed_int32_methods).
+static void kanama_ios_cache_packed_byte_methods(void) {
+    if (g_packed_byte_array_destructor == NULL && g_variant_get_ptr_destructor != NULL) {
+        g_packed_byte_array_destructor =
+            g_variant_get_ptr_destructor(KANAMA_IOS_VARIANT_TYPE_PACKED_BYTE_ARRAY);
+    }
+    if (g_packed_byte_array_size_method == NULL && g_variant_get_ptr_builtin_method != NULL) {
+        uint64_t name_storage = 0;
+        kanama_ios_init_string_name(&name_storage, "size");
+        g_packed_byte_array_size_method = g_variant_get_ptr_builtin_method(
+            KANAMA_IOS_VARIANT_TYPE_PACKED_BYTE_ARRAY,
+            (GDExtensionConstStringNamePtr)&name_storage,
+            (GDExtensionInt)KANAMA_IOS_PACKED_BYTE_ARRAY_SIZE_HASH
+        );
+        kanama_ios_destroy_string_name(&name_storage);
+    }
+    if (g_packed_byte_array_operator_index_const == NULL) {
+        g_packed_byte_array_operator_index_const =
+            (GDExtensionInterfacePackedByteArrayOperatorIndexConst)kanama_ios_lookup(
+                "packed_byte_array_operator_index_const");
+    }
+    if (g_packed_byte_array_constructor == NULL && g_variant_get_ptr_constructor != NULL) {
+        g_packed_byte_array_constructor =
+            g_variant_get_ptr_constructor(KANAMA_IOS_VARIANT_TYPE_PACKED_BYTE_ARRAY, 0);
+    }
+    if (g_packed_byte_array_push_back == NULL && g_variant_get_ptr_builtin_method != NULL) {
+        uint64_t name_storage = 0;
+        kanama_ios_init_string_name(&name_storage, "push_back");
+        g_packed_byte_array_push_back = g_variant_get_ptr_builtin_method(
+            KANAMA_IOS_VARIANT_TYPE_PACKED_BYTE_ARRAY,
+            (GDExtensionConstStringNamePtr)&name_storage,
+            (GDExtensionInt)KANAMA_IOS_PACKED_BYTE_ARRAY_PUSH_BACK_HASH
+        );
+        kanama_ios_destroy_string_name(&name_storage);
+    }
+}
+
+static void kanama_ios_cache_packed_int64_methods(void) {
+    if (g_packed_int64_array_destructor == NULL && g_variant_get_ptr_destructor != NULL) {
+        g_packed_int64_array_destructor =
+            g_variant_get_ptr_destructor(KANAMA_IOS_VARIANT_TYPE_PACKED_INT64_ARRAY);
+    }
+    if (g_packed_int64_array_size_method == NULL && g_variant_get_ptr_builtin_method != NULL) {
+        uint64_t name_storage = 0;
+        kanama_ios_init_string_name(&name_storage, "size");
+        g_packed_int64_array_size_method = g_variant_get_ptr_builtin_method(
+            KANAMA_IOS_VARIANT_TYPE_PACKED_INT64_ARRAY,
+            (GDExtensionConstStringNamePtr)&name_storage,
+            (GDExtensionInt)KANAMA_IOS_PACKED_INT64_ARRAY_SIZE_HASH
+        );
+        kanama_ios_destroy_string_name(&name_storage);
+    }
+    if (g_packed_int64_array_operator_index_const == NULL) {
+        g_packed_int64_array_operator_index_const =
+            (GDExtensionInterfacePackedInt64ArrayOperatorIndexConst)kanama_ios_lookup(
+                "packed_int64_array_operator_index_const");
+    }
+    if (g_packed_int64_array_constructor == NULL && g_variant_get_ptr_constructor != NULL) {
+        g_packed_int64_array_constructor =
+            g_variant_get_ptr_constructor(KANAMA_IOS_VARIANT_TYPE_PACKED_INT64_ARRAY, 0);
+    }
+    if (g_packed_int64_array_push_back == NULL && g_variant_get_ptr_builtin_method != NULL) {
+        uint64_t name_storage = 0;
+        kanama_ios_init_string_name(&name_storage, "push_back");
+        g_packed_int64_array_push_back = g_variant_get_ptr_builtin_method(
+            KANAMA_IOS_VARIANT_TYPE_PACKED_INT64_ARRAY,
+            (GDExtensionConstStringNamePtr)&name_storage,
+            (GDExtensionInt)KANAMA_IOS_PACKED_INT64_ARRAY_PUSH_BACK_HASH
+        );
+        kanama_ios_destroy_string_name(&name_storage);
+    }
+}
+
+static void kanama_ios_cache_packed_float64_methods(void) {
+    if (g_packed_float64_array_destructor == NULL && g_variant_get_ptr_destructor != NULL) {
+        g_packed_float64_array_destructor =
+            g_variant_get_ptr_destructor(KANAMA_IOS_VARIANT_TYPE_PACKED_FLOAT64_ARRAY);
+    }
+    if (g_packed_float64_array_size_method == NULL && g_variant_get_ptr_builtin_method != NULL) {
+        uint64_t name_storage = 0;
+        kanama_ios_init_string_name(&name_storage, "size");
+        g_packed_float64_array_size_method = g_variant_get_ptr_builtin_method(
+            KANAMA_IOS_VARIANT_TYPE_PACKED_FLOAT64_ARRAY,
+            (GDExtensionConstStringNamePtr)&name_storage,
+            (GDExtensionInt)KANAMA_IOS_PACKED_FLOAT64_ARRAY_SIZE_HASH
+        );
+        kanama_ios_destroy_string_name(&name_storage);
+    }
+    if (g_packed_float64_array_operator_index_const == NULL) {
+        g_packed_float64_array_operator_index_const =
+            (GDExtensionInterfacePackedFloat64ArrayOperatorIndexConst)kanama_ios_lookup(
+                "packed_float64_array_operator_index_const");
+    }
+    if (g_packed_float64_array_constructor == NULL && g_variant_get_ptr_constructor != NULL) {
+        g_packed_float64_array_constructor =
+            g_variant_get_ptr_constructor(KANAMA_IOS_VARIANT_TYPE_PACKED_FLOAT64_ARRAY, 0);
+    }
+    if (g_packed_float64_array_push_back == NULL && g_variant_get_ptr_builtin_method != NULL) {
+        uint64_t name_storage = 0;
+        kanama_ios_init_string_name(&name_storage, "push_back");
+        g_packed_float64_array_push_back = g_variant_get_ptr_builtin_method(
+            KANAMA_IOS_VARIANT_TYPE_PACKED_FLOAT64_ARRAY,
+            (GDExtensionConstStringNamePtr)&name_storage,
+            (GDExtensionInt)KANAMA_IOS_PACKED_FLOAT64_ARRAY_PUSH_BACK_HASH
+        );
+        kanama_ios_destroy_string_name(&name_storage);
+    }
+}
+
+static void kanama_ios_cache_packed_vector3_methods(void) {
+    if (g_packed_vector3_array_destructor == NULL && g_variant_get_ptr_destructor != NULL) {
+        g_packed_vector3_array_destructor =
+            g_variant_get_ptr_destructor(KANAMA_IOS_VARIANT_TYPE_PACKED_VECTOR3_ARRAY);
+    }
+    if (g_packed_vector3_array_size_method == NULL && g_variant_get_ptr_builtin_method != NULL) {
+        uint64_t name_storage = 0;
+        kanama_ios_init_string_name(&name_storage, "size");
+        g_packed_vector3_array_size_method = g_variant_get_ptr_builtin_method(
+            KANAMA_IOS_VARIANT_TYPE_PACKED_VECTOR3_ARRAY,
+            (GDExtensionConstStringNamePtr)&name_storage,
+            (GDExtensionInt)KANAMA_IOS_PACKED_VECTOR3_ARRAY_SIZE_HASH
+        );
+        kanama_ios_destroy_string_name(&name_storage);
+    }
+    if (g_packed_vector3_array_operator_index_const == NULL) {
+        g_packed_vector3_array_operator_index_const =
+            (GDExtensionInterfacePackedVector3ArrayOperatorIndexConst)kanama_ios_lookup(
+                "packed_vector3_array_operator_index_const");
+    }
+    if (g_packed_vector3_array_constructor == NULL && g_variant_get_ptr_constructor != NULL) {
+        g_packed_vector3_array_constructor =
+            g_variant_get_ptr_constructor(KANAMA_IOS_VARIANT_TYPE_PACKED_VECTOR3_ARRAY, 0);
+    }
+    if (g_packed_vector3_array_push_back == NULL && g_variant_get_ptr_builtin_method != NULL) {
+        uint64_t name_storage = 0;
+        kanama_ios_init_string_name(&name_storage, "push_back");
+        g_packed_vector3_array_push_back = g_variant_get_ptr_builtin_method(
+            KANAMA_IOS_VARIANT_TYPE_PACKED_VECTOR3_ARRAY,
+            (GDExtensionConstStringNamePtr)&name_storage,
+            (GDExtensionInt)KANAMA_IOS_PACKED_VECTOR3_ARRAY_PUSH_BACK_HASH
+        );
+        kanama_ios_destroy_string_name(&name_storage);
+    }
+}
+
+// Build a packed array from a KanamaIosPackedArgDesc into cell (a >=16-byte opaque storage).
+// Originally the BUILD-tagged arg path for Vector2/Color (flat float32 element buffers); task 29
+// extends it to the remaining fixed-element families for virtual RETURNS, which reuse the same
+// desc layout (byte = 1B, int32 = 4B, int64 = 8B, float32 = 4B, float64 = 8B elements). Numeric
+// element push_back args use the ptrcall scalar ABI (int -> int64 slot, float -> double slot), so
+// narrow elements are widened per push. memcpy per element — the desc buffer originates in a
+// Kotlin scratch and carries no alignment guarantee.
 static int kanama_ios_build_packed_arg(int32_t tag, const KanamaIosPackedArgDesc *desc, uint64_t *cell) {
     if (desc == NULL) {
         return 0;
     }
     int64_t count = (desc->count < 0) ? 0 : desc->count;
     const float *f = (const float *)desc->data;
+    const uint8_t *raw = (const uint8_t *)desc->data;
     if (tag == KANAMA_IOS_PT_PACKED_VECTOR2_ARRAY) {
         kanama_ios_cache_packed_vector2_methods();
         if (g_packed_vector2_array_constructor == NULL || g_packed_vector2_array_push_back == NULL) {
@@ -2236,6 +2495,97 @@ static int kanama_ios_build_packed_arg(int32_t tag, const KanamaIosPackedArgDesc
         }
         return 1;
     }
+    if (tag == KANAMA_IOS_PT_PACKED_VECTOR3_ARRAY) {
+        kanama_ios_cache_packed_vector3_methods();
+        if (g_packed_vector3_array_constructor == NULL || g_packed_vector3_array_push_back == NULL) {
+            return 0;
+        }
+        g_packed_vector3_array_constructor((GDExtensionUninitializedTypePtr)cell, NULL);
+        for (int64_t i = 0; i < count; i++) {
+            float elem[3];
+            memcpy(elem, raw + i * 12, sizeof(elem));
+            const GDExtensionConstTypePtr pb[1] = { (GDExtensionConstTypePtr)elem };
+            uint8_t r = 0;
+            g_packed_vector3_array_push_back(cell, pb, &r, 1);
+        }
+        return 1;
+    }
+    if (tag == KANAMA_IOS_PT_PACKED_BYTE_ARRAY) {
+        kanama_ios_cache_packed_byte_methods();
+        if (g_packed_byte_array_constructor == NULL || g_packed_byte_array_push_back == NULL) {
+            return 0;
+        }
+        g_packed_byte_array_constructor((GDExtensionUninitializedTypePtr)cell, NULL);
+        for (int64_t i = 0; i < count; i++) {
+            int64_t v = (int64_t)raw[i];
+            const GDExtensionConstTypePtr pb[1] = { (GDExtensionConstTypePtr)&v };
+            uint8_t r = 0;
+            g_packed_byte_array_push_back(cell, pb, &r, 1);
+        }
+        return 1;
+    }
+    if (tag == KANAMA_IOS_PT_PACKED_INT32_ARRAY) {
+        kanama_ios_cache_packed_int32_methods();
+        if (g_packed_int32_array_constructor == NULL || g_packed_int32_array_push_back == NULL) {
+            return 0;
+        }
+        g_packed_int32_array_constructor((GDExtensionUninitializedTypePtr)cell, NULL);
+        for (int64_t i = 0; i < count; i++) {
+            int32_t narrow = 0;
+            memcpy(&narrow, raw + i * 4, sizeof(narrow));
+            int64_t v = (int64_t)narrow;
+            const GDExtensionConstTypePtr pb[1] = { (GDExtensionConstTypePtr)&v };
+            uint8_t r = 0;
+            g_packed_int32_array_push_back(cell, pb, &r, 1);
+        }
+        return 1;
+    }
+    if (tag == KANAMA_IOS_PT_PACKED_INT64_ARRAY) {
+        kanama_ios_cache_packed_int64_methods();
+        if (g_packed_int64_array_constructor == NULL || g_packed_int64_array_push_back == NULL) {
+            return 0;
+        }
+        g_packed_int64_array_constructor((GDExtensionUninitializedTypePtr)cell, NULL);
+        for (int64_t i = 0; i < count; i++) {
+            int64_t v = 0;
+            memcpy(&v, raw + i * 8, sizeof(v));
+            const GDExtensionConstTypePtr pb[1] = { (GDExtensionConstTypePtr)&v };
+            uint8_t r = 0;
+            g_packed_int64_array_push_back(cell, pb, &r, 1);
+        }
+        return 1;
+    }
+    if (tag == KANAMA_IOS_PT_PACKED_FLOAT32_ARRAY) {
+        kanama_ios_cache_packed_float32_methods();
+        if (g_packed_float32_array_constructor == NULL || g_packed_float32_array_push_back == NULL) {
+            return 0;
+        }
+        g_packed_float32_array_constructor((GDExtensionUninitializedTypePtr)cell, NULL);
+        for (int64_t i = 0; i < count; i++) {
+            float narrow = 0.0f;
+            memcpy(&narrow, raw + i * 4, sizeof(narrow));
+            double v = (double)narrow;
+            const GDExtensionConstTypePtr pb[1] = { (GDExtensionConstTypePtr)&v };
+            uint8_t r = 0;
+            g_packed_float32_array_push_back(cell, pb, &r, 1);
+        }
+        return 1;
+    }
+    if (tag == KANAMA_IOS_PT_PACKED_FLOAT64_ARRAY) {
+        kanama_ios_cache_packed_float64_methods();
+        if (g_packed_float64_array_constructor == NULL || g_packed_float64_array_push_back == NULL) {
+            return 0;
+        }
+        g_packed_float64_array_constructor((GDExtensionUninitializedTypePtr)cell, NULL);
+        for (int64_t i = 0; i < count; i++) {
+            double v = 0.0;
+            memcpy(&v, raw + i * 8, sizeof(v));
+            const GDExtensionConstTypePtr pb[1] = { (GDExtensionConstTypePtr)&v };
+            uint8_t r = 0;
+            g_packed_float64_array_push_back(cell, pb, &r, 1);
+        }
+        return 1;
+    }
     return 0;
 }
 
@@ -2244,6 +2594,18 @@ static void kanama_ios_destroy_packed_arg(int32_t tag, uint64_t *cell) {
         g_packed_vector2_array_destructor(cell);
     } else if (tag == KANAMA_IOS_PT_PACKED_COLOR_ARRAY && g_packed_color_array_destructor != NULL) {
         g_packed_color_array_destructor(cell);
+    } else if (tag == KANAMA_IOS_PT_PACKED_VECTOR3_ARRAY && g_packed_vector3_array_destructor != NULL) {
+        g_packed_vector3_array_destructor(cell);
+    } else if (tag == KANAMA_IOS_PT_PACKED_BYTE_ARRAY && g_packed_byte_array_destructor != NULL) {
+        g_packed_byte_array_destructor(cell);
+    } else if (tag == KANAMA_IOS_PT_PACKED_INT32_ARRAY && g_packed_int32_array_destructor != NULL) {
+        g_packed_int32_array_destructor(cell);
+    } else if (tag == KANAMA_IOS_PT_PACKED_INT64_ARRAY && g_packed_int64_array_destructor != NULL) {
+        g_packed_int64_array_destructor(cell);
+    } else if (tag == KANAMA_IOS_PT_PACKED_FLOAT32_ARRAY && g_packed_float32_array_destructor != NULL) {
+        g_packed_float32_array_destructor(cell);
+    } else if (tag == KANAMA_IOS_PT_PACKED_FLOAT64_ARRAY && g_packed_float64_array_destructor != NULL) {
+        g_packed_float64_array_destructor(cell);
     }
 }
 
@@ -4329,6 +4691,17 @@ static void kanama_ios_pt_arg_to_variant(
             g_variant_from_object(out_variant, &obj);
             break;
         }
+        case KANAMA_IOS_PT_RID: {
+            // task 29 — RID passthrough (a single uint64). Boxes as a nil-RID Variant when the
+            // converter is unavailable (it is resolved in the same block as g_variant_from_object).
+            if (g_variant_from_rid == NULL) {
+                g_variant_new_nil((GDExtensionUninitializedVariantPtr)out_variant);
+                break;
+            }
+            uint64_t rid = (p != NULL) ? *(const uint64_t *)p : 0;
+            g_variant_from_rid(out_variant, &rid);
+            break;
+        }
         case KANAMA_IOS_PT_VECTOR2:
             g_variant_from_vector2(out_variant, (void *)p);
             break;
@@ -4394,6 +4767,269 @@ static void kanama_ios_build_packed_string_array_from_blob(const uint8_t *blob, 
     }
 }
 
+// task 29 — lazily resolve the Variant boxing/unboxing converters for the packed/array/dictionary
+// virtual-return families. Kept out of the mandatory init gate: a missing converter degrades that
+// one return to nil (fail-visible via the self-test rows), not the whole bootstrap.
+static void kanama_ios_cache_return_family_converters(void) {
+    if (g_get_variant_from_type_constructor != NULL) {
+        if (g_variant_from_packed_byte_array == NULL) {
+            g_variant_from_packed_byte_array =
+                g_get_variant_from_type_constructor(KANAMA_IOS_VARIANT_TYPE_PACKED_BYTE_ARRAY);
+        }
+        if (g_variant_from_packed_int32_array == NULL) {
+            g_variant_from_packed_int32_array =
+                g_get_variant_from_type_constructor(KANAMA_IOS_VARIANT_TYPE_PACKED_INT32_ARRAY);
+        }
+        if (g_variant_from_packed_int64_array == NULL) {
+            g_variant_from_packed_int64_array =
+                g_get_variant_from_type_constructor(KANAMA_IOS_VARIANT_TYPE_PACKED_INT64_ARRAY);
+        }
+        if (g_variant_from_packed_float32_array == NULL) {
+            g_variant_from_packed_float32_array =
+                g_get_variant_from_type_constructor(KANAMA_IOS_VARIANT_TYPE_PACKED_FLOAT32_ARRAY);
+        }
+        if (g_variant_from_packed_float64_array == NULL) {
+            g_variant_from_packed_float64_array =
+                g_get_variant_from_type_constructor(KANAMA_IOS_VARIANT_TYPE_PACKED_FLOAT64_ARRAY);
+        }
+        if (g_variant_from_packed_vector2_array == NULL) {
+            g_variant_from_packed_vector2_array =
+                g_get_variant_from_type_constructor(KANAMA_IOS_VARIANT_TYPE_PACKED_VECTOR2_ARRAY);
+        }
+        if (g_variant_from_packed_vector3_array == NULL) {
+            g_variant_from_packed_vector3_array =
+                g_get_variant_from_type_constructor(KANAMA_IOS_VARIANT_TYPE_PACKED_VECTOR3_ARRAY);
+        }
+        if (g_variant_from_packed_color_array == NULL) {
+            g_variant_from_packed_color_array =
+                g_get_variant_from_type_constructor(KANAMA_IOS_VARIANT_TYPE_PACKED_COLOR_ARRAY);
+        }
+        if (g_variant_from_array == NULL) {
+            g_variant_from_array =
+                g_get_variant_from_type_constructor(KANAMA_IOS_VARIANT_TYPE_ARRAY);
+        }
+    }
+    if (g_get_variant_to_type_constructor != NULL) {
+        if (g_variant_to_packed_byte_array == NULL) {
+            g_variant_to_packed_byte_array =
+                g_get_variant_to_type_constructor(KANAMA_IOS_VARIANT_TYPE_PACKED_BYTE_ARRAY);
+        }
+        if (g_variant_to_packed_int32_array == NULL) {
+            g_variant_to_packed_int32_array =
+                g_get_variant_to_type_constructor(KANAMA_IOS_VARIANT_TYPE_PACKED_INT32_ARRAY);
+        }
+        if (g_variant_to_packed_int64_array == NULL) {
+            g_variant_to_packed_int64_array =
+                g_get_variant_to_type_constructor(KANAMA_IOS_VARIANT_TYPE_PACKED_INT64_ARRAY);
+        }
+        if (g_variant_to_packed_float32_array == NULL) {
+            g_variant_to_packed_float32_array =
+                g_get_variant_to_type_constructor(KANAMA_IOS_VARIANT_TYPE_PACKED_FLOAT32_ARRAY);
+        }
+        if (g_variant_to_packed_float64_array == NULL) {
+            g_variant_to_packed_float64_array =
+                g_get_variant_to_type_constructor(KANAMA_IOS_VARIANT_TYPE_PACKED_FLOAT64_ARRAY);
+        }
+        if (g_variant_to_packed_color_array == NULL) {
+            g_variant_to_packed_color_array =
+                g_get_variant_to_type_constructor(KANAMA_IOS_VARIANT_TYPE_PACKED_COLOR_ARRAY);
+        }
+        if (g_variant_to_packed_vector2_array == NULL) {
+            g_variant_to_packed_vector2_array =
+                g_get_variant_to_type_constructor(KANAMA_IOS_VARIANT_TYPE_PACKED_VECTOR2_ARRAY);
+        }
+        if (g_variant_to_packed_vector3_array == NULL) {
+            g_variant_to_packed_vector3_array =
+                g_get_variant_to_type_constructor(KANAMA_IOS_VARIANT_TYPE_PACKED_VECTOR3_ARRAY);
+        }
+    }
+}
+
+// task 29 — box one length-prefixed tagged value (a Dictionary entry value or an Array element)
+// into a Variant. Payload encodings (little-endian, no alignment guarantee — memcpy to locals):
+// VOID -> nil (no bytes), BOOL -> 1 byte, INT64 -> 8 bytes, FLOAT64 -> 8 bytes, RID -> 8 bytes,
+// STRING -> len utf8 bytes (NOT NUL-terminated), VECTOR2 -> 2x float32, VECTOR2I -> 2x int32,
+// VECTOR3 -> 3x float32, COLOR -> 4x float32. Unaudited tags box as nil — the same audited-set
+// policy as encodeIosReturn's Variant dispatch (nil is always a valid Variant).
+static void kanama_ios_pt_blob_value_to_variant(
+    int32_t tag,
+    const uint8_t *bytes,
+    int32_t len,
+    uint8_t out_variant[24]
+) {
+    memset(out_variant, 0, 24);
+    switch (tag) {
+        case KANAMA_IOS_PT_BOOL: {
+            uint8_t b = (len >= 1 && bytes != NULL && bytes[0]) ? 1 : 0;
+            g_variant_from_bool(out_variant, &b);
+            return;
+        }
+        case KANAMA_IOS_PT_INT64: {
+            int64_t v = 0;
+            if (len >= 8 && bytes != NULL) memcpy(&v, bytes, sizeof(v));
+            g_variant_from_int(out_variant, &v);
+            return;
+        }
+        case KANAMA_IOS_PT_FLOAT64: {
+            double v = 0.0;
+            if (len >= 8 && bytes != NULL) memcpy(&v, bytes, sizeof(v));
+            g_variant_from_float(out_variant, &v);
+            return;
+        }
+        case KANAMA_IOS_PT_RID: {
+            if (g_variant_from_rid == NULL) break;
+            uint64_t v = 0;
+            if (len >= 8 && bytes != NULL) memcpy(&v, bytes, sizeof(v));
+            g_variant_from_rid(out_variant, &v);
+            return;
+        }
+        case KANAMA_IOS_PT_STRING: {
+            char stackbuf[256];
+            int32_t n = (len < 0) ? 0 : len;
+            char *tmp = ((size_t)n + 1 <= sizeof(stackbuf)) ? stackbuf : (char *)malloc((size_t)n + 1);
+            if (tmp == NULL) break;
+            if (n > 0 && bytes != NULL) memcpy(tmp, bytes, (size_t)n);
+            tmp[n] = '\0';
+            uint64_t cell = 0;
+            kanama_ios_init_string(&cell, tmp);
+            g_variant_from_string(out_variant, &cell);
+            kanama_ios_destroy_string(&cell);
+            if (tmp != stackbuf) free(tmp);
+            return;
+        }
+        case KANAMA_IOS_PT_VECTOR2: {
+            float v[2] = { 0.0f, 0.0f };
+            if (len >= 8 && bytes != NULL) memcpy(v, bytes, sizeof(v));
+            g_variant_from_vector2(out_variant, v);
+            return;
+        }
+        case KANAMA_IOS_PT_VECTOR2I: {
+            int32_t v[2] = { 0, 0 };
+            if (len >= 8 && bytes != NULL) memcpy(v, bytes, sizeof(v));
+            g_variant_from_vector2i(out_variant, v);
+            return;
+        }
+        case KANAMA_IOS_PT_VECTOR3: {
+            float v[3] = { 0.0f, 0.0f, 0.0f };
+            if (len >= 12 && bytes != NULL) memcpy(v, bytes, sizeof(v));
+            g_variant_from_vector3(out_variant, v);
+            return;
+        }
+        case KANAMA_IOS_PT_COLOR: {
+            float v[4] = { 0.0f, 0.0f, 0.0f, 0.0f };
+            if (len >= 16 && bytes != NULL) memcpy(v, bytes, sizeof(v));
+            g_variant_from_color(out_variant, v);
+            return;
+        }
+        default:
+            break;
+    }
+    g_variant_new_nil((GDExtensionUninitializedVariantPtr)out_variant);
+}
+
+// task 29 — read one int32 out of an unaligned blob position.
+static int32_t kanama_ios_blob_read_int32(const uint8_t *p) {
+    int32_t v = 0;
+    memcpy(&v, p, sizeof(v));
+    return v;
+}
+
+// Build a Godot Dictionary (task 29 return path) into out_cell from the blob
+// [int32 count]([int32 key_len][key utf8][int32 val_tag][int32 val_len][val bytes])* the Kotlin
+// encoder produced. Keys are Strings (the Map<String, Any?> policy); values box via
+// kanama_ios_pt_blob_value_to_variant. The caller destroys out_cell after wrapping in a Variant.
+static void kanama_ios_build_dictionary_from_blob(const uint8_t *blob, GDExtensionTypePtr out_cell) {
+    kanama_ios_init_empty_dictionary(out_cell);
+    if (blob == NULL) {
+        return;
+    }
+    const uint8_t *p = blob;
+    int32_t count = kanama_ios_blob_read_int32(p);
+    p += 4;
+    for (int32_t i = 0; i < count; i++) {
+        int32_t key_len = kanama_ios_blob_read_int32(p);
+        p += 4;
+        if (key_len < 0) key_len = 0;
+        char keybuf[256];
+        char *key = ((size_t)key_len + 1 <= sizeof(keybuf)) ? keybuf : (char *)malloc((size_t)key_len + 1);
+        if (key == NULL) {
+            return;
+        }
+        memcpy(key, p, (size_t)key_len);
+        key[key_len] = '\0';
+        p += key_len;
+        int32_t val_tag = kanama_ios_blob_read_int32(p);
+        p += 4;
+        int32_t val_len = kanama_ios_blob_read_int32(p);
+        p += 4;
+        if (val_len < 0) val_len = 0;
+        uint8_t value_variant[24];
+        kanama_ios_pt_blob_value_to_variant(val_tag, p, val_len, value_variant);
+        p += val_len;
+        kanama_ios_dictionary_set_variant(out_cell, key, value_variant);
+        g_variant_destroy(value_variant);
+        if (key != keybuf) free(key);
+    }
+}
+
+// Build a Godot Array (task 29 return path) into out_cell (a >=16-byte opaque Array storage) from
+// the blob [int32 count]([int32 elem_tag][int32 elem_len][elem bytes])*. Elements box via
+// kanama_ios_pt_blob_value_to_variant and append via Array.push_back. The caller destroys out_cell
+// after wrapping in a Variant.
+static void kanama_ios_build_array_from_blob(const uint8_t *blob, GDExtensionTypePtr out_cell) {
+    if (g_array_constructor != NULL) {
+        g_array_constructor((GDExtensionUninitializedTypePtr)out_cell, NULL);
+    }
+    if (blob == NULL || g_array_constructor == NULL) {
+        return;
+    }
+    if (g_array_push_back == NULL && g_variant_get_ptr_builtin_method != NULL) {
+        uint64_t name_storage = 0;
+        kanama_ios_init_string_name(&name_storage, "push_back");
+        g_array_push_back = g_variant_get_ptr_builtin_method(
+            KANAMA_IOS_VARIANT_TYPE_ARRAY,
+            (GDExtensionConstStringNamePtr)&name_storage,
+            (GDExtensionInt)KANAMA_IOS_ARRAY_PUSH_BACK_HASH
+        );
+        kanama_ios_destroy_string_name(&name_storage);
+    }
+    if (g_array_push_back == NULL) {
+        return;
+    }
+    const uint8_t *p = blob;
+    int32_t count = kanama_ios_blob_read_int32(p);
+    p += 4;
+    for (int32_t i = 0; i < count; i++) {
+        int32_t elem_tag = kanama_ios_blob_read_int32(p);
+        p += 4;
+        int32_t elem_len = kanama_ios_blob_read_int32(p);
+        p += 4;
+        if (elem_len < 0) elem_len = 0;
+        uint8_t elem_variant[24];
+        kanama_ios_pt_blob_value_to_variant(elem_tag, p, elem_len, elem_variant);
+        p += elem_len;
+        const GDExtensionConstTypePtr push_args[1] = { (GDExtensionConstTypePtr)elem_variant };
+        g_array_push_back(out_cell, push_args, NULL, 1);
+        g_variant_destroy(elem_variant);
+    }
+}
+
+// task 29 — the Variant boxing converter for one fixed-element packed return tag (NULL if the
+// family's converter did not resolve).
+static GDExtensionVariantFromTypeConstructorFunc kanama_ios_packed_return_from_type(int32_t tag) {
+    switch (tag) {
+        case KANAMA_IOS_PT_PACKED_BYTE_ARRAY: return g_variant_from_packed_byte_array;
+        case KANAMA_IOS_PT_PACKED_INT32_ARRAY: return g_variant_from_packed_int32_array;
+        case KANAMA_IOS_PT_PACKED_INT64_ARRAY: return g_variant_from_packed_int64_array;
+        case KANAMA_IOS_PT_PACKED_FLOAT32_ARRAY: return g_variant_from_packed_float32_array;
+        case KANAMA_IOS_PT_PACKED_FLOAT64_ARRAY: return g_variant_from_packed_float64_array;
+        case KANAMA_IOS_PT_PACKED_VECTOR2_ARRAY: return g_variant_from_packed_vector2_array;
+        case KANAMA_IOS_PT_PACKED_VECTOR3_ARRAY: return g_variant_from_packed_vector3_array;
+        case KANAMA_IOS_PT_PACKED_COLOR_ARRAY: return g_variant_from_packed_color_array;
+        default: return NULL;
+    }
+}
+
 // Build the engine return Variant for a value-returning virtual/method from the PT-tagged return
 // scratch (task 13 — non-POD virtual returns). POD/fixed-width kinds (Bool/Int/Float/Vector2/
 // Vector2i/…) delegate to kanama_ios_pt_arg_to_variant, where ret_buf holds the value bytes inline.
@@ -4402,6 +5038,8 @@ static void kanama_ios_build_packed_string_array_from_blob(const uint8_t *blob, 
 // packed array); we build the Godot value from it, copy it into the return Variant, then destroy the
 // temporary. Destroy-after-read: the engine owns `out_variant` and takes its own reference on
 // construction, so the local cell must be released here (same ownership as the inbound String args).
+// task 29 extends the pointer-in-scratch kinds: fixed-element packed arrays (a
+// KanamaIosPackedArgDesc pointer), DICTIONARY and ARRAY (entry-blob pointers).
 static void kanama_ios_pt_return_to_variant(int32_t tag, const void *ret_buf, uint8_t out_variant[24]) {
     if (tag == KANAMA_IOS_PT_STRING) {
         const char *s = (ret_buf != NULL) ? *(const char *const *)ret_buf : NULL;
@@ -4425,6 +5063,63 @@ static void kanama_ios_pt_return_to_variant(int32_t tag, const void *ret_buf, ui
         kanama_ios_cache_packed_string_methods();
         if (g_packed_string_array_destructor != NULL) {
             g_packed_string_array_destructor(psa);
+        }
+        return;
+    }
+    // task 29 — fixed-element packed-array returns: the scratch holds a KanamaIosPackedArgDesc
+    // pointer; build the packed array (constructor + push_back per element), box it, destroy it.
+    if (tag == KANAMA_IOS_PT_PACKED_BYTE_ARRAY || tag == KANAMA_IOS_PT_PACKED_INT32_ARRAY ||
+        tag == KANAMA_IOS_PT_PACKED_INT64_ARRAY || tag == KANAMA_IOS_PT_PACKED_FLOAT32_ARRAY ||
+        tag == KANAMA_IOS_PT_PACKED_FLOAT64_ARRAY || tag == KANAMA_IOS_PT_PACKED_VECTOR2_ARRAY ||
+        tag == KANAMA_IOS_PT_PACKED_VECTOR3_ARRAY || tag == KANAMA_IOS_PT_PACKED_COLOR_ARRAY) {
+        const KanamaIosPackedArgDesc *desc =
+            (ret_buf != NULL) ? *(const KanamaIosPackedArgDesc *const *)ret_buf : NULL;
+        memset(out_variant, 0, 24);
+        kanama_ios_cache_return_family_converters();
+        GDExtensionVariantFromTypeConstructorFunc from_type = kanama_ios_packed_return_from_type(tag);
+        KANAMA_IOS_PACKED_ARRAY_STORAGE(packed);
+        if (desc == NULL || from_type == NULL || !kanama_ios_build_packed_arg(tag, desc, packed)) {
+            g_variant_new_nil((GDExtensionUninitializedVariantPtr)out_variant);
+            return;
+        }
+        from_type(out_variant, packed);
+        kanama_ios_destroy_packed_arg(tag, packed);
+        return;
+    }
+    // task 29 — Dictionary return: the scratch holds an entry-blob pointer.
+    if (tag == KANAMA_IOS_PT_DICTIONARY) {
+        const uint8_t *blob = (ret_buf != NULL) ? *(const uint8_t *const *)ret_buf : NULL;
+        memset(out_variant, 0, 24);
+        uint64_t dict = 0;
+        kanama_ios_build_dictionary_from_blob(blob, &dict);
+        if (g_variant_from_dictionary != NULL) {
+            g_variant_from_dictionary(out_variant, &dict);
+        } else {
+            g_variant_new_nil((GDExtensionUninitializedVariantPtr)out_variant);
+        }
+        if (g_dictionary_destructor != NULL) {
+            g_dictionary_destructor(&dict);
+        }
+        return;
+    }
+    // task 29 — generic Array return (also the shape for the engine's typedarray::* virtuals):
+    // the scratch holds an element-blob pointer.
+    if (tag == KANAMA_IOS_PT_ARRAY) {
+        const uint8_t *blob = (ret_buf != NULL) ? *(const uint8_t *const *)ret_buf : NULL;
+        memset(out_variant, 0, 24);
+        kanama_ios_cache_return_family_converters();
+        KANAMA_IOS_PACKED_ARRAY_STORAGE(arr);
+        kanama_ios_build_array_from_blob(blob, arr);
+        if (g_variant_from_array != NULL) {
+            g_variant_from_array(out_variant, arr);
+        } else {
+            g_variant_new_nil((GDExtensionUninitializedVariantPtr)out_variant);
+        }
+        if (g_array_destructor == NULL && g_variant_get_ptr_destructor != NULL) {
+            g_array_destructor = g_variant_get_ptr_destructor(KANAMA_IOS_VARIANT_TYPE_ARRAY);
+        }
+        if (g_array_destructor != NULL) {
+            g_array_destructor(arr);
         }
         return;
     }
@@ -7562,6 +8257,393 @@ static void kanama_ios_ptrcall_selftest(void) {
         if (g_variant_destroy != NULL) {
             g_variant_destroy((GDExtensionVariantPtr)ret_variant);
         }
+    }
+
+    // task 29 — fixed-element packed-array virtual RETURNS. Each row builds a
+    // KanamaIosPackedArgDesc, runs kanama_ios_pt_return_to_variant, converts the Variant back to
+    // the packed type, and compares every element. Width-sensitive probes: full-range bytes,
+    // Int32.MAX, a >32-bit int64, 1.0e308 (float64-only), and float32/real_t component layouts.
+    kanama_ios_cache_return_family_converters();
+    {
+        const uint8_t bytes[3] = { 0x7F, 0x00, 0x80 };
+        KanamaIosPackedArgDesc desc = { 3, bytes };
+        const KanamaIosPackedArgDesc *desc_ptr = &desc;
+        uint8_t rb[32];
+        memset(rb, 0, sizeof(rb));
+        memcpy(rb, &desc_ptr, sizeof(desc_ptr));
+        uint8_t ret_variant[24];
+        memset(ret_variant, 0, sizeof(ret_variant));
+        kanama_ios_pt_return_to_variant(KANAMA_IOS_PT_PACKED_BYTE_ARRAY, rb, ret_variant);
+        int ok = 0;
+        kanama_ios_cache_packed_byte_methods();
+        if (g_variant_to_packed_byte_array != NULL && g_packed_byte_array_size_method != NULL &&
+            g_packed_byte_array_operator_index_const != NULL) {
+            KANAMA_IOS_PACKED_ARRAY_STORAGE(cell);
+            g_variant_to_packed_byte_array(cell, (GDExtensionVariantPtr)ret_variant);
+            int64_t n = 0;
+            g_packed_byte_array_size_method(cell, NULL, &n, 0);
+            if (n == 3) {
+                const uint8_t *e0 = g_packed_byte_array_operator_index_const(cell, 0);
+                const uint8_t *e1 = g_packed_byte_array_operator_index_const(cell, 1);
+                const uint8_t *e2 = g_packed_byte_array_operator_index_const(cell, 2);
+                ok = (e0 != NULL && *e0 == 0x7F && e1 != NULL && *e1 == 0x00 &&
+                      e2 != NULL && *e2 == 0x80);
+            }
+            if (g_packed_byte_array_destructor != NULL) g_packed_byte_array_destructor(cell);
+        }
+        KANAMA_IOS_ST_CHECK("virtual-packed-byte-ret roundtrip(full-range)", ok);
+        if (g_variant_destroy != NULL) g_variant_destroy((GDExtensionVariantPtr)ret_variant);
+    }
+    {
+        const int32_t ints[3] = { 0, 2147483647, -2147483647 - 1 };
+        KanamaIosPackedArgDesc desc = { 3, ints };
+        const KanamaIosPackedArgDesc *desc_ptr = &desc;
+        uint8_t rb[32];
+        memset(rb, 0, sizeof(rb));
+        memcpy(rb, &desc_ptr, sizeof(desc_ptr));
+        uint8_t ret_variant[24];
+        memset(ret_variant, 0, sizeof(ret_variant));
+        kanama_ios_pt_return_to_variant(KANAMA_IOS_PT_PACKED_INT32_ARRAY, rb, ret_variant);
+        int ok = 0;
+        kanama_ios_cache_packed_int32_methods();
+        if (g_variant_to_packed_int32_array != NULL && g_packed_int32_array_size_method != NULL &&
+            g_packed_int32_array_operator_index_const != NULL) {
+            KANAMA_IOS_PACKED_ARRAY_STORAGE(cell);
+            g_variant_to_packed_int32_array(cell, (GDExtensionVariantPtr)ret_variant);
+            int64_t n = 0;
+            g_packed_int32_array_size_method(cell, NULL, &n, 0);
+            if (n == 3) {
+                const int32_t *e0 = g_packed_int32_array_operator_index_const(cell, 0);
+                const int32_t *e1 = g_packed_int32_array_operator_index_const(cell, 1);
+                const int32_t *e2 = g_packed_int32_array_operator_index_const(cell, 2);
+                ok = (e0 != NULL && *e0 == 0 && e1 != NULL && *e1 == 2147483647 &&
+                      e2 != NULL && *e2 == (-2147483647 - 1));
+            }
+            if (g_packed_int32_array_destructor != NULL) g_packed_int32_array_destructor(cell);
+        }
+        KANAMA_IOS_ST_CHECK("virtual-packed-int32-ret roundtrip(INT32_MIN/MAX)", ok);
+        if (g_variant_destroy != NULL) g_variant_destroy((GDExtensionVariantPtr)ret_variant);
+    }
+    {
+        const int64_t longs[2] = { 72623859790382856LL, -1LL };
+        KanamaIosPackedArgDesc desc = { 2, longs };
+        const KanamaIosPackedArgDesc *desc_ptr = &desc;
+        uint8_t rb[32];
+        memset(rb, 0, sizeof(rb));
+        memcpy(rb, &desc_ptr, sizeof(desc_ptr));
+        uint8_t ret_variant[24];
+        memset(ret_variant, 0, sizeof(ret_variant));
+        kanama_ios_pt_return_to_variant(KANAMA_IOS_PT_PACKED_INT64_ARRAY, rb, ret_variant);
+        int ok = 0;
+        kanama_ios_cache_packed_int64_methods();
+        if (g_variant_to_packed_int64_array != NULL && g_packed_int64_array_size_method != NULL &&
+            g_packed_int64_array_operator_index_const != NULL) {
+            KANAMA_IOS_PACKED_ARRAY_STORAGE(cell);
+            g_variant_to_packed_int64_array(cell, (GDExtensionVariantPtr)ret_variant);
+            int64_t n = 0;
+            g_packed_int64_array_size_method(cell, NULL, &n, 0);
+            if (n == 2) {
+                const int64_t *e0 = g_packed_int64_array_operator_index_const(cell, 0);
+                const int64_t *e1 = g_packed_int64_array_operator_index_const(cell, 1);
+                ok = (e0 != NULL && *e0 == 72623859790382856LL && e1 != NULL && *e1 == -1LL);
+            }
+            if (g_packed_int64_array_destructor != NULL) g_packed_int64_array_destructor(cell);
+        }
+        KANAMA_IOS_ST_CHECK("virtual-packed-int64-ret roundtrip(>32-bit)", ok);
+        if (g_variant_destroy != NULL) g_variant_destroy((GDExtensionVariantPtr)ret_variant);
+    }
+    {
+        const float floats[2] = { 0.5f, -2.25f };
+        KanamaIosPackedArgDesc desc = { 2, floats };
+        const KanamaIosPackedArgDesc *desc_ptr = &desc;
+        uint8_t rb[32];
+        memset(rb, 0, sizeof(rb));
+        memcpy(rb, &desc_ptr, sizeof(desc_ptr));
+        uint8_t ret_variant[24];
+        memset(ret_variant, 0, sizeof(ret_variant));
+        kanama_ios_pt_return_to_variant(KANAMA_IOS_PT_PACKED_FLOAT32_ARRAY, rb, ret_variant);
+        int ok = 0;
+        kanama_ios_cache_packed_float32_methods();
+        if (g_variant_to_packed_float32_array != NULL && g_packed_float32_array_size_method != NULL &&
+            g_packed_float32_array_operator_index_const != NULL) {
+            KANAMA_IOS_PACKED_ARRAY_STORAGE(cell);
+            g_variant_to_packed_float32_array(cell, (GDExtensionVariantPtr)ret_variant);
+            int64_t n = 0;
+            g_packed_float32_array_size_method(cell, NULL, &n, 0);
+            if (n == 2) {
+                const float *e0 = g_packed_float32_array_operator_index_const(cell, 0);
+                const float *e1 = g_packed_float32_array_operator_index_const(cell, 1);
+                ok = (e0 != NULL && *e0 == 0.5f && e1 != NULL && *e1 == -2.25f);
+            }
+            if (g_packed_float32_array_destructor != NULL) g_packed_float32_array_destructor(cell);
+        }
+        KANAMA_IOS_ST_CHECK("virtual-packed-float32-ret roundtrip", ok);
+        if (g_variant_destroy != NULL) g_variant_destroy((GDExtensionVariantPtr)ret_variant);
+    }
+    {
+        const double doubles[2] = { 0.5, 1.0e308 };
+        KanamaIosPackedArgDesc desc = { 2, doubles };
+        const KanamaIosPackedArgDesc *desc_ptr = &desc;
+        uint8_t rb[32];
+        memset(rb, 0, sizeof(rb));
+        memcpy(rb, &desc_ptr, sizeof(desc_ptr));
+        uint8_t ret_variant[24];
+        memset(ret_variant, 0, sizeof(ret_variant));
+        kanama_ios_pt_return_to_variant(KANAMA_IOS_PT_PACKED_FLOAT64_ARRAY, rb, ret_variant);
+        int ok = 0;
+        kanama_ios_cache_packed_float64_methods();
+        if (g_variant_to_packed_float64_array != NULL && g_packed_float64_array_size_method != NULL &&
+            g_packed_float64_array_operator_index_const != NULL) {
+            KANAMA_IOS_PACKED_ARRAY_STORAGE(cell);
+            g_variant_to_packed_float64_array(cell, (GDExtensionVariantPtr)ret_variant);
+            int64_t n = 0;
+            g_packed_float64_array_size_method(cell, NULL, &n, 0);
+            if (n == 2) {
+                const double *e0 = g_packed_float64_array_operator_index_const(cell, 0);
+                const double *e1 = g_packed_float64_array_operator_index_const(cell, 1);
+                // 1.0e308 overflows float32 to inf — a float64 width regression fails here.
+                ok = (e0 != NULL && *e0 == 0.5 && e1 != NULL && *e1 == 1.0e308);
+            }
+            if (g_packed_float64_array_destructor != NULL) g_packed_float64_array_destructor(cell);
+        }
+        KANAMA_IOS_ST_CHECK("virtual-packed-float64-ret roundtrip(1e308)", ok);
+        if (g_variant_destroy != NULL) g_variant_destroy((GDExtensionVariantPtr)ret_variant);
+    }
+    {
+        const float vecs[6] = { 1.0f, 2.0f, 3.0f, 4.0f, 5.0f, 6.0f };
+        KanamaIosPackedArgDesc desc = { 2, vecs };
+        const KanamaIosPackedArgDesc *desc_ptr = &desc;
+        uint8_t rb[32];
+        memset(rb, 0, sizeof(rb));
+        memcpy(rb, &desc_ptr, sizeof(desc_ptr));
+        uint8_t ret_variant[24];
+        memset(ret_variant, 0, sizeof(ret_variant));
+        kanama_ios_pt_return_to_variant(KANAMA_IOS_PT_PACKED_VECTOR3_ARRAY, rb, ret_variant);
+        int ok = 0;
+        kanama_ios_cache_packed_vector3_methods();
+        if (g_variant_to_packed_vector3_array != NULL && g_packed_vector3_array_size_method != NULL &&
+            g_packed_vector3_array_operator_index_const != NULL) {
+            KANAMA_IOS_PACKED_ARRAY_STORAGE(cell);
+            g_variant_to_packed_vector3_array(cell, (GDExtensionVariantPtr)ret_variant);
+            int64_t n = 0;
+            g_packed_vector3_array_size_method(cell, NULL, &n, 0);
+            if (n == 2) {
+                const float *e0 = (const float *)g_packed_vector3_array_operator_index_const(cell, 0);
+                const float *e1 = (const float *)g_packed_vector3_array_operator_index_const(cell, 1);
+                ok = (e0 != NULL && e0[0] == 1.0f && e0[1] == 2.0f && e0[2] == 3.0f &&
+                      e1 != NULL && e1[0] == 4.0f && e1[1] == 5.0f && e1[2] == 6.0f);
+            }
+            if (g_packed_vector3_array_destructor != NULL) g_packed_vector3_array_destructor(cell);
+        }
+        KANAMA_IOS_ST_CHECK("virtual-packed-vector3-ret roundtrip", ok);
+        if (g_variant_destroy != NULL) g_variant_destroy((GDExtensionVariantPtr)ret_variant);
+    }
+    {
+        // Vector2/Color returns reuse the BUILD-tagged arg tags with the same desc layout; assert
+        // the RETURN boxing half (build -> variant_from_packed_*) for both.
+        const float v2s[4] = { 1.5f, 2.5f, -3.5f, 4.5f };
+        KanamaIosPackedArgDesc desc = { 2, v2s };
+        const KanamaIosPackedArgDesc *desc_ptr = &desc;
+        uint8_t rb[32];
+        memset(rb, 0, sizeof(rb));
+        memcpy(rb, &desc_ptr, sizeof(desc_ptr));
+        uint8_t ret_variant[24];
+        memset(ret_variant, 0, sizeof(ret_variant));
+        kanama_ios_pt_return_to_variant(KANAMA_IOS_PT_PACKED_VECTOR2_ARRAY, rb, ret_variant);
+        int ok = 0;
+        kanama_ios_cache_packed_vector2_methods();
+        if (g_variant_to_packed_vector2_array != NULL && g_packed_vector2_array_size_method != NULL &&
+            g_packed_vector2_array_operator_index_const != NULL) {
+            KANAMA_IOS_PACKED_ARRAY_STORAGE(cell);
+            g_variant_to_packed_vector2_array(cell, (GDExtensionVariantPtr)ret_variant);
+            int64_t n = 0;
+            g_packed_vector2_array_size_method(cell, NULL, &n, 0);
+            if (n == 2) {
+                const float *e0 = (const float *)g_packed_vector2_array_operator_index_const(cell, 0);
+                const float *e1 = (const float *)g_packed_vector2_array_operator_index_const(cell, 1);
+                ok = (e0 != NULL && e0[0] == 1.5f && e0[1] == 2.5f &&
+                      e1 != NULL && e1[0] == -3.5f && e1[1] == 4.5f);
+            }
+            if (g_packed_vector2_array_destructor != NULL) g_packed_vector2_array_destructor(cell);
+        }
+        KANAMA_IOS_ST_CHECK("virtual-packed-vector2-ret roundtrip", ok);
+        if (g_variant_destroy != NULL) g_variant_destroy((GDExtensionVariantPtr)ret_variant);
+    }
+    {
+        const float colors[4] = { 0.125f, 0.25f, 0.5f, 0.75f };
+        KanamaIosPackedArgDesc desc = { 1, colors };
+        const KanamaIosPackedArgDesc *desc_ptr = &desc;
+        uint8_t rb[32];
+        memset(rb, 0, sizeof(rb));
+        memcpy(rb, &desc_ptr, sizeof(desc_ptr));
+        uint8_t ret_variant[24];
+        memset(ret_variant, 0, sizeof(ret_variant));
+        kanama_ios_pt_return_to_variant(KANAMA_IOS_PT_PACKED_COLOR_ARRAY, rb, ret_variant);
+        int ok = 0;
+        kanama_ios_cache_packed_color_methods();
+        if (g_variant_to_packed_color_array != NULL && g_packed_color_array_size_method != NULL &&
+            g_packed_color_array_operator_index_const != NULL) {
+            KANAMA_IOS_PACKED_ARRAY_STORAGE(cell);
+            g_variant_to_packed_color_array(cell, (GDExtensionVariantPtr)ret_variant);
+            int64_t n = 0;
+            g_packed_color_array_size_method(cell, NULL, &n, 0);
+            if (n == 1) {
+                const float *e0 = (const float *)g_packed_color_array_operator_index_const(cell, 0);
+                ok = (e0 != NULL && e0[0] == 0.125f && e0[1] == 0.25f && e0[2] == 0.5f && e0[3] == 0.75f);
+            }
+            if (g_packed_color_array_destructor != NULL) g_packed_color_array_destructor(cell);
+        }
+        KANAMA_IOS_ST_CHECK("virtual-packed-color-ret roundtrip", ok);
+        if (g_variant_destroy != NULL) g_variant_destroy((GDExtensionVariantPtr)ret_variant);
+    }
+
+    // task 29 — Dictionary virtual RETURN. Build the entry blob a Map<String, Any?> return
+    // encodes ([count][key_len][key][val_tag][val_len][val])*, rebuild the Godot Dictionary,
+    // and read the values back through the keyed getter (int64 width + a >16B String).
+    {
+        const char *ks = "s";
+        const char *ki = "i";
+        const char *sval = "kanama-dictionary-return-selftest";  // >16B
+        int64_t ival = 72623859790382856LL;
+        uint8_t blob[256];
+        int off = 0;
+        int32_t count = 2;
+        memcpy(blob + off, &count, 4); off += 4;
+        int32_t klen = 1;
+        memcpy(blob + off, &klen, 4); off += 4;
+        memcpy(blob + off, ki, 1); off += 1;
+        int32_t vtag = KANAMA_IOS_PT_INT64;
+        int32_t vlen = 8;
+        memcpy(blob + off, &vtag, 4); off += 4;
+        memcpy(blob + off, &vlen, 4); off += 4;
+        memcpy(blob + off, &ival, 8); off += 8;
+        memcpy(blob + off, &klen, 4); off += 4;
+        memcpy(blob + off, ks, 1); off += 1;
+        vtag = KANAMA_IOS_PT_STRING;
+        vlen = (int32_t)strlen(sval);
+        memcpy(blob + off, &vtag, 4); off += 4;
+        memcpy(blob + off, &vlen, 4); off += 4;
+        memcpy(blob + off, sval, (size_t)vlen); off += vlen;
+
+        const uint8_t *blob_ptr = blob;
+        uint8_t rb[32];
+        memset(rb, 0, sizeof(rb));
+        memcpy(rb, &blob_ptr, sizeof(blob_ptr));
+        uint8_t ret_variant[24];
+        memset(ret_variant, 0, sizeof(ret_variant));
+        kanama_ios_pt_return_to_variant(KANAMA_IOS_PT_DICTIONARY, rb, ret_variant);
+
+        int ok = 0;
+        if (g_variant_to_dictionary != NULL) {
+            uint64_t dict = 0;
+            g_variant_to_dictionary(&dict, (GDExtensionVariantPtr)ret_variant);
+            int64_t got_i = kanama_ios_dictionary_get_int(&dict, "i");
+            uint8_t sval_variant[24];
+            memset(sval_variant, 0, sizeof(sval_variant));
+            kanama_ios_dictionary_get_variant(&dict, "s", sval_variant);
+            char *got_s = NULL;
+            if (g_variant_to_string != NULL) {
+                uint64_t raw_str = 0;
+                g_variant_to_string(&raw_str, (GDExtensionVariantPtr)sval_variant);
+                got_s = kanama_ios_string_to_utf8_dup((GDExtensionConstStringPtr)&raw_str);
+                kanama_ios_destroy_string(&raw_str);
+            }
+            g_variant_destroy(sval_variant);
+            ok = (got_i == ival && got_s != NULL && strcmp(got_s, sval) == 0);
+            free(got_s);
+            if (g_dictionary_destructor != NULL) {
+                g_dictionary_destructor(&dict);
+            }
+        }
+        KANAMA_IOS_ST_CHECK("virtual-dictionary-ret roundtrip(int64+>16B-string)", ok);
+        if (g_variant_destroy != NULL) g_variant_destroy((GDExtensionVariantPtr)ret_variant);
+    }
+
+    // task 29 — generic Array virtual RETURN. Build the element blob a List<Any?> return encodes
+    // ([count][elem_tag][elem_len][elem])*, rebuild the Godot Array, and read elements back
+    // through Array.get (int64 + String + bool).
+    {
+        const char *sval = "kanama";
+        int64_t ival = 5;
+        uint8_t bval = 1;
+        uint8_t blob[128];
+        int off = 0;
+        int32_t count = 3;
+        memcpy(blob + off, &count, 4); off += 4;
+        int32_t tag_i = KANAMA_IOS_PT_INT64;
+        int32_t len_i = 8;
+        memcpy(blob + off, &tag_i, 4); off += 4;
+        memcpy(blob + off, &len_i, 4); off += 4;
+        memcpy(blob + off, &ival, 8); off += 8;
+        int32_t tag_s = KANAMA_IOS_PT_STRING;
+        int32_t len_s = (int32_t)strlen(sval);
+        memcpy(blob + off, &tag_s, 4); off += 4;
+        memcpy(blob + off, &len_s, 4); off += 4;
+        memcpy(blob + off, sval, (size_t)len_s); off += len_s;
+        int32_t tag_b = KANAMA_IOS_PT_BOOL;
+        int32_t len_b = 1;
+        memcpy(blob + off, &tag_b, 4); off += 4;
+        memcpy(blob + off, &len_b, 4); off += 4;
+        memcpy(blob + off, &bval, 1); off += 1;
+
+        const uint8_t *blob_ptr = blob;
+        uint8_t rb[32];
+        memset(rb, 0, sizeof(rb));
+        memcpy(rb, &blob_ptr, sizeof(blob_ptr));
+        uint8_t ret_variant[24];
+        memset(ret_variant, 0, sizeof(ret_variant));
+        kanama_ios_pt_return_to_variant(KANAMA_IOS_PT_ARRAY, rb, ret_variant);
+
+        int ok = 0;
+        if (g_variant_to_array != NULL) {
+            GDExtensionInterfaceArrayOperatorIndexConst array_index_const =
+                (GDExtensionInterfaceArrayOperatorIndexConst)kanama_ios_lookup(
+                    "array_operator_index_const");
+            KANAMA_IOS_PACKED_ARRAY_STORAGE(arr);
+            g_variant_to_array(arr, (GDExtensionVariantPtr)ret_variant);
+            if (array_index_const != NULL) {
+                GDExtensionVariantPtr v0 = array_index_const(arr, 0);
+                GDExtensionVariantPtr v1 = array_index_const(arr, 1);
+                GDExtensionVariantPtr v2 = array_index_const(arr, 2);
+                int64_t got_i = 0;
+                char *got_s = NULL;
+                GDExtensionBool got_b = 0;
+                if (v0 != NULL && g_variant_to_int != NULL) g_variant_to_int(&got_i, v0);
+                if (v1 != NULL && g_variant_to_string != NULL) {
+                    uint64_t raw_str = 0;
+                    g_variant_to_string(&raw_str, v1);
+                    got_s = kanama_ios_string_to_utf8_dup((GDExtensionConstStringPtr)&raw_str);
+                    kanama_ios_destroy_string(&raw_str);
+                }
+                if (v2 != NULL && g_variant_to_bool != NULL) g_variant_to_bool(&got_b, v2);
+                ok = (got_i == 5 && got_s != NULL && strcmp(got_s, "kanama") == 0 && got_b != 0);
+                free(got_s);
+            }
+            if (g_array_destructor == NULL && g_variant_get_ptr_destructor != NULL) {
+                g_array_destructor = g_variant_get_ptr_destructor(KANAMA_IOS_VARIANT_TYPE_ARRAY);
+            }
+            if (g_array_destructor != NULL) {
+                g_array_destructor(arr);
+            }
+        }
+        KANAMA_IOS_ST_CHECK("virtual-array-ret roundtrip(int64+string+bool)", ok);
+        if (g_variant_destroy != NULL) g_variant_destroy((GDExtensionVariantPtr)ret_variant);
+    }
+
+    // task 29 — RID virtual RETURN (POD passthrough through pt_arg_to_variant's new RID case).
+    {
+        uint64_t rid = 0;  // a null RID is the only deterministic RID in a scene-less self-test
+        uint8_t rb[32];
+        memset(rb, 0, sizeof(rb));
+        memcpy(rb, &rid, sizeof(rid));
+        uint8_t ret_variant[24];
+        memset(ret_variant, 0, sizeof(ret_variant));
+        kanama_ios_pt_return_to_variant(KANAMA_IOS_PT_RID, rb, ret_variant);
+        int ok = (g_variant_get_type != NULL &&
+                  (int32_t)g_variant_get_type((GDExtensionVariantPtr)ret_variant) ==
+                      KANAMA_IOS_VARIANT_TYPE_RID);
+        KANAMA_IOS_ST_CHECK("virtual-rid-ret boxes as RID", ok);
+        if (g_variant_destroy != NULL) g_variant_destroy((GDExtensionVariantPtr)ret_variant);
     }
 
     // StringName-return: Node.set_name("KanamaSN") -> get_name(). Exercises the

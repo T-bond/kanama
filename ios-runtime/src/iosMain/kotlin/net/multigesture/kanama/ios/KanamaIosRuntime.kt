@@ -20,6 +20,7 @@ import kotlinx.cinterop.readBytes
 import kotlinx.cinterop.reinterpret
 import kotlinx.cinterop.set
 import kotlinx.cinterop.toKString
+import kotlinx.cinterop.toLong
 import kotlinx.cinterop.value
 import net.multigesture.kanama.api.MainThread
 import net.multigesture.kanama.ios.cinterop.kanama_ios_godot_get_method_bind
@@ -29,6 +30,7 @@ import net.multigesture.kanama.types.Color
 import net.multigesture.kanama.types.GodotReal
 import net.multigesture.kanama.types.GodotRealVar
 import net.multigesture.kanama.types.NodePath
+import net.multigesture.kanama.types.RID
 import net.multigesture.kanama.types.Vector2
 import net.multigesture.kanama.types.Vector2i
 import net.multigesture.kanama.types.Vector3
@@ -740,6 +742,25 @@ private const val IOS_PT_NODE_PATH = 17
 // match KANAMA_IOS_PT_PACKED_STRING_ARRAY appended at the end of the C PT enum.
 private const val IOS_PT_PACKED_STRING_ARRAY = 28
 
+// Return-only (task 29): remaining virtual-return families; values must match the C PT enum.
+// RID reuses the C arg-side tag 14 (a single uint64 inline in retBuf).
+private const val IOS_PT_RID = 14
+// DICTIONARY/ARRAY: retBuf holds a pointer to a length-prefixed tagged-entry blob (see
+// IosReturnContainerScratch). Fixed-element packed arrays: retBuf holds a pointer to a
+// {int64 count, pointer data} desc followed by the flat element buffer (see
+// IosReturnPackedDescScratch); PackedVector2Array/PackedColorArray reuse the C BUILD-arg
+// tags 23/24 with the same desc layout.
+private const val IOS_PT_PACKED_VECTOR2_ARRAY = 23
+private const val IOS_PT_PACKED_COLOR_ARRAY = 24
+private const val IOS_PT_DICTIONARY = 29
+private const val IOS_PT_ARRAY = 30
+private const val IOS_PT_PACKED_BYTE_ARRAY = 31
+private const val IOS_PT_PACKED_INT32_ARRAY = 32
+private const val IOS_PT_PACKED_INT64_ARRAY = 33
+private const val IOS_PT_PACKED_FLOAT32_ARRAY = 34
+private const val IOS_PT_PACKED_FLOAT64_ARRAY = 35
+private const val IOS_PT_PACKED_VECTOR3_ARRAY = 36
+
 // Decodes one PT-tagged inbound call arg (see kanama_ios_script_instance_call). OBJECT yields the
 // raw int64 handle; the generated callV branch wraps it in the declared GodotObject subtype.
 @OptIn(ExperimentalForeignApi::class)
@@ -856,6 +877,14 @@ private fun encodeIosReturn(value: Any?, retTag: CPointer<IntVar>?, retBuf: CPoi
             val n = retBuf.reinterpret<IntVar>()
             n[0] = value.x; n[1] = value.y; retTag[0] = IOS_PT_VECTOR2I
         }
+        // task 29 — Vector3 POD return (3x real_t, 12 bytes inline in the 32-byte scratch).
+        is Vector3 -> {
+            val f = retBuf.reinterpret<GodotRealVar>()
+            f[0] = GodotReal.toC(value.x); f[1] = GodotReal.toC(value.y); f[2] = GodotReal.toC(value.z)
+            retTag[0] = IOS_PT_VECTOR3
+        }
+        // task 29 — RID passthrough return (a single uint64 inline in the scratch).
+        is RID -> { retBuf.reinterpret<LongVar>()[0] = value.value; retTag[0] = IOS_PT_RID }
         // Non-POD (task 13): a String return can exceed the fixed retBuf, so we hand back a
         // pointer to a persistent scratch buffer; the C side (kanama_ios_pt_return_to_variant)
         // builds the Godot String from it and destroys the temporary after copying.
@@ -864,14 +893,67 @@ private fun encodeIosReturn(value: Any?, retTag: CPointer<IntVar>?, retBuf: CPoi
             retBuf.reinterpret<CPointerVar<ByteVar>>()[0] = ptr
             retTag[0] = IOS_PT_STRING
         }
-        // Non-POD (task 13): a List<String> return is a PackedStringArray. Ship a length-prefixed
-        // blob via a reused scratch and let the C side rebuild the Godot PackedStringArray. Only
-        // String elements reach here (the processor validates the return type as PackedStringArray).
-        is List<*> -> {
-            @Suppress("UNCHECKED_CAST")
-            val ptr = IosReturnPackedStringArrayScratch.encode(value as List<String>)
-            retBuf.reinterpret<CPointerVar<ByteVar>>()[0] = ptr
-            retTag[0] = IOS_PT_PACKED_STRING_ARRAY
+        // task 29 — fixed-element packed-array returns: ship a {count, data} desc + flat element
+        // buffer via a reused scratch; the C side rebuilds the matching Packed*Array from it.
+        is ByteArray -> {
+            retBuf.reinterpret<CPointerVar<ByteVar>>()[0] = IosReturnPackedDescScratch.encodeBytes(value)
+            retTag[0] = IOS_PT_PACKED_BYTE_ARRAY
+        }
+        is IntArray -> {
+            retBuf.reinterpret<CPointerVar<ByteVar>>()[0] = IosReturnPackedDescScratch.encodeInts(value)
+            retTag[0] = IOS_PT_PACKED_INT32_ARRAY
+        }
+        is LongArray -> {
+            retBuf.reinterpret<CPointerVar<ByteVar>>()[0] = IosReturnPackedDescScratch.encodeLongs(value)
+            retTag[0] = IOS_PT_PACKED_INT64_ARRAY
+        }
+        is FloatArray -> {
+            retBuf.reinterpret<CPointerVar<ByteVar>>()[0] = IosReturnPackedDescScratch.encodeFloats(value)
+            retTag[0] = IOS_PT_PACKED_FLOAT32_ARRAY
+        }
+        is DoubleArray -> {
+            retBuf.reinterpret<CPointerVar<ByteVar>>()[0] = IosReturnPackedDescScratch.encodeDoubles(value)
+            retTag[0] = IOS_PT_PACKED_FLOAT64_ARRAY
+        }
+        // task 29 — Dictionary return (Map<String, Any?>): ship a tagged-entry blob; the C side
+        // rebuilds the Godot Dictionary (String keys, audited scalar values, unaudited -> nil).
+        is Map<*, *> -> {
+            retBuf.reinterpret<CPointerVar<ByteVar>>()[0] = IosReturnContainerScratch.encodeDictionary(value)
+            retTag[0] = IOS_PT_DICTIONARY
+        }
+        // List returns dispatch on the element type: String -> PackedStringArray (task 13 blob),
+        // Vector2/Vector3/Color -> the matching Packed*Array desc (task 29), anything else
+        // (including the empty list, which converts to any packed/typed array engine-side) -> a
+        // generic Godot Array of audited tagged elements (task 29).
+        is List<*> -> when (value.firstOrNull()) {
+            is String -> {
+                @Suppress("UNCHECKED_CAST")
+                val ptr = IosReturnPackedStringArrayScratch.encode(value as List<String>)
+                retBuf.reinterpret<CPointerVar<ByteVar>>()[0] = ptr
+                retTag[0] = IOS_PT_PACKED_STRING_ARRAY
+            }
+            is Vector2 -> {
+                @Suppress("UNCHECKED_CAST")
+                retBuf.reinterpret<CPointerVar<ByteVar>>()[0] =
+                    IosReturnPackedDescScratch.encodeVector2s(value as List<Vector2>)
+                retTag[0] = IOS_PT_PACKED_VECTOR2_ARRAY
+            }
+            is Vector3 -> {
+                @Suppress("UNCHECKED_CAST")
+                retBuf.reinterpret<CPointerVar<ByteVar>>()[0] =
+                    IosReturnPackedDescScratch.encodeVector3s(value as List<Vector3>)
+                retTag[0] = IOS_PT_PACKED_VECTOR3_ARRAY
+            }
+            is Color -> {
+                @Suppress("UNCHECKED_CAST")
+                retBuf.reinterpret<CPointerVar<ByteVar>>()[0] =
+                    IosReturnPackedDescScratch.encodeColors(value as List<Color>)
+                retTag[0] = IOS_PT_PACKED_COLOR_ARRAY
+            }
+            else -> {
+                retBuf.reinterpret<CPointerVar<ByteVar>>()[0] = IosReturnContainerScratch.encodeArray(value)
+                retTag[0] = IOS_PT_ARRAY
+            }
         }
         else -> retTag[0] = IOS_PT_VOID
     }
@@ -991,6 +1073,357 @@ private object IosReturnPackedStringArrayScratch {
 @OptIn(ExperimentalForeignApi::class)
 internal fun kanamaIosVirtualPackedStringArrayReturnSelfTest(values: List<String>): List<String> =
     IosReturnPackedStringArrayScratch.selfTestRoundTrip(values)
+
+// Persistent scratch for the fixed-element packed-array virtual returns (task 29). Encodes a
+// KanamaIosPackedArgDesc header {int64 count, pointer data} followed by the flat element buffer
+// into one reused allocation (data points 16 bytes past the header). Same buffer-reuse contract
+// as IosReturnStringScratch: dispatch is synchronous and C copies elements out (push_back per
+// element) before the next encode can overwrite them. Header and elements are written
+// byte-by-byte little-endian (matching this arm64 target); the C side memcpy's per element, so
+// no alignment is assumed beyond the malloc'd base the desc struct itself needs.
+@OptIn(ExperimentalForeignApi::class)
+private object IosReturnPackedDescScratch {
+    private var buf: CPointer<ByteVar>? = null
+    private var capacity: Int = 0
+
+    private fun ensure(needed: Int): CPointer<ByteVar> {
+        val existing = buf
+        return if (existing == null || capacity < needed) {
+            if (existing != null) nativeHeap.free(existing)
+            val fresh = nativeHeap.allocArray<ByteVar>(needed)
+            buf = fresh
+            capacity = needed
+            fresh
+        } else {
+            existing
+        }
+    }
+
+    private fun putInt32LE(b: CPointer<ByteVar>, off: Int, v: Int) {
+        b[off] = (v and 0xFF).toByte()
+        b[off + 1] = ((v ushr 8) and 0xFF).toByte()
+        b[off + 2] = ((v ushr 16) and 0xFF).toByte()
+        b[off + 3] = ((v ushr 24) and 0xFF).toByte()
+    }
+
+    private fun putInt64LE(b: CPointer<ByteVar>, off: Int, v: Long) {
+        for (i in 0 until 8) b[off + i] = ((v ushr (i * 8)) and 0xFF).toByte()
+    }
+
+    private fun header(count: Int, elemBytes: Int): CPointer<ByteVar> {
+        var needed = 16 + count * elemBytes
+        if (needed < 16) needed = 16
+        val b = ensure(needed)
+        putInt64LE(b, 0, count.toLong())
+        putInt64LE(b, 8, b.toLong() + 16L)
+        return b
+    }
+
+    fun encodeBytes(values: ByteArray): CPointer<ByteVar> {
+        val b = header(values.size, 1)
+        for (i in values.indices) b[16 + i] = values[i]
+        return b
+    }
+
+    fun encodeInts(values: IntArray): CPointer<ByteVar> {
+        val b = header(values.size, 4)
+        for (i in values.indices) putInt32LE(b, 16 + i * 4, values[i])
+        return b
+    }
+
+    fun encodeLongs(values: LongArray): CPointer<ByteVar> {
+        val b = header(values.size, 8)
+        for (i in values.indices) putInt64LE(b, 16 + i * 8, values[i])
+        return b
+    }
+
+    fun encodeFloats(values: FloatArray): CPointer<ByteVar> {
+        val b = header(values.size, 4)
+        for (i in values.indices) putInt32LE(b, 16 + i * 4, values[i].toRawBits())
+        return b
+    }
+
+    fun encodeDoubles(values: DoubleArray): CPointer<ByteVar> {
+        val b = header(values.size, 8)
+        for (i in values.indices) putInt64LE(b, 16 + i * 8, values[i].toRawBits())
+        return b
+    }
+
+    fun encodeVector2s(values: List<Vector2>): CPointer<ByteVar> {
+        val b = header(values.size, 8)
+        for (i in values.indices) {
+            putInt32LE(b, 16 + i * 8, GodotReal.toC(values[i].x).toRawBits())
+            putInt32LE(b, 16 + i * 8 + 4, GodotReal.toC(values[i].y).toRawBits())
+        }
+        return b
+    }
+
+    fun encodeVector3s(values: List<Vector3>): CPointer<ByteVar> {
+        val b = header(values.size, 12)
+        for (i in values.indices) {
+            putInt32LE(b, 16 + i * 12, GodotReal.toC(values[i].x).toRawBits())
+            putInt32LE(b, 16 + i * 12 + 4, GodotReal.toC(values[i].y).toRawBits())
+            putInt32LE(b, 16 + i * 12 + 8, GodotReal.toC(values[i].z).toRawBits())
+        }
+        return b
+    }
+
+    fun encodeColors(values: List<Color>): CPointer<ByteVar> {
+        val b = header(values.size, 16)
+        for (i in values.indices) {
+            putInt32LE(b, 16 + i * 16, values[i].r.toRawBits())
+            putInt32LE(b, 16 + i * 16 + 4, values[i].g.toRawBits())
+            putInt32LE(b, 16 + i * 16 + 8, values[i].b.toRawBits())
+            putInt32LE(b, 16 + i * 16 + 12, values[i].a.toRawBits())
+        }
+        return b
+    }
+
+    // Width self-test hook (task 29): parse the encoded desc back the way the C side reads it
+    // (count from the header, data pointer, elemBytes-wide elements) and return the raw element
+    // bytes so the OBJECTCALLS SELFTEST can assert widths and boundaries per family.
+    fun selfTestReadBack(desc: CPointer<ByteVar>, elemBytes: Int): Pair<Long, ByteArray> {
+        fun int64LE(off: Int): Long {
+            var v = 0L
+            for (i in 0 until 8) v = v or ((desc[off + i].toLong() and 0xFF) shl (i * 8))
+            return v
+        }
+        val count = int64LE(0)
+        val data = int64LE(8)
+        // data must point 16 bytes past the desc base (the single-allocation contract).
+        if (data != desc.toLong() + 16L) return Pair(-1L, ByteArray(0))
+        val total = (count * elemBytes).toInt()
+        val bytes = ByteArray(total) { i -> desc[16 + i] }
+        return Pair(count, bytes)
+    }
+}
+
+// Persistent scratch for Dictionary/Array virtual returns (task 29). Encodes the container into a
+// length-prefixed tagged blob the C side rebuilds —
+// Dictionary: [int32 count]([int32 keyLen][key utf8][int32 valTag][int32 valLen][val bytes])*
+// Array:      [int32 count]([int32 elemTag][int32 elemLen][elem bytes])*
+// Values use the audited scalar encodings of kanama_ios_pt_blob_value_to_variant; an unaudited
+// value ships as PT_VOID/nil (the same policy as the Variant-return dispatch). Same buffer-reuse
+// contract as the other return scratches.
+@OptIn(ExperimentalForeignApi::class)
+private object IosReturnContainerScratch {
+    private var buf: CPointer<ByteVar>? = null
+    private var capacity: Int = 0
+
+    private fun ensure(needed: Int): CPointer<ByteVar> {
+        val existing = buf
+        return if (existing == null || capacity < needed) {
+            if (existing != null) nativeHeap.free(existing)
+            val fresh = nativeHeap.allocArray<ByteVar>(needed)
+            buf = fresh
+            capacity = needed
+            fresh
+        } else {
+            existing
+        }
+    }
+
+    private fun putInt32LE(dest: ByteArray, off: Int, v: Int) {
+        dest[off] = (v and 0xFF).toByte()
+        dest[off + 1] = ((v ushr 8) and 0xFF).toByte()
+        dest[off + 2] = ((v ushr 16) and 0xFF).toByte()
+        dest[off + 3] = ((v ushr 24) and 0xFF).toByte()
+    }
+
+    private fun int64Bytes(v: Long): ByteArray = ByteArray(8) { i -> ((v ushr (i * 8)) and 0xFF).toByte() }
+
+    private fun float32Bytes(vararg components: Float): ByteArray {
+        val out = ByteArray(components.size * 4)
+        for ((i, c) in components.withIndex()) putInt32LE(out, i * 4, c.toRawBits())
+        return out
+    }
+
+    /** PT tag + payload bytes for one audited container value; unaudited -> PT_VOID/nil. */
+    internal fun taggedValue(value: Any?): Pair<Int, ByteArray> = when (value) {
+        null -> Pair(IOS_PT_VOID, ByteArray(0))
+        is Boolean -> Pair(IOS_PT_BOOL, byteArrayOf(if (value) 1 else 0))
+        is Int -> Pair(IOS_PT_INT64, int64Bytes(value.toLong()))
+        is Long -> Pair(IOS_PT_INT64, int64Bytes(value))
+        is Float -> Pair(IOS_PT_FLOAT64, int64Bytes(value.toDouble().toRawBits()))
+        is Double -> Pair(IOS_PT_FLOAT64, int64Bytes(value.toRawBits()))
+        is String -> Pair(IOS_PT_STRING, value.encodeToByteArray())
+        is Vector2 -> Pair(IOS_PT_VECTOR2, float32Bytes(GodotReal.toC(value.x), GodotReal.toC(value.y)))
+        is Vector2i -> {
+            val out = ByteArray(8)
+            putInt32LE(out, 0, value.x)
+            putInt32LE(out, 4, value.y)
+            Pair(IOS_PT_VECTOR2I, out)
+        }
+        is Vector3 -> Pair(
+            IOS_PT_VECTOR3,
+            float32Bytes(GodotReal.toC(value.x), GodotReal.toC(value.y), GodotReal.toC(value.z)),
+        )
+        is Color -> Pair(IOS_PT_COLOR, float32Bytes(value.r, value.g, value.b, value.a))
+        is RID -> Pair(IOS_PT_RID, int64Bytes(value.value))
+        else -> Pair(IOS_PT_VOID, ByteArray(0))
+    }
+
+    fun encodeDictionary(map: Map<*, *>): CPointer<ByteVar> {
+        val entries = map.entries.map { (k, v) ->
+            Pair((k as? String ?: k.toString()).encodeToByteArray(), taggedValue(v))
+        }
+        var needed = 4
+        for ((key, tagged) in entries) needed += 4 + key.size + 8 + tagged.second.size
+        val b = ensure(needed)
+        var off = 0
+        fun putInt32(v: Int) {
+            b[off] = (v and 0xFF).toByte()
+            b[off + 1] = ((v ushr 8) and 0xFF).toByte()
+            b[off + 2] = ((v ushr 16) and 0xFF).toByte()
+            b[off + 3] = ((v ushr 24) and 0xFF).toByte()
+            off += 4
+        }
+        fun putBytes(bytes: ByteArray) {
+            for (i in bytes.indices) b[off + i] = bytes[i]
+            off += bytes.size
+        }
+        putInt32(entries.size)
+        for ((key, tagged) in entries) {
+            putInt32(key.size)
+            putBytes(key)
+            putInt32(tagged.first)
+            putInt32(tagged.second.size)
+            putBytes(tagged.second)
+        }
+        return b
+    }
+
+    fun encodeArray(values: List<*>): CPointer<ByteVar> {
+        val elements = values.map { taggedValue(it) }
+        var needed = 4
+        for (tagged in elements) needed += 8 + tagged.second.size
+        val b = ensure(needed)
+        var off = 0
+        fun putInt32(v: Int) {
+            b[off] = (v and 0xFF).toByte()
+            b[off + 1] = ((v ushr 8) and 0xFF).toByte()
+            b[off + 2] = ((v ushr 16) and 0xFF).toByte()
+            b[off + 3] = ((v ushr 24) and 0xFF).toByte()
+            off += 4
+        }
+        fun putBytes(bytes: ByteArray) {
+            for (i in bytes.indices) b[off + i] = bytes[i]
+            off += bytes.size
+        }
+        putInt32(elements.size)
+        for (tagged in elements) {
+            putInt32(tagged.first)
+            putInt32(tagged.second.size)
+            putBytes(tagged.second)
+        }
+        return b
+    }
+
+    // Width self-test hook (task 29): parse an encoded blob back the way the C side reads it —
+    // a list of (tag, payload) with dictionary entries also carrying their key. Returned as
+    // "key=tag:len" / "tag:len" summaries plus the raw payloads for byte-exact checks.
+    fun selfTestParse(blob: CPointer<ByteVar>, isDictionary: Boolean): List<Triple<String, Int, ByteArray>> {
+        var off = 0
+        fun int32LE(): Int {
+            val v = (blob[off].toInt() and 0xFF) or ((blob[off + 1].toInt() and 0xFF) shl 8) or
+                ((blob[off + 2].toInt() and 0xFF) shl 16) or ((blob[off + 3].toInt() and 0xFF) shl 24)
+            off += 4
+            return v
+        }
+        fun bytes(n: Int): ByteArray {
+            val out = ByteArray(n) { i -> blob[off + i] }
+            off += n
+            return out
+        }
+        val count = int32LE()
+        val out = ArrayList<Triple<String, Int, ByteArray>>(count)
+        repeat(count) {
+            val key = if (isDictionary) bytes(int32LE()).decodeToString() else ""
+            val tag = int32LE()
+            val len = int32LE()
+            out.add(Triple(key, tag, bytes(len)))
+        }
+        return out
+    }
+}
+
+/**
+ * OBJECTCALLS-SELFTEST hooks for the task-29 return encoders. Each encodes through the same
+ * scratch the live return path uses and parses the buffer back the way the C side reads it,
+ * so the on-device rows assert element widths and boundaries without needing an engine call.
+ */
+@OptIn(ExperimentalForeignApi::class)
+internal fun kanamaIosVirtualPackedIntsReturnSelfTest(values: IntArray): List<Int> {
+    val (count, bytes) = IosReturnPackedDescScratch.selfTestReadBack(
+        IosReturnPackedDescScratch.encodeInts(values), 4)
+    if (count.toInt() != values.size) return emptyList()
+    return List(values.size) { i ->
+        (bytes[i * 4].toInt() and 0xFF) or ((bytes[i * 4 + 1].toInt() and 0xFF) shl 8) or
+            ((bytes[i * 4 + 2].toInt() and 0xFF) shl 16) or ((bytes[i * 4 + 3].toInt() and 0xFF) shl 24)
+    }
+}
+
+@OptIn(ExperimentalForeignApi::class)
+internal fun kanamaIosVirtualPackedLongsReturnSelfTest(values: LongArray): List<Long> {
+    val (count, bytes) = IosReturnPackedDescScratch.selfTestReadBack(
+        IosReturnPackedDescScratch.encodeLongs(values), 8)
+    if (count.toInt() != values.size) return emptyList()
+    return List(values.size) { i ->
+        var v = 0L
+        for (j in 0 until 8) v = v or ((bytes[i * 8 + j].toLong() and 0xFF) shl (j * 8))
+        v
+    }
+}
+
+@OptIn(ExperimentalForeignApi::class)
+internal fun kanamaIosVirtualPackedBytesReturnSelfTest(values: ByteArray): ByteArray {
+    val (count, bytes) = IosReturnPackedDescScratch.selfTestReadBack(
+        IosReturnPackedDescScratch.encodeBytes(values), 1)
+    return if (count.toInt() == values.size) bytes else ByteArray(0)
+}
+
+@OptIn(ExperimentalForeignApi::class)
+internal fun kanamaIosVirtualPackedDoublesReturnSelfTest(values: DoubleArray): List<Double> {
+    val (count, bytes) = IosReturnPackedDescScratch.selfTestReadBack(
+        IosReturnPackedDescScratch.encodeDoubles(values), 8)
+    if (count.toInt() != values.size) return emptyList()
+    return List(values.size) { i ->
+        var v = 0L
+        for (j in 0 until 8) v = v or ((bytes[i * 8 + j].toLong() and 0xFF) shl (j * 8))
+        Double.fromBits(v)
+    }
+}
+
+@OptIn(ExperimentalForeignApi::class)
+internal fun kanamaIosVirtualPackedVector3ReturnSelfTest(values: List<Vector3>): List<Vector3> {
+    val (count, bytes) = IosReturnPackedDescScratch.selfTestReadBack(
+        IosReturnPackedDescScratch.encodeVector3s(values), 12)
+    if (count.toInt() != values.size) return emptyList()
+    fun f32(off: Int): Float {
+        val bits = (bytes[off].toInt() and 0xFF) or ((bytes[off + 1].toInt() and 0xFF) shl 8) or
+            ((bytes[off + 2].toInt() and 0xFF) shl 16) or ((bytes[off + 3].toInt() and 0xFF) shl 24)
+        return Float.fromBits(bits)
+    }
+    return List(values.size) { i ->
+        Vector3(
+            GodotReal.fromC(f32(i * 12)),
+            GodotReal.fromC(f32(i * 12 + 4)),
+            GodotReal.fromC(f32(i * 12 + 8)),
+        )
+    }
+}
+
+// Dictionary/Array blob round-trips: returns "key=tag:payloadLen" / "tag:payloadLen" summaries in
+// encode order so the row can assert entry boundaries, tag routing, and payload widths.
+@OptIn(ExperimentalForeignApi::class)
+internal fun kanamaIosVirtualDictionaryReturnSelfTest(map: Map<String, Any?>): List<String> =
+    IosReturnContainerScratch.selfTestParse(IosReturnContainerScratch.encodeDictionary(map), true)
+        .map { (key, tag, payload) -> "$key=$tag:${payload.size}" }
+
+@OptIn(ExperimentalForeignApi::class)
+internal fun kanamaIosVirtualArrayReturnSelfTest(values: List<Any?>): List<String> =
+    IosReturnContainerScratch.selfTestParse(IosReturnContainerScratch.encodeArray(values), false)
+        .map { (_, tag, payload) -> "$tag:${payload.size}" }
 
 // OBJECTCALLS-SELFTEST hook for Variant virtual returns (task 13). A Variant-returning virtual hands
 // back an Any?; encodeIosReturn dispatches on its runtime type to the matching PT tag (the C side

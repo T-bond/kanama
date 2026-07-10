@@ -160,12 +160,17 @@ def render_markdown(
             "(GDScript-style `fun _draw()`). The processor validates each override against a generated "
             "signature table (`scripts/generate_virtual_signature_table.py`, all virtuals) and dispatches "
             "it on both targets. They are reported here separately so they neither dilute callable-method "
-            "coverage nor count as wrapper gaps. Practical marshalling bounds (task 13): desktop/Android "
-            "cover the audited scalar/POD Variant shapes plus String, PackedStringArray, and Variant "
-            "(Any?) returns; iOS value-returns cover Bool/Int/Float/Vector2/Vector2i/String/"
-            "PackedStringArray, and Variant returns over that audited inner-type set (unaudited inner "
-            "types serialize as nil on iOS). Other Packed* arrays and Dictionary virtual returns are "
-            "deferred (not yet in the audited return type set).",
+            "coverage nor count as wrapper gaps. Practical marshalling bounds (tasks 13 + 29): "
+            "desktop/Android cover **every** Variant-expressible return family — the audited scalar/POD "
+            "shapes, String, all Packed* arrays, Dictionary (`Map<String, Any?>`), generic/typed Array "
+            "(`List<Any?>`), RID, Rect2, AABB, Transform2D, Transform3D, Projection, and Variant (`Any?`); "
+            "the only excluded returns are the 6 raw-pointer virtuals (`void*`, `const Glyph*`), which are "
+            "not Variant-expressible by design (see wrapper-maintenance.md). iOS value-returns cover "
+            "Bool/Int/Float/Vector2/Vector2i/Vector3/String/RID, all fixed-element Packed* arrays, "
+            "PackedStringArray, Dictionary, generic Array, and Variant returns over that audited "
+            "inner-type set (unaudited inner types serialize as nil on iOS); the Rect2/AABB/Transform2D/"
+            "Transform3D/Projection returns stay desktop/Android-only for now (by design, "
+            "wrapper-maintenance.md).",
             "",
             "## Promoted Source By Area",
             "",

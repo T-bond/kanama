@@ -822,17 +822,47 @@ class KanamaProcessor(
             if (s.isEmpty()) s else s[0].uppercaseChar() + s.substring(1)
 
         // Return-type resolution for @OverrideVirtual, extending fqToTypeMapping with the generic
-        // container returns that carry a type argument (task 13). `List<String>`/`MutableList<String>`
-        // -> PackedStringArray; anything else falls through to the scalar/POD fqToTypeMapping.
+        // container returns that carry a type argument (task 13) and the remaining return families
+        // (task 29). `List<T>` element type selects the packed family (String -> PackedStringArray,
+        // Vector2/Vector3/Color -> the matching Packed*Array, Any -> generic Array — also the shape
+        // for the engine's typedarray::* returns); Kotlin primitive arrays are the width-unambiguous
+        // int/float packed families; `Map<String, *>` is a Dictionary. Anything else falls through
+        // to the scalar/POD fqToTypeMapping.
         internal fun virtualReturnTypeMapping(type: KSType, fq: String?): TypeMapping? {
             if (fq == "kotlin.collections.List" || fq == "kotlin.collections.MutableList") {
                 val elementFq = type.arguments.firstOrNull()?.type?.resolve()
                     ?.declaration?.qualifiedName?.asString()
-                return if (elementFq == "kotlin.String") TypeMapping.PACKED_STRING_ARRAY else null
+                return when (elementFq) {
+                    "kotlin.String" -> TypeMapping.PACKED_STRING_ARRAY
+                    "net.multigesture.kanama.types.Vector2" -> TypeMapping.PACKED_VECTOR2_ARRAY
+                    "net.multigesture.kanama.types.Vector3" -> TypeMapping.PACKED_VECTOR3_ARRAY
+                    "net.multigesture.kanama.types.Color" -> TypeMapping.PACKED_COLOR_ARRAY
+                    "kotlin.Any" -> TypeMapping.ARRAY
+                    else -> null
+                }
+            }
+            if (fq == "kotlin.collections.Map" || fq == "kotlin.collections.MutableMap") {
+                val keyFq = type.arguments.firstOrNull()?.type?.resolve()
+                    ?.declaration?.qualifiedName?.asString()
+                // String keys only — the same audited policy as the non-virtual Dictionary helpers.
+                return if (keyFq == "kotlin.String") TypeMapping.DICTIONARY else null
             }
             // `Any`/`Any?` return -> Variant (the flexible catch-all; e.g. Control._get_drag_data).
             if (fq == "kotlin.Any") return TypeMapping.VARIANT
-            return fqToTypeMapping(fq)
+            return when (fq) {
+                "kotlin.ByteArray" -> TypeMapping.PACKED_BYTE_ARRAY
+                "kotlin.IntArray" -> TypeMapping.PACKED_INT32_ARRAY
+                "kotlin.LongArray" -> TypeMapping.PACKED_INT64_ARRAY
+                "kotlin.FloatArray" -> TypeMapping.PACKED_FLOAT32_ARRAY
+                "kotlin.DoubleArray" -> TypeMapping.PACKED_FLOAT64_ARRAY
+                "net.multigesture.kanama.types.RID" -> TypeMapping.RID
+                "net.multigesture.kanama.types.Rect2" -> TypeMapping.RECT2
+                "net.multigesture.kanama.types.AABB" -> TypeMapping.AABB
+                "net.multigesture.kanama.types.Transform2D" -> TypeMapping.TRANSFORM2D
+                "net.multigesture.kanama.types.Transform3D" -> TypeMapping.TRANSFORM3D
+                "net.multigesture.kanama.types.Projection" -> TypeMapping.PROJECTION
+                else -> fqToTypeMapping(fq)
+            }
         }
 
         internal fun fqToTypeMapping(fq: String?): TypeMapping? = when (fq) {
@@ -1405,9 +1435,14 @@ private fun normalizeScriptPropertyDefaultLiteral(initializer: String, type: Typ
         TypeMapping.STRING -> initializer.takeIf { stringLiteral.matches(it) }
         TypeMapping.OBJECT -> initializer.takeIf { it == "null" }
         TypeMapping.ARRAY -> initializer.takeIf { it == "emptyList()" || it == "listOf()" }?.let { "emptyList()" }
-        // Return-only virtual shapes (task 13); not @ScriptProperty default literals.
+        // Return-only virtual shapes (task 13/29); not @ScriptProperty default literals.
         TypeMapping.PACKED_STRING_ARRAY -> null
         TypeMapping.VARIANT -> null
+        TypeMapping.PACKED_BYTE_ARRAY, TypeMapping.PACKED_INT32_ARRAY, TypeMapping.PACKED_INT64_ARRAY,
+        TypeMapping.PACKED_FLOAT32_ARRAY, TypeMapping.PACKED_FLOAT64_ARRAY,
+        TypeMapping.PACKED_VECTOR2_ARRAY, TypeMapping.PACKED_VECTOR3_ARRAY, TypeMapping.PACKED_COLOR_ARRAY,
+        TypeMapping.DICTIONARY, TypeMapping.RID, TypeMapping.RECT2, TypeMapping.AABB,
+        TypeMapping.TRANSFORM2D, TypeMapping.TRANSFORM3D, TypeMapping.PROJECTION -> null
         TypeMapping.NODE_PATH -> nodePathLiteral.matchEntire(initializer)
             ?.groupValues
             ?.get(1)
@@ -1544,6 +1579,31 @@ internal enum class TypeMapping(
     // per-runtime-type encodeIosReturn dispatch (audited inner types; unaudited -> nil). variantTypeEnum
     // NIL is the method-info return type for a Variant ("any").
     VARIANT("NIL", "JAVA_LONG", 8, "null", "Any?"),
+    // task 29 — remaining virtual-return families. All Variant-only return shapes like
+    // PACKED_STRING_ARRAY: never validated as args/properties, the scratch/ptrcall helpers below
+    // fall through to the safe defaults, and the real marshalling is the per-family case in
+    // variantWriteRetExpr (desktop) / encodeIosReturn (iOS mirror, where audited).
+    //
+    // Fixed-element packed arrays map to Kotlin primitive arrays (width-unambiguous: IntArray is
+    // int32, LongArray int64, FloatArray float32, DoubleArray float64) or List<value type>.
+    PACKED_BYTE_ARRAY("PACKED_BYTE_ARRAY", "JAVA_LONG", 8, "ByteArray(0)", "ByteArray"),
+    PACKED_INT32_ARRAY("PACKED_INT32_ARRAY", "JAVA_LONG", 8, "IntArray(0)", "IntArray"),
+    PACKED_INT64_ARRAY("PACKED_INT64_ARRAY", "JAVA_LONG", 8, "LongArray(0)", "LongArray"),
+    PACKED_FLOAT32_ARRAY("PACKED_FLOAT32_ARRAY", "JAVA_LONG", 8, "FloatArray(0)", "FloatArray"),
+    PACKED_FLOAT64_ARRAY("PACKED_FLOAT64_ARRAY", "JAVA_LONG", 8, "DoubleArray(0)", "DoubleArray"),
+    PACKED_VECTOR2_ARRAY("PACKED_VECTOR2_ARRAY", "JAVA_LONG", 8, "emptyList<net.multigesture.kanama.types.Vector2>()", "List<net.multigesture.kanama.types.Vector2>"),
+    PACKED_VECTOR3_ARRAY("PACKED_VECTOR3_ARRAY", "JAVA_LONG", 8, "emptyList<net.multigesture.kanama.types.Vector3>()", "List<net.multigesture.kanama.types.Vector3>"),
+    PACKED_COLOR_ARRAY("PACKED_COLOR_ARRAY", "JAVA_LONG", 8, "emptyList<net.multigesture.kanama.types.Color>()", "List<net.multigesture.kanama.types.Color>"),
+    // Dictionary return, Kotlin Map<String, Any?> (String keys only — the same audited policy as
+    // the non-virtual Dictionary helpers; values box via initVariantFromAny's inner-type set).
+    DICTIONARY("DICTIONARY", "JAVA_LONG", 8, "emptyMap<String, Any?>()", "Map<String, Any?>"),
+    // Value-type returns that box through BuiltinTypes.initVariantFromAny on desktop.
+    RID("RID", "JAVA_LONG", 8, "net.multigesture.kanama.types.RID.EMPTY", "net.multigesture.kanama.types.RID"),
+    RECT2("RECT2", "JAVA_LONG", 8, "net.multigesture.kanama.types.Rect2.ZERO", "net.multigesture.kanama.types.Rect2"),
+    AABB("AABB", "JAVA_LONG", 8, "net.multigesture.kanama.types.AABB.ZERO", "net.multigesture.kanama.types.AABB"),
+    TRANSFORM2D("TRANSFORM2D", "JAVA_LONG", 8, "net.multigesture.kanama.types.Transform2D.IDENTITY", "net.multigesture.kanama.types.Transform2D"),
+    TRANSFORM3D("TRANSFORM3D", "JAVA_LONG", 8, "net.multigesture.kanama.types.Transform3D.IDENTITY", "net.multigesture.kanama.types.Transform3D"),
+    PROJECTION("PROJECTION", "JAVA_LONG", 8, "net.multigesture.kanama.types.Projection.IDENTITY", "net.multigesture.kanama.types.Projection"),
     ;
 
     /** Expression to read a Kotlin value from a scratch MemorySegment named [s]. */
@@ -1558,7 +1618,7 @@ internal enum class TypeMapping(
         BASIS -> "net.multigesture.kanama.types.Basis(net.multigesture.kanama.types.Vector3(net.multigesture.kanama.types.GodotReal.readIndex($s, 0), net.multigesture.kanama.types.GodotReal.readIndex($s, 3), net.multigesture.kanama.types.GodotReal.readIndex($s, 6)), net.multigesture.kanama.types.Vector3(net.multigesture.kanama.types.GodotReal.readIndex($s, 1), net.multigesture.kanama.types.GodotReal.readIndex($s, 4), net.multigesture.kanama.types.GodotReal.readIndex($s, 7)), net.multigesture.kanama.types.Vector3(net.multigesture.kanama.types.GodotReal.readIndex($s, 2), net.multigesture.kanama.types.GodotReal.readIndex($s, 5), net.multigesture.kanama.types.GodotReal.readIndex($s, 8)))"
         NODE_PATH -> "net.multigesture.kanama.types.NodePath(GodotStrings.readString($s))"
         OBJECT -> "net.multigesture.kanama.api.GodotObject($s.get(ADDRESS, 0))"
-        ARRAY, PACKED_STRING_ARRAY -> "emptyList<Any?>()"
+        in VARIANT_ONLY_RETURN_SHAPES -> kotlinLiteralZero
         else   -> "$s.get($valueLayout, 0)"
     }
 
@@ -1574,7 +1634,7 @@ internal enum class TypeMapping(
         BASIS -> "{ net.multigesture.kanama.types.GodotReal.writeIndex($s, 0, $v.x.x); net.multigesture.kanama.types.GodotReal.writeIndex($s, 1, $v.y.x); net.multigesture.kanama.types.GodotReal.writeIndex($s, 2, $v.z.x); net.multigesture.kanama.types.GodotReal.writeIndex($s, 3, $v.x.y); net.multigesture.kanama.types.GodotReal.writeIndex($s, 4, $v.y.y); net.multigesture.kanama.types.GodotReal.writeIndex($s, 5, $v.z.y); net.multigesture.kanama.types.GodotReal.writeIndex($s, 6, $v.x.z); net.multigesture.kanama.types.GodotReal.writeIndex($s, 7, $v.y.z); net.multigesture.kanama.types.GodotReal.writeIndex($s, 8, $v.z.z) }"
         NODE_PATH -> "GodotStrings.initString($s, $v.path)"
         OBJECT -> "$s.set(ADDRESS, 0, $v.handle)"
-        ARRAY, PACKED_STRING_ARRAY -> "{}"
+        in VARIANT_ONLY_RETURN_SHAPES -> "{}"
         else   -> "$s.set($valueLayout, 0, $v)"
     }
 
@@ -1594,7 +1654,7 @@ internal enum class TypeMapping(
         BASIS -> "run { val p = $ptr.reinterpret($ptrcallSizeBytesExpr); net.multigesture.kanama.types.Basis(net.multigesture.kanama.types.Vector3(net.multigesture.kanama.types.GodotReal.readIndex(p, 0), net.multigesture.kanama.types.GodotReal.readIndex(p, 3), net.multigesture.kanama.types.GodotReal.readIndex(p, 6)), net.multigesture.kanama.types.Vector3(net.multigesture.kanama.types.GodotReal.readIndex(p, 1), net.multigesture.kanama.types.GodotReal.readIndex(p, 4), net.multigesture.kanama.types.GodotReal.readIndex(p, 7)), net.multigesture.kanama.types.Vector3(net.multigesture.kanama.types.GodotReal.readIndex(p, 2), net.multigesture.kanama.types.GodotReal.readIndex(p, 5), net.multigesture.kanama.types.GodotReal.readIndex(p, 8))) }"
         NODE_PATH -> "net.multigesture.kanama.types.NodePath(GodotStrings.readString($ptr))"
         OBJECT -> "net.multigesture.kanama.api.GodotObject($ptr.reinterpret($ptrcallSizeBytesExpr).get(ADDRESS, 0))"
-        ARRAY, PACKED_STRING_ARRAY -> "emptyList<Any?>()"
+        in VARIANT_ONLY_RETURN_SHAPES -> kotlinLiteralZero
         else   -> "$ptr.reinterpret($ptrcallSizeBytesExpr).get($valueLayout, 0)"
     }
 
@@ -1613,8 +1673,24 @@ internal enum class TypeMapping(
         BASIS -> "{ val p = rRet.reinterpret($ptrcallSizeBytesExpr); net.multigesture.kanama.types.GodotReal.writeIndex(p, 0, $v.x.x); net.multigesture.kanama.types.GodotReal.writeIndex(p, 1, $v.y.x); net.multigesture.kanama.types.GodotReal.writeIndex(p, 2, $v.z.x); net.multigesture.kanama.types.GodotReal.writeIndex(p, 3, $v.x.y); net.multigesture.kanama.types.GodotReal.writeIndex(p, 4, $v.y.y); net.multigesture.kanama.types.GodotReal.writeIndex(p, 5, $v.z.y); net.multigesture.kanama.types.GodotReal.writeIndex(p, 6, $v.x.z); net.multigesture.kanama.types.GodotReal.writeIndex(p, 7, $v.y.z); net.multigesture.kanama.types.GodotReal.writeIndex(p, 8, $v.z.z) }"
         NODE_PATH -> "GodotStrings.initString(rRet, $v.path)"
         OBJECT -> "rRet.reinterpret($ptrcallSizeBytesExpr).set(ADDRESS, 0, $v.handle)"
-        ARRAY, PACKED_STRING_ARRAY -> "{}"
+        in VARIANT_ONLY_RETURN_SHAPES -> "{}"
         else   -> "rRet.reinterpret($ptrcallSizeBytesExpr).set($valueLayout, 0, $v)"
+    }
+
+    companion object {
+        /**
+         * Variant-only virtual-return shapes (task 13 + task 29): never validated as ptrcall
+         * arg/scratch/property shapes, so the helpers above return safe placeholders (the real
+         * marshalling is variantWriteRetExpr / the iOS encode path). VARIANT itself is excluded —
+         * it predates this set and keeps its raw-else fallthrough.
+         */
+        val VARIANT_ONLY_RETURN_SHAPES: Set<TypeMapping> = setOf(
+            ARRAY, PACKED_STRING_ARRAY,
+            PACKED_BYTE_ARRAY, PACKED_INT32_ARRAY, PACKED_INT64_ARRAY,
+            PACKED_FLOAT32_ARRAY, PACKED_FLOAT64_ARRAY,
+            PACKED_VECTOR2_ARRAY, PACKED_VECTOR3_ARRAY, PACKED_COLOR_ARRAY,
+            DICTIONARY, RID, RECT2, AABB, TRANSFORM2D, TRANSFORM3D, PROJECTION,
+        )
     }
 }
 
@@ -2898,6 +2974,23 @@ internal class ScriptCodeEmitter(
         TypeMapping.PACKED_STRING_ARRAY -> "val $localName = Arena.ofConfined().use { a -> BuiltinTypes.readVariantScalar($variantPtr, a) as? List<String> ?: emptyList() }"
         // Variant is a virtual RETURN shape (task 13); the raw decoded Any? is the natural read.
         TypeMapping.VARIANT -> "val $localName = Arena.ofConfined().use { a -> BuiltinTypes.readVariantScalar($variantPtr, a) }"
+        // task 29 return-only shapes: never validated as args, but the when must be exhaustive —
+        // decode via readVariantScalar with the family's typed cast (zero value on mismatch).
+        TypeMapping.PACKED_BYTE_ARRAY -> "val $localName = Arena.ofConfined().use { a -> BuiltinTypes.readVariantScalar($variantPtr, a) as? ByteArray ?: ByteArray(0) }"
+        TypeMapping.PACKED_INT32_ARRAY -> "val $localName = Arena.ofConfined().use { a -> (BuiltinTypes.readVariantScalar($variantPtr, a) as? List<*>)?.mapNotNull { (it as? Number)?.toInt() }?.toIntArray() ?: IntArray(0) }"
+        TypeMapping.PACKED_INT64_ARRAY -> "val $localName = Arena.ofConfined().use { a -> (BuiltinTypes.readVariantScalar($variantPtr, a) as? List<*>)?.mapNotNull { (it as? Number)?.toLong() }?.toLongArray() ?: LongArray(0) }"
+        TypeMapping.PACKED_FLOAT32_ARRAY -> "val $localName = Arena.ofConfined().use { a -> (BuiltinTypes.readVariantScalar($variantPtr, a) as? List<*>)?.mapNotNull { (it as? Number)?.toFloat() }?.toFloatArray() ?: FloatArray(0) }"
+        TypeMapping.PACKED_FLOAT64_ARRAY -> "val $localName = Arena.ofConfined().use { a -> (BuiltinTypes.readVariantScalar($variantPtr, a) as? List<*>)?.mapNotNull { (it as? Number)?.toDouble() }?.toDoubleArray() ?: DoubleArray(0) }"
+        TypeMapping.PACKED_VECTOR2_ARRAY -> "val $localName = Arena.ofConfined().use { a -> (BuiltinTypes.readVariantScalar($variantPtr, a) as? List<*>)?.filterIsInstance<net.multigesture.kanama.types.Vector2>() ?: emptyList() }"
+        TypeMapping.PACKED_VECTOR3_ARRAY -> "val $localName = Arena.ofConfined().use { a -> (BuiltinTypes.readVariantScalar($variantPtr, a) as? List<*>)?.filterIsInstance<net.multigesture.kanama.types.Vector3>() ?: emptyList() }"
+        TypeMapping.PACKED_COLOR_ARRAY -> "val $localName = Arena.ofConfined().use { a -> (BuiltinTypes.readVariantScalar($variantPtr, a) as? List<*>)?.filterIsInstance<net.multigesture.kanama.types.Color>() ?: emptyList() }"
+        TypeMapping.DICTIONARY -> "val $localName = Arena.ofConfined().use { a -> @Suppress(\"UNCHECKED_CAST\") (BuiltinTypes.readVariantScalar($variantPtr, a) as? Map<String, Any?> ?: emptyMap()) }"
+        TypeMapping.RID -> "val $localName = Arena.ofConfined().use { a -> BuiltinTypes.readVariantScalar($variantPtr, a) as? net.multigesture.kanama.types.RID ?: net.multigesture.kanama.types.RID.EMPTY }"
+        TypeMapping.RECT2 -> "val $localName = Arena.ofConfined().use { a -> BuiltinTypes.readVariantScalar($variantPtr, a) as? net.multigesture.kanama.types.Rect2 ?: net.multigesture.kanama.types.Rect2.ZERO }"
+        TypeMapping.AABB -> "val $localName = Arena.ofConfined().use { a -> BuiltinTypes.readVariantScalar($variantPtr, a) as? net.multigesture.kanama.types.AABB ?: net.multigesture.kanama.types.AABB.ZERO }"
+        TypeMapping.TRANSFORM2D -> "val $localName = Arena.ofConfined().use { a -> BuiltinTypes.readVariantScalar($variantPtr, a) as? net.multigesture.kanama.types.Transform2D ?: net.multigesture.kanama.types.Transform2D.IDENTITY }"
+        TypeMapping.TRANSFORM3D -> "val $localName = Arena.ofConfined().use { a -> BuiltinTypes.readVariantScalar($variantPtr, a) as? net.multigesture.kanama.types.Transform3D ?: net.multigesture.kanama.types.Transform3D.IDENTITY }"
+        TypeMapping.PROJECTION -> "val $localName = Arena.ofConfined().use { a -> BuiltinTypes.readVariantScalar($variantPtr, a) as? net.multigesture.kanama.types.Projection ?: net.multigesture.kanama.types.Projection.IDENTITY }"
     }
 
     private fun variantReadPropertyExpr(property: ScriptPropertyModel, variantPtr: String, localName: String): String =
@@ -2974,7 +3067,31 @@ internal class ScriptCodeEmitter(
         // task 13 — Variant virtual return: box the Any? result (null -> nil) via the broad
         // initVariantFromAny path, which owns and releases any temporary builtin it constructs.
         TypeMapping.VARIANT -> "Arena.ofConfined().use { a -> BuiltinTypes.initVariantFromAny(ret, $valueExpr, a) }"
+        // task 29 — remaining packed-array virtual returns: same allocate -> init -> variantFromType
+        // -> destroyTyped shape as PACKED_STRING_ARRAY, per element family.
+        TypeMapping.PACKED_BYTE_ARRAY -> packedWriteRetExpr("PACKED_BYTE_ARRAY", "initPackedByteArray", valueExpr)
+        TypeMapping.PACKED_INT32_ARRAY -> packedWriteRetExpr("PACKED_INT32_ARRAY", "initPackedInt32Array", "$valueExpr.toList()")
+        TypeMapping.PACKED_INT64_ARRAY -> packedWriteRetExpr("PACKED_INT64_ARRAY", "initPackedInt64Array", "$valueExpr.toList()")
+        TypeMapping.PACKED_FLOAT32_ARRAY -> packedWriteRetExpr("PACKED_FLOAT32_ARRAY", "initPackedFloat32Array", "$valueExpr.toList()")
+        TypeMapping.PACKED_FLOAT64_ARRAY -> packedWriteRetExpr("PACKED_FLOAT64_ARRAY", "initPackedFloat64Array", "$valueExpr.toList()")
+        TypeMapping.PACKED_VECTOR2_ARRAY -> packedWriteRetExpr("PACKED_VECTOR2_ARRAY", "initPackedVector2Array", valueExpr)
+        TypeMapping.PACKED_VECTOR3_ARRAY -> packedWriteRetExpr("PACKED_VECTOR3_ARRAY", "initPackedVector3Array", valueExpr)
+        TypeMapping.PACKED_COLOR_ARRAY -> packedWriteRetExpr("PACKED_COLOR_ARRAY", "initPackedColorArray", valueExpr)
+        // task 29 — Dictionary / value-type virtual returns: initVariantFromAny already builds the
+        // matching Variant (Map -> Dictionary, RID/Rect2/AABB/Transform2D/Transform3D/Projection ->
+        // their builtin types) and owns/releases any temporary it constructs.
+        TypeMapping.DICTIONARY,
+        TypeMapping.RID,
+        TypeMapping.RECT2,
+        TypeMapping.AABB,
+        TypeMapping.TRANSFORM2D,
+        TypeMapping.TRANSFORM3D,
+        TypeMapping.PROJECTION -> "Arena.ofConfined().use { a -> BuiltinTypes.initVariantFromAny(ret, $valueExpr, a) }"
     }
+
+    /** The allocate -> init -> variantFromType -> destroyTyped return-write shape shared by all Packed*Array families (task 13/29). */
+    private fun packedWriteRetExpr(variantType: String, initHelper: String, valueExpr: String): String =
+        "Arena.ofConfined().use { a -> val s = BuiltinTypes.allocatePackedArray(a); BuiltinTypes.$initHelper(s, $valueExpr); VariantConverters.variantFromType(VariantType.$variantType).invoke(ret, s); BuiltinTypes.destroyTyped(VariantType.$variantType, s) }"
 
     private fun variantWritePropertyRetExpr(property: ScriptPropertyModel, valueExpr: String): String =
         when {

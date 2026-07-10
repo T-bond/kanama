@@ -4,6 +4,7 @@ import net.multigesture.kanama.annotations.OverrideVirtual
 import net.multigesture.kanama.annotations.ScriptClass
 import net.multigesture.kanama.api.Control
 import net.multigesture.kanama.api.KanamaScript
+import net.multigesture.kanama.types.RID
 import net.multigesture.kanama.types.Vector2
 import java.lang.foreign.MemorySegment
 
@@ -40,4 +41,9 @@ class VirtualOverrideProbe(godotObject: MemorySegment) : KanamaScript<Control>(g
     // `_get_drag_data` is a Control virtual returning Variant (drag-and-drop payload).
     @OverrideVirtual
     fun _get_drag_data(at: Vector2): Any? = if (at.x < 0f) null else "drag:${at.x.toInt()}"
+
+    // task 29 — RID virtual return (the largest remaining family, 56 virtuals): boxed via
+    // initVariantFromAny's RID path. `_get_focused_accessibility_element` is a Node virtual.
+    @OverrideVirtual
+    fun _get_focused_accessibility_element(): RID = RID(0L)
 }

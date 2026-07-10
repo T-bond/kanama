@@ -106,6 +106,16 @@ check "Particles3D gpu_present=true gpu_amount=32 gpu_lifetime=1\\.75 gpu_one_sh
 check "Timer found=true wait=1\\.25 one_shot=true autostart=false paused=true ignore_time_scale=true process=1 time_left_positive=true stopped_before=false stopped_after=true"
 check "SceneTreeTimer class=SceneTreeTimer ref_count_positive=true time_left=3\\.0"
 check "Tween class=Tween ref_count_positive=true valid_before=true prop_class=PropertyTweener callback_class=CallbackTweener interval_class=IntervalTweener await_class=AwaitTweener await_finished=true step=(true|false) elapsed_nonnegative=true running_after_step=(true|false) loops_left=-?[0-9]+ priority_after_step=5 processed_before_kill=[1-9][0-9]* valid_after_kill=false"
+# Virtual-return families (task 29): @OverrideVirtual returns marshalled through the
+# script-instance dispatch must arrive in GDScript as the family's Variant type with
+# width-exact contents (Int.MAX_VALUE, 1.0e308, full-range bytes).
+check "vret mesh aabb_type=true aabb_pos=true aabb_size=true array_type=true array_vals=true dict_type=true dict_vals=true"
+check "vret textserver bytes_type=true bytes_vals=true int32_type=true int32_vals=true"
+check "vret xr transform3d_type=true transform3d_origin=true vector3_array_type=true vector3_array_vals=true float64_array_type=true float64_array_vals=true"
+check "vret graphedit vector2_array_type=true vector2_array_vals=true"
+check "vret body2d transform2d_type=true transform2d_vals=true"
+check "vret rendersscenedata projection_type=true projection_vals=true"
+check "vret control rid_type=true"
 # RefCounted return-slot ownership (task 31): every RefCounted-typed ptrcall return
 # transfers +1 (required-meta included); self-returning fluent calls must collapse to
 # the receiver and release the duplicate, so all wrapper-visible deltas stay 0.

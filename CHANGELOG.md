@@ -7,7 +7,21 @@ versioning once public releases begin.
 
 ## Unreleased
 
-_No user-facing changes yet._
+### Added
+
+- `@OverrideVirtual` now supports **every Variant-expressible return type** in
+  the Godot 4.7 virtual surface (170 additional virtuals). New Kotlin return
+  types: all fixed-element packed arrays (`ByteArray`, `IntArray`, `LongArray`,
+  `FloatArray`, `DoubleArray`, `List<Vector2>`, `List<Vector3>`, `List<Color>`),
+  `Map<String, Any?>` (Dictionary), `List<Any?>` (generic and typed Arrays),
+  `RID`, `Rect2`, `AABB`, `Transform2D`, `Transform3D`, and `Projection`.
+  `StringName`-returning virtuals are declared as `String` and enum/bitfield
+  returns as `Long` (the engine converts at the call site). Desktop/Android
+  cover all families; iOS covers everything except
+  `Rect2`/`AABB`/`Transform2D`/`Transform3D`/`Projection` returns (documented
+  in the wrapper-maintenance guide). The only excluded virtuals are the 6
+  raw-pointer (`void*`/`const Glyph*`) callbacks, which are not
+  Variant-expressible by design.
 
 ## 0.3.0 - unreleased preview line (merged 2026-07-06, not tagged)
 

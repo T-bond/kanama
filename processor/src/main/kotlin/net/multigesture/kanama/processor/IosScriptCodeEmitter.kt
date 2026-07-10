@@ -36,15 +36,25 @@ private val lifecycleIosVirtuals = setOf(
 
 // Return types the iOS callVReturning encode + C kanama_ios_pt_return_to_variant can marshal.
 // POD/value returns (Bool/Int/Float/Vector2/Vector2i) landed in Phase 5.3b; STRING is the first
-// non-POD (variable-length, destroy-after-read) virtual return, task 13.
+// non-POD (variable-length, destroy-after-read) virtual return, task 13. Task 29 adds Vector3 and
+// RID (POD/inline), the fixed-element Packed*Array families (desc + flat element buffer),
+// Dictionary and generic Array (tagged-entry blobs). NOT mirrored on iOS (by design, see
+// wrapper-maintenance.md): RECT2/AABB/TRANSFORM2D/TRANSFORM3D/PROJECTION — Transform3D/Projection
+// exceed the 32-byte PT return scratch and none has a 4.7 virtual whose args are declarable, so
+// the C boxing for those four waits for the iOS wrapper-family follow-up slice.
 private val iosReturnTypes = setOf(
     TypeMapping.BOOL, TypeMapping.INT, TypeMapping.FLOAT,
-    TypeMapping.VECTOR2, TypeMapping.VECTOR2I,
+    TypeMapping.VECTOR2, TypeMapping.VECTOR2I, TypeMapping.VECTOR3,
     TypeMapping.STRING,
     TypeMapping.PACKED_STRING_ARRAY,
     // Variant returns reuse the per-runtime-type encodeIosReturn dispatch (audited inner types;
     // an unaudited inner value serializes as nil — a valid Variant). task 13.
     TypeMapping.VARIANT,
+    TypeMapping.RID,
+    TypeMapping.PACKED_BYTE_ARRAY, TypeMapping.PACKED_INT32_ARRAY, TypeMapping.PACKED_INT64_ARRAY,
+    TypeMapping.PACKED_FLOAT32_ARRAY, TypeMapping.PACKED_FLOAT64_ARRAY,
+    TypeMapping.PACKED_VECTOR2_ARRAY, TypeMapping.PACKED_VECTOR3_ARRAY, TypeMapping.PACKED_COLOR_ARRAY,
+    TypeMapping.DICTIONARY, TypeMapping.ARRAY,
 )
 
 internal data class IosMethod(
@@ -554,7 +564,7 @@ internal class IosScriptCodeEmitter(
         else -> {
             warn("[kanama-ios] $kotlinMethodName ($virtualName): @OverrideVirtual return type " +
                 "$returnType not yet marshalled on iOS (supported: Bool/Int/Float/Vector2/" +
-                "Vector2i/String/PackedStringArray/Variant) — silent no-op")
+                "Vector2i/Vector3/String/RID/Packed*Array/Dictionary/Array/Variant) — silent no-op")
             null
         }
     }
@@ -669,6 +679,23 @@ internal class IosScriptCodeEmitter(
         TypeMapping.ARRAY -> 28
         TypeMapping.PACKED_STRING_ARRAY -> 34
         TypeMapping.VARIANT -> 0 // NIL — a Variant/"any" property advertises no fixed type
+        // task 29 return-only shapes (never @ScriptProperty types, but the when must be
+        // exhaustive) — the engine Variant::Type values, matching VariantType.kt.
+        TypeMapping.RECT2 -> 7
+        TypeMapping.TRANSFORM2D -> 11
+        TypeMapping.AABB -> 16
+        TypeMapping.TRANSFORM3D -> 18
+        TypeMapping.PROJECTION -> 19
+        TypeMapping.RID -> 23
+        TypeMapping.DICTIONARY -> 27
+        TypeMapping.PACKED_BYTE_ARRAY -> 29
+        TypeMapping.PACKED_INT32_ARRAY -> 30
+        TypeMapping.PACKED_INT64_ARRAY -> 31
+        TypeMapping.PACKED_FLOAT32_ARRAY -> 32
+        TypeMapping.PACKED_FLOAT64_ARRAY -> 33
+        TypeMapping.PACKED_VECTOR2_ARRAY -> 35
+        TypeMapping.PACKED_VECTOR3_ARRAY -> 36
+        TypeMapping.PACKED_COLOR_ARRAY -> 37
     }
 
     // ---------- string helpers (reproduce the build.gradle.kts versions exactly) ----------

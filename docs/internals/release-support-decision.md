@@ -111,12 +111,14 @@ Promoted, checked-in wrapper coverage (`api_wrapper_coverage.py`,
 - **Methods: 15274 / 15385 — 99.3%** (callable methods; engine virtuals tracked
   separately so they neither dilute callable coverage nor count as gaps)
 - **Virtual methods** are dispatched via `@OverrideVirtual` and validated against a
-  generated signature table. Marshalling bounds (task 13): desktop/Android cover
-  the audited scalar/POD Variant shapes plus String, PackedStringArray, and
-  Variant (`Any?`) returns; iOS value-returns cover
-  Bool/Int/Float/Vector2/Vector2i/String/PackedStringArray and Variant over that
-  audited inner-type set (unaudited inner types serialize as `nil` on iOS). Other
-  `Packed*` arrays and Dictionary virtual returns are **deferred**.
+  generated signature table. Marshalling bounds (tasks 13 + 29): desktop/Android
+  cover **every Variant-expressible return family** (scalar/POD, String, all
+  `Packed*` arrays, Dictionary, generic/typed Array, RID, Rect2, AABB,
+  Transform2D, Transform3D, Projection, Variant); the only excluded returns are
+  the 6 raw-pointer virtuals (`void*`/`const Glyph*`), by design. iOS
+  value-returns cover everything except Rect2/AABB/Transform2D/Transform3D/
+  Projection (documented by-design residue — see the wrapper-maintenance
+  "Virtual-return coverage" section).
 
 Cross-platform shape identity is enforced by `check_full_drift_gate` (committed ==
 fresh regen per platform, task 21). This is what lets a single support claim cover

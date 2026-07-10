@@ -1406,6 +1406,64 @@ fun kanamaIosRuntimeObjectCallsSelfTest() {
     check("virtual-variant-ret(List<String>->PACKED_STRING_ARRAY)",
         net.multigesture.kanama.ios.kanamaIosVariantReturnSelfTest(listOf("a", "bb")) == 28)
 
+    // Virtual packed/container-RETURN encoders (task 29). Each row encodes through the live
+    // return scratch and parses the buffer back the way the C side reads it — width-sensitive
+    // values (full-range bytes, Int.MIN/MAX, a >32-bit long, 1.0e308) catch element-width
+    // regressions before the C half (the "virtual-packed-*-ret roundtrip" C rows) even runs.
+    val vInts = intArrayOf(0, Int.MAX_VALUE, Int.MIN_VALUE)
+    check("virtual-packed-int32-ret-encode(INT32_MIN/MAX)",
+        net.multigesture.kanama.ios.kanamaIosVirtualPackedIntsReturnSelfTest(vInts) == vInts.toList())
+    val vLongs = longArrayOf(72623859790382856L, -1L)
+    check("virtual-packed-int64-ret-encode(>32-bit)",
+        net.multigesture.kanama.ios.kanamaIosVirtualPackedLongsReturnSelfTest(vLongs) == vLongs.toList())
+    val vBytes = byteArrayOf(0x7F, 0x00, -0x80)
+    check("virtual-packed-byte-ret-encode(full-range)",
+        net.multigesture.kanama.ios.kanamaIosVirtualPackedBytesReturnSelfTest(vBytes).toList() == vBytes.toList())
+    val vDoubles = doubleArrayOf(0.5, 1.0e308)
+    check("virtual-packed-float64-ret-encode(1e308)",
+        net.multigesture.kanama.ios.kanamaIosVirtualPackedDoublesReturnSelfTest(vDoubles) == vDoubles.toList())
+    val vVec3 = listOf(Vector3(1.0, 2.0, 3.0), Vector3(4.0, 5.0, 6.0))
+    check("virtual-packed-vector3-ret-encode",
+        net.multigesture.kanama.ios.kanamaIosVirtualPackedVector3ReturnSelfTest(vVec3) == vVec3)
+    // Dictionary/Array blobs: assert entry order, tag routing (INT64=3, STRING=16, BOOL=1,
+    // VOID=0), and payload byte widths survive the blob encode.
+    val vDictString = "kanama-dictionary-return-selftest"  // >16B
+    check("virtual-dictionary-ret-encode(int64+string)",
+        net.multigesture.kanama.ios.kanamaIosVirtualDictionaryReturnSelfTest(
+            linkedMapOf("i" to 7L, "s" to vDictString)) ==
+            listOf("i=3:8", "s=16:${vDictString.encodeToByteArray().size}"))
+    check("virtual-array-ret-encode(int64+string+bool+nil)",
+        net.multigesture.kanama.ios.kanamaIosVirtualArrayReturnSelfTest(
+            listOf(5L, "kanama", true, null)) == listOf("3:8", "16:6", "1:1", "0:0"))
+    // Variant-return routing for the task-29 runtime types (PT tags: VECTOR3=8, RID=14,
+    // PACKED_VECTOR2_ARRAY=23, DICTIONARY=29, ARRAY=30, PACKED_BYTE=31, PACKED_INT32=32,
+    // PACKED_INT64=33, PACKED_FLOAT32=34, PACKED_FLOAT64=35, PACKED_VECTOR3=36; the empty
+    // list ships as a generic empty ARRAY, which converts to any packed/typed array engine-side).
+    check("virtual-variant-ret(Vector3->VECTOR3)",
+        net.multigesture.kanama.ios.kanamaIosVariantReturnSelfTest(Vector3(1.0, 2.0, 3.0)) == 8)
+    check("virtual-variant-ret(RID->RID)",
+        net.multigesture.kanama.ios.kanamaIosVariantReturnSelfTest(net.multigesture.kanama.types.RID(7L)) == 14)
+    check("virtual-variant-ret(Map->DICTIONARY)",
+        net.multigesture.kanama.ios.kanamaIosVariantReturnSelfTest(mapOf("k" to 1L)) == 29)
+    check("virtual-variant-ret(empty-List->ARRAY)",
+        net.multigesture.kanama.ios.kanamaIosVariantReturnSelfTest(emptyList<Any?>()) == 30)
+    check("virtual-variant-ret(List<Long>->ARRAY)",
+        net.multigesture.kanama.ios.kanamaIosVariantReturnSelfTest(listOf(1L, 2L)) == 30)
+    check("virtual-variant-ret(ByteArray->PACKED_BYTE_ARRAY)",
+        net.multigesture.kanama.ios.kanamaIosVariantReturnSelfTest(byteArrayOf(1)) == 31)
+    check("virtual-variant-ret(IntArray->PACKED_INT32_ARRAY)",
+        net.multigesture.kanama.ios.kanamaIosVariantReturnSelfTest(intArrayOf(1)) == 32)
+    check("virtual-variant-ret(LongArray->PACKED_INT64_ARRAY)",
+        net.multigesture.kanama.ios.kanamaIosVariantReturnSelfTest(longArrayOf(1L)) == 33)
+    check("virtual-variant-ret(FloatArray->PACKED_FLOAT32_ARRAY)",
+        net.multigesture.kanama.ios.kanamaIosVariantReturnSelfTest(floatArrayOf(1.0f)) == 34)
+    check("virtual-variant-ret(DoubleArray->PACKED_FLOAT64_ARRAY)",
+        net.multigesture.kanama.ios.kanamaIosVariantReturnSelfTest(doubleArrayOf(1.0)) == 35)
+    check("virtual-variant-ret(List<Vector2>->PACKED_VECTOR2_ARRAY)",
+        net.multigesture.kanama.ios.kanamaIosVariantReturnSelfTest(listOf(Vector2(1.0, 2.0))) == 23)
+    check("virtual-variant-ret(List<Vector3>->PACKED_VECTOR3_ARRAY)",
+        net.multigesture.kanama.ios.kanamaIosVariantReturnSelfTest(listOf(Vector3(1.0, 2.0, 3.0))) == 36)
+
     // StringName-return (Node.get_name): set a known name (StringName arg) then read it
     // back through ptrcallNoArgsRetStringName — exercises the StringName->String ctor
     // hop end to end. Deterministic; node name has no validation.

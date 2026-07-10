@@ -236,6 +236,48 @@ non-virtual skips and the skipped properties found:
   advances only when its *getter method* becomes generatable (a new no-arg return
   shape) or via ergonomic hand-shaping, never by widening property emission.
 
+### Virtual-return coverage (task 29)
+
+`@OverrideVirtual` return marshalling covers **every Variant-expressible return
+family** in the 4.7 virtual signature table on desktop/Android. Tasks 13 + 29
+landed, per family (Kotlin return type in parentheses): the audited scalar/POD
+set, `String`, `PackedStringArray` (`List<String>`), all remaining fixed-element
+`Packed*Array`s (`ByteArray`/`IntArray`/`LongArray`/`FloatArray`/`DoubleArray`/
+`List<Vector2>`/`List<Vector3>`/`List<Color>`), `Dictionary`
+(`Map<String, Any?>`, String keys — the audited container policy), generic and
+typed Arrays (`List<Any?>` — also the shape for the engine's `typedarray::*`
+returns), `RID`, `Rect2`, `AABB`, `Transform2D`, `Transform3D`, `Projection`,
+and `Variant` (`Any?`). Two families additionally ride existing ones by
+Variant conversion: `StringName` returns are declared as `String` and
+enum/bitfield returns as `Long` (the engine casts the returned Variant at the
+call site, exactly as it does for GDScript).
+
+**By-design excluded returns (6 virtuals):** `void*` (3) and `const Glyph*`
+(3, TextServerExtension glyph buffers). Raw-pointer returns are not
+Variant-expressible — GDScript cannot override these virtuals either — so they
+stay outside the `@OverrideVirtual` surface permanently.
+
+**iOS mirror bounds:** iOS value-returns cover Bool/Int/Float/Vector2/Vector2i/
+Vector3/String/RID, all fixed-element `Packed*Array` families (a
+`KanamaIosPackedArgDesc` + flat element buffer through the PT return scratch),
+`PackedStringArray`, `Dictionary` and generic `Array` (tagged-entry blobs), and
+Variant returns over that audited inner-type set (an unaudited inner value
+serializes as nil — a valid Variant). The `Rect2`/`AABB`/`Transform2D`/
+`Transform3D`/`Projection` returns are **desktop/Android-only for now, by
+design**: Transform3D/Projection exceed the 32-byte PT return scratch (they
+need the pointer-to-scratch route), the C shim has no `variant_from` boxing for
+the four yet, and no 4.7 virtual returning them has arguments that are
+declarable in Kotlin today — the iOS emitter warn-skips them fail-loud (the
+same guardrail the task-28 desktop families use), and the mirror belongs to the
+iOS wrapper-family follow-up slice.
+
+Width-sensitive coverage: the desktop families are runtime-validated in
+`runtime_smoke.sh` (the `vret` rows — GDScript `typeof()` + content checks
+through the script-instance dispatch, including `Int.MAX_VALUE`, `1.0e308`, and
+full-range bytes); the iOS families have Kotlin encode round-trips plus C
+build/box round-trips in the on-device self-test matrix (the
+`virtual-packed-*-ret` / `virtual-dictionary-ret` / `virtual-array-ret` rows).
+
 ## KDoc Maintenance
 
 Public Godot-backed wrappers and builtin value types carry generated KDoc
