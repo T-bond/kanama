@@ -12,9 +12,9 @@ Generated drafts are emitted to `build/wrapper-generator/drafts` during local ru
 | --- | ---: | --- |
 | API classes | 1036 |  |
 | Classes with generated output | 844 | `██████████░░` 81.5% |
-| Classes with complete method generation | 757 | `█████████░░░` 73.1% |
-| Methods generated | 15328/16822 (91.1%) | `███████████░` 91.1% |
-| Methods skipped | 1494 |  |
+| Classes with complete method generation | 758 | `█████████░░░` 73.2% |
+| Methods generated | 15329/16822 (91.1%) | `███████████░` 91.1% |
+| Methods skipped | 1493 |  |
 | Properties generated | 3657/4162 (87.9%) | `███████████░` 87.9% |
 | Signals generated | 503/503 (100.0%) | `████████████` 100.0% |
 
@@ -26,7 +26,7 @@ These numbers count only checked-in Kotlin API wrappers. Class coverage may incl
 Rows marked `inherited only` are promoted wrappers whose Godot class declares no own methods in `extension_api.json`; behavior comes from their parent wrapper.
 
 - Classes: 1032 / 1036 `████████████` 99.6%
-- Methods: 15279 / 15385 `████████████` 99.3% (callable methods; engine virtuals excluded — see below)
+- Methods: 15280 / 15385 `████████████` 99.3% (callable methods; engine virtuals excluded — see below)
 
 ## Virtual Methods
 
@@ -36,7 +36,7 @@ Rows marked `inherited only` are promoted wrappers whose Godot class declares no
 
 | Area | Classes | Class Coverage | Methods | Method Coverage |
 | --- | ---: | --- | ---: | --- |
-| Core | 224/226 | `████████████` 99.1% | 2876/2970 | `████████████` 96.8% |
+| Core | 224/226 | `████████████` 99.1% | 2877/2970 | `████████████` 96.9% |
 | Scene | 26/26 | `████████████` 100.0% | 923/923 | `████████████` 100.0% |
 | Resources | 305/306 | `████████████` 99.7% | 2884/2891 | `████████████` 99.8% |
 | Input | 20/20 | `████████████` 100.0% | 238/238 | `████████████` 100.0% |
@@ -911,7 +911,7 @@ These notes summarize wrapper feedback from real ports. They are contextual sign
 | `TreeItem` | Core | 125/125 | `████████` 100.0% |
 | `TriangleMesh` | Rendering | 4/4 | `████████` 100.0% |
 | `TubeTrailMesh` | Resources | 16/16 | `████████` 100.0% |
-| `Tween` | Core | 26/28 | `███████░` 92.9% |
+| `Tween` | Core | 27/28 | `████████` 96.4% |
 | `Tweener` | Core | 0/0 | inherited only |
 | `TwoBoneIK3D` | 3D | 28/28 | `████████` 100.0% |
 | `UDPServer` | Core | 9/9 | `████████` 100.0% |

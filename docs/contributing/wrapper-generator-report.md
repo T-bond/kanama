@@ -16,9 +16,9 @@ Generated drafts are not automatically promoted. A class only becomes public sou
 | --- | ---: |
 | API classes | 1036 |
 | Classes with generated output | 844 |
-| Classes with complete method generation | 757 |
-| Methods generated | 15328/16822 (91.1%) |
-| Methods skipped | 1494 |
+| Classes with complete method generation | 758 |
+| Methods generated | 15329/16822 (91.1%) |
+| Methods skipped | 1493 |
 | Properties generated | 3657/4162 (87.9%) |
 | Signals generated | 503/503 (100.0%) |
 
@@ -28,8 +28,8 @@ Generated drafts are not automatically promoted. A class only becomes public sou
 | --- | ---: |
 | Virtual/internal | 1437 |
 | Other | 49 |
-| Missing helper shape | 3 |
 | Dictionary | 3 |
+| Missing helper shape | 2 |
 | Blocked object wrapper | 2 |
 
 ## Missing Helper Shapes
@@ -42,7 +42,6 @@ These are the highest-leverage ptrcall helper shapes to add next, excluding broa
 | `args=('Object', 'bool', 'String', 'bitfield', 'bool') return=enum` | 1 |
 | `args=('Dictionary', 'int32', 'float', 'Transform2D', 'int32', 'int32', 'int32', 'int32', 'float', 'int64', 'PackedColorArray') return=RID` | 1 |
 | `args=('Transform3D', 'RID', 'Object') return=Object` | 1 |
-| `args=('Signal',) return=Object` | 1 |
 
 ## Top Skip Reasons
 
@@ -55,7 +54,6 @@ These are the highest-leverage ptrcall helper shapes to add next, excluding broa
 | `unsupported helper shape args=('Object', 'bool', 'String', 'bitfield', 'bool') return=enum` | 1 |
 | `unsupported helper shape args=('Dictionary', 'int32', 'float', 'Transform2D', 'int32', 'int32', 'int32', 'int32', 'float', 'int64', 'PackedColorArray') return=RID` | 1 |
 | `unsupported helper shape args=('Transform3D', 'RID', 'Object') return=Object` | 1 |
-| `unsupported helper shape args=('Signal',) return=Object` | 1 |
 
 ## Complete Method Classes
 
@@ -129,7 +127,6 @@ These classes have every method covered by the conservative generator. Promotion
 | PhysicalBone3D | 37/38 (97.4%) | 16/16 | 0/0 | 1 |
 | Font | 36/37 (97.3%) | 1/1 | 0/0 | 1 |
 | TileMap | 61/63 (96.8%) | 5/5 | 1/1 | 2 |
-| Tween | 27/28 (96.4%) | 0/0 | 3/3 | 1 |
 | EditorExportPlatform | 26/27 (96.3%) | 0/0 | 0/0 | 1 |
 | Range | 23/24 (95.8%) | 10/10 | 2/2 | 1 |
 | GraphEdit | 75/79 (94.9%) | 25/25 | 19/19 | 4 |

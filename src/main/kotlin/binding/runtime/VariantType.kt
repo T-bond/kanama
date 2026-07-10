@@ -46,4 +46,5 @@ enum class VariantType(val id: Int) {
     NODE_PATH(22),
     RID(23),
     CALLABLE(25),
+    SIGNAL(26),
 }

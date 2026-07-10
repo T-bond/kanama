@@ -98,6 +98,7 @@ SCALAR_KOTLIN_TYPES = {
     "ConstVoidPtr": "MemorySegment",
     "ConstGDExtensionInitializationFunctionPtr": "MemorySegment",
     "Callable": "GodotCallable",
+    "Signal": "GodotSignal",
 }
 
 DEFAULT_IMPORTS = {
@@ -1162,6 +1163,17 @@ def _candidate_for_impl(method: ApiMethod, object_types: set[str]) -> CallShape 
         and method.return_type in {"CallbackTweener", "JavaScriptObject", "OpenXRFutureResult", "PropertyTweener"}
     ):
         return CallShape("ptrcallWithCallableArgRetObject", "MemorySegment", "MemorySegment.NULL")
+    # Signal is ownership-sensitive like Callable (never in the generic CALL_SHAPES table);
+    # admit it per-method. Signal(Object, StringName) is a plain ObjectID+StringName value,
+    # so the helper constructs it for the call and destroys it after — the engine keeps its
+    # own copy and dead targets degrade to the invalid-ObjectID no-op, no Kotlin state retained.
+    if (
+        logical_return == "Object"
+        and logical_args == ("Signal",)
+        and method.return_type == "AwaitTweener"
+        and method.name == "tween_await"
+    ):
+        return CallShape("ptrcallWithSignalArgRetObject", "MemorySegment", "MemorySegment.NULL")
     if (
         logical_return == "Object"
         and logical_args == ("String", "Callable")
@@ -1608,6 +1620,10 @@ def call_argument_expressions(
             expressions.append(object_arg_expression(name, type_name, api_classes))
         elif logical_kind == "Callable":
             expressions.extend([f"{name}.target.handle", f"{name}.method"])
+        elif logical_kind == "Signal":
+            # Signal args marshal as (owner handle, signal name); the helper constructs the
+            # Signal builtin via Signal(Object, StringName) and destroys it after the call.
+            expressions.extend([f"{name}.owner.handle", f"{name}.name"])
         else:
             expressions.append(name)
     return expressions

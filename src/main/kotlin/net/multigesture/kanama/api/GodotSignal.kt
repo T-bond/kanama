@@ -13,7 +13,7 @@ import kotlin.coroutines.resume
  * lifetime ownership in Godot until a later Kotlin lambda registry exists.
  */
 class GodotSignal internal constructor(
-    private val owner: GodotObject,
+    internal val owner: GodotObject,
     val name: String,
 ) {
     fun connect(target: GodotObject, method: String, flags: Long = GodotObject.CONNECT_DEFAULT): Long =

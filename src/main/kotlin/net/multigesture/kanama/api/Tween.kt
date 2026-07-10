@@ -112,6 +112,23 @@ class Tween internal constructor(handle: MemorySegment) : RefCounted(handle) {
     }
 
     /**
+     * Creates and appends an `AwaitTweener`. This method can be used to await a signal to be emitted
+     * and create asynchronous animations or cutscenes. The animation will not progress to the next
+     * step until the awaited signal is emitted or the connection becomes invalid (e.g. as a result of
+     * freeing the target object). If you know that the emission may not happen, use
+     * `AwaitTweener.set_timeout`. Note: The awaited signal should be emitted during the step when
+     * `AwaitTweener` is active.
+     *
+     * Generated from Godot docs: Tween.tween_await
+     */
+    fun tweenAwait(signal: GodotSignal): AwaitTweener? {
+        checkOpen()
+        return AwaitTweener.wrap(
+            ObjectCalls.ptrcallWithSignalArgRetObject(tweenAwaitBind, handle, signal.owner.handle, signal.name),
+        )
+    }
+
+    /**
      * Processes the `Tween` by the given `delta` value, in seconds. This is mostly useful for manual
      * control when the `Tween` is paused. It can also be used to end the `Tween` animation
      * immediately, by setting `delta` longer than the whole duration of the `Tween` animation. Returns
@@ -425,6 +442,7 @@ class Tween internal constructor(handle: MemorySegment) : RefCounted(handle) {
         private const val TWEEN_CALLBACK_HASH = 1540176488L
         private const val TWEEN_METHOD_HASH = 2337877153L
         private const val TWEEN_SUBTWEEN_HASH = 1567358477L
+        private const val TWEEN_AWAIT_HASH = 2242837462L
         private const val CUSTOM_STEP_HASH = 330693286L
         private const val NOARGS_VOID_HASH = 3218959716L
         private const val NOARGS_DOUBLE_HASH = 1740695150L
@@ -459,6 +477,10 @@ class Tween internal constructor(handle: MemorySegment) : RefCounted(handle) {
 
         private val tweenSubtweenBind by lazy {
             ObjectCalls.getMethodBind("Tween", "tween_subtween", TWEEN_SUBTWEEN_HASH)
+        }
+
+        private val tweenAwaitBind by lazy {
+            ObjectCalls.getMethodBind("Tween", "tween_await", TWEEN_AWAIT_HASH)
         }
 
         private val customStepBind by lazy {

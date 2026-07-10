@@ -24354,6 +24354,33 @@ object ObjectCalls {
     }
 
     /**
+     * Calls [methodBind] with one Signal arg (built from the owner handle + signal name)
+     * and Object return value. The Signal value is constructed for the call and destroyed
+     * after it; the engine keeps its own copy (ObjectID-based, so a freed owner degrades
+     * to a no-op rather than dangling).
+     */
+    fun ptrcallWithSignalArgRetObject(
+        methodBind: MemorySegment,
+        instance: MemorySegment,
+        signalObject: MemorySegment,
+        signalName: String,
+    ): MemorySegment {
+        Arena.ofConfined().use { arena ->
+            val signal = BuiltinTypes.allocateSignal(arena)
+            try {
+                BuiltinTypes.initSignal(signal, signalObject, signalName)
+                val arr = arena.allocate(ADDRESS, 1)
+                arr.setAtIndex(ADDRESS, 0, signal)
+                val ret = arena.allocate(ADDRESS)
+                objectMethodBindPtrcall.invoke(methodBind, instance, arr, ret)
+                return ret.get(ADDRESS, 0)
+            } finally {
+                BuiltinTypes.destroyTyped(VariantType.SIGNAL, signal)
+            }
+        }
+    }
+
+    /**
      * Calls [methodBind] with (int64/enum, Callable) and Object return value.
      */
     fun ptrcallWithLongCallableArgsRetObject(

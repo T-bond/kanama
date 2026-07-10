@@ -52,12 +52,18 @@ object BuiltinTypes {
     /** `sizeof(Callable)` on 64-bit (`float_64`), from `extension_api.json`. */
     const val CALLABLE_SIZE: Long = 16L
     const val CALLABLE_ALIGN: Long = 8L
+    // Signal is ObjectID + StringName (16 bytes in every float/precision build config).
+    const val SIGNAL_SIZE: Long = 16L
+    const val SIGNAL_ALIGN: Long = 8L
 
     fun allocatePackedArray(arena: Arena): MemorySegment =
         arena.allocate(PACKED_ARRAY_SIZE, PACKED_ARRAY_ALIGN)
 
     fun allocateCallable(arena: Arena): MemorySegment =
         arena.allocate(CALLABLE_SIZE, CALLABLE_ALIGN)
+
+    fun allocateSignal(arena: Arena): MemorySegment =
+        arena.allocate(SIGNAL_SIZE, SIGNAL_ALIGN)
 
     fun requireInt32(value: Long): Int {
         require(value in Int.MIN_VALUE.toLong()..Int.MAX_VALUE.toLong()) {
@@ -1633,6 +1639,22 @@ object BuiltinTypes {
                     // destroy can invalidate metadata values.
                 }
             }
+        }
+    }
+
+    /**
+     * Initialize [dest] as a Signal value bound to (object, signal name) via the
+     * Signal(Object, StringName) constructor (index 2). The constructor copies both
+     * arguments (Signal stores the target as an ObjectID, so a freed target degrades
+     * to a no-op instead of dangling); destroy [dest] with
+     * destroyTyped(VariantType.SIGNAL, ...) after the call.
+     */
+    fun initSignal(dest: MemorySegment, objectHandle: MemorySegment, signalName: String) {
+        Arena.ofConfined().use { arena ->
+            val objectCell = arena.allocate(ADDRESS)
+            objectCell.set(ADDRESS, 0, objectHandle)
+            val nameCell = GodotStrings.makeStringName(signalName)
+            construct(VariantType.SIGNAL, dest, constructorIndex = 2, args = listOf(objectCell, nameCell))
         }
     }
 

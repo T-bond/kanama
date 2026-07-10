@@ -766,6 +766,11 @@ class HelloScript(godotObject: MemorySegment) : KanamaScript<Node>(godotObject, 
 			?.setDelay(0.0)
 		val tweenCallback = tween?.tweenCallback(selfNode, "notify_property_list_changed")?.setDelay(0.0)
 		val tweenInterval = tween?.tweenInterval(0.0)
+		// Deliberately no ?.setTimeout() chain here: AwaitTweener.set_timeout returns a plain
+		// (non-`required`-meta) Ref<AwaitTweener>, which transfers a +1 ref through the ptrcall
+		// return slot that the current raw-slot helper convention never releases — a known
+		// pre-existing wrapper-ABI gap (tracked as follow-up), not part of the Signal-arg slice.
+		val tweenAwaitTweener = tween?.tweenAwait(selfNode.signal("renamed"))
 		val tweenValidBefore = tween?.isValid() ?: false
 		val processedTweensBeforeKill = SceneTree.getProcessedTweens().size
 		val tweenStep = tween?.customStep(0.02) ?: false
@@ -773,9 +778,27 @@ class HelloScript(godotObject: MemorySegment) : KanamaScript<Node>(godotObject, 
 		val tweenRunningAfterStep = tween?.isRunning() ?: false
 		val tweenLoopsLeft = tween?.getLoopsLeft() ?: -1L
 		val tweenPriorityAfterStep = selfNode.getProcessPriority()
+		// The first customStep drove the sequence into the AwaitTweener (it connects to the
+		// awaited signal when it activates). Emit the signal and step again so the await
+		// resolves and disconnects — a tween killed mid-await leaves that connection alive
+		// (orphan StringName at exit), so the smoke must finish the await, not abandon it.
+		// Drive the sequence until it parks on the AwaitTweener (it consumes all delta while
+		// waiting, so customStep keeps returning true), then emit the awaited signal and step
+		// once more so the await resolves. The emission must come after the await's start()
+		// (start() resets its received flag), hence the bounded spin first.
+		var awaitSpin = 0
+		while (awaitSpin < 8 && tween?.customStep(0.05) == true) {
+			awaitSpin++
+		}
+		selfNode.emitSignal("renamed")
+		tween?.customStep(0.02)
+		// customStep's return reports step activity, not post-state — the emission-resolved
+		// await shows up as isRunning() flipping false on this step.
+		val tweenAwaitFinished = tween?.isRunning() == false
 		selfNode.setProcessPriority(3)
 		tweenCallback?.close()
 		tweenInterval?.close()
+		tweenAwaitTweener?.close()
 		tween?.kill()
 		val tweenValidAfterKill = tween?.isValid() ?: true
 		tween?.close()
@@ -1464,6 +1487,7 @@ class HelloScript(godotObject: MemorySegment) : KanamaScript<Node>(godotObject, 
 			"[kanama:kt] Tween class=$tweenClass ref_count_positive=${tweenRefCount > 0} " +
 				"valid_before=$tweenValidBefore prop_class=${tweenProperty?.getClassName().orEmpty()} " +
 				"callback_class=${tweenCallback?.getClassName().orEmpty()} interval_class=${tweenInterval?.getClassName().orEmpty()} " +
+				"await_class=${tweenAwaitTweener?.getClassName().orEmpty()} await_finished=$tweenAwaitFinished " +
 				"step=$tweenStep elapsed_nonnegative=${tweenElapsed >= 0.0} running_after_step=$tweenRunningAfterStep " +
 				"loops_left=$tweenLoopsLeft priority_after_step=$tweenPriorityAfterStep processed_before_kill=$processedTweensBeforeKill " +
 				"valid_after_kill=$tweenValidAfterKill"
