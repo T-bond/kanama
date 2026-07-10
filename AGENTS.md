@@ -196,24 +196,18 @@ python3 scripts/api_wrapper_coverage.py --markdown docs/contributing/api-coverag
 
 ### Godot Upgrade
 
-For a new Godot version, refresh API/header inputs and regenerated Panama
-bindings together:
+Follow `docs/contributing/godot-upgrade.md` (the authoritative runbook).
+Kanama re-pins only on stable Godot releases. Edit `kanamaGodotVersion` in
+`gradle.properties` (plus the CI `GODOT_VERSION` dash form), then run the
+mechanical pipeline:
 
 ```sh
-scripts/refresh_godot_api.sh /absolute/path/to/new_godot_binary
+scripts/upgrade_godot.sh /absolute/path/to/new_godot_binary
 ```
 
-Then review and refresh, as needed:
-
-- `extension_api.json`
-- `gdextension_interface.h`
-- `src/generated/godot`
-- generated wrapper source and name constants
-- generated KDoc via `scripts/sync_kdoc_from_godot_docs.py`
-- wrapper generator and coverage reports
-- Gradle version coordinates, package workflow `GODOT_VERSION`, docs badges,
-  changelog, templates, and companion demo defaults
-
+It refreshes API/header inputs and Panama bindings, re-adopts all generated
+wrappers, re-syncs KDoc, refreshes reports, and re-runs the gates — then stops
+at the human-judgment boundary (device gates, support claims, release wording).
 Run local CI and demo smoke checks before changing support claims.
 
 ### Android Work

@@ -319,7 +319,7 @@ hand-edited.
 `doc/classes` (commit `5b4e0cb0fd`), matching the shipped runtime baseline. Do
 not sync from a `-rc` / `latest` tree — a mismatched docs tree reintroduces
 version skew. Bump this pin when the Godot runtime baseline moves, and re-run the
-full refresh.
+full refresh (part of the [Godot Upgrade Runbook](godot-upgrade.md)).
 
 To check whether KDoc is current against a local Godot source tree:
 

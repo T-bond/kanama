@@ -180,44 +180,14 @@ Install docs dependencies with:
 pip install -r docs/requirements.txt
 ```
 
-## Godot Upgrade Checklist
+## Godot Upgrade
 
-For a new Godot version:
-
-1. Bump the **single-source version pin** — change `kanamaGodotVersion` in
-   `gradle.properties` (dot form, e.g. `4.7.stable`). `build.gradle.kts` (iOS
-   export-template path) and `scripts/ios_template_preflight.sh` read it directly;
-   the CI dash form (`.github/workflows/package.yml` `GODOT_VERSION`) is checked by
-   `scripts/check_godot_version_pin.py`. Run it after editing:
-
-   ```sh
-   python3 scripts/check_godot_version_pin.py
-   ```
-
-2. Refresh API/header inputs and regenerated Panama bindings:
-
-   ```sh
-   scripts/refresh_godot_api.sh /absolute/path/to/new_godot_binary
-   ```
-
-3. Review changes in `extension_api.json`, `gdextension_interface.h`, generated
-   bindings, generated wrappers, and generated KDoc.
-4. Regenerate wrapper coverage reports:
-
-   ```sh
-   python3 scripts/api_wrapper_generator_report.py --markdown docs/contributing/wrapper-generator-report.md
-   python3 scripts/api_wrapper_coverage.py --markdown docs/contributing/api-coverage.md
-   ```
-
-5. Validate API metadata and wrapper policy:
-
-   ```sh
-   python3 scripts/validate_godot_api.py --api extension_api.json
-   python3 scripts/check_wrapper_generator.py
-   ```
-
-6. Run local CI against the current baseline and any candidate Godot binary.
-7. Run relevant demo smoke checks before changing public support claims.
+Kanama re-pins only on stable Godot releases. The single authoritative process
+for bumping the baseline — the pin edit, the mechanical
+`scripts/upgrade_godot.sh` pipeline, the gates, and the human-judgment steps —
+is the [Godot Upgrade Runbook](../contributing/godot-upgrade.md). Support
+claims never move before the matching smoke/device gates pass on the new
+baseline.
 
 ## Compatibility Gates
 

@@ -60,6 +60,7 @@ nav:
       - Contributor Guide: contributing/index.md
       - Architecture: contributing/architecture.md
       - Wrapper Maintenance: contributing/wrapper-maintenance.md
+      - Godot Upgrade Runbook: contributing/godot-upgrade.md
       - API Coverage: contributing/api-coverage.md
       - Wrapper Generator Report: contributing/wrapper-generator-report.md
       - Hot Reload Internals: contributing/hot-reload-internals.md
