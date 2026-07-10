@@ -29,7 +29,7 @@ How the TPS surface is hosted today:
 - **12 wrapper classes** (`CPUParticles3D`, `DisplayServer`, `ShaderMaterial`,
   `MultiplayerSynchronizer`, `SceneMultiplayer`, `AnimationTree`, `ConfigFile`, `LightmapGI`,
   `OmniLight3D`, `SpotLight3D`, `BoneAttachment3D`, `FastNoiseLite`) are in the generated iOS
-  wrapper set (drift-gate iOS 254+); their ptrcall marshalling is auto-generated into
+  wrapper set (since task 30, the full desktop-equivalent set); their ptrcall marshalling is auto-generated into
   `ObjectCallsGenerated.kt` over the generic C-shim ptrcall — no bespoke C was needed.
 - **Companion factories / downcasts** (`create()` / `fromResource` / `fromApi`) are hosted in the
   generator's `IOS_CUSTOM_COMPANION_MEMBER_SECTIONS`, so regeneration is lossless and the

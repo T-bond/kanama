@@ -533,8 +533,20 @@ object PhysicsServer3D {
         ObjectCalls.ptrcallWithRIDAndBoolArg(bodySetRayPickableBind, singleton, body, enable)
     }
 
+    fun bodyTestMotion(body: RID, parameters: PhysicsTestMotionParameters3D?, result: PhysicsTestMotionResult3D?): Boolean {
+        return ObjectCalls.ptrcallWithRIDAndTwoObjectArgsRetBool(bodyTestMotionBind, singleton, body, parameters?.requireOpenHandle() ?: MemorySegment.NULL, result?.requireOpenHandle() ?: MemorySegment.NULL)
+    }
+
+    fun bodyGetDirectState(body: RID): PhysicsDirectBodyState3D? {
+        return PhysicsDirectBodyState3D.wrap(ObjectCalls.ptrcallWithRIDArgRetObject(bodyGetDirectStateBind, singleton, body))
+    }
+
     fun softBodyCreate(): RID {
         return ObjectCalls.ptrcallNoArgsRetRID(softBodyCreateBind, singleton)
+    }
+
+    fun softBodyUpdateRenderingServer(body: RID, renderingServerHandler: PhysicsServer3DRenderingServerHandler) {
+        ObjectCalls.ptrcallWithRIDAndObjectArg(softBodyUpdateRenderingServerBind, singleton, body, renderingServerHandler.handle)
     }
 
     fun softBodySetSpace(body: RID, space: RID) {
@@ -1275,9 +1287,24 @@ object PhysicsServer3D {
         ObjectCalls.getMethodBind("PhysicsServer3D", "body_set_ray_pickable", BODY_SET_RAY_PICKABLE_HASH)
     }
 
+    private const val BODY_TEST_MOTION_HASH = 1944921792L
+    private val bodyTestMotionBind by lazy {
+        ObjectCalls.getMethodBind("PhysicsServer3D", "body_test_motion", BODY_TEST_MOTION_HASH)
+    }
+
+    private const val BODY_GET_DIRECT_STATE_HASH = 3029727957L
+    private val bodyGetDirectStateBind by lazy {
+        ObjectCalls.getMethodBind("PhysicsServer3D", "body_get_direct_state", BODY_GET_DIRECT_STATE_HASH)
+    }
+
     private const val SOFT_BODY_CREATE_HASH = 529393457L
     private val softBodyCreateBind by lazy {
         ObjectCalls.getMethodBind("PhysicsServer3D", "soft_body_create", SOFT_BODY_CREATE_HASH)
+    }
+
+    private const val SOFT_BODY_UPDATE_RENDERING_SERVER_HASH = 2218179753L
+    private val softBodyUpdateRenderingServerBind by lazy {
+        ObjectCalls.getMethodBind("PhysicsServer3D", "soft_body_update_rendering_server", SOFT_BODY_UPDATE_RENDERING_SERVER_HASH)
     }
 
     private const val SOFT_BODY_SET_SPACE_HASH = 395945892L

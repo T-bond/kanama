@@ -29,7 +29,12 @@ class StreamPeerBuffer(handle: MemorySegment) : StreamPeer(handle) {
     }
 
     fun duplicate(): StreamPeerBuffer? {
-        return StreamPeerBuffer.wrap(ObjectCalls.ptrcallNoArgsRetObject(duplicateBind, handle))
+        val ret = ObjectCalls.ptrcallNoArgsRetObject(duplicateBind, handle)
+        if (ret.address() == handle.address()) {
+            RefCounted.releaseHandle(ret)
+            return this
+        }
+        return StreamPeerBuffer.wrap(ret)
     }
 
     companion object {

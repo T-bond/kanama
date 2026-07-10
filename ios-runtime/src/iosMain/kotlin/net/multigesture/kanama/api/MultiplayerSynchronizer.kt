@@ -28,6 +28,12 @@ class MultiplayerSynchronizer(handle: MemorySegment) : Node(handle) {
         @JvmName("setDeltaIntervalProperty")
         set(value) = setDeltaInterval(value)
 
+    var replicationConfig: SceneReplicationConfig?
+        @JvmName("replicationConfigProperty")
+        get() = getReplicationConfig()
+        @JvmName("setReplicationConfigProperty")
+        set(value) = setReplicationConfig(value)
+
     var visibilityUpdateMode: Long
         @JvmName("visibilityUpdateModeProperty")
         get() = getVisibilityUpdateMode()
@@ -62,6 +68,14 @@ class MultiplayerSynchronizer(handle: MemorySegment) : Node(handle) {
 
     fun getDeltaInterval(): Double {
         return ObjectCalls.ptrcallNoArgsRetDouble(getDeltaIntervalBind, handle)
+    }
+
+    fun setReplicationConfig(config: SceneReplicationConfig?) {
+        ObjectCalls.ptrcallWithObjectArgs(setReplicationConfigBind, handle, listOf(config?.requireOpenHandle() ?: MemorySegment.NULL))
+    }
+
+    fun getReplicationConfig(): SceneReplicationConfig? {
+        return SceneReplicationConfig.wrap(ObjectCalls.ptrcallNoArgsRetObject(getReplicationConfigBind, handle))
     }
 
     fun setVisibilityUpdateMode(mode: Long) {
@@ -145,6 +159,16 @@ class MultiplayerSynchronizer(handle: MemorySegment) : Node(handle) {
         private const val GET_DELTA_INTERVAL_HASH = 1740695150L
         private val getDeltaIntervalBind by lazy {
             ObjectCalls.getMethodBind("MultiplayerSynchronizer", "get_delta_interval", GET_DELTA_INTERVAL_HASH)
+        }
+
+        private const val SET_REPLICATION_CONFIG_HASH = 3889206742L
+        private val setReplicationConfigBind by lazy {
+            ObjectCalls.getMethodBind("MultiplayerSynchronizer", "set_replication_config", SET_REPLICATION_CONFIG_HASH)
+        }
+
+        private const val GET_REPLICATION_CONFIG_HASH = 3200254614L
+        private val getReplicationConfigBind by lazy {
+            ObjectCalls.getMethodBind("MultiplayerSynchronizer", "get_replication_config", GET_REPLICATION_CONFIG_HASH)
         }
 
         private const val SET_VISIBILITY_UPDATE_MODE_HASH = 3494860300L

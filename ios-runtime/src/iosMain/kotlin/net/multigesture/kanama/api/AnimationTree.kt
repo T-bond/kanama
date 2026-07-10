@@ -10,6 +10,12 @@ import net.multigesture.kanama.types.NodePath
  * Generated from Godot docs: AnimationTree
  */
 class AnimationTree(handle: MemorySegment) : AnimationMixer(handle) {
+    var treeRoot: AnimationRootNode?
+        @JvmName("treeRootProperty")
+        get() = getTreeRoot()
+        @JvmName("setTreeRootProperty")
+        set(value) = setTreeRoot(value)
+
     var advanceExpressionBaseNode: NodePath
         @JvmName("advanceExpressionBaseNodeProperty")
         get() = getAdvanceExpressionBaseNode()
@@ -21,6 +27,14 @@ class AnimationTree(handle: MemorySegment) : AnimationMixer(handle) {
         get() = getAnimationPlayer()
         @JvmName("setAnimPlayerProperty")
         set(value) = setAnimationPlayer(value)
+
+    fun setTreeRoot(animationNode: AnimationRootNode?) {
+        ObjectCalls.ptrcallWithObjectArgs(setTreeRootBind, handle, listOf(animationNode?.requireOpenHandle() ?: MemorySegment.NULL))
+    }
+
+    fun getTreeRoot(): AnimationRootNode? {
+        return AnimationRootNode.wrap(ObjectCalls.ptrcallNoArgsRetObject(getTreeRootBind, handle))
+    }
 
     fun setAdvanceExpressionBaseNode(path: NodePath) {
         ObjectCalls.ptrcallWithNodePathArg(setAdvanceExpressionBaseNodeBind, handle, path)
@@ -60,6 +74,16 @@ class AnimationTree(handle: MemorySegment) : AnimationMixer(handle) {
 
         internal fun wrap(handle: MemorySegment): AnimationTree? =
             if (handle.address() == 0L) null else AnimationTree(handle)
+
+        private const val SET_TREE_ROOT_HASH = 2581683800L
+        private val setTreeRootBind by lazy {
+            ObjectCalls.getMethodBind("AnimationTree", "set_tree_root", SET_TREE_ROOT_HASH)
+        }
+
+        private const val GET_TREE_ROOT_HASH = 4110384712L
+        private val getTreeRootBind by lazy {
+            ObjectCalls.getMethodBind("AnimationTree", "get_tree_root", GET_TREE_ROOT_HASH)
+        }
 
         private const val SET_ADVANCE_EXPRESSION_BASE_NODE_HASH = 1348162250L
         private val setAdvanceExpressionBaseNodeBind by lazy {

@@ -37,7 +37,8 @@ grouped by theme:
 - **commonMain wrapper unification + `GodotReal` centralization** (tasks 06, 07).
 - **Full cross-platform drift gate** (task 21): `check_full_drift_gate` proves
   committed wrappers are byte-identical to a fresh regeneration per platform
-  (desktop 985 / iOS 242). Cross-platform wrapper drift is now structurally
+  (desktop 984 / iOS 1017 since the task-30 breadth pass; iOS was 242 at
+  0.3.0). Cross-platform wrapper drift is now structurally
   impossible — one generator fix lands identically everywhere.
 - **Coverage to ~99%** (tasks 08, 09, 13, 22): classes 1032/1036 = 99.6%,
   callable methods 15274/15385 = 99.3%. Engine virtuals are overridable across

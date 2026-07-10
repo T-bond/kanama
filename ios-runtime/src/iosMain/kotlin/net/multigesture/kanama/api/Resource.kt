@@ -107,11 +107,21 @@ open class Resource(handle: MemorySegment) : RefCounted(handle) {
     }
 
     fun duplicate(deep: Boolean = false): Resource? {
-        return Resource.wrap(ObjectCalls.ptrcallWithBoolArgRetObject(duplicateBind, handle, deep))
+        val ret = ObjectCalls.ptrcallWithBoolArgRetObject(duplicateBind, handle, deep)
+        if (ret.address() == handle.address()) {
+            RefCounted.releaseHandle(ret)
+            return this
+        }
+        return Resource.wrap(ret)
     }
 
     fun duplicateDeep(deepSubresourcesMode: Long = 1L): Resource? {
-        return Resource.wrap(ObjectCalls.ptrcallWithLongArgRetObject(duplicateDeepBind, handle, deepSubresourcesMode))
+        val ret = ObjectCalls.ptrcallWithLongArgRetObject(duplicateDeepBind, handle, deepSubresourcesMode)
+        if (ret.address() == handle.address()) {
+            RefCounted.releaseHandle(ret)
+            return this
+        }
+        return Resource.wrap(ret)
     }
 
     fun copyFromResource(resource: Resource?): Long {

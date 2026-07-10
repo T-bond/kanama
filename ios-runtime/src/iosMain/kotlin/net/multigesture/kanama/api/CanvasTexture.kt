@@ -57,7 +57,12 @@ class CanvasTexture(handle: MemorySegment) : Texture2D(handle) {
     }
 
     fun getDiffuseTexture(): Texture2D? {
-        return Texture2D.wrap(ObjectCalls.ptrcallNoArgsRetObject(getDiffuseTextureBind, handle))
+        val ret = ObjectCalls.ptrcallNoArgsRetObject(getDiffuseTextureBind, handle)
+        if (ret.address() == handle.address()) {
+            RefCounted.releaseHandle(ret)
+            return this
+        }
+        return Texture2D.wrap(ret)
     }
 
     fun setNormalTexture(texture: Texture2D?) {
@@ -65,7 +70,12 @@ class CanvasTexture(handle: MemorySegment) : Texture2D(handle) {
     }
 
     fun getNormalTexture(): Texture2D? {
-        return Texture2D.wrap(ObjectCalls.ptrcallNoArgsRetObject(getNormalTextureBind, handle))
+        val ret = ObjectCalls.ptrcallNoArgsRetObject(getNormalTextureBind, handle)
+        if (ret.address() == handle.address()) {
+            RefCounted.releaseHandle(ret)
+            return this
+        }
+        return Texture2D.wrap(ret)
     }
 
     fun setSpecularTexture(texture: Texture2D?) {
@@ -73,7 +83,12 @@ class CanvasTexture(handle: MemorySegment) : Texture2D(handle) {
     }
 
     fun getSpecularTexture(): Texture2D? {
-        return Texture2D.wrap(ObjectCalls.ptrcallNoArgsRetObject(getSpecularTextureBind, handle))
+        val ret = ObjectCalls.ptrcallNoArgsRetObject(getSpecularTextureBind, handle)
+        if (ret.address() == handle.address()) {
+            RefCounted.releaseHandle(ret)
+            return this
+        }
+        return Texture2D.wrap(ret)
     }
 
     fun setSpecularColor(color: Color) {

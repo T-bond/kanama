@@ -2430,6 +2430,14 @@ object RenderingServer {
         ObjectCalls.ptrcallWithBoolAndDoubleArgs(forceDrawBind, singleton, swapBuffers, frameStep)
     }
 
+    fun getRenderingDevice(): RenderingDevice? {
+        return RenderingDevice.wrap(ObjectCalls.ptrcallNoArgsRetObject(getRenderingDeviceBind, singleton))
+    }
+
+    fun createLocalRenderingDevice(): RenderingDevice? {
+        return RenderingDevice.wrap(ObjectCalls.ptrcallNoArgsRetObject(createLocalRenderingDeviceBind, singleton))
+    }
+
     fun isOnRenderThread(): Boolean {
         return ObjectCalls.ptrcallNoArgsRetBool(isOnRenderThreadBind, singleton)
     }
@@ -4806,6 +4814,16 @@ object RenderingServer {
     private const val FORCE_DRAW_HASH = 1076185472L
     private val forceDrawBind by lazy {
         ObjectCalls.getMethodBind("RenderingServer", "force_draw", FORCE_DRAW_HASH)
+    }
+
+    private const val GET_RENDERING_DEVICE_HASH = 1405107940L
+    private val getRenderingDeviceBind by lazy {
+        ObjectCalls.getMethodBind("RenderingServer", "get_rendering_device", GET_RENDERING_DEVICE_HASH)
+    }
+
+    private const val CREATE_LOCAL_RENDERING_DEVICE_HASH = 1405107940L
+    private val createLocalRenderingDeviceBind by lazy {
+        ObjectCalls.getMethodBind("RenderingServer", "create_local_rendering_device", CREATE_LOCAL_RENDERING_DEVICE_HASH)
     }
 
     private const val IS_ON_RENDER_THREAD_HASH = 2240911060L

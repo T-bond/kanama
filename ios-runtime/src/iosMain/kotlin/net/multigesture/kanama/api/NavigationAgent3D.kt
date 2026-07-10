@@ -454,6 +454,10 @@ class NavigationAgent3D(handle: MemorySegment) : Node(handle) {
         return ObjectCalls.ptrcallNoArgsRetDouble(distanceToTargetBind, handle)
     }
 
+    fun getCurrentNavigationResult(): NavigationPathQueryResult3D? {
+        return NavigationPathQueryResult3D.wrap(ObjectCalls.ptrcallNoArgsRetObject(getCurrentNavigationResultBind, handle))
+    }
+
     fun getCurrentNavigationPathIndex(): Int {
         return ObjectCalls.ptrcallNoArgsRetInt(getCurrentNavigationPathIndexBind, handle)
     }
@@ -865,6 +869,11 @@ class NavigationAgent3D(handle: MemorySegment) : Node(handle) {
         private const val DISTANCE_TO_TARGET_HASH = 1740695150L
         private val distanceToTargetBind by lazy {
             ObjectCalls.getMethodBind("NavigationAgent3D", "distance_to_target", DISTANCE_TO_TARGET_HASH)
+        }
+
+        private const val GET_CURRENT_NAVIGATION_RESULT_HASH = 728825684L
+        private val getCurrentNavigationResultBind by lazy {
+            ObjectCalls.getMethodBind("NavigationAgent3D", "get_current_navigation_result", GET_CURRENT_NAVIGATION_RESULT_HASH)
         }
 
         private const val GET_CURRENT_NAVIGATION_PATH_INDEX_HASH = 3905245786L

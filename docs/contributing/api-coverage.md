@@ -28,6 +28,13 @@ Rows marked `inherited only` are promoted wrappers whose Godot class declares no
 - Classes: 1032 / 1036 `████████████` 99.6%
 - Methods: 15281 / 15385 `████████████` 99.3% (callable methods; engine virtuals excluded — see below)
 
+### Per-Platform Class Sets
+
+Every platform tree is held to `check_full_drift_gate` (committed == fresh regen; see wrapper-maintenance.md).
+
+- Desktop: 984 generated classes + 47 hand-shaped policy classes. Android reuses the desktop sources (no separate tree).
+- iOS: 1017 generated classes — full desktop-equivalent breadth (task 30) — plus 11 hand-written collision classes (`IOS_HANDWRITTEN_COLLISION_CLASSES`). The only classes not emitted on iOS are the documented `IOS_UNSUPPORTED_CLASSES`: `DirAccess`, `FileAccess`, `MethodTweener`. Per-method iOS skips remain conservative (un-audited marshalling shapes are skipped with report entries, never stubbed).
+
 ## Virtual Methods
 
 `extension_api.json` declares **1437** engine virtual methods (the `_*` callbacks). These are not wrapped as callable methods — a script overrides them with `@OverrideVirtual` (Phase 5), where the Kotlin function name is the virtual name (GDScript-style `fun _draw()`). The processor validates each override against a generated signature table (`scripts/generate_virtual_signature_table.py`, all virtuals) and dispatches it on both targets. They are reported here separately so they neither dilute callable-method coverage nor count as wrapper gaps. Practical marshalling bounds (tasks 13 + 29): desktop/Android cover **every** Variant-expressible return family — the audited scalar/POD shapes, String, all Packed* arrays, Dictionary (`Map<String, Any?>`), generic/typed Array (`List<Any?>`), RID, Rect2, AABB, Transform2D, Transform3D, Projection, and Variant (`Any?`); the only excluded returns are the 6 raw-pointer virtuals (`void*`, `const Glyph*`), which are not Variant-expressible by design (see wrapper-maintenance.md). iOS value-returns cover Bool/Int/Float/Vector2/Vector2i/Vector3/String/RID, all fixed-element Packed* arrays, PackedStringArray, Dictionary, generic Array, and Variant returns over that audited inner-type set (unaudited inner types serialize as nil on iOS); the Rect2/AABB/Transform2D/Transform3D/Projection returns stay desktop/Android-only for now (by design, wrapper-maintenance.md).

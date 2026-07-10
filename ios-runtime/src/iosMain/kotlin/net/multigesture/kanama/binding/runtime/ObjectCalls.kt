@@ -37,6 +37,7 @@ import net.multigesture.kanama.ios.cinterop.kanama_ios_godot_construct_object
 import net.multigesture.kanama.ios.cinterop.kanama_ios_godot_get_method_bind
 import net.multigesture.kanama.ios.cinterop.kanama_ios_godot_get_singleton
 import net.multigesture.kanama.ios.cinterop.kanama_ios_godot_object_call
+import net.multigesture.kanama.ios.cinterop.kanama_ios_godot_object_destroy
 import net.multigesture.kanama.ios.cinterop.kanama_ios_godot_object_connect_bound
 import net.multigesture.kanama.ios.cinterop.kanama_ios_godot_object_disconnect_bound
 import net.multigesture.kanama.ios.cinterop.KanamaIosPackedArgDesc
@@ -134,6 +135,14 @@ object ObjectCalls {
     // used by the bespoke Input glue (and generated singleton wrappers, longer term).
     fun getSingleton(className: String): MemorySegment =
         MemorySegment.ofAddress(kanama_ios_godot_get_singleton(className))
+
+    // Destroy an engine Object immediately (GDExtension object_destroy). Mirrors desktop
+    // ObjectCalls.destroyObject; RefCounted.close()/releaseHandle call it only after
+    // unreference() returned true (refcount hit zero) — task 31 ownership mirror.
+    fun destroyObject(instance: MemorySegment) {
+        if (instance.address() == 0L) return
+        kanama_ios_godot_object_destroy(instance.address())
+    }
 
     // ---- no-arg ----
     fun ptrcallNoArgs(methodBind: MemorySegment, instance: MemorySegment) {
@@ -2106,6 +2115,21 @@ fun kanamaIosRuntimeObjectCallsSelfTest() {
             ctrl, "get_class",
             ctrl, "get_class")
         check("callable-args-x3 (ptrcallWithThreeCallableArgs)", ctrl.address() != 0L)
+    }
+
+    // RefCounted return-slot ownership (task 31 iOS mirror): every RefCounted-typed ptrcall
+    // return transfers a +1 reference the wrapper owns (meta:"required" included — measured on
+    // 4.7-stable, task 31). duplicate() hands back a fresh Resource whose only reference is the
+    // return-slot +1, so its engine refcount must read exactly 1; close() then releases it
+    // (unreference -> zero -> object_destroy). A wrong convention shows up as refcount != 1
+    // (probe fails) or a double-free crash right here.
+    run {
+        val res = net.multigesture.kanama.api.Resource(ObjectCalls.constructObject("Resource"))
+        val dup = res.duplicate()
+        check("refcounted-ret-owns-plus1", dup != null && dup.getReferenceCount() == 1)
+        dup?.close() // unreference() -> true at zero -> destroyObject; crash/guardrail-noise = fail
+        dup?.close() // second close must be a released-guard no-op, not a double unreference
+        ObjectCalls.destroyObject(res.handle) // probe object was never referenced (rc 0)
     }
 
     println("[kanama][ios][kn] OBJECTCALLS SELFTEST: $pass passed, $fail failed")

@@ -39,7 +39,12 @@ class AtlasTexture(handle: MemorySegment) : Texture2D(handle) {
     }
 
     fun getAtlas(): Texture2D? {
-        return Texture2D.wrap(ObjectCalls.ptrcallNoArgsRetObject(getAtlasBind, handle))
+        val ret = ObjectCalls.ptrcallNoArgsRetObject(getAtlasBind, handle)
+        if (ret.address() == handle.address()) {
+            RefCounted.releaseHandle(ret)
+            return this
+        }
+        return Texture2D.wrap(ret)
     }
 
     fun setRegion(region: Rect2) {

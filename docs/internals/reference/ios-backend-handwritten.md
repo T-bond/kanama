@@ -26,12 +26,12 @@ _Intentionally bespoke — not generatable from extension_api.json; correct as-i
 | `ios-runtime/src/iosMain/kotlin/net/multigesture/kanama/api/IosGodotApi.kt:116` | [platform] KanamaScope bridges Godot's main thread to Kotlin coroutines; not generatable from extension_api.json. |
 | `ios-runtime/src/iosMain/kotlin/net/multigesture/kanama/api/IosGodotApi.kt:130` | [platform] MainThread.post is a no-op shim; on iOS main thread dispatch is handled by Godot's frame loop, not a JVM executor. |
 | `ios-runtime/src/iosMain/kotlin/net/multigesture/kanama/api/IosGodotApi.kt:193` | [runtime] signal/connect/emitSignal/await use the custom GDExtension |
-| `ios-runtime/src/iosMain/kotlin/net/multigesture/kanama/api/IosGodotApi.kt:295` | [platform] AutoCloseable no-op base; Godot object lifetime is managed |
-| `ios-runtime/src/iosMain/kotlin/net/multigesture/kanama/api/IosGodotApi.kt:545` | [runtime] Tweener/PropertyTweener/Tween use the Variant tween_property path |
-| `ios-runtime/src/iosMain/kotlin/net/multigesture/kanama/api/IosGodotApi.kt:664` | [platform] pure-Kotlin math helpers (no Godot call). Bespoke utility, |
-| `ios-runtime/src/iosMain/kotlin/net/multigesture/kanama/api/IosGodotApi.kt:726` | [glue] ResourceLoader singleton. Not retired to the generated wrapper: |
-| `ios-runtime/src/iosMain/kotlin/net/multigesture/kanama/api/IosGodotApi.kt:802` | [platform] GD global helpers (rand*, print) — Kotlin/native impls, bespoke. |
-| `ios-runtime/src/iosMain/kotlin/net/multigesture/kanama/api/IosGodotApi.kt:888` | [glue] thin cinterop facade over the C shim helpers used by the bespoke |
+| `ios-runtime/src/iosMain/kotlin/net/multigesture/kanama/api/IosGodotApi.kt:295` | [platform] AutoCloseable no-op base for non-refcounted objects |
+| `ios-runtime/src/iosMain/kotlin/net/multigesture/kanama/api/IosGodotApi.kt:547` | [runtime] Tweener/PropertyTweener/Tween use the Variant tween_property path |
+| `ios-runtime/src/iosMain/kotlin/net/multigesture/kanama/api/IosGodotApi.kt:666` | [platform] pure-Kotlin math helpers (no Godot call). Bespoke utility, |
+| `ios-runtime/src/iosMain/kotlin/net/multigesture/kanama/api/IosGodotApi.kt:728` | [glue] ResourceLoader singleton. Not retired to the generated wrapper: |
+| `ios-runtime/src/iosMain/kotlin/net/multigesture/kanama/api/IosGodotApi.kt:804` | [platform] GD global helpers (rand*, print) — Kotlin/native impls, bespoke. |
+| `ios-runtime/src/iosMain/kotlin/net/multigesture/kanama/api/IosGodotApi.kt:890` | [glue] thin cinterop facade over the C shim helpers used by the bespoke |
 | `ios-runtime/src/iosMain/kotlin/net/multigesture/kanama/api/ProjectSettings.kt:6` | [glue] ProjectSettings singleton. Not retired to the generated wrapper: |
 
 ## SUGAR

@@ -163,7 +163,12 @@ class Image(handle: MemorySegment) : Resource(handle) {
     }
 
     fun rgbeToSrgb(): Image? {
-        return Image.wrap(ObjectCalls.ptrcallNoArgsRetObject(rgbeToSrgbBind, handle))
+        val ret = ObjectCalls.ptrcallNoArgsRetObject(rgbeToSrgbBind, handle)
+        if (ret.address() == handle.address()) {
+            RefCounted.releaseHandle(ret)
+            return this
+        }
+        return Image.wrap(ret)
     }
 
     fun bumpMapToNormalMap(bumpScale: Double = 1.0) {

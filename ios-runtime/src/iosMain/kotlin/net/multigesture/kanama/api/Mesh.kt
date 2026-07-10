@@ -42,7 +42,12 @@ open class Mesh(handle: MemorySegment) : Resource(handle) {
     }
 
     fun createPlaceholder(): Resource? {
-        return Resource.wrap(ObjectCalls.ptrcallNoArgsRetObject(createPlaceholderBind, handle))
+        val ret = ObjectCalls.ptrcallNoArgsRetObject(createPlaceholderBind, handle)
+        if (ret.address() == handle.address()) {
+            RefCounted.releaseHandle(ret)
+            return this
+        }
+        return Resource.wrap(ret)
     }
 
     fun createTrimeshShape(): ConcavePolygonShape3D? {
@@ -54,7 +59,12 @@ open class Mesh(handle: MemorySegment) : Resource(handle) {
     }
 
     fun createOutline(margin: Double): Mesh? {
-        return Mesh.wrap(ObjectCalls.ptrcallWithDoubleArgRetObject(createOutlineBind, handle, margin))
+        val ret = ObjectCalls.ptrcallWithDoubleArgRetObject(createOutlineBind, handle, margin)
+        if (ret.address() == handle.address()) {
+            RefCounted.releaseHandle(ret)
+            return this
+        }
+        return Mesh.wrap(ret)
     }
 
     fun generateTriangleMesh(): TriangleMesh? {

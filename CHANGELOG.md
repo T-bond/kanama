@@ -9,6 +9,21 @@ versioning once public releases begin.
 
 ### Added
 
+- iOS wrapper breadth (task 30): the generated iOS Godot API class set grew from
+  ~254 to **1017 classes — full desktop-equivalent breadth**. Every desktop
+  generated class is now emitted on iOS except three documented exceptions
+  (`DirAccess`/`FileAccess`, whose drafts depend on desktop-only hand-authored
+  handle-alias classes, and `MethodTweener`, which clashes with the hand-written
+  iOS Tween glue). Un-audited per-method marshalling shapes remain conservatively
+  skipped with generator-report entries — never stubbed — and the full
+  cross-platform drift gate holds committed == fresh regen at the new counts.
+- iOS RefCounted return ownership (task 31 mirror): the C shim now exposes
+  `object_destroy`, the generated iOS `RefCounted` owns the +1 reference every
+  RefCounted-typed ptrcall return transfers (`close()` releases it: unreference +
+  destroy at zero), and fluent self-returning methods emit the same
+  reference-neutral collapse pattern as desktop/Android. This closes the
+  per-call engine-reference leak on RefCounted-typed returns on iOS; an
+  on-device refcount probe (`refcounted-ret-owns-plus1`) guards the convention.
 - Resource-typed exports widened
   ([#36](https://github.com/falcon4ever/kanama/issues/36)): `@Export` /
   `@ScriptProperty` slots now accept `AudioStream`, `Texture`, `Mesh`,

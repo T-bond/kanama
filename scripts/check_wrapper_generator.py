@@ -459,6 +459,22 @@ def check_ios_policies(output_dir: Path) -> int:
               "(script-attachable non-null factory policy regressed)", file=sys.stderr)
         return 1
 
+    # RefCounted return-slot ownership mirror (task 30/31): the iOS RefCounted wrapper must
+    # carry the release primitive (close() = unreference + destroy at zero, releaseHandle for
+    # the collapse pattern), and fluent self-returns must emit the same collapse pattern as
+    # desktop — otherwise every RefCounted-typed ptrcall return leaks an engine ref on iOS.
+    _gen_ios(policy_dir, "RefCounted", "Resource")
+    rc = (policy_dir / "RefCounted.kt").read_text(encoding="utf-8")
+    if "override fun close()" not in rc or "internal fun releaseHandle" not in rc:
+        print("[wrapper_generator] FAIL iOS RefCounted lost its ownership custom sections "
+              "(close()/releaseHandle — RefCounted returns would leak again)", file=sys.stderr)
+        return 1
+    ios_resource = (policy_dir / "Resource.kt").read_text(encoding="utf-8")
+    if "RefCounted.releaseHandle(ret)" not in ios_resource:
+        print("[wrapper_generator] FAIL iOS self-return collapse pattern not emitted "
+              "(Resource.duplicate should carry the desktop collapse policy)", file=sys.stderr)
+        return 1
+
     collision = _gen_ios(policy_dir, "SceneTree")
     if (policy_dir / "SceneTree.kt").exists():
         print("[wrapper_generator] FAIL SceneTree.kt emitted despite being hand-written "

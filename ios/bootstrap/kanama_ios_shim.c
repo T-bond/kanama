@@ -247,6 +247,7 @@ static GDExtensionInterfaceClassdbConstructObject3 g_classdb_construct_object = 
 static GDExtensionInterfaceClassdbRegisterExtensionClass6 g_classdb_register_extension_class = NULL;
 static GDExtensionInterfaceClassdbUnregisterExtensionClass g_classdb_unregister_extension_class = NULL;
 static GDExtensionInterfaceObjectSetInstance g_object_set_instance = NULL;
+static GDExtensionInterfaceObjectDestroy g_object_destroy = NULL;
 static GDExtensionInterfaceObjectMethodBindCall g_object_method_bind_call = NULL;
 static GDExtensionInterfaceObjectMethodBindPtrcall g_object_method_bind_ptrcall = NULL;
 static GDExtensionInterfaceScriptInstanceCreate3 g_script_instance_create = NULL;
@@ -857,6 +858,9 @@ static int kanama_ios_resolve_godot_api(void) {
     g_object_set_instance = (GDExtensionInterfaceObjectSetInstance)kanama_ios_lookup(
         "object_set_instance"
     );
+    g_object_destroy = (GDExtensionInterfaceObjectDestroy)kanama_ios_lookup(
+        "object_destroy"
+    );
     g_object_method_bind_call = (GDExtensionInterfaceObjectMethodBindCall)kanama_ios_lookup(
         "object_method_bind_call"
     );
@@ -889,6 +893,7 @@ static int kanama_ios_resolve_godot_api(void) {
         g_classdb_register_extension_class == NULL ||
         g_classdb_unregister_extension_class == NULL ||
         g_object_set_instance == NULL ||
+        g_object_destroy == NULL ||
         g_object_method_bind_call == NULL ||
         g_object_method_bind_ptrcall == NULL ||
         g_script_instance_create == NULL ||
@@ -3609,6 +3614,16 @@ int64_t kanama_ios_godot_get_singleton(const char *name) {
         return 0;
     }
     return (int64_t)(intptr_t)kanama_ios_global_singleton(name);
+}
+
+// Public cinterop export: destroy an engine Object immediately (GDExtension object_destroy).
+// The wrapper-side RefCounted release primitive (task 31 iOS mirror): called only after
+// unreference() returns true (refcount hit zero), mirroring desktop ObjectCalls.destroyObject.
+void kanama_ios_godot_object_destroy(int64_t object) {
+    if (object == 0 || !kanama_ios_resolve_godot_api()) {
+        return;
+    }
+    g_object_destroy((GDExtensionObjectPtr)(intptr_t)object);
 }
 
 void kanama_ios_godot_object_queue_free(int64_t object) {

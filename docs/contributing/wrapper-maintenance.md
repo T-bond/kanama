@@ -83,12 +83,16 @@ The wrapper convention on desktop/Android:
   sit on a ptrcall object-return helper, never on `callWithVariantArgs`
   (`PropertyTweener.from` regressed exactly this way once).
 
-The iOS island has the same +1 slot semantics (the C-shim passes the object
-return slot through untouched) but no wrapper-side release primitive yet — its
-`close()` is a documented no-op, so RefCounted-typed returns still leak there.
-That mirror belongs to the iOS wrapper-family follow-up slice, and the
-generator deliberately does not emit the collapse pattern under
-`--ios-emit-class`.
+The iOS island mirrors the same convention (task 30): the C-shim exposes
+`object_destroy` (`kanama_ios_godot_object_destroy`), `ObjectCalls.destroyObject`
+wraps it, and the generated iOS `RefCounted` carries `close()` (unreference +
+destroy at zero) plus the internal `releaseHandle` primitive via generator
+custom sections — so the collapse pattern above is emitted identically under
+`--ios-emit-class`. The base iOS `GodotObject.close()` stays a no-op (node/server
+returns are raw pointers with no reference transfer). Both the custom sections
+and the collapse emission are locked by `check_ios_policies`, and the on-device
+self-test matrix carries a `refcounted-ret-owns-plus1` refcount probe
+(duplicate() → refcount 1 → close()).
 
 Engine-wide `MethodName`, `PropertyName`, and `SignalName` constants are
 generated from `extension_api.json` separately from the class wrapper drafts:
@@ -126,6 +130,20 @@ in `scripts/check_wrapper_generator.py`:
   `collision:` line and skips it, instead of writing a `<Class>.kt` that duplicate-declares
   the class and breaks the compile. When a class graduates to a real generated wrapper
   (as `Time`/`InputMap`/`PhysicsServer3D` did), delete its entry so generation is allowed.
+
+- **Explicit uncompilable classes.** `IOS_UNSUPPORTED_CLASSES` lists the classes whose
+  generated draft cannot compile on iOS, each with its reason: `DirAccess`/`FileAccess`
+  (their drafts reference the hand-authored `DirAccessHandle`/`FileAccessHandle` desktop
+  policy classes iOS does not carry) and `MethodTweener` (its generated fluent methods clash
+  with the hand-written iOS `Tweener` glue). `--ios-emit-class <that class>` logs an
+  `unsupported:` line and skips it. Together with the collision registry these are the only
+  by-design exceptions to iOS class-set parity with desktop (task 30); retire an entry by
+  porting the desktop policy surface it depends on.
+
+- **RefCounted ownership sections.** The iOS `RefCounted` wrapper's `close()`/`releaseHandle`
+  custom sections and the fluent self-return collapse emission (see "RefCounted Return
+  Ownership" above) are locked by `check_ios_policies` so a generator refactor cannot
+  silently reintroduce the per-call RefCounted return leak.
 
 Two cross-platform load-bearing wrapper shapes are reproduced by explicit policy (so a regen
 does not drop them), locked by `check_ios_policies`:
@@ -197,7 +215,8 @@ non-virtual skips and the skipped properties found:
     two methods are editor-LSP plumbing with no game-runtime workflow.
   - **The formerly deferred ~12 landed in task 28** as audited desktop/Android
     families (all iOS-cleanly-skipped — none of the new kinds are iOS
-    arg/return kinds; the iOS mirror is task 30's scope):
+    arg/return kinds; task 30 brought iOS to full class-set parity, and these
+    per-method shape mirrors remain documented skip-report deferrals):
     - **Typed-array argument family**: RenderingDevice `blas_create` /
       `tlas_build` / `raytracing_pipeline_create`, `ImporterMesh.merge_importer_meshes`
       (`TypedObjectArray` + `TypedTransform3DArray`), `DrawableTexture2D.blit_rect_multi`,

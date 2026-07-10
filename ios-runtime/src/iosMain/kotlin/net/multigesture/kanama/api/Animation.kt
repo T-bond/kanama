@@ -233,7 +233,12 @@ class Animation(handle: MemorySegment) : Resource(handle) {
     }
 
     fun audioTrackGetKeyStream(trackIdx: Int, keyIdx: Int): Resource? {
-        return Resource.wrap(ObjectCalls.ptrcallWithTwoIntArgsRetObject(audioTrackGetKeyStreamBind, handle, trackIdx, keyIdx))
+        val ret = ObjectCalls.ptrcallWithTwoIntArgsRetObject(audioTrackGetKeyStreamBind, handle, trackIdx, keyIdx)
+        if (ret.address() == handle.address()) {
+            RefCounted.releaseHandle(ret)
+            return this
+        }
+        return Resource.wrap(ret)
     }
 
     fun audioTrackGetKeyStartOffset(trackIdx: Int, keyIdx: Int): Double {

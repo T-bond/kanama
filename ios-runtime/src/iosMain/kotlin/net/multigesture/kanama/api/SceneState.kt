@@ -13,7 +13,12 @@ class SceneState(handle: MemorySegment) : RefCounted(handle) {
     }
 
     fun getBaseSceneState(): SceneState? {
-        return SceneState.wrap(ObjectCalls.ptrcallNoArgsRetObject(getBaseSceneStateBind, handle))
+        val ret = ObjectCalls.ptrcallNoArgsRetObject(getBaseSceneStateBind, handle)
+        if (ret.address() == handle.address()) {
+            RefCounted.releaseHandle(ret)
+            return this
+        }
+        return SceneState.wrap(ret)
     }
 
     fun getNodeCount(): Int {

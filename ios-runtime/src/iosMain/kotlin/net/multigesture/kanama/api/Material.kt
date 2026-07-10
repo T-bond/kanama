@@ -26,7 +26,12 @@ open class Material(handle: MemorySegment) : Resource(handle) {
     }
 
     fun getNextPass(): Material? {
-        return Material.wrap(ObjectCalls.ptrcallNoArgsRetObject(getNextPassBind, handle))
+        val ret = ObjectCalls.ptrcallNoArgsRetObject(getNextPassBind, handle)
+        if (ret.address() == handle.address()) {
+            RefCounted.releaseHandle(ret)
+            return this
+        }
+        return Material.wrap(ret)
     }
 
     fun setRenderPriority(priority: Int) {
@@ -42,7 +47,12 @@ open class Material(handle: MemorySegment) : Resource(handle) {
     }
 
     fun createPlaceholder(): Resource? {
-        return Resource.wrap(ObjectCalls.ptrcallNoArgsRetObject(createPlaceholderBind, handle))
+        val ret = ObjectCalls.ptrcallNoArgsRetObject(createPlaceholderBind, handle)
+        if (ret.address() == handle.address()) {
+            RefCounted.releaseHandle(ret)
+            return this
+        }
+        return Resource.wrap(ret)
     }
 
     companion object {

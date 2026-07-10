@@ -317,6 +317,14 @@ object OS {
         ObjectCalls.ptrcallNoArgs(revokeGrantedPermissionsBind, singleton)
     }
 
+    fun addLogger(logger: Logger?) {
+        ObjectCalls.ptrcallWithObjectArgs(addLoggerBind, singleton, listOf(logger?.requireOpenHandle() ?: MemorySegment.NULL))
+    }
+
+    fun removeLogger(logger: Logger?) {
+        ObjectCalls.ptrcallWithObjectArgs(removeLoggerBind, singleton, listOf(logger?.requireOpenHandle() ?: MemorySegment.NULL))
+    }
+
     fun fromHandle(handle: MemorySegment): OS? =
         wrap(handle)
 
@@ -656,5 +664,15 @@ object OS {
     private const val REVOKE_GRANTED_PERMISSIONS_HASH = 3218959716L
     private val revokeGrantedPermissionsBind by lazy {
         ObjectCalls.getMethodBind("OS", "revoke_granted_permissions", REVOKE_GRANTED_PERMISSIONS_HASH)
+    }
+
+    private const val ADD_LOGGER_HASH = 4261188958L
+    private val addLoggerBind by lazy {
+        ObjectCalls.getMethodBind("OS", "add_logger", ADD_LOGGER_HASH)
+    }
+
+    private const val REMOVE_LOGGER_HASH = 4261188958L
+    private val removeLoggerBind by lazy {
+        ObjectCalls.getMethodBind("OS", "remove_logger", REMOVE_LOGGER_HASH)
     }
 }

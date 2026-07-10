@@ -106,7 +106,12 @@ class ArrayMesh(handle: MemorySegment) : Mesh(handle) {
     }
 
     fun getShadowMesh(): ArrayMesh? {
-        return ArrayMesh.wrap(ObjectCalls.ptrcallNoArgsRetObject(getShadowMeshBind, handle))
+        val ret = ObjectCalls.ptrcallNoArgsRetObject(getShadowMeshBind, handle)
+        if (ret.address() == handle.address()) {
+            RefCounted.releaseHandle(ret)
+            return this
+        }
+        return ArrayMesh.wrap(ret)
     }
 
     companion object {

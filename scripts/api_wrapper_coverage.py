@@ -67,6 +67,34 @@ def parse_ratio(value: str) -> tuple[int, int] | None:
     return int(match.group(1)), int(match.group(2))
 
 
+def platform_class_set_lines(classes: dict[str, ApiClass], wrapper_classes: set[str]) -> list[str]:
+    """Per-platform emitted class counts (the drift-gate view, task 30)."""
+    from check_wrapper_generator import API_DIR, DESKTOP_HANDSHAPED, IOS_API_DIR
+    from generate_api_wrapper import IOS_HANDWRITTEN_COLLISION_CLASSES, IOS_UNSUPPORTED_CLASSES
+
+    api_names = set(classes)
+    desktop_committed = {p.stem for p in API_DIR.glob("*.kt")}
+    desktop_generated = len((desktop_committed & api_names) - DESKTOP_HANDSHAPED)
+    ios_committed = {p.stem for p in IOS_API_DIR.glob("*.kt")}
+    ios_generated = len((ios_committed & api_names) - set(IOS_HANDWRITTEN_COLLISION_CLASSES))
+    unsupported = ", ".join(f"`{name}`" for name in sorted(IOS_UNSUPPORTED_CLASSES))
+    return [
+        "### Per-Platform Class Sets",
+        "",
+        "Every platform tree is held to `check_full_drift_gate` (committed == fresh regen; "
+        "see wrapper-maintenance.md).",
+        "",
+        f"- Desktop: {desktop_generated} generated classes + {len(DESKTOP_HANDSHAPED)} hand-shaped "
+        "policy classes. Android reuses the desktop sources (no separate tree).",
+        f"- iOS: {ios_generated} generated classes — full desktop-equivalent breadth (task 30) — plus "
+        f"{len(IOS_HANDWRITTEN_COLLISION_CLASSES)} hand-written collision classes "
+        "(`IOS_HANDWRITTEN_COLLISION_CLASSES`). The only classes not emitted on iOS are the "
+        f"documented `IOS_UNSUPPORTED_CLASSES`: {unsupported}. Per-method iOS skips remain "
+        "conservative (un-audited marshalling shapes are skipped with report entries, never stubbed).",
+        "",
+    ]
+
+
 def render_markdown(
     classes: dict[str, ApiClass],
     wrapped_methods: dict[str, set[str]],
@@ -152,6 +180,7 @@ def render_markdown(
             f"- Classes: {covered_classes} / {total_classes} `{bar(class_percent)}` {class_percent:.1f}%",
             f"- Methods: {covered_methods} / {total_methods} `{bar(method_percent)}` {method_percent:.1f}% (callable methods; engine virtuals excluded — see below)",
             "",
+            *platform_class_set_lines(classes, wrapper_classes),
             "## Virtual Methods",
             "",
             f"`extension_api.json` declares **{total_virtuals}** engine virtual methods (the `_*` "

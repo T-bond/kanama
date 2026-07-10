@@ -200,6 +200,20 @@ IOS_EMIT_CLASSES: set[str] | None = None
 # main() logs + skips any requested class listed here, making the collision explicit (task 11,
 # generator policy). Retire an entry only when the class moves to a real generated wrapper (as
 # Time/InputMap/PhysicsServer3D did in task 10) — then delete it here so generation is allowed.
+# Classes the iOS generator refuses to emit because their generated draft cannot compile on
+# iOS (task 30 breadth pass). Unlike IOS_HANDWRITTEN_COLLISION_CLASSES these are not hosted
+# anywhere on iOS — requesting one logs an `unsupported:` line and skips it, so a bulk regen
+# stays fail-loud instead of writing a file that breaks compileKotlinIosArm64. Retire an entry
+# by porting the desktop policy surface it depends on.
+IOS_UNSUPPORTED_CLASSES = {
+    "DirAccess": "desktop hosts DirAccess as a hand-shaped static facade; the generated draft "
+                 "references the hand-authored DirAccessHandle alias class iOS does not carry",
+    "FileAccess": "desktop hosts FileAccess as a hand-shaped static facade; the generated draft "
+                  "references the hand-authored FileAccessHandle alias class iOS does not carry",
+    "MethodTweener": "generated setTrans/setEase clash with the hand-written iOS Tweener fluent "
+                     "glue (IosGodotApi.kt) the class must subclass",
+}
+
 IOS_HANDWRITTEN_COLLISION_CLASSES = {
     "SceneTree": "hand-written Node subclass (createTween F2 fix + coroutine/companion glue) in IosGodotApi.kt",
     "Tween": "hand-written Variant tween_property runtime in IosGodotApi.kt",
@@ -514,6 +528,24 @@ CUSTOM_COMPANION_MEMBER_SECTIONS = {
 # (SceneTree, Tween, IosGodot, Node, NodePath) are all in the same package, so no extra
 # imports are needed. Gated to IOS_AUDIT_ONLY in render_wrapper.
 IOS_CUSTOM_MEMBER_SECTIONS = {
+    "RefCounted": """
+    // ── Kanama iOS RefCounted ownership (generator custom-section; task 31 mirror) ─────
+    // A wrapper returned from a RefCounted-typed ptrcall method owns the +1 reference the
+    // engine hands through the return slot (meta:"required" included). close() releases it:
+    // unreference() + destroy at zero. Wrappers minted from Variant-path returns or
+    // fromHandle casts borrow — do not close those (see wrapper-maintenance.md
+    // "RefCounted Return Ownership").
+    private var wrapperReferenceReleased = false
+
+    @ManualGodotLifetimeApi
+    override fun close() {
+        if (wrapperReferenceReleased) return
+        wrapperReferenceReleased = true
+        if (unreference()) {
+            ObjectCalls.destroyObject(handle)
+        }
+    }
+""".strip("\n"),
     "Node": """
     // ── Kanama iOS sugar (generator custom-section, not from Godot docs) ───────
     // getViewport() is generated above (Rect2 kind widening made Viewport an emitted
@@ -665,6 +697,16 @@ IOS_CUSTOM_MEMBER_SECTIONS = {
 # iOS-only companion-object custom sections (mirrors CUSTOM_COMPANION_MEMBER_SECTIONS for the
 # IOS_AUDIT_ONLY path). Members are emitted inside the generated companion object (8-space indent).
 IOS_CUSTOM_COMPANION_MEMBER_SECTIONS = {
+    "RefCounted": """
+        // Releases the +1 return-slot reference carried by `handle` without minting a
+        // wrapper — the generated self-return-collapse pattern calls this before
+        // returning `this` (task 31 mirror; matches desktop RefCounted.releaseHandle).
+        internal fun releaseHandle(handle: MemorySegment) {
+            if (handle.address() != 0L && ObjectCalls.ptrcallNoArgsRetBool(unreferenceBind, handle)) {
+                ObjectCalls.destroyObject(handle)
+            }
+        }
+""".strip("\n"),
     "InputEventKey": """
         // Godot Key enum constants (subset used by gameplay code; values match @GlobalScope.Key).
         const val KEY_ESCAPE = 4194305L
@@ -1673,10 +1715,14 @@ def self_return_collapse_wrapper(
     address equals the receiver the duplicate reference is released and `this` is
     returned instead — the policy the hand-shaped Tween/Tweener classes set.
 
-    Desktop/Android only: the iOS island has no wrapper-side release primitive yet
-    (close() is a documented no-op there); its mirror is the iOS follow-up slice.
+    All platforms: iOS gained the release primitive (ObjectCalls.destroyObject over
+    the C-shim object_destroy) and the RefCounted close()/releaseHandle custom
+    sections in the task-30 ownership mirror, so the collapse pattern is emitted
+    under --ios-emit-class too. Varargs can never hit this path (VARARG_RETURN_TYPES
+    excludes Object), so the release always sits on a ptrcall object-return helper,
+    never on callWithVariantArgs.
     """
-    if IOS_AUDIT_ONLY or singleton or method.is_static:
+    if singleton or method.is_static:
         return None
     if method.logical_return_kind(object_types) != "Object":
         return None
@@ -2710,6 +2756,10 @@ def collect_ios_shapes(
     for cls in classes:
         for method_list in cls.methods.values():
             for method in method_list:
+                if method.is_vararg:
+                    # Supported varargs render through the hand-written
+                    # callWithVariantArgs path, never a generated ptrcall helper.
+                    continue
                 if unsupported_reason(cls.name, method, object_types, wrapper_classes, api_classes, api_dir) is not None:
                     continue
                 shape = candidate_for(method, object_types)
@@ -2828,6 +2878,14 @@ def main() -> int:
                 print(
                     f"[generate_api_wrapper] collision: {class_name} is hand-written on iOS "
                     f"({reason}); skipping generation.",
+                    file=sys.stderr,
+                )
+                continue
+            unsupported = IOS_UNSUPPORTED_CLASSES.get(class_name)
+            if unsupported is not None:
+                print(
+                    f"[generate_api_wrapper] unsupported: {class_name} cannot compile on iOS "
+                    f"({unsupported}); skipping generation.",
                     file=sys.stderr,
                 )
                 continue

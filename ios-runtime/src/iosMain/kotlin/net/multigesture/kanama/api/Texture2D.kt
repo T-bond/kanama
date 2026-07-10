@@ -57,7 +57,12 @@ open class Texture2D(handle: MemorySegment) : Texture(handle) {
     }
 
     fun createPlaceholder(): Resource? {
-        return Resource.wrap(ObjectCalls.ptrcallNoArgsRetObject(createPlaceholderBind, handle))
+        val ret = ObjectCalls.ptrcallNoArgsRetObject(createPlaceholderBind, handle)
+        if (ret.address() == handle.address()) {
+            RefCounted.releaseHandle(ret)
+            return this
+        }
+        return Resource.wrap(ret)
     }
 
     companion object {

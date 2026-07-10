@@ -292,9 +292,11 @@ open class GodotObject(
         }
     }
 
-    // KANAMA-IOS-HANDWRITTEN: [platform] AutoCloseable no-op base; Godot object lifetime is managed
-    // externally (the Kotlin wrapper does not own a ref), not by Kotlin's close(). Implementing
-    // AutoCloseable lets shared demo code use `obj.use { ... }` (e.g. getSlideCollision) uniformly.
+    // KANAMA-IOS-HANDWRITTEN: [platform] AutoCloseable no-op base for non-refcounted objects
+    // (nodes/servers return raw pointers with no reference transfer, so there is nothing to
+    // release). The generated RefCounted subclass overrides this with the real release
+    // (unreference + destroy at zero — task 31 ownership mirror). Implementing AutoCloseable
+    // lets shared demo code use `obj.use { ... }` (e.g. getSlideCollision) uniformly.
     override fun close() {
     }
 
