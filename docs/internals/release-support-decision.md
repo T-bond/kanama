@@ -432,6 +432,70 @@ work* (artifact shape + install-smoke), not device-lab work. B2 cleared
 2026-07-10; the only remaining device-lab item is B1-Android (a second Android
 model through the debug matrix + R8-minified gate).
 
+### B3 design (written 2026-07-10; implementation pending)
+
+The B3 gap closes with two packaged artifacts, one smoke extension, and two
+recorded decisions. A future session can implement this mechanically; B3 flips
+MET only after every piece below is green.
+
+**Artifact 1 — `kanama-mobile-addon-ios-v<version>.zip`**
+
+- Contents: `addons/kanama/bin/ios/kanama_ios.debug.xcframework` +
+  `kanama_ios.release.xcframework` (device `arm64` slices only — the simulator
+  stays a maintainer opt-in, never packaged), the `.gdextension` iOS entries
+  (as an install fragment that merges into an existing descriptor the way
+  `installIosAddon` does, not a blind overwrite), and an install README.
+- Build: a new `packageMobileAddonIos` Gradle task depending on
+  `assembleIosDeviceKanamaXcframework`. **Maintainer-built on macOS** — the CI
+  package workflow cannot build it (no Xcode on the runner); CI wiring is a
+  later, separate decision.
+- Size disclosure (required in the user-facing doc): the full-breadth static
+  libraries are ~199.5 MB debug / ~87.6 MB release before zip; both variants
+  ship because Godot's export reads both descriptor entries.
+- Open user-side gap the README must cover: the packaged addon delivers
+  *prebuilt* runtime frameworks, so project **Kotlin scripts still need the
+  Kanama checkout's `installIosAddon` KSP path today**. Until a script-compile
+  story without a checkout exists, the iOS packaged addon honestly targets
+  script-less evaluation + prebuilt-runtime updates, and says so. (This is the
+  main reason B3-iOS may stay below the desktop bar even after packaging —
+  document, don't overclaim.)
+
+**Artifact 2 — `kanama-mobile-addon-android-v<version>.zip`**
+
+- Contents: `android/plugins/KanamaAndroid.debug.aar` + `KanamaAndroid.gdap` +
+  the `.gdextension` Android entries fragment + install README.
+- **Decision (debug-only for now):** no Kanama release AAR exists today — the
+  validated R8 release path patches the *export's* generated Gradle build
+  (`android_export_minified.sh`), not the plugin AAR. Ship debug-only with
+  that stated, and add a release-AAR build as its own follow-up if promotion
+  demands it.
+- **Decision (PanamaPort distribution):** keep the JitPack coordinate
+  (`com.github.falcon4ever.PanamaPort:Core:0.1.3-kanama-r8.2`) declared via
+  `.gdap` and documented as an availability dependency, with the README
+  carrying the repo-injection step the smoke scripts perform today. Vendoring
+  a fat AAR is the fallback if JitPack availability ever becomes a support
+  problem — revisit at promotion time.
+- Build: `packageMobileAddonAndroid` depending on the AAR build; CI-capable in
+  principle (needs SDK/NDK on the runner) but maintainer-built first.
+
+**Install smoke — extend `scripts/package_install_smoke.sh`:**
+
+- `--ios-addon <zip>`: unzip into a *fresh minimal Godot project* (no Kanama
+  checkout), assert descriptor entries merge correctly, assert xcframework
+  structure (Info.plist + expected static-library slices), and run the
+  template preflight against the pinned Godot iOS templates when installed
+  (skip loudly otherwise). Device-free.
+- `--android-addon <zip>`: unzip, assert `.gdap`/AAR/descriptor coherence,
+  then when `ANDROID_HOME` is present run the headless build-template install
+  + `--export-debug` to an APK (skip loudly otherwise). Launch/logcat stays
+  `android_smoke.sh`'s job on a device.
+
+**B3 exit criteria:** both artifacts build reproducibly from a clean checkout;
+both install-smoke modes green on a machine without a sibling Kanama checkout;
+`docs/exporting/{ios,android}.md` gain "Use a packaged mobile addon" sections
+with the size and script-compile caveats above; only then flip B3 in the §7
+table.
+
 ### Promotion procedure (when all green)
 
 1. Re-verify the §6 Tier-2 checklists on the current Godot baseline.
