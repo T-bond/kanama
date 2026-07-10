@@ -178,14 +178,18 @@ for macOS (task-15 §4 left "Validated" vs "Supported" as the human's call); the
 rest of the §4 wording landed as recommended, including the Android under-claim
 fix ("Pixel 7 pending" → "device-validated on Pixel 7").
 
-**Carried caveats** (unchanged, documented as limitations not blockers):
+**Carried caveats** (documented as limitations not blockers; two updated since
+release — see [release-support-decision.md](./release-support-decision.md) §5/§7):
 
 - No hot reload on mobile.
-- iOS does not run heavy-3D / mobile-multiplayer (`tps-demo-kanama`) yet — the
-  headline Phase 4 target.
+- iOS heavy-3D / mobile-multiplayer: **closed 2026-07-09 (task 24)** —
+  `tps-demo-kanama` runs playable on iPhone 15 Pro; mobile-UI polish
+  (touch/multiplayer UI) remains task 26.
 - Android's validated renderer is OpenGL Compatibility only; R8-minified releases
   depend on Kanama's PanamaPort fork, not upstream.
-- iOS full-gate device breadth is iPhone 12; iPhone 15 Pro is corpus + self-tests.
+- iOS full-gate device breadth: **two models since 2026-07-10** — iPhone 12
+  (2026-06-25) and iPhone 15 Pro (2026-07-10, full-breadth runtime). Android
+  remains Pixel 7-only.
 
 ---
 

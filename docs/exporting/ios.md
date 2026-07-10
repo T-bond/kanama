@@ -23,13 +23,13 @@ device `arm64` and optional Apple Silicon simulator `arm64` slices, and runs
 full Kanama project scripts through generated Godot API wrappers over a C-shim
 generic `ptrcall`.
 
-The **full 9-demo device gate** (`scripts/ios_device_gate.sh`, plus the
-fresh-project install path) is validated on **iPhone 12** (iOS 26.5) with 0
-guardrail hits; per-frame Kanama binding overhead measured about 0.63 ms/frame
-there. **iPhone 15 Pro** (iOS 26.5) has separately validated the *playable demo
-corpus* and the singleton/virtual self-tests (Match3, 3D Platformer, Bunnymark,
-dodge, squash, Racing, character-controller, FPS, and third-person) — it is not
-the full-gate elapsed baseline. "Recent iPhones" is not yet a proven claim.
+The **full ten-step device gate** (`scripts/ios_device_gate.sh`: the
+fresh-project install path plus the nine-demo matrix) is validated on two
+physical models: **iPhone 12** (iOS 26.5, 2026-06-25; 0 guardrail hits,
+per-frame Kanama binding overhead about 0.63 ms/frame measured there) and
+**iPhone 15 Pro** (iOS 26.5, 2026-07-10, on the full-breadth generated-wrapper
+runtime). The claim names those two models — it is not a device-family
+("recent iPhones") claim.
 
 iOS is still **experimental, not a supported export**. It should not be
 presented as a production mobile target or desktop-level support claim. Treat it
@@ -337,5 +337,6 @@ loader/render checks. None of the modes prove hot reload.
 - The runtime calls Godot through backend-neutral generated wrappers and
   prefers cached typed `ptrcall`s over Variant-heavy or allocation-heavy paths.
 - The current playable demo set matches the Android-enabled public demo set plus
-  Bunnymark. FPS is playable but still has an intermittent Audio autoload
-  follow-up.
+  Bunnymark; the heavy `tps-demo-kanama` also runs on device (its mobile
+  touch/multiplayer UI polish is tracked separately). FPS is playable but still
+  has an intermittent Audio autoload follow-up.

@@ -8,6 +8,12 @@
 > `docs/exporting/{android,ios}.md`. See
 > [post-release-direction.md](./post-release-direction.md) for the release outcome
 > and next phase.
+>
+> **Phase 4 · B addendum (2026-07-10, task 25):** §7 defines the written
+> Supported-mobile promotion bar and the packaging assessment; the §2/§3/§5
+> matrix rows are refreshed for the iPhone 15 Pro full ten-step gate
+> (2026-07-10) and the task-24 iOS heavy-demo landing. Tiers unchanged — mobile
+> stays Tier 2 until §7 is fully green.
 
 This document answers four questions for the 0.2.x release line:
 
@@ -59,7 +65,8 @@ conservative.
 **Recommendation:** keep Tier 2 labelled **experimental**, not "supported with
 caveats". The mobile backends have crossed the *demo-parity* bar but not the
 *release-grade packaging + broad device matrix* bar that "supported" implies here.
-Promotion to a supported mobile tier is a future decision, gated on §6.
+Promotion to a supported mobile tier is a future decision, gated on the §7
+promotion bar (plus the standing §6 checklists).
 
 ---
 
@@ -89,18 +96,19 @@ notes per AGENTS.md.
 | Windows (desktop) | x86_64 | — | project renderer | **Pending 4.7-stable revalidation** (last green on 4.7 beta 2 console binary) | [Version Support](../reference/version-support.md) |
 | Android | **Pixel 7** (physical) + API 36 emulator | Android | **OpenGL Compatibility only** | Full 4.7-stable debug APK demo matrix + R8-minified Match3 release APK, both on Pixel 7 (2026-06-26) | [exporting/android.md](../exporting/android.md), [architecture-review-2026-06.md](./reference/architecture-review-2026-06.md) |
 | iOS (full gate) | **iPhone 12** (physical) | iOS 26.5 | Godot iOS | Full 9-demo device gate + fresh-project install path, 0 guardrail failures; ~0.63 ms/frame binding overhead | [ios-demo-port-tracker.md](./active/ios-demo-port-tracker.md) (baseline 2026-06-25) |
-| iOS (latest device) | **iPhone 15 Pro** (physical) | iOS 26.5 | Godot iOS | Playable demo corpus + singleton/virtual self-tests green (PTRCALL 59/0, OBJECTCALLS 91/0) | [ios-demo-port-tracker.md](./active/ios-demo-port-tracker.md), coverage PRs #29–31 |
+| iOS (full gate, second model) | **iPhone 15 Pro** (physical) | iOS 26.5 | Godot iOS | Full ten-step device gate (fresh-project install + 9-demo matrix) on the **full-breadth runtime** (task 30, 1017 generated classes), all steps passed 2026-07-10; same-runtime self-tests PTRCALL 70/0, OBJECTCALLS 111/0 | [ios-demo-port-tracker.md](./active/ios-demo-port-tracker.md) (refresh 2026-07-10) |
+| iOS (heavy demo) | **iPhone 15 Pro** (physical) | iOS 26.5 | Godot iOS | `tps-demo-kanama` runs playable on device (menu, threaded level load, movement/camera/animation, aim, robot raycasts), 2026-07-09 (task 24) | [ios-demo-port-tracker.md](./active/ios-demo-port-tracker.md) |
 
 **Android SDK/NDK for the matching 4.7-stable export templates:** SDK API 36,
 build-tools 36.1.0, NDK 29.0.14206865 ([Version Support](../reference/version-support.md)).
 
-**iOS device note:** the *repeatable full 9-demo device gate*
-(`scripts/ios_device_gate.sh`) baseline is **iPhone 12** (iOS 26.5). **iPhone 15
-Pro** (iOS 26.5) has device-validated the playable demo corpus, the FPS
-`SceneTree.createTween` regression, the three retired singletons
-(`InputMap`/`Time`/`PhysicsServer3D`), and the non-POD virtual return self-tests
-(String / PackedStringArray / Variant). Both run Godot 4.7 stable. Neither is a
-"recent iPhones" claim — the matrix names the two validated models.
+**iOS device note:** the *repeatable full device gate*
+(`scripts/ios_device_gate.sh`, fresh-project install + the 9-demo matrix) has
+now passed on **two models**: iPhone 12 (iOS 26.5, 2026-06-25 — the elapsed-time
+baseline) and iPhone 15 Pro (iOS 26.5, 2026-07-10 — on the full-breadth task-30
+runtime). Both run Godot 4.7 stable. This clears the two-model criterion for iOS
+in §7 (B1). It is still stated as two named models, not a "recent iPhones"
+device-family claim.
 
 ### Generator coverage state (for the support claim)
 
@@ -140,7 +148,7 @@ that bar:
 | Convergence criterion | Android | iOS |
 |---|---|---|
 | Documented user-facing export path | ✅ [exporting/android.md](../exporting/android.md) | ✅ [exporting/ios.md](../exporting/ios.md) |
-| Physical-device smoke gate on 4.7 stable | ✅ Pixel 7 (debug matrix + R8 Match3) | ✅ iPhone 12 full gate + iPhone 15 Pro corpus |
+| Physical-device smoke gate on 4.7 stable | ✅ Pixel 7 (debug matrix + R8 Match3) | ✅ full ten-step gate on iPhone 12 (2026-06-25) **and** iPhone 15 Pro (2026-07-10) |
 | Android-enabled public demo set on device | ✅ 8 demos | ✅ 9 demos (that set + Bunnymark) |
 | Same generated wrapper API (drift-gate) | ✅ `check_full_drift_gate` | ✅ `check_full_drift_gate` |
 
@@ -241,21 +249,19 @@ tiering; each is a bounded, disclosed gap.
 
 ### iOS
 
-- **Heavy 3D / mobile multiplayer is not supported on iOS.** The heaviest demo,
-  `tps-demo-kanama`, does **not** run on iOS. It is blocked by ~13 un-audited iOS
-  wrapper classes (e.g. `CPUParticles3D`, `DisplayServer`, `ShaderMaterial`,
-  `MultiplayerSynchronizer`, `SceneMultiplayer`, `AnimationTree`, `ConfigFile`,
-  `LightmapGI`, `OmniLight3D`/`SpotLight3D`, `BoneAttachment3D`, `FastNoiseLite`),
-  method gaps (`SceneTree.createTimer`, `AnimationTree.getRootMotion*`, threaded
-  `ResourceLoader`), **and** JVM-only stdlib usage in the demo
-  (`java.io.File`/`readText`/`print`, `ConfigFile`-to-disk) that is not
-  Kotlin/Native-portable. `@Rpc` config delivery is wired on the iOS C-shim path,
-  but full launch and *mobile playability* (touch controls, multiplayer UI) are
-  deferred — tracked in `kanama-tasks/19-tps-mobile-virtual-joysticks.md`. See the
-  `tps-demo-kanama` row in [ios-demo-port-tracker.md](./active/ios-demo-port-tracker.md).
-- **Device matrix breadth.** The repeatable full 9-demo gate is validated on
-  iPhone 12 only; iPhone 15 Pro covers the playable corpus + self-tests but is not
-  the full-gate elapsed baseline. "Recent iPhones" is not yet a proven claim.
+- **Heavy 3D / mobile multiplayer is device-proven but not gate-tracked on
+  iOS.** `tps-demo-kanama` **runs playable on iPhone 15 Pro** (2026-07-09, task
+  24): menu, threaded level load with progress bar, movement/camera/animation,
+  aim, and robot line-of-sight/laser raycasts all work on Kotlin/Native. What
+  remains: mobile *playability* polish (touch controls, mobile multiplayer UI —
+  `kanama-tasks/26-tps-demo-mobile-ui-port.md`), and the demo is not yet a row
+  in the repeatable `ios_device_gate.sh` matrix (the gate covers the nine-demo
+  set + fresh project). See the `tps-demo-kanama` row in
+  [ios-demo-port-tracker.md](./active/ios-demo-port-tracker.md).
+- **Device matrix breadth.** The repeatable full gate has passed on two models —
+  iPhone 12 (2026-06-25) and iPhone 15 Pro (2026-07-10, full-breadth runtime).
+  "Recent iPhones" as a device-family claim stays unproven; the matrix names the
+  validated models. (Android is still single-model — Pixel 7; tracked as §7 B1.)
 - **FPS Audio autoload follow-up.** Starter-Kit-FPS is playable but has an
   intermittent Audio autoload follow-up; documented as non-blocking.
 - **Audited type set only.** The iOS type/KSP-registration set covers the current
@@ -346,6 +352,89 @@ documented reason) before a release tag. This documents what is required; it doe
       Apple team IDs, provisioning profile names, and workstation paths stay in
       maintainer notes. Verify with:
       `rg -n "KANAMA_IOS_DEVICE=[0-9A-Fa-f]|KANAMA_IOS_TEAM=[A-Z0-9]{10}" docs/ scripts/`
+
+---
+
+## 7. Supported-mobile promotion bar (Phase 4 · B, task 25)
+
+Written 2026-07-10. This is the bar that moves iOS + Android from **Tier 2 —
+Experimental (device-validated)** to **Supported**. Promotion is a public
+support-claim change and happens **only when every criterion below is green**
+(AGENTS.md rule: never claim support a gate did not pass). The task can
+legitimately end with mobile still experimental — the deliverable is this
+honest bar and the measured results, not a forced promotion.
+
+The five §1 "supported" conditions still apply; this bar makes the
+mobile-specific ones measurable:
+
+| # | Criterion | Definition of green | iOS (2026-07-10) | Android (2026-07-10) |
+|---|---|---|---|---|
+| **B1** | Device matrix breadth | ≥ 2 physical device models per platform pass that platform's full repeatable gate on the current Godot baseline | ✅ **MET** — iPhone 12 (2026-06-25) + iPhone 15 Pro (2026-07-10) full ten-step gates (§2) | ❌ Pixel 7 only. Needs a second model through the debug demo matrix + the R8-minified release gate |
+| **B2** | Renderer coverage | Android: Vulkan/Mobile renderer smoke across the demo corpus, green on a physical device (promotes DEFERRED #2). iOS: the Godot iOS renderer exercised by the full gate | ✅ by construction (the full gate runs the Godot iOS renderer) | ❌ **not run** — OpenGL Compatibility remains the only validated Android renderer |
+| **B3** | Release-grade packaging | The platform export path meets the desktop packaging standard: user-facing docs, reproducible from a clean checkout, a **packaged install artifact** (no Kanama source checkout required), and an install-smoke validating that artifact | ❌ source-checkout only (assessment below) | ❌ source-checkout only (assessment below) |
+| **B4** | Heavy-demo coverage | `tps-demo-kanama` runs on-device on both platforms | ✅ **MET** — iPhone 15 Pro (2026-07-09, task 24) | ✅ **MET** — Pixel 7 (task 19, mobile controls validated) |
+
+Standing conditions carried from §1: drift-gate green / 0 silent stubs /
+refreshed coverage reports (§1.4 — currently green) and every remaining gap
+documented as a bounded limitation (§1.5).
+
+**Bookkeeping notes.** B4 is defined as *runs on device*. Two quality
+follow-ups are not gating but must be disclosed in the promotion wording if
+still open when B1–B3 clear: the mobile playability polish for the heavy demo
+(touch + multiplayer UI, task 26), and adding `tps-demo-kanama` as a row in the
+repeatable per-platform gate matrices so the heavy-demo claim stays
+re-provable. B1-iOS is a two-named-models claim, not a device-family claim.
+
+### Packaging assessment vs the desktop standard (B3)
+
+Measured against what "supported" already means for desktop packaging:
+user-facing flow in `docs/` — ✅ both platforms have this
+([exporting/ios.md](../exporting/ios.md), [exporting/android.md](../exporting/android.md));
+reproducible from a clean checkout — ✅ both (`installIosAddon` /
+`installAndroidPluginAar`, validated by the iOS gate's fresh-project path and
+`android_smoke.sh`); a packaged artifact installable **without** a Kanama
+source checkout — ❌ both; an install-smoke for that artifact — ❌ both.
+
+What's missing, concretely:
+
+- **No mobile packaged artifacts.** `packageDistributions` and the CI package
+  workflow produce desktop kits + store add-ons only. There is no shipped iOS
+  addon artifact (xcframeworks + `.gdextension` descriptor) or Android addon
+  artifact (AAR + `.gdap` + descriptor); both platforms currently require a
+  full source checkout and toolchain (full Xcode + Kotlin/Native for iOS;
+  Android SDK/NDK for the AAR build).
+- **No mobile install-smoke.** `package_install_smoke.sh` validates desktop
+  kits and store add-ons only; nothing validates "install a packaged mobile
+  addon into a fresh project". (The iOS device gate's fresh-project step
+  validates the *source-checkout* install path, not a packaged one.)
+- **iOS artifact shape/size decisions unmade.** The full-breadth iOS runtime is
+  ~199.5 MB debug / ~87.6 MB release static `.a` (task 30). A packaged iOS kit
+  needs a debug/release layout decision and a size disclosure.
+- **Android third-party dependency exposure.** The Android path depends on the
+  JitPack-hosted PanamaPort fork
+  (`com.github.falcon4ever.PanamaPort:Core:0.1.3-kanama-r8.2`). A supported
+  claim should either vendor that artifact into the packaged addon or
+  explicitly document the JitPack availability dependency.
+- **Documented workarounds still hold** for heavy-demo Android exports (the
+  headless `--install-android-build-template` hang; repo injection into Godot's
+  generated Gradle project — see
+  [post-release-direction.md](./post-release-direction.md) §6). Packaging docs
+  must carry these as long as they exist.
+
+**Assessment:** B3 is the farthest criterion from green, and it is *design
+work* (artifact shape + install-smoke), not device-lab work. B1-Android and B2
+are device-lab work (a second Android model; a Vulkan/Mobile renderer pass on
+physical hardware).
+
+### Promotion procedure (when all green)
+
+1. Re-verify the §6 Tier-2 checklists on the current Godot baseline.
+2. Apply the support-wording change to `docs/index.md`,
+   `docs/reference/version-support.md`, and `docs/exporting/*` with §4-style
+   named-device claims — the tier label moves to Supported with the per-platform
+   caveats carried, not dropped.
+3. Record the promotion evidence here (dates, devices, gate outputs) and flip
+   task 25 in `kanama-tasks/README.md`.
 
 ---
 
