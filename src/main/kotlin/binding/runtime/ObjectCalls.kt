@@ -11495,6 +11495,127 @@ object ObjectCalls {
         }
     }
 
+    fun ptrcallWithTransform3DRIDObjectArgsRetObject(
+        methodBind: MemorySegment,
+        instance: MemorySegment,
+        transformValue: Transform3D,
+        rid: RID,
+        objectArg: MemorySegment,
+    ): MemorySegment {
+        Arena.ofConfined().use { arena ->
+            val transform = arena.allocate(GodotReal.SIZE_BYTES * 12, GodotReal.ALIGN_BYTES)
+            writeTransform3D(transform, transformValue)
+            val ridCell = arena.allocate(JAVA_LONG)
+            ridCell.set(JAVA_LONG, 0, rid.value)
+            val objectCell = arena.allocate(ADDRESS)
+            objectCell.set(ADDRESS, 0, objectArg)
+            val args = arena.allocate(ADDRESS, 3)
+            args.setAtIndex(ADDRESS, 0, transform)
+            args.setAtIndex(ADDRESS, 1, ridCell)
+            args.setAtIndex(ADDRESS, 2, objectCell)
+            val ret = arena.allocate(ADDRESS)
+            objectMethodBindPtrcall.invoke(methodBind, instance, args, ret)
+            return ret.get(ADDRESS, 0)
+        }
+    }
+
+    fun ptrcallWithObjectBoolStringLongBoolArgsRetLong(
+        methodBind: MemorySegment,
+        instance: MemorySegment,
+        objectArg: MemorySegment,
+        firstFlag: Boolean,
+        text: String,
+        longValue: Long,
+        secondFlag: Boolean,
+    ): Long {
+        Arena.ofConfined().use { arena ->
+            val objectCell = arena.allocate(ADDRESS)
+            objectCell.set(ADDRESS, 0, objectArg)
+            val firstBool = arena.allocate(JAVA_BYTE)
+            firstBool.set(JAVA_BYTE, 0, if (firstFlag) 1.toByte() else 0.toByte())
+            val stringCell = arena.allocate(8L, 8L)
+            val longCell = arena.allocate(JAVA_LONG)
+            longCell.set(JAVA_LONG, 0, longValue)
+            val secondBool = arena.allocate(JAVA_BYTE)
+            secondBool.set(JAVA_BYTE, 0, if (secondFlag) 1.toByte() else 0.toByte())
+            try {
+                GodotStrings.initString(stringCell, text)
+                val args = arena.allocate(ADDRESS, 5)
+                args.setAtIndex(ADDRESS, 0, objectCell)
+                args.setAtIndex(ADDRESS, 1, firstBool)
+                args.setAtIndex(ADDRESS, 2, stringCell)
+                args.setAtIndex(ADDRESS, 3, longCell)
+                args.setAtIndex(ADDRESS, 4, secondBool)
+                val ret = arena.allocate(JAVA_LONG)
+                objectMethodBindPtrcall.invoke(methodBind, instance, args, ret)
+                return ret.get(JAVA_LONG, 0)
+            } finally {
+                GodotStrings.destroyString(stringCell)
+            }
+        }
+    }
+
+    fun ptrcallWithDictionaryIntDoubleTransform2DFourIntDoubleLongPackedColorListArgsRetRID(
+        methodBind: MemorySegment,
+        instance: MemorySegment,
+        values: Map<String, Any?>,
+        intValue: Int,
+        firstDouble: Double,
+        transformValue: Transform2D,
+        secondInt: Int,
+        thirdInt: Int,
+        fourthInt: Int,
+        fifthInt: Int,
+        secondDouble: Double,
+        longValue: Long,
+        colors: List<Color>,
+    ): RID {
+        Arena.ofConfined().use { arena ->
+            val dict = arena.allocate(8L, 8L)
+            val intCell = arena.allocate(JAVA_INT)
+            intCell.set(JAVA_INT, 0, intValue)
+            val firstDoubleCell = arena.allocate(JAVA_DOUBLE)
+            firstDoubleCell.set(JAVA_DOUBLE, 0, firstDouble)
+            val transform = arena.allocate(GodotReal.SIZE_BYTES * 6, GodotReal.ALIGN_BYTES)
+            writeTransform2D(transform, transformValue)
+            val secondIntCell = arena.allocate(JAVA_INT)
+            secondIntCell.set(JAVA_INT, 0, secondInt)
+            val thirdIntCell = arena.allocate(JAVA_INT)
+            thirdIntCell.set(JAVA_INT, 0, thirdInt)
+            val fourthIntCell = arena.allocate(JAVA_INT)
+            fourthIntCell.set(JAVA_INT, 0, fourthInt)
+            val fifthIntCell = arena.allocate(JAVA_INT)
+            fifthIntCell.set(JAVA_INT, 0, fifthInt)
+            val secondDoubleCell = arena.allocate(JAVA_DOUBLE)
+            secondDoubleCell.set(JAVA_DOUBLE, 0, secondDouble)
+            val longCell = arena.allocate(JAVA_LONG)
+            longCell.set(JAVA_LONG, 0, longValue)
+            val colorsPacked = BuiltinTypes.allocatePackedArray(arena)
+            try {
+                BuiltinTypes.initDictionary(dict, values)
+                BuiltinTypes.initPackedColorArray(colorsPacked, colors)
+                val args = arena.allocate(ADDRESS, 11)
+                args.setAtIndex(ADDRESS, 0, dict)
+                args.setAtIndex(ADDRESS, 1, intCell)
+                args.setAtIndex(ADDRESS, 2, firstDoubleCell)
+                args.setAtIndex(ADDRESS, 3, transform)
+                args.setAtIndex(ADDRESS, 4, secondIntCell)
+                args.setAtIndex(ADDRESS, 5, thirdIntCell)
+                args.setAtIndex(ADDRESS, 6, fourthIntCell)
+                args.setAtIndex(ADDRESS, 7, fifthIntCell)
+                args.setAtIndex(ADDRESS, 8, secondDoubleCell)
+                args.setAtIndex(ADDRESS, 9, longCell)
+                args.setAtIndex(ADDRESS, 10, colorsPacked)
+                val ret = arena.allocate(JAVA_LONG)
+                objectMethodBindPtrcall.invoke(methodBind, instance, args, ret)
+                return RID(ret.get(JAVA_LONG, 0))
+            } finally {
+                BuiltinTypes.destroyTyped(VariantType.PACKED_COLOR_ARRAY, colorsPacked)
+                BuiltinTypes.destroyTyped(VariantType.DICTIONARY, dict)
+            }
+        }
+    }
+
     fun ptrcallWithRIDListRect2iRIDColorRIDListIntArgs(
         methodBind: MemorySegment,
         instance: MemorySegment,

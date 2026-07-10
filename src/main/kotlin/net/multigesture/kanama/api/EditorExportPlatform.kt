@@ -131,8 +131,8 @@ open class EditorExportPlatform(handle: MemorySegment) : RefCounted(handle) {
      *
      * Generated from Godot docs: EditorExportPlatform.export_project
      */
-    fun exportProject(preset: EditorExportPreset?, debug: Boolean, path: String, flags: Long = 0L): Long {
-        return ObjectCalls.ptrcallWithObjectBoolStringLongArgsRetLong(exportProjectBind, handle, preset?.requireOpenHandle() ?: MemorySegment.NULL, debug, path, flags)
+    fun exportProject(preset: EditorExportPreset?, debug: Boolean, path: String, flags: Long = 0L, notify: Boolean = true): Long {
+        return ObjectCalls.ptrcallWithObjectBoolStringLongBoolArgsRetLong(exportProjectBind, handle, preset?.requireOpenHandle() ?: MemorySegment.NULL, debug, path, flags, notify)
     }
 
     /**
@@ -347,7 +347,7 @@ open class EditorExportPlatform(handle: MemorySegment) : RefCounted(handle) {
             ObjectCalls.getMethodBind("EditorExportPlatform", "export_project_files", EXPORT_PROJECT_FILES_HASH)
         }
 
-        private const val EXPORT_PROJECT_HASH = 3879521245L
+        private const val EXPORT_PROJECT_HASH = 1201906210L
         private val exportProjectBind by lazy {
             ObjectCalls.getMethodBind("EditorExportPlatform", "export_project", EXPORT_PROJECT_HASH)
         }

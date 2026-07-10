@@ -12,9 +12,9 @@ Generated drafts are emitted to `build/wrapper-generator/drafts` during local ru
 | --- | ---: | --- |
 | API classes | 1036 |  |
 | Classes with generated output | 844 | `██████████░░` 81.5% |
-| Classes with complete method generation | 758 | `█████████░░░` 73.2% |
-| Methods generated | 15329/16822 (91.1%) | `███████████░` 91.1% |
-| Methods skipped | 1493 |  |
+| Classes with complete method generation | 761 | `█████████░░░` 73.5% |
+| Methods generated | 15332/16822 (91.1%) | `███████████░` 91.1% |
+| Methods skipped | 1490 |  |
 | Properties generated | 3657/4162 (87.9%) | `███████████░` 87.9% |
 | Signals generated | 503/503 (100.0%) | `████████████` 100.0% |
 
@@ -26,7 +26,7 @@ These numbers count only checked-in Kotlin API wrappers. Class coverage may incl
 Rows marked `inherited only` are promoted wrappers whose Godot class declares no own methods in `extension_api.json`; behavior comes from their parent wrapper.
 
 - Classes: 1032 / 1036 `████████████` 99.6%
-- Methods: 15280 / 15385 `████████████` 99.3% (callable methods; engine virtuals excluded — see below)
+- Methods: 15281 / 15385 `████████████` 99.3% (callable methods; engine virtuals excluded — see below)
 
 ## Virtual Methods
 
@@ -36,7 +36,7 @@ Rows marked `inherited only` are promoted wrappers whose Godot class declares no
 
 | Area | Classes | Class Coverage | Methods | Method Coverage |
 | --- | ---: | --- | ---: | --- |
-| Core | 224/226 | `████████████` 99.1% | 2877/2970 | `████████████` 96.9% |
+| Core | 224/226 | `████████████` 99.1% | 2878/2970 | `████████████` 96.9% |
 | Scene | 26/26 | `████████████` 100.0% | 923/923 | `████████████` 100.0% |
 | Resources | 305/306 | `████████████` 99.7% | 2884/2891 | `████████████` 99.8% |
 | Input | 20/20 | `████████████` 100.0% | 238/238 | `████████████` 100.0% |
@@ -584,7 +584,7 @@ These notes summarize wrapper feedback from real ports. They are contextual sign
 | `OpenXRRenderModel` | 3D | 3/3 | `████████` 100.0% |
 | `OpenXRRenderModelExtension` | Core | 13/13 | `████████` 100.0% |
 | `OpenXRRenderModelManager` | 3D | 4/4 | `████████` 100.0% |
-| `OpenXRSpatialAnchorCapability` | Core | 10/13 | `██████░░` 76.9% |
+| `OpenXRSpatialAnchorCapability` | Core | 11/13 | `███████░` 84.6% |
 | `OpenXRSpatialCapabilityConfigurationAnchor` | Core | 1/1 | `████████` 100.0% |
 | `OpenXRSpatialCapabilityConfigurationAprilTag` | Core | 3/3 | `████████` 100.0% |
 | `OpenXRSpatialCapabilityConfigurationAruco` | Core | 3/3 | `████████` 100.0% |

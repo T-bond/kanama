@@ -47,8 +47,8 @@ open class Font(handle: MemorySegment) : Resource(handle) {
      *
      * Generated from Godot docs: Font.find_variation
      */
-    fun findVariation(variationCoordinates: Map<String, Any?>, faceIndex: Int = 0, strength: Double = 0.0, transform: Transform2D, spacingTop: Int = 0, spacingBottom: Int = 0, spacingSpace: Int = 0, spacingGlyph: Int = 0, baselineOffset: Double = 0.0): RID {
-        return ObjectCalls.ptrcallWithDictionaryIntDoubleTransform2DFourIntDoubleArgsRetRID(findVariationBind, handle, variationCoordinates, faceIndex, strength, transform, spacingTop, spacingBottom, spacingSpace, spacingGlyph, baselineOffset)
+    fun findVariation(variationCoordinates: Map<String, Any?>, faceIndex: Int = 0, strength: Double = 0.0, transform: Transform2D, spacingTop: Int = 0, spacingBottom: Int = 0, spacingSpace: Int = 0, spacingGlyph: Int = 0, baselineOffset: Double = 0.0, paletteIndex: Long = 0L, customColors: List<Color>): RID {
+        return ObjectCalls.ptrcallWithDictionaryIntDoubleTransform2DFourIntDoubleLongPackedColorListArgsRetRID(findVariationBind, handle, variationCoordinates, faceIndex, strength, transform, spacingTop, spacingBottom, spacingSpace, spacingGlyph, baselineOffset, paletteIndex, customColors)
     }
 
     /**
@@ -404,7 +404,7 @@ open class Font(handle: MemorySegment) : Resource(handle) {
             ObjectCalls.getMethodBind("Font", "get_fallbacks", GET_FALLBACKS_HASH)
         }
 
-        private const val FIND_VARIATION_HASH = 2553855095L
+        private const val FIND_VARIATION_HASH = 3275867622L
         private val findVariationBind by lazy {
             ObjectCalls.getMethodBind("Font", "find_variation", FIND_VARIATION_HASH)
         }

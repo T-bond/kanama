@@ -1788,6 +1788,21 @@ CALL_SHAPES: dict[tuple[tuple[str, ...], str], CallShape] = {
         "ptrcallWithPackedVector3ListPackedVector2ListPackedColorListPackedVector2ListPackedVector3ListPlaneListArgs",
         "Unit",
     ),
+    (("Transform3D", "RID", "Object"), "Object"): CallShape(
+        "ptrcallWithTransform3DRIDObjectArgsRetObject",
+        "MemorySegment",
+        "MemorySegment.NULL",
+    ),
+    (("Object", "bool", "String", "bitfield", "bool"), "enum"): CallShape(
+        "ptrcallWithObjectBoolStringLongBoolArgsRetLong",
+        "Long",
+        "0L",
+    ),
+    (("Dictionary", "int32", "float", "Transform2D", "int32", "int32", "int32", "int32", "float", "int64", "PackedColorArray"), "RID"): CallShape(
+        "ptrcallWithDictionaryIntDoubleTransform2DFourIntDoubleLongPackedColorListArgsRetRID",
+        "RID",
+        "RID.EMPTY",
+    ),
     (("TypedTransform3DArray",), "void"): CallShape("ptrcallWithTransform3DListArg", "Unit"),
     (("RID", "TypedTransform3DArray"), "void"): CallShape("ptrcallWithRIDAndTransform3DListArgs", "Unit"),
     (("int32", "Rect2", "Rect2"), "void"): CallShape("ptrcallWithIntRect2Rect2Args", "Unit"),

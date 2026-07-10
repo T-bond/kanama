@@ -159,29 +159,32 @@ non-virtual skips and the skipped properties found:
     `audit_generator_shape_policy` keeps the `('Dictionary',) -> 'Dictionary'`
     shape out of `CALL_SHAPES` (it must stay hand-audited if ever needed). The
     two methods are editor-LSP plumbing with no game-runtime workflow.
-  - **The remaining ~12 are deferred with reason** (each still carries its
-    `unsupported helper shape …` entry in the generator report). They are *not*
-    quick wins — each needs either new marshalling primitives audited on the iOS
-    C-shim + a width-sensitive self-test row + a device gate, or lands on a
-    deliberately hand-shaped class:
-    - **New container-element marshalling** (no existing policy): RenderingDevice
-      raytracing — `blas_create` / `tlas_build` / `raytracing_pipeline_create`
-      (`TypedObjectArray::RD*`); `ImporterMesh.merge_importer_meshes`
-      (`TypedObjectArray::ImporterMesh` + `TypedTransform3DArray`);
-      `DrawableTexture2D.blit_rect_multi` + `RenderingServer.texture_drawable_blit_rect`
-      (`TypedObjectArray::Texture2D/DrawableTexture2D` + `TypedRIDArray` + `Rect2i`);
-      OpenXR `do_entity_update` (`TypedObjectArray::OpenXRSpatialComponentData`).
-    - **New scalar/Variant marshalling**: `Tween.tween_await` (`Signal` arg — no
-      Signal marshalling); `Font.find_variation` (11-arg `Dictionary`+wide → RID,
-      iOS-skips on `Dictionary` but desktop shape is very wide/rare).
-    - **On hand-shaped classes** (in `DESKTOP_HANDSHAPED`, so a shape addition
-      would not auto-adopt): `EditorExportPlatform.export_project`,
-      `OpenXRSpatialAnchorCapability.create_new_anchor`, `Tween.tween_await`,
-      `Font.find_variation`.
+  - **The formerly deferred ~12 landed in task 28** as audited desktop/Android
+    families (all iOS-cleanly-skipped — none of the new kinds are iOS
+    arg/return kinds; the iOS mirror is task 30's scope):
+    - **Typed-array argument family**: RenderingDevice `blas_create` /
+      `tlas_build` / `raytracing_pipeline_create`, `ImporterMesh.merge_importer_meshes`
+      (`TypedObjectArray` + `TypedTransform3DArray`), `DrawableTexture2D.blit_rect_multi`,
+      `RenderingServer.texture_drawable_blit_rect` (`TypedRIDArray` + `Rect2i`),
+      and OpenXR `do_entity_update` — new `ObjectCalls` helpers recombining the
+      audited `initArrayOfObjects` / `initArrayOfRids` / `initArray` primitives,
+      registered in the shape-policy audit's dynamic helper sets.
+    - **`Signal` scalar arg** (`Tween.tween_await`): admitted per-method like
+      Callable (never in the generic `CALL_SHAPES` table). `BuiltinTypes.initSignal`
+      builds Signal(Object, StringName) for the call and destroys it after; the
+      engine keeps its own ObjectID-based copy, so no Kotlin state is retained.
+      Runtime-validated in `runtime_smoke` (await resolves on real emission).
+    - **Hand-shaped-class landings**: `EditorExportPlatform.export_project`,
+      `OpenXRSpatialAnchorCapability.create_new_anchor`/`do_entity_update`, and
+      `Font.find_variation` are hand-hosted on their `DESKTOP_HANDSHAPED` wrappers
+      in the exact generated form (draft-verified) — the committed copies had
+      drifted to pre-4.7 signatures on compatibility hashes and now target the
+      current 4.7 binds.
 
-    These belong with the exacting, device-sensitive per-shape work (adjacent to
-    task 13's spirit), not a broad-coverage pass — promote one only when a real
-    workflow needs it, with its iOS C-shim helper + self-test row + device gate.
+    After task 28, the generator report's non-virtual skips are **only** the
+    documented by-design entries above (root-Object policy, RefCounted lifetime,
+    the `GDScriptTextDocument` Dictionary revert) — each carries its rationale
+    verbatim in the report via `BY_DESIGN_METHOD_SKIPS` / the policy messages.
 - **~505 skipped properties are NOT a marshalling gap.** Triaged:
   - **~415 are indexed / parameterized accessors** whose getter takes an
     argument (e.g. `get_list_stream(i)`, `get_param(param)`). Godot lists them as

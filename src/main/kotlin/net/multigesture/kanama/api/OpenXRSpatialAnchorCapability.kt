@@ -33,12 +33,16 @@ class OpenXRSpatialAnchorCapability(handle: MemorySegment) : OpenXRExtensionWrap
         ObjectCalls.ptrcallWithRIDArg(freePersistenceContextBind, handle, persistenceContext)
     }
 
-    fun createNewAnchor(transform: Transform3D, spatialContext: RID): OpenXRAnchorTracker? {
-        return OpenXRAnchorTracker.wrap(ObjectCalls.ptrcallWithTransform3DRIDArgsRetObject(createNewAnchorBind, handle, transform, spatialContext))
+    fun createNewAnchor(transform: Transform3D, spatialContext: RID, next: OpenXRStructureBase?): OpenXRAnchorTracker? {
+        return OpenXRAnchorTracker.wrap(ObjectCalls.ptrcallWithTransform3DRIDObjectArgsRetObject(createNewAnchorBind, handle, transform, spatialContext, next?.requireOpenHandle() ?: MemorySegment.NULL))
     }
 
     fun removeAnchor(anchorTracker: OpenXRAnchorTracker?) {
         ObjectCalls.ptrcallWithObjectArgs(removeAnchorBind, handle, listOf(anchorTracker?.requireOpenHandle() ?: MemorySegment.NULL))
+    }
+
+    fun doEntityUpdate(spatialContext: RID, componentData: List<OpenXRSpatialComponentData>, nextSnapshotCreate: OpenXRStructureBase?, nextSnapshotQuery: OpenXRStructureBase?) {
+        ObjectCalls.ptrcallWithRIDObjectListTwoObjectArgs(doEntityUpdateBind, handle, spatialContext, componentData, nextSnapshotCreate?.requireOpenHandle() ?: MemorySegment.NULL, nextSnapshotQuery?.requireOpenHandle() ?: MemorySegment.NULL)
     }
 
     fun persistAnchor(anchorTracker: OpenXRAnchorTracker?, persistenceContext: RID, userCallback: GodotCallable): OpenXRFutureResult? {
@@ -80,7 +84,7 @@ class OpenXRSpatialAnchorCapability(handle: MemorySegment) : OpenXRExtensionWrap
             ObjectCalls.getMethodBind("OpenXRSpatialAnchorCapability", "free_persistence_context", FREE_PERSISTENCE_CONTEXT_HASH)
         }
 
-        private const val CREATE_NEW_ANCHOR_HASH = 607100373L
+        private const val CREATE_NEW_ANCHOR_HASH = 4088043487L
         private val createNewAnchorBind by lazy {
             ObjectCalls.getMethodBind("OpenXRSpatialAnchorCapability", "create_new_anchor", CREATE_NEW_ANCHOR_HASH)
         }
@@ -88,6 +92,11 @@ class OpenXRSpatialAnchorCapability(handle: MemorySegment) : OpenXRExtensionWrap
         private const val REMOVE_ANCHOR_HASH = 3579451518L
         private val removeAnchorBind by lazy {
             ObjectCalls.getMethodBind("OpenXRSpatialAnchorCapability", "remove_anchor", REMOVE_ANCHOR_HASH)
+        }
+
+        private const val DO_ENTITY_UPDATE_HASH = 3138044275L
+        private val doEntityUpdateBind by lazy {
+            ObjectCalls.getMethodBind("OpenXRSpatialAnchorCapability", "do_entity_update", DO_ENTITY_UPDATE_HASH)
         }
 
         private const val PERSIST_ANCHOR_HASH = 4244202513L

@@ -29,6 +29,20 @@ OWNERSHIP_SENSITIVE_METHODS = {
     ("RefCounted", "init_ref"),
     ("RefCounted", "reference"),
 }
+# Per-method by-design skips with their recorded rationale (task 28). These are NOT missing
+# shapes: each was reviewed and deliberately left ungenerated; the reason lands verbatim in
+# the generator report so the skip stays self-documenting. Cross-referenced in
+# docs/contributing/wrapper-maintenance.md ("Long-tail triage").
+BY_DESIGN_METHOD_SKIPS = {
+    ("GDScriptTextDocument", "resolve"): (
+        "by design: Dictionary->Dictionary passthrough via the generic Map<String, Any?> helper "
+        "silently drops non-String keys; shape reverted in 27b06fe6 (editor-LSP only)"
+    ),
+    ("GDScriptTextDocument", "rename"): (
+        "by design: Dictionary->Dictionary passthrough via the generic Map<String, Any?> helper "
+        "silently drops non-String keys; shape reverted in 27b06fe6 (editor-LSP only)"
+    ),
+}
 
 SCALAR_KOTLIN_TYPES = {
     "bool": "Boolean",
@@ -1514,6 +1528,9 @@ def unsupported_reason(
         return "root Object methods are exposed through the hand-shaped GodotObject policy"
     if (class_name, method.name) in OWNERSHIP_SENSITIVE_METHODS:
         return "ownership-sensitive RefCounted lifetime method is hand-shaped"
+    by_design = BY_DESIGN_METHOD_SKIPS.get((class_name, method.name))
+    if by_design:
+        return by_design
     if method.name.startswith("_"):
         return "internal/virtual callback methods are not emitted as public wrappers"
     if method.is_vararg and is_supported_vararg_method(method, object_types):
