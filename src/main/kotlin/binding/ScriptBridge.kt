@@ -196,8 +196,14 @@ object ScriptBridge {
             stub("siToString", voidDataAddrAddr, descVoidDataAddrAddr))
         struct.set(ADDRESS, off("refcount_incremented_func"),
             stub("siRefcountIncremented", voidData, descVoidData))
+        // Contract (script_instance.h): "return true if it can die". Kanama's script
+        // instance holds no reference on its owner, so the last unreference() must be
+        // allowed to destroy it — returning false here made every scripted RefCounted
+        // (custom Resources included) immortal: `die = die && script_ret` in
+        // RefCounted::unreference() can never be true. (C# returns false only while
+        // its managed GC handle owns deletion responsibility — Kanama has no such path.)
         struct.set(ADDRESS, off("refcount_decremented_func"),
-            stub("siReturnFalse1", boolData, descBoolData))
+            stub("siReturnTrue1", boolData, descBoolData))
         struct.set(ADDRESS, off("get_script_func"),
             stub("siGetScript", addrData, descAddrData))
         struct.set(ADDRESS, off("is_placeholder_func"),
@@ -574,6 +580,8 @@ object ScriptBridge {
     // --- Shared stubs for "return false" with different arities ---
 
     @JvmStatic fun siReturnFalse1(data: MemorySegment): Byte = 0
+
+    @JvmStatic fun siReturnTrue1(data: MemorySegment): Byte = 1
 
     @JvmStatic fun siReturnFalse2(data: MemorySegment, a: MemorySegment): Byte = 0
 

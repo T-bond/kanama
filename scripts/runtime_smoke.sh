@@ -174,7 +174,11 @@ check "kt script replace_smoke_scene = true"
 check "kt script rpc config ok = true"
 check "kt script rpc replace_smoke_scene error = 0"
 check "script property cleanup smoke_scene type=PackedScene"
-check "script property cleanup RefCounted handle=0x[0-9a-f]+ destroy=true ref_count=0"
+# releaseRefCounted's last unreference() destroys the owner directly since the
+# refcount_decremented fix; the old "destroy=true ref_count=0" variant was the
+# shutdown zombie-sweeper's trace, whose premise (undying scripted RefCounteds)
+# is gone.
+check "script property cleanup RefCounted handle=0x[0-9a-f]+ destroy=true"
 check "destroyed [0-9]+/[0-9]+ tracked KanamaScript object\\(s\\)"
 check "unregistered [0-9]+ extension class\\(es\\)"
 check_absent "Orphan StringName"

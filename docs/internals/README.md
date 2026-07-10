@@ -19,5 +19,6 @@ history lives in git history, not here.
 | [ios-backend-architecture.md](./reference/ios-backend-architecture.md) | How Kanama runs Kotlin scripts on iOS (C-shim ptrcall, the shared wrapper generator, script model). |
 | [ios-backend-handwritten.md](./reference/ios-backend-handwritten.md) | **Generated report** (do not edit; run `scripts/ios_handwritten_report.py`) of hand-written/stub iOS classes. |
 | [architecture-review-2026-06.md](./reference/architecture-review-2026-06.md) | Point-in-time architecture/performance review (June 2026); cited by AGENTS.md "Looks Wrong But Isn't". |
+| [architecture-review-2026-07.md](./reference/architecture-review-2026-07.md) | Post-Phase-5 cohesion + bug audit (July 2026): the `refcount_decremented` immortal-RefCounted fix, per-surface verdicts, remaining audit scope. |
 | [commonmain-unification-design.md](./reference/commonmain-unification-design.md) | Design record for moving generated wrappers to shared `commonMain` with `expect/actual ObjectCalls` (physical module move still pending). |
 | [callable-args-design.md](./reference/callable-args-design.md) | Callable-argument ownership/lifetime design; cited by `scripts/generate_api_wrapper.py`. |

@@ -652,15 +652,9 @@ class KanamaScript(
             val toDestroy = synchronized(constructedScriptObjects) {
                 constructedScriptObjects.toList().also { constructedScriptObjects.clear() }
             }
-            val resourceOwners = synchronized(objectAddressByHandle) {
-                objectAddressByHandle.keys.flatMap { handle ->
-                    val script = ObjectRegistry.get(handle) as? KanamaScript
-                    if (script?.instanceBaseType == "Resource") script.liveOwnerObjectAddressesSnapshot() else emptyList()
-                }
-            }
-            resourceOwners.forEach { addr ->
-                BuiltinTypes.destroyRefCountedIfUnreferenced(MemorySegment.ofAddress(addr))
-            }
+            // No zombie sweep needed here anymore: since the refcount_decremented fix,
+            // a scripted RefCounted dies at its last unreference(), so a live owner can
+            // never sit at ref_count=0 waiting for a shutdown destroy.
             synchronized(scriptCatalog) { scriptCatalog.clear() }
             synchronized(objectAddressByHandle) {
                 objectAddressByHandle.clear()

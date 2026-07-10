@@ -392,17 +392,6 @@ object BuiltinTypes {
         }
     }
 
-    fun destroyRefCountedIfUnreferenced(handle: MemorySegment) {
-        if (handle.address() == 0L) return
-        val refCount = ObjectCalls.ptrcallNoArgsRetLong(getReferenceCountBind, handle)
-        if (refCount == 0L) {
-            if (System.getenv("KANAMA_TRACE_SCRIPT_PROPERTY_CLEANUP") == "1") {
-                System.err.println("[kanama:kt] script property cleanup RefCounted handle=0x${handle.address().toString(16)} destroy=true ref_count=0")
-            }
-            ObjectCalls.destroyObject(handle)
-        }
-    }
-
     /**
      * Construct [type] into [dest] using [constructorIndex].
      * [args] are typed pointers for that constructor, matching Godot's builtin ABI.
@@ -2471,7 +2460,6 @@ object BuiltinTypes {
 
     private const val REFCOUNTED_REFERENCE_HASH = 2240911060L
     private const val REFCOUNTED_UNREFERENCE_HASH = 2240911060L
-    private const val REFCOUNTED_GET_REFERENCE_COUNT_HASH = 3905245786L
 
     private val referenceBind by lazy {
         ObjectCalls.getMethodBind("RefCounted", "reference", REFCOUNTED_REFERENCE_HASH)
@@ -2479,10 +2467,6 @@ object BuiltinTypes {
 
     private val unreferenceBind by lazy {
         ObjectCalls.getMethodBind("RefCounted", "unreference", REFCOUNTED_UNREFERENCE_HASH)
-    }
-
-    private val getReferenceCountBind by lazy {
-        ObjectCalls.getMethodBind("RefCounted", "get_reference_count", REFCOUNTED_GET_REFERENCE_COUNT_HASH)
     }
 
 }

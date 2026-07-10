@@ -187,21 +187,31 @@ object KanamaHotReload {
         if (now < nextRetiredLoaderCheckNanos) return
         nextRetiredLoaderCheckNanos = now + RETIRED_LOADER_CHECK_INTERVAL_NANOS
 
-        System.gc()
-
         var collected = 0
         var alive = 0
         val aliveIds = ArrayList<Long>()
-        val iterator = retiredLoaders.iterator()
-        while (iterator.hasNext()) {
-            val retired = iterator.next()
-            if (retired.ref.get() == null) {
-                collected++
-                iterator.remove()
-            } else {
-                alive++
-                aliveIds += retired.reloadId
+        // System.gc() is a hint: under machine load a single cycle often leaves the
+        // retired loader uncollected until the next check, and a short-lived process
+        // (the in-process reload smoke) can exit before that check fires. Retry a few
+        // bounded rounds within one check — this path only runs while a retired
+        // loader exists, i.e. right after a hot reload.
+        for (attempt in 0 until 3) {
+            System.gc()
+            alive = 0
+            aliveIds.clear()
+            val iterator = retiredLoaders.iterator()
+            while (iterator.hasNext()) {
+                val retired = iterator.next()
+                if (retired.ref.get() == null) {
+                    collected++
+                    iterator.remove()
+                } else {
+                    alive++
+                    aliveIds += retired.reloadId
+                }
             }
+            if (alive == 0) break
+            Thread.sleep(25)
         }
         System.err.println(
             "[kanama:kt] hot-reload: retired-loader-check collected=$collected " +

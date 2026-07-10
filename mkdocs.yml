@@ -76,5 +76,6 @@ nav:
           - iOS Backend Architecture: internals/reference/ios-backend-architecture.md
           - iOS Backend Hand-written Registry: internals/reference/ios-backend-handwritten.md
           - Architecture Review (2026-06): internals/reference/architecture-review-2026-06.md
+          - Architecture Review (2026-07): internals/reference/architecture-review-2026-07.md
           - commonMain Wrapper Unification Design: internals/reference/commonmain-unification-design.md
           - Callable Args Design: internals/reference/callable-args-design.md

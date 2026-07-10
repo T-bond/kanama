@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
+# Interactive maintainer aid (not wired into CI/local_ci): lists running Godot
+# editor/embedded-game processes for debugging editor-loop issues. Keep runnable.
 
 filter="${1:-Starter-Kit}"
 

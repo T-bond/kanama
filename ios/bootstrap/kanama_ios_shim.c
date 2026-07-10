@@ -6660,6 +6660,15 @@ static GDExtensionBool kanama_ios_script_instance_false_1(GDExtensionScriptInsta
     return 0;
 }
 
+// refcount_decremented_func contract (script_instance.h): "return true if it can die".
+// The Kanama script instance holds no reference on its owner, so the last
+// unreference() must be allowed to destroy it; returning false makes every
+// scripted RefCounted immortal (die = die && script_ret in RefCounted::unreference).
+static GDExtensionBool kanama_ios_script_instance_true_1(GDExtensionScriptInstanceDataPtr data) {
+    (void)data;
+    return 1;
+}
+
 static GDExtensionBool kanama_ios_script_instance_false_2(
     GDExtensionScriptInstanceDataPtr data,
     GDExtensionConstStringNamePtr name
@@ -7680,7 +7689,7 @@ static GDExtensionScriptInstanceInfo3 g_script_instance_info = {
     kanama_ios_script_instance_notification,
     kanama_ios_script_instance_to_string,
     kanama_ios_script_instance_refcount_incremented,
-    kanama_ios_script_instance_false_1,
+    kanama_ios_script_instance_true_1, /* refcount_decremented: owner may die at zero */
     kanama_ios_script_instance_get_script,
     kanama_ios_script_instance_is_placeholder,
     kanama_ios_script_instance_set_property,
