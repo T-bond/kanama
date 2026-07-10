@@ -86,7 +86,7 @@ model described next.
 iOS reuses the desktop/Android solution. Desktop's full ~1086-class API in
 `src/main/kotlin/.../api/` is **generated** ("Generated from Godot docs") by
 `scripts/generate_api_wrapper.py` from `extension_api.json`, and since task 30 the
-iOS tree carries the **full desktop-equivalent class set** (1017 generated wrappers +
+iOS tree carries the **full desktop-equivalent class set** (1021 generated wrappers +
 the hand-written collision classes; the only exceptions are the documented
 `IOS_UNSUPPORTED_CLASSES` entries). Each generated wrapper caches a `MethodBind` and
 calls a typed helper on a runtime abstraction `ObjectCalls`:

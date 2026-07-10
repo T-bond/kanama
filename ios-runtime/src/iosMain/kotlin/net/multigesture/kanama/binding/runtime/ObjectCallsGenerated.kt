@@ -5143,6 +5143,19 @@ fun ObjectCalls.ptrcallWithRIDStringNameRIDIntArgs(methodBind: MemorySegment, in
         Unit
     }
 
+fun ObjectCalls.ptrcallWithRIDThreeBoolAndColorArgs(methodBind: MemorySegment, instance: MemorySegment, a0: RID, a1: Boolean, a2: Boolean, a3: Boolean, a4: Color) =
+    memScoped {
+        val c0 = alloc<LongVar>(); c0.value = a0.value
+        val c1 = alloc<ByteVar>(); c1.value = if (a1) 1 else 0
+        val c2 = alloc<ByteVar>(); c2.value = if (a2) 1 else 0
+        val c3 = alloc<ByteVar>(); c3.value = if (a3) 1 else 0
+        val c4 = allocArray<FloatVar>(4); c4[0] = a4.r; c4[1] = a4.g; c4[2] = a4.b; c4[3] = a4.a
+        val types = allocArray<IntVar>(5); types[0] = PT_RID; types[1] = PT_BOOL; types[2] = PT_BOOL; types[3] = PT_BOOL; types[4] = PT_COLOR
+        val ptrs = allocArray<COpaquePointerVar>(5); ptrs[0] = c0.ptr.reinterpret<CPointed>(); ptrs[1] = c1.ptr.reinterpret<CPointed>(); ptrs[2] = c2.ptr.reinterpret<CPointed>(); ptrs[3] = c3.ptr.reinterpret<CPointed>(); ptrs[4] = c4.reinterpret<CPointed>()
+        kanama_ios_godot_ptrcall(methodBind.address(), instance.address(), types, ptrs, 5, PT_VOID, null)
+        Unit
+    }
+
 fun ObjectCalls.ptrcallWithRIDThreeVector2TwoRIDArgs(methodBind: MemorySegment, instance: MemorySegment, a0: RID, a1: Vector2, a2: Vector2, a3: Vector2, a4: RID, a5: RID) =
     memScoped {
         val c0 = alloc<LongVar>(); c0.value = a0.value

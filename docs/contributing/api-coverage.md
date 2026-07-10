@@ -25,15 +25,15 @@ See [Wrapper Generator Report](wrapper-generator-report.md) for skip categories,
 These numbers count only checked-in Kotlin API wrappers. Class coverage may include shell wrappers for Godot extension points whose public callable surface is virtual-only; method coverage counts promoted callable wrappers.
 Rows marked `inherited only` are promoted wrappers whose Godot class declares no own methods in `extension_api.json`; behavior comes from their parent wrapper.
 
-- Classes: 1032 / 1036 `████████████` 99.6%
-- Methods: 15281 / 15385 `████████████` 99.3% (callable methods; engine virtuals excluded — see below)
+- Classes: 1036 / 1036 `████████████` 100.0%
+- Methods: 15373 / 15385 `████████████` 99.9% (callable methods; engine virtuals excluded — see below)
 
 ### Per-Platform Class Sets
 
 Every platform tree is held to `check_full_drift_gate` (committed == fresh regen; see wrapper-maintenance.md).
 
-- Desktop: 984 generated classes + 47 hand-shaped policy classes. Android reuses the desktop sources (no separate tree).
-- iOS: 1017 generated classes — full desktop-equivalent breadth (task 30) — plus 11 hand-written collision classes (`IOS_HANDWRITTEN_COLLISION_CLASSES`). The only classes not emitted on iOS are the documented `IOS_UNSUPPORTED_CLASSES`: `DirAccess`, `FileAccess`, `MethodTweener`. Per-method iOS skips remain conservative (un-audited marshalling shapes are skipped with report entries, never stubbed).
+- Desktop: 988 generated classes + 47 hand-shaped policy classes. Android reuses the desktop sources (no separate tree).
+- iOS: 1021 generated classes — full desktop-equivalent breadth (task 30) — plus 11 hand-written collision classes (`IOS_HANDWRITTEN_COLLISION_CLASSES`). The only classes not emitted on iOS are the documented `IOS_UNSUPPORTED_CLASSES`: `DirAccess`, `FileAccess`, `MethodTweener`. Per-method iOS skips remain conservative (un-audited marshalling shapes are skipped with report entries, never stubbed).
 
 ## Virtual Methods
 
@@ -43,13 +43,13 @@ Every platform tree is held to `check_full_drift_gate` (committed == fresh regen
 
 | Area | Classes | Class Coverage | Methods | Method Coverage |
 | --- | ---: | --- | ---: | --- |
-| Core | 224/226 | `████████████` 99.1% | 2878/2970 | `████████████` 96.9% |
+| Core | 226/226 | `████████████` 100.0% | 2962/2970 | `████████████` 99.7% |
 | Scene | 26/26 | `████████████` 100.0% | 923/923 | `████████████` 100.0% |
-| Resources | 305/306 | `████████████` 99.7% | 2884/2891 | `████████████` 99.8% |
+| Resources | 306/306 | `████████████` 100.0% | 2886/2891 | `████████████` 99.8% |
 | Input | 20/20 | `████████████` 100.0% | 238/238 | `████████████` 100.0% |
 | UI | 69/69 | `████████████` 100.0% | 1742/1741 | `████████████` 100.1% |
 | 2D | 112/112 | `████████████` 100.0% | 2030/2030 | `████████████` 100.0% |
-| 3D | 170/171 | `████████████` 99.4% | 2994/3000 | `████████████` 99.8% |
+| 3D | 171/171 | `████████████` 100.0% | 3000/3000 | `████████████` 100.0% |
 | Physics | 6/6 | `████████████` 100.0% | 55/55 | `████████████` 100.0% |
 | Rendering | 24/24 | `████████████` 100.0% | 794/794 | `████████████` 100.0% |
 | Audio | 14/14 | `████████████` 100.0% | 232/232 | `████████████` 100.0% |
@@ -73,6 +73,7 @@ These notes summarize wrapper feedback from real ports. They are contextual sign
 | `AStar3D` | 3D | 25/25 | `████████` 100.0% |
 | `AStarGrid2D` | 2D | 33/33 | `████████` 100.0% |
 | `AcceptDialog` | Scene | 16/16 | `████████` 100.0% |
+| `AccessibilityServer` | Core | 75/75 | `████████` 100.0% |
 | `AimModifier3D` | 3D | 10/10 | `████████` 100.0% |
 | `AnimatableBody2D` | 2D | 2/2 | `████████` 100.0% |
 | `AnimatableBody3D` | 3D | 2/2 | `████████` 100.0% |
@@ -107,6 +108,7 @@ These notes summarize wrapper feedback from real ports. They are contextual sign
 | `AnimationTree` | Scene | 8/8 | `████████` 100.0% |
 | `Area2D` | 2D | 36/36 | `████████` 100.0% |
 | `Area3D` | 3D | 50/50 | `████████` 100.0% |
+| `AreaLight3D` | 3D | 6/6 | `████████` 100.0% |
 | `ArrayMesh` | Resources | 26/26 | `████████` 100.0% |
 | `ArrayOccluder3D` | 3D | 3/3 | `████████` 100.0% |
 | `AspectRatioContainer` | UI | 8/8 | `████████` 100.0% |
@@ -174,6 +176,7 @@ These notes summarize wrapper feedback from real ports. They are contextual sign
 | `BaseButton` | UI | 23/23 | `████████` 100.0% |
 | `BaseMaterial3D` | 3D | 154/154 | `████████` 100.0% |
 | `BitMap` | Resources | 13/13 | `████████` 100.0% |
+| `BlitMaterial` | Resources | 2/2 | `████████` 100.0% |
 | `Bone2D` | 2D | 11/11 | `████████` 100.0% |
 | `BoneAttachment3D` | 3D | 12/12 | `████████` 100.0% |
 | `BoneConstraint3D` | 3D | 17/17 | `████████` 100.0% |
@@ -358,6 +361,7 @@ These notes summarize wrapper feedback from real ports. They are contextual sign
 | `GDExtension` | Resources | 2/2 | `████████` 100.0% |
 | `GDExtensionManager` | Core | 7/7 | `████████` 100.0% |
 | `GDScript` | Resources | 1/1 | `████████` 100.0% |
+| `GDScriptLanguageProtocol` | Core | 9/9 | `████████` 100.0% |
 | `GDScriptSyntaxHighlighter` | Resources | 0/0 | inherited only |
 | `GDScriptTextDocument` | Core | 19/21 | `███████░` 90.5% |
 | `GDScriptWorkspace` | Core | 8/8 | `████████` 100.0% |
@@ -1100,12 +1104,3 @@ These notes summarize wrapper feedback from real ports. They are contextual sign
 | `XRVRS` | Core | 7/7 | `████████` 100.0% |
 | `ZIPPacker` | Core | 8/8 | `████████` 100.0% |
 | `ZIPReader` | Core | 6/6 | `████████` 100.0% |
-
-## Largest Unpromoted Classes
-
-| Class | Area | Methods |
-| --- | --- | ---: |
-| `AccessibilityServer` | Core | 75 |
-| `GDScriptLanguageProtocol` | Core | 9 |
-| `AreaLight3D` | 3D | 6 |
-| `BlitMaterial` | Resources | 2 |

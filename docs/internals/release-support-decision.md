@@ -116,8 +116,9 @@ device-family claim.
 Promoted, checked-in wrapper coverage (`api_wrapper_coverage.py`,
 [api-coverage.md](../contributing/api-coverage.md)):
 
-- **Classes: 1032 / 1036 — 99.6%**
-- **Methods: 15274 / 15385 — 99.3%** (callable methods; engine virtuals tracked
+- **Classes: 1036 / 1036 — 100%** (the last four — `AccessibilityServer`,
+  `GDScriptLanguageProtocol`, `AreaLight3D`, `BlitMaterial` — promoted 2026-07-10)
+- **Methods: 15373 / 15385 — 99.9%** (callable methods; engine virtuals tracked
   separately so they neither dilute callable coverage nor count as gaps)
 - **Virtual methods** are dispatched via `@OverrideVirtual` and validated against a
   generated signature table. Marshalling bounds (tasks 13 + 29): desktop/Android
