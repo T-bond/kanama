@@ -140,7 +140,10 @@ EOF
   fi
   echo "[upgrade_godot] kdoc source: $GODOT_DOCS_DIR (version $DOCS_VERSION)"
 else
-  echo "[upgrade_godot] WARN: cannot verify doc/classes version (no version.py two levels up); trusting $GODOT_DOCS_DIR"
+  echo "[upgrade_godot] FAIL: cannot verify the doc/classes version — no version.py two levels up from $GODOT_DOCS_DIR." >&2
+  echo "[upgrade_godot] Point --godot-docs at doc/classes inside a real Godot source checkout at the pinned tag;" >&2
+  echo "[upgrade_godot] an unverifiable docs tree risks exactly the KDoc version skew this gate exists to prevent." >&2
+  exit 1
 fi
 
 # The regen must start from a reviewable state: no tracked modifications except
