@@ -123,28 +123,32 @@ device to forget the currently trusted app.
 
 ## Device Gate Baselines
 
-Last full gate refresh: 2026-06-25 on iPhone 12, iOS 26.5, with Godot 4.7 stable. As `ios_device_gate.sh`
-runs it, every demo is copied and its export bundle ID is rewritten to the single reusable gate bundle ID
-(`--gate-bundle-id`, default `net.multigesture.kanama.devicegate`) before install/launch, so only one gate
-app needs to remain installed on the device throughout the matrix.
+Last full gate refresh: 2026-07-10 on iPhone 15 Pro, iOS 26.5, with Godot 4.7 stable, on the
+**full-breadth iOS runtime** (task 30: 1017 generated wrapper classes + the RefCounted ownership
+mirror). All ten steps passed. As `ios_device_gate.sh` runs it, every demo is copied and its export
+bundle ID is rewritten to the single reusable gate bundle ID (`--gate-bundle-id`, default
+`net.multigesture.kanama.devicegate`) before install/launch, so only one gate app needs to remain
+installed on the device throughout the matrix.
 
-This table is a maintainer-run snapshot: the elapsed times reflect a hand-managed session (some warm
-rebuilds, occasional manual "trust the development profile" prompts on first launch), so incidental
-per-row timing notes will not match a single clean `scripts/ios_device_gate.sh` invocation exactly.
-Treat the times as rough, device-dependent baselines rather than reproducible measurements.
+This run is a maintainer-run snapshot: the first four rows ran through the stock serial gate
+(~385-400s per row, dominated by the per-demo Kotlin/Native addon build + Xcode static link of the
+full-breadth runtime); the remaining six ran through a pipelined variant (serial Gradle/export lane,
+two parallel Xcode builds, in-order install+launch), so those rows have no meaningful per-row
+elapsed time. Treat all timings as rough, device-dependent baselines rather than reproducible
+measurements.
 
 | Path | Device / OS | Godot | Result | Load / gate elapsed | FPS / readout | Notes |
 |---|---|---|---|---:|---|---|
-| Fresh starter project | iPhone 12, iOS 26.5 | 4.7 stable | Pass | 195s | Probe label ready | Fresh `createStarterProject` + `installIosAddon` path. |
-| Bunnymark | iPhone 12, iOS 26.5 | 4.7 stable | Pass | 186s | FPS/readout visible on device; not machine-captured | Copied demo export with reusable gate bundle ID. |
-| Starter-Kit-Match3 | iPhone 12, iOS 26.5 | 4.7 stable | Pass | 182s build/install + direct launch retry | Visual launch pass | Initial launch required trusting the development profile after install. |
-| Starter-Kit-3D-Platformer | iPhone 12, iOS 26.5 | 4.7 stable | Pass | 18s warm build/install + direct launch retry | Visual launch pass | Copied demo export with reusable gate bundle ID; warm rebuild reused the already-installed gate app. |
-| godot-demo-2d-dodge-the-creeps | iPhone 12, iOS 26.5 | 4.7 stable | Pass | 183s | Visual launch pass | Copied demo export with reusable gate bundle ID. |
-| godot-demo-3d-squash-the-creeps | iPhone 12, iOS 26.5 | 4.7 stable | Pass | 188s | Visual launch pass | Copied demo export with reusable gate bundle ID. |
-| godot-4-3d-character-controller | iPhone 12, iOS 26.5 | 4.7 stable | Pass | 189s | Visual launch pass | Copied demo export with reusable gate bundle ID. |
-| Starter-Kit-Racing | iPhone 12, iOS 26.5 | 4.7 stable | Pass | 187s | Visual launch pass | Copied demo export with reusable gate bundle ID. |
-| Starter-Kit-FPS | iPhone 12, iOS 26.5 | 4.7 stable | Pass | 191s | Visual launch pass | Copied demo export with reusable gate bundle ID. |
-| godot-4-3d-third-person-controller | iPhone 12, iOS 26.5 | 4.7 stable | Pass | 265s | Visual launch pass | Copied demo export with reusable gate bundle ID. |
+| Fresh starter project | iPhone 15 Pro, iOS 26.5 | 4.7 stable | Pass | 399s | Probe label ready | Fresh `createStarterProject` + `installIosAddon` path. |
+| Bunnymark | iPhone 15 Pro, iOS 26.5 | 4.7 stable | Pass | 390s | Visible on device; not machine-captured | Serial gate row. |
+| Starter-Kit-Match3 | iPhone 15 Pro, iOS 26.5 | 4.7 stable | Pass | 383s | Visual launch pass | Serial gate row. |
+| Starter-Kit-3D-Platformer | iPhone 15 Pro, iOS 26.5 | 4.7 stable | Pass | 385s | Visual launch pass | Serial gate row. |
+| godot-demo-2d-dodge-the-creeps | iPhone 15 Pro, iOS 26.5 | 4.7 stable | Pass | (pipelined) | Visual launch pass | Pipelined batch row. |
+| godot-demo-3d-squash-the-creeps | iPhone 15 Pro, iOS 26.5 | 4.7 stable | Pass | (pipelined) | Visual launch pass | Pipelined batch row; earlier same-day debug launch also captured `PTRCALL SELFTEST MATRIX: 70/0` + `OBJECTCALLS SELFTEST: 111/0` (incl. the RefCounted ownership probe) on this runtime. |
+| godot-4-3d-character-controller | iPhone 15 Pro, iOS 26.5 | 4.7 stable | Pass | (pipelined) | Visual launch pass | Pipelined batch row. |
+| Starter-Kit-Racing | iPhone 15 Pro, iOS 26.5 | 4.7 stable | Pass | (pipelined) | Visual launch pass | Pipelined batch row. |
+| Starter-Kit-FPS | iPhone 15 Pro, iOS 26.5 | 4.7 stable | Pass | (pipelined) | Visual launch pass | Pipelined batch row. |
+| godot-4-3d-third-person-controller | iPhone 15 Pro, iOS 26.5 | 4.7 stable | Pass | (pipelined) | Visual launch pass | Pipelined batch row. |
 
 ## Generator Gotcha
 
