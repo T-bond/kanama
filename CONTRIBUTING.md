@@ -11,10 +11,14 @@ kanama/
 ├── annotations/            # KSP annotation definitions
 ├── processor/              # KSP processor for script registrars
 ├── project-scripts/        # Gradle module for user Kotlin scripts
+├── bootstrap/              # Native GDExtension bootstrap (C, desktop + Android)
+├── gdextension/            # Pinned gdextension_interface.h input
+├── android/                # Godot Android plugin (AAR)
+├── ios/                    # iOS C shim + headers
+├── ios-runtime/            # Kotlin/Native iOS runtime + generated iOS wrappers
 ├── example_project/        # Godot smoke-test project
-├── templates/starter/      # Starter project template
-├── templates/starter_project/ # Full first-project Godot files
-├── scripts/                # Local CI and audit scripts
+├── templates/              # starter, starter_project, release-kit, store-addon
+├── scripts/                # Local CI, smoke, audit, and generator scripts
 └── docs/                   # MkDocs documentation
 ```
 
@@ -95,14 +99,19 @@ method needs a new ABI shape, add the exact helper and audit coverage first.
 ## Virtual Methods
 
 Methods marked `"is_virtual": true` in `extension_api.json` are override points
-that Godot calls into the extension. Do not generate normal ptrcall wrappers
-for them.
+that Godot calls into the extension. They are never generated as normal ptrcall
+wrappers — a script overrides them with `@OverrideVirtual` (the Kotlin function
+name is the virtual's name, GDScript-style), validated against the generated
+signature table (`scripts/generate_virtual_signature_table.py`) and dispatched
+through the script-instance layer.
 
 Current policy:
-- Skip virtual methods in generated wrapper shells.
-- Wire lifecycle callbacks through the KSP/script dispatch layer.
-- Add virtual override support only through an explicit design change that
-  registers the correct ClassDB virtual dispatch metadata.
+- Skip virtual methods in generated wrapper shells (they are not callable API).
+- Lifecycle callbacks (`@OnReady`, `@OnProcess`, …) ride the same dispatch.
+- Return marshalling covers every Variant-expressible family on desktop/Android;
+  see the "Virtual-return coverage" section of
+  `docs/contributing/wrapper-maintenance.md` for the exact bounds and the
+  documented iOS residue.
 
 ## Generated vs Hand-Authored Wrappers
 
@@ -123,8 +132,9 @@ Hand-authored candidates:
 - Classes with Kanama-specific factories, closeable handles, or dynamic
   behavior
 
-Keep `HANDAUTHORED_CLASSES` and generator policy audits current when changing
-this boundary.
+The hand-shaped exemption lists (`DESKTOP_HANDSHAPED` / `IOS_HANDSHAPED` in
+`scripts/check_wrapper_generator.py`) and the generator policy audits must stay
+current when changing this boundary — the full drift-gate fails otherwise.
 
 ## Porting And Demo Integration
 
@@ -147,9 +157,11 @@ The demos repository exposes:
 
 ## Android Port Notes
 
-Android support is experimental. Kanama runs inside stock Godot Android exports,
-but it is not yet a polished phone-ready target, and Godot 4.7 stable APK/emulator
-revalidation is pending before any Android support claim changes.
+Android support is experimental but device-validated on Godot 4.7 stable: the
+Pixel 7 debug demo matrix, an R8-minified release APK (via Kanama's PanamaPort
+fork), and the nine-demo Vulkan/Mobile renderer smoke have all passed. It is
+still not a polished phone-ready target; the remaining promotion criteria are
+in `docs/internals/release-support-decision.md` §7.
 
 Known constraints:
 - Android uses ART, so the GDExtension library must attach to the existing VM

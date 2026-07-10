@@ -5,9 +5,9 @@
 > stable)**, Linux/Windows **Supported pending 4.7-stable revalidation**, iOS and
 > Android **co-tiered Experimental (device-validated)**. The §4 wording is live in
 > `docs/index.md`, `docs/reference/version-support.md`, and
-> `docs/exporting/{android,ios}.md`. See
-> [post-release-direction.md](./post-release-direction.md) for the release outcome
-> and next phase.
+> `docs/exporting/{android,ios}.md`. (The 0.3.0 capstone direction record was
+> consolidated into the private task repo, 2026-07-10; strategic direction
+> lives there.)
 >
 > **Phase 4 · B addendum (2026-07-10, task 25):** §7 defines the written
 > Supported-mobile promotion bar and the packaging assessment; the §2/§3/§5
@@ -422,10 +422,10 @@ What's missing, concretely:
   claim should either vendor that artifact into the packaged addon or
   explicitly document the JitPack availability dependency.
 - **Documented workarounds still hold** for heavy-demo Android exports (the
-  headless `--install-android-build-template` hang; repo injection into Godot's
-  generated Gradle project — see
-  [post-release-direction.md](./post-release-direction.md) §6). Packaging docs
-  must carry these as long as they exist.
+  headless `--install-android-build-template` hang — install via the editor GUI
+  once; JitPack/mavenLocal repo injection into Godot's generated Gradle
+  project, which the Android smoke scripts perform). Packaging docs must carry
+  these as long as they exist.
 
 **Assessment:** B3 is the farthest criterion from green, and it is *design
 work* (artifact shape + install-smoke), not device-lab work. B2 cleared

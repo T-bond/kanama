@@ -99,6 +99,32 @@ GDScript uses overridable virtual methods. Kanama uses annotations:
 The function name is up to you — the annotation is what wires it up. Drop the
 leading underscore; `fun ready()` is the convention.
 
+## Overriding Engine Virtuals
+
+Beyond the lifecycle annotations, any engine virtual method (the `_*` override
+points a GDScript would implement — `_get_aabb`, `_input`, `_draw`, …) can be
+overridden with `@OverrideVirtual`. Here the Kotlin function keeps the
+GDScript-style name **including** the leading underscore — that name is how the
+override is matched, and the processor validates the signature against the
+engine's virtual table at build time, so a typo or wrong parameter type fails
+the build instead of silently never being called:
+
+```kotlin
+@ScriptClass(attachTo = "Mesh")
+class ProceduralMesh(val godotObject: MemorySegment) {
+    @OverrideVirtual
+    fun _get_aabb(): AABB = AABB(Vector3.ZERO, Vector3(2.0f, 2.0f, 2.0f))
+}
+```
+
+Return types map GDScript-style: Godot `Array` is `List<Any?>`, `Dictionary`
+is `Map<String, Any?>` (String keys), `StringName` returns are declared as
+`String`, and enum returns as `Long`. Every Variant-expressible return family
+works on desktop and Android; a handful of value-type returns are not yet
+mirrored on iOS (see the coverage notes in
+[Wrapper Maintenance](../contributing/wrapper-maintenance.md) if you target
+iOS).
+
 ## Exports
 
 | GDScript | Kanama |

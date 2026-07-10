@@ -5,8 +5,8 @@ External review of the Kanama runtime architecture, target support
 0.2.2 preview line (now Godot 4.7 stable; originally reviewed against the
 4.7 rc 2 baseline). Finding F1 was fixed in the same pass; F2 is now
 validated with Kanama's PanamaPort fork for R8/minified Android exports;
-F3–F4 have since been addressed as bounded follow-ups (recorded in
-[post-release-direction.md](../post-release-direction.md)).
+F3–F4 have since been addressed as bounded follow-ups (the 0.3.0 direction
+record was consolidated into the private task repo, 2026-07-10).
 
 ## Verdict
 

@@ -71,7 +71,7 @@ wrappers as desktop under a cross-platform drift gate. Wrapper coverage reached
 internal tracks, and the support tiers were formalized (desktop supported;
 iOS + Android experimental but device-validated). See
 `docs/internals/release-support-decision.md` for the grounded support matrix and
-`docs/internals/post-release-direction.md` for what's next.
+`docs/internals/release-support-decision.md` §7 for the mobile promotion bar.
 
 ### Added
 

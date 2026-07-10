@@ -332,8 +332,8 @@ loader/render checks. None of the modes prove hot reload.
 - Hot reload is out of scope for the iOS backend.
 - The audited type set and KSP registration path cover the current demo corpus,
   including the heavy `tps-demo-kanama`. Remaining mobile support work (device-matrix
-  breadth, packaging) is tracked in
-  [post-release-direction.md](../internals/post-release-direction.md).
+  breadth, packaging) is tracked in the supported-mobile promotion bar
+  ([release-support-decision.md](../internals/release-support-decision.md) §7).
 - The runtime calls Godot through backend-neutral generated wrappers and
   prefers cached typed `ptrcall`s over Variant-heavy or allocation-heavy paths.
 - The current playable demo set matches the Android-enabled public demo set plus

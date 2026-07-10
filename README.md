@@ -44,15 +44,15 @@ a separate release-readiness track.
 Android support is experimental but **device-validated** for the v0.3.0 line: the
 workflow builds a Godot Android plugin AAR and uses
 [PanamaPort](https://github.com/vova7878/PanamaPort) for the Android FFM layer.
-The Godot 4.7 stable debug demo matrix and an R8-minified Match3 release APK both
-pass on a physical Pixel 7 (OpenGL Compatibility renderer). The R8/minified path
-is validated against Kanama's PanamaPort fork, not upstream.
+The Godot 4.7 stable debug demo matrix, an R8-minified Match3 release APK, and
+the nine-demo Vulkan/Mobile renderer smoke all pass on a physical Pixel 7. The
+R8/minified path is validated against Kanama's PanamaPort fork, not upstream.
 
 iOS support is an experimental Kotlin/Native backend: a C GDExtension shim plus
 a Kotlin/Native static `.xcframework` run full Kanama project scripts through the
-same wrapper generator as desktop/Android, with no JVM on device. The demo
-corpus is device-validated (full 9-demo gate on iPhone 12; playable corpus +
-self-tests on iPhone 15 Pro), with one FPS Audio autoload follow-up tracked as
+same wrapper generator as desktop/Android, with no JVM on device. The full
+device gate (fresh-project install + nine-demo matrix) has passed on both
+iPhone 12 and iPhone 15 Pro, with one FPS Audio autoload follow-up tracked as
 non-blocking. iOS remains experimental, not a supported export — see the
 [iOS (Experimental)](docs/exporting/ios.md) export guide and
 [Version Support](docs/reference/version-support.md).
@@ -70,7 +70,8 @@ the `0.3.0` public preview criteria.
 - Experimental Android runtime through Godot's Android plugin AAR flow
 - Experimental iOS runtime through a Kotlin/Native `.xcframework` (no on-device JVM)
 - Hot reload and editor build tools for a fast iteration loop
-- Growing Godot API wrapper surface with generated KDoc from Godot docs
+- Full Godot 4.7 class coverage (1036/1036 wrapped classes, generated KDoc from
+  Godot docs; engine virtuals overridable via `@OverrideVirtual`)
 - Desktop-first: macOS arm64 is the primary 4.7 stable validation path; Windows
   x64, Linux x64, and Linux ARM64 remain tracked smoke targets
 

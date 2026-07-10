@@ -10,8 +10,7 @@ history lives in git history, not here.
 | File | What it is |
 |---|---|
 | [ios-demo-port-tracker.md](./active/ios-demo-port-tracker.md) | Public-safe status of each iOS demo port, validation pointers, generator gotchas, and demo-relevant fixed bugs. |
-| [release-support-decision.md](./release-support-decision.md) | Support-tier decision (desktop supported; iOS+Android experimental, device-validated) + required release-gate matrix. Signed off and applied at 0.3.0. |
-| [post-release-direction.md](./post-release-direction.md) | **The 0.3.0 capstone re-evaluation — start here for current direction.** What landed (01–23), the versioning decision, the current strategic cycle, the `DEFERRED.md` triage, and the support matrix. |
+| [release-support-decision.md](./release-support-decision.md) | **Start here.** Support-tier decision (desktop supported; iOS+Android experimental, device-validated), the required release-gate matrix (§6), and the supported-mobile promotion bar (§7). Signed off at 0.3.0; §7 added 2026-07-10. |
 
 ## Reference — evergreen, read to understand the system
 | File | What it is |

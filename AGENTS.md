@@ -7,11 +7,15 @@ release shape.
 
 ## Current Baseline
 
-- Kanama preview line: `0.3.0`.
-- Godot baseline: Godot `4.7 stable`.
+- Kanama preview line: `0.3.0` (untagged; releases are deprioritized in favor
+  of coverage + stability by maintainer decision).
+- Godot baseline: Godot `4.7 stable` (re-pin only on stable releases; bumps
+  follow `docs/contributing/godot-upgrade.md`).
 - Desktop runtime/build JDK: JDK `25+`.
-- Android remains experimental; Godot `4.7 stable` Android APK smoke
-  revalidation is still a support gate.
+- Mobile is experimental, device-validated: Android passed the Pixel 7 debug
+  matrix, R8-minified release APK, and Vulkan/Mobile renderer smoke; iOS passed
+  the full ten-step device gate on iPhone 12 and iPhone 15 Pro. Promotion to
+  Supported is gated on `docs/internals/release-support-decision.md` §7.
 - Release artifacts use two shapes: desktop kits for new projects and store
   add-ons for existing projects. See `docs/exporting/desktop.md`.
 
