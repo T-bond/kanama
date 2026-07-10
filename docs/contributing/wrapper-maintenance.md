@@ -135,7 +135,7 @@ Once the class surface is broadly promoted, the remaining skips are a long tail
 of **data-type / shape** gaps, not missing classes. A full triage of the
 non-virtual skips and the skipped properties found:
 
-- **Non-virtual method skips (~63 after the two low-ABI families below):** the
+- **Non-virtual method skips (65 as of task 28's start):** the
   large majority are *intentional*, not gaps —
   - **~49 root `Object` methods** (`call`/`get`/`set`/`connect`/`emit_signal`/…)
     are deliberately routed through the hand-shaped `GodotObject` policy, not
@@ -143,17 +143,22 @@ non-virtual skips and the skipped properties found:
     `GodotObject`.
   - **2 `RefCounted` lifetime methods** (`reference`/`init_ref`) are
     ownership-sensitive and hand-shaped.
-  - **Two clean low-ABI slices landed** — new call shapes that recombine
+  - **One clean low-ABI slice landed** — a new call shape that recombines
     *already-audited* primitives and whose signature contains a type not in
-    `IOS_ARG_KINDS` / `IOS_RET_KOTLIN`, so they generate on desktop+Android and
-    are **cleanly iOS-skipped** (no C-shim helper, no self-test row, no device
+    `IOS_ARG_KINDS` / `IOS_RET_KOTLIN`, so it generates on desktop+Android and
+    is **cleanly iOS-skipped** (no C-shim helper, no self-test row, no device
     gate — the same guardrail Dictionary uses):
-    - **`Dictionary`→`Dictionary`** (`GDScriptTextDocument.resolve`/`.rename`) via
-      `ptrcallWithDictionaryArgRetDictionary` — reuses the Dictionary-arg init +
-      Dictionary-return read paths. `Dictionary` is not an iOS arg/return kind.
     - **`(Rect2i, Object, Color, int32, Object)`→`void`**
       (`DrawableTexture2D.blit_rect`) via `ptrcallWithRect2iObjectColorIntObjectArgs`
       — reuses the Rect2i/Object/Color/int cells. `Rect2i` is not an iOS arg kind.
+  - **`Dictionary`→`Dictionary` (`GDScriptTextDocument.resolve`/`.rename`) is a
+    by-design skip**, not a gap. Task 22 briefly landed it via
+    `ptrcallWithDictionaryArgRetDictionary`, but the shape was **reverted for
+    stability**: a Dictionary-in/Dictionary-out passthrough through the generic
+    `Map<String, Any?>` helper silently drops non-String keys, so
+    `audit_generator_shape_policy` keeps the `('Dictionary',) -> 'Dictionary'`
+    shape out of `CALL_SHAPES` (it must stay hand-audited if ever needed). The
+    two methods are editor-LSP plumbing with no game-runtime workflow.
   - **The remaining ~12 are deferred with reason** (each still carries its
     `unsupported helper shape …` entry in the generator report). They are *not*
     quick wins — each needs either new marshalling primitives audited on the iOS

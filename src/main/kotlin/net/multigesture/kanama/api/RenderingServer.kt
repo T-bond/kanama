@@ -9,6 +9,7 @@ import net.multigesture.kanama.types.Color
 import net.multigesture.kanama.types.Plane
 import net.multigesture.kanama.types.RID
 import net.multigesture.kanama.types.Rect2
+import net.multigesture.kanama.types.Rect2i
 import net.multigesture.kanama.types.Transform2D
 import net.multigesture.kanama.types.Transform3D
 import net.multigesture.kanama.types.Vector2
@@ -659,6 +660,19 @@ object RenderingServer {
     @JvmStatic
     fun textureProxyUpdate(texture: RID, proxyTo: RID) {
         ObjectCalls.ptrcallWithTwoRIDArgs(textureProxyUpdateBind, singleton, texture, proxyTo)
+    }
+
+    /**
+     * Draws to `rect` on up to 4 given Drawable `textures`, using a TextureBlit Shader from
+     * `material`. `modulate` and up to 4 `source_textures` are uniforms for the Shader to process
+     * with. `to_mipmap` can specify to perform this draw to a lower mipmap level. Note: All `textures`
+     * must be the same size and format.
+     *
+     * Generated from Godot docs: RenderingServer.texture_drawable_blit_rect
+     */
+    @JvmStatic
+    fun textureDrawableBlitRect(textures: List<RID>, rect: Rect2i, material: RID, modulate: Color, sourceTextures: List<RID>, toMipmap: Int = 0) {
+        ObjectCalls.ptrcallWithRIDListRect2iRIDColorRIDListIntArgs(textureDrawableBlitRectBind, singleton, textures, rect, material, modulate, sourceTextures, toMipmap)
     }
 
     /**
@@ -6776,6 +6790,11 @@ object RenderingServer {
     private const val TEXTURE_PROXY_UPDATE_HASH = 395945892L
     private val textureProxyUpdateBind by lazy {
         ObjectCalls.getMethodBind("RenderingServer", "texture_proxy_update", TEXTURE_PROXY_UPDATE_HASH)
+    }
+
+    private const val TEXTURE_DRAWABLE_BLIT_RECT_HASH = 4077763890L
+    private val textureDrawableBlitRectBind by lazy {
+        ObjectCalls.getMethodBind("RenderingServer", "texture_drawable_blit_rect", TEXTURE_DRAWABLE_BLIT_RECT_HASH)
     }
 
     private const val TEXTURE_2D_PLACEHOLDER_CREATE_HASH = 529393457L

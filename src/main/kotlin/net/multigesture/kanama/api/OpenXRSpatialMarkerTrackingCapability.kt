@@ -28,6 +28,10 @@ class OpenXRSpatialMarkerTrackingCapability(handle: MemorySegment) : OpenXRExten
         return OpenXRFutureResult.wrap(ObjectCalls.ptrcallWithRIDObjectListTwoObjectCallableArgsRetObject(startEntityDiscoveryBind, handle, spatialContext, componentData, nextSnapshotCreate?.requireOpenHandle() ?: MemorySegment.NULL, nextSnapshotQuery?.requireOpenHandle() ?: MemorySegment.NULL, userCallback.target.handle, userCallback.method))
     }
 
+    fun doEntityUpdate(spatialContext: RID, componentData: List<OpenXRSpatialComponentData>, nextSnapshotCreate: OpenXRStructureBase?, nextSnapshotQuery: OpenXRStructureBase?) {
+        ObjectCalls.ptrcallWithRIDObjectListTwoObjectArgs(doEntityUpdateBind, handle, spatialContext, componentData, nextSnapshotCreate?.requireOpenHandle() ?: MemorySegment.NULL, nextSnapshotQuery?.requireOpenHandle() ?: MemorySegment.NULL)
+    }
+
     companion object {
         @JvmStatic
         fun fromHandle(handle: MemorySegment): OpenXRSpatialMarkerTrackingCapability? =
@@ -59,6 +63,11 @@ class OpenXRSpatialMarkerTrackingCapability(handle: MemorySegment) : OpenXRExten
         private const val START_ENTITY_DISCOVERY_HASH = 3452714169L
         private val startEntityDiscoveryBind by lazy {
             ObjectCalls.getMethodBind("OpenXRSpatialMarkerTrackingCapability", "start_entity_discovery", START_ENTITY_DISCOVERY_HASH)
+        }
+
+        private const val DO_ENTITY_UPDATE_HASH = 3138044275L
+        private val doEntityUpdateBind by lazy {
+            ObjectCalls.getMethodBind("OpenXRSpatialMarkerTrackingCapability", "do_entity_update", DO_ENTITY_UPDATE_HASH)
         }
     }
 }

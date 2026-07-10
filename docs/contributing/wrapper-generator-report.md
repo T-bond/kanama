@@ -16,9 +16,9 @@ Generated drafts are not automatically promoted. A class only becomes public sou
 | --- | ---: |
 | API classes | 1036 |
 | Classes with generated output | 844 |
-| Classes with complete method generation | 752 |
-| Methods generated | 15320/16822 (91.1%) |
-| Methods skipped | 1502 |
+| Classes with complete method generation | 757 |
+| Methods generated | 15328/16822 (91.1%) |
+| Methods skipped | 1494 |
 | Properties generated | 3657/4162 (87.9%) |
 | Signals generated | 503/503 (100.0%) |
 
@@ -28,7 +28,6 @@ Generated drafts are not automatically promoted. A class only becomes public sou
 | --- | ---: |
 | Virtual/internal | 1437 |
 | Other | 49 |
-| Array / typed array | 8 |
 | Missing helper shape | 3 |
 | Dictionary | 3 |
 | Blocked object wrapper | 2 |
@@ -40,16 +39,9 @@ These are the highest-leverage ptrcall helper shapes to add next, excluding broa
 | Shape | Count |
 | --- | ---: |
 | `args=('Dictionary',) return=Dictionary` | 2 |
-| `args=('RID', 'TypedObjectArray::OpenXRSpatialComponentData', 'Object', 'Object') return=void` | 2 |
-| `args=('Rect2i', 'TypedObjectArray::Texture2D', 'TypedObjectArray::DrawableTexture2D', 'Color', 'int32', 'Object') return=void` | 1 |
 | `args=('Object', 'bool', 'String', 'bitfield', 'bool') return=enum` | 1 |
 | `args=('Dictionary', 'int32', 'float', 'Transform2D', 'int32', 'int32', 'int32', 'int32', 'float', 'int64', 'PackedColorArray') return=RID` | 1 |
-| `args=('TypedObjectArray::ImporterMesh', 'TypedTransform3DArray', 'bool') return=Object` | 1 |
 | `args=('Transform3D', 'RID', 'Object') return=Object` | 1 |
-| `args=('TypedObjectArray::RDPipelineShader', 'TypedObjectArray::RDPipelineShader', 'TypedObjectArray::RDHitGroup', 'uint32') return=RID` | 1 |
-| `args=('TypedObjectArray::RDAccelerationStructureGeometry', 'bitfield') return=RID` | 1 |
-| `args=('RID', 'TypedObjectArray::RDAccelerationStructureInstance') return=enum` | 1 |
-| `args=('TypedRIDArray', 'Rect2i', 'RID', 'Color', 'TypedRIDArray', 'int32') return=void` | 1 |
 | `args=('Signal',) return=Object` | 1 |
 
 ## Top Skip Reasons
@@ -59,17 +51,10 @@ These are the highest-leverage ptrcall helper shapes to add next, excluding broa
 | `internal/virtual callback methods are not emitted as public wrappers` | 1437 |
 | `root Object methods are exposed through the hand-shaped GodotObject policy` | 49 |
 | `unsupported helper shape args=('Dictionary',) return=Dictionary` | 2 |
-| `unsupported helper shape args=('RID', 'TypedObjectArray::OpenXRSpatialComponentData', 'Object', 'Object') return=void` | 2 |
 | `ownership-sensitive RefCounted lifetime method is hand-shaped` | 2 |
-| `unsupported helper shape args=('Rect2i', 'TypedObjectArray::Texture2D', 'TypedObjectArray::DrawableTexture2D', 'Color', 'int32', 'Object') return=void` | 1 |
 | `unsupported helper shape args=('Object', 'bool', 'String', 'bitfield', 'bool') return=enum` | 1 |
 | `unsupported helper shape args=('Dictionary', 'int32', 'float', 'Transform2D', 'int32', 'int32', 'int32', 'int32', 'float', 'int64', 'PackedColorArray') return=RID` | 1 |
-| `unsupported helper shape args=('TypedObjectArray::ImporterMesh', 'TypedTransform3DArray', 'bool') return=Object` | 1 |
 | `unsupported helper shape args=('Transform3D', 'RID', 'Object') return=Object` | 1 |
-| `unsupported helper shape args=('TypedObjectArray::RDPipelineShader', 'TypedObjectArray::RDPipelineShader', 'TypedObjectArray::RDHitGroup', 'uint32') return=RID` | 1 |
-| `unsupported helper shape args=('TypedObjectArray::RDAccelerationStructureGeometry', 'bitfield') return=RID` | 1 |
-| `unsupported helper shape args=('RID', 'TypedObjectArray::RDAccelerationStructureInstance') return=enum` | 1 |
-| `unsupported helper shape args=('TypedRIDArray', 'Rect2i', 'RID', 'Color', 'TypedRIDArray', 'int32') return=void` | 1 |
 | `unsupported helper shape args=('Signal',) return=Object` | 1 |
 
 ## Complete Method Classes
@@ -78,6 +63,7 @@ These classes have every method covered by the conservative generator. Promotion
 
 | Class | Methods | Properties | Signals |
 | --- | ---: | ---: | ---: |
+| RenderingServer | 535/535 | 1/1 | 2/2 |
 | DisplayServer | 287/287 | 0/0 | 1/1 |
 | TextServer | 244/244 | 0/0 | 0/0 |
 | Environment | 188/188 | 93/93 | 0/0 |
@@ -86,6 +72,7 @@ These classes have every method covered by the conservative generator. Promotion
 | BaseMaterial3D | 154/154 | 74/131 | 0/0 |
 | RichTextLabel | 138/138 | 30/30 | 4/4 |
 | NavigationServer2D | 137/137 | 0/0 | 3/3 |
+| RenderingDevice | 135/135 | 0/0 | 0/0 |
 | Viewport | 130/130 | 46/50 | 2/2 |
 | TreeItem | 125/125 | 4/4 | 0/0 |
 | PhysicsServer2D | 119/119 | 0/0 | 0/0 |
@@ -126,19 +113,15 @@ These classes have every method covered by the conservative generator. Promotion
 | AnimationPlayer | 54/54 | 12/12 | 2/2 |
 | Camera2D | 52/52 | 20/28 | 0/0 |
 | TabContainer | 51/51 | 12/12 | 7/7 |
-| OpenXRAPIExtension | 51/51 | 0/0 | 0/0 |
-| PhysicsDirectBodyState3D | 50/50 | 16/16 | 0/0 |
 
 ## Near Ready Classes
 
 | Class | Methods | Properties | Signals | Skips |
 | --- | ---: | ---: | ---: | ---: |
-| RenderingServer | 534/535 (99.8%) | 1/1 | 2/2 | 1 |
 | Window | 133/134 (99.3%) | 28/41 | 16/16 | 1 |
 | CanvasItem | 93/94 (98.9%) | 16/16 | 4/4 | 1 |
 | RigidBody3D | 59/60 (98.3%) | 23/23 | 5/5 | 1 |
 | RigidBody2D | 58/59 (98.3%) | 23/23 | 5/5 | 1 |
-| RenderingDevice | 132/135 (97.8%) | 0/0 | 0/0 | 3 |
 | GraphNode | 42/43 (97.7%) | 3/3 | 2/2 | 1 |
 | TextEdit | 249/255 (97.6%) | 47/47 | 7/7 | 6 |
 | AnimationMixer | 40/41 (97.6%) | 10/10 | 7/7 | 1 |
@@ -148,7 +131,6 @@ These classes have every method covered by the conservative generator. Promotion
 | TileMap | 61/63 (96.8%) | 5/5 | 1/1 | 2 |
 | Tween | 27/28 (96.4%) | 0/0 | 3/3 | 1 |
 | EditorExportPlatform | 26/27 (96.3%) | 0/0 | 0/0 | 1 |
-| ImporterMesh | 24/25 (96.0%) | 0/0 | 0/0 | 1 |
 | Range | 23/24 (95.8%) | 10/10 | 2/2 | 1 |
 | GraphEdit | 75/79 (94.9%) | 25/25 | 19/19 | 4 |
 | TileMapLayer | 55/58 (94.8%) | 13/13 | 1/1 | 3 |
@@ -156,6 +138,7 @@ These classes have every method covered by the conservative generator. Promotion
 | AStarGrid2D | 33/35 (94.3%) | 9/9 | 0/0 | 2 |
 | CompositorEffect | 14/15 (93.3%) | 7/7 | 0/0 | 1 |
 | Control | 181/195 (92.8%) | 49/63 | 10/10 | 14 |
+| OpenXRSpatialAnchorCapability | 12/13 (92.3%) | 0/0 | 0/0 | 1 |
 | PrimitiveMesh | 12/13 (92.3%) | 5/5 | 0/0 | 1 |
 | VisualInstance3D | 12/13 (92.3%) | 3/3 | 0/0 | 1 |
 | BaseButton | 23/25 (92.0%) | 10/10 | 4/4 | 2 |
@@ -167,12 +150,9 @@ These classes have every method covered by the conservative generator. Promotion
 | AStar3D | 25/28 (89.3%) | 1/1 | 0/0 | 3 |
 | CollisionObject2D | 36/41 (87.8%) | 5/5 | 5/5 | 5 |
 | Translation | 12/14 (85.7%) | 2/3 | 0/0 | 2 |
-| DrawableTexture2D | 6/7 (85.7%) | 0/0 | 0/0 | 1 |
 | SubViewportContainer | 6/7 (85.7%) | 3/3 | 0/0 | 1 |
 | Resource | 22/26 (84.6%) | 4/4 | 2/2 | 4 |
-| OpenXRSpatialAnchorCapability | 11/13 (84.6%) | 0/0 | 0/0 | 2 |
 | EditorResourcePicker | 10/12 (83.3%) | 4/4 | 2/2 | 2 |
-| OpenXRSpatialMarkerTrackingCapability | 5/6 (83.3%) | 0/0 | 0/0 | 1 |
 | CameraFeed | 17/21 (81.0%) | 3/3 | 2/2 | 4 |
 | EditorContextMenuPlugin | 4/5 (80.0%) | 0/0 | 0/0 | 1 |
 
@@ -180,7 +160,7 @@ These classes have every method covered by the conservative generator. Promotion
 
 | Class | Methods | Properties | Signals | Skips |
 | --- | ---: | ---: | ---: | ---: |
-| RenderingServer | 534/535 | 1/1 | 2/2 | 1 |
+| RenderingServer | 535/535 | 1/1 | 2/2 | 0 |
 | DisplayServer | 287/287 | 0/0 | 1/1 | 0 |
 | TextEdit | 249/255 | 47/47 | 7/7 | 6 |
 | TextServer | 244/244 | 0/0 | 0/0 | 0 |
@@ -191,8 +171,8 @@ These classes have every method covered by the conservative generator. Promotion
 | NavigationServer3D | 154/154 | 0/0 | 3/3 | 0 |
 | RichTextLabel | 138/138 | 30/30 | 4/4 | 0 |
 | NavigationServer2D | 137/137 | 0/0 | 3/3 | 0 |
+| RenderingDevice | 135/135 | 0/0 | 0/0 | 0 |
 | Window | 133/134 | 28/41 | 16/16 | 1 |
-| RenderingDevice | 132/135 | 0/0 | 0/0 | 3 |
 | Viewport | 130/130 | 46/50 | 2/2 | 0 |
 | TreeItem | 125/125 | 4/4 | 0/0 | 0 |
 | Node | 121/133 | 14/14 | 11/11 | 12 |

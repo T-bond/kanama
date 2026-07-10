@@ -12,9 +12,9 @@ Generated drafts are emitted to `build/wrapper-generator/drafts` during local ru
 | --- | ---: | --- |
 | API classes | 1036 |  |
 | Classes with generated output | 844 | `██████████░░` 81.5% |
-| Classes with complete method generation | 752 | `█████████░░░` 72.6% |
-| Methods generated | 15320/16822 (91.1%) | `███████████░` 91.1% |
-| Methods skipped | 1502 |  |
+| Classes with complete method generation | 757 | `█████████░░░` 73.1% |
+| Methods generated | 15328/16822 (91.1%) | `███████████░` 91.1% |
+| Methods skipped | 1494 |  |
 | Properties generated | 3657/4162 (87.9%) | `███████████░` 87.9% |
 | Signals generated | 503/503 (100.0%) | `████████████` 100.0% |
 
@@ -26,7 +26,7 @@ These numbers count only checked-in Kotlin API wrappers. Class coverage may incl
 Rows marked `inherited only` are promoted wrappers whose Godot class declares no own methods in `extension_api.json`; behavior comes from their parent wrapper.
 
 - Classes: 1032 / 1036 `████████████` 99.6%
-- Methods: 15272 / 15385 `████████████` 99.3% (callable methods; engine virtuals excluded — see below)
+- Methods: 15279 / 15385 `████████████` 99.3% (callable methods; engine virtuals excluded — see below)
 
 ## Virtual Methods
 
@@ -36,15 +36,15 @@ Rows marked `inherited only` are promoted wrappers whose Godot class declares no
 
 | Area | Classes | Class Coverage | Methods | Method Coverage |
 | --- | ---: | --- | ---: | --- |
-| Core | 224/226 | `████████████` 99.1% | 2875/2970 | `████████████` 96.8% |
+| Core | 224/226 | `████████████` 99.1% | 2876/2970 | `████████████` 96.8% |
 | Scene | 26/26 | `████████████` 100.0% | 923/923 | `████████████` 100.0% |
-| Resources | 305/306 | `████████████` 99.7% | 2883/2891 | `████████████` 99.7% |
+| Resources | 305/306 | `████████████` 99.7% | 2884/2891 | `████████████` 99.8% |
 | Input | 20/20 | `████████████` 100.0% | 238/238 | `████████████` 100.0% |
 | UI | 69/69 | `████████████` 100.0% | 1742/1741 | `████████████` 100.1% |
-| 2D | 112/112 | `████████████` 100.0% | 2029/2030 | `████████████` 100.0% |
+| 2D | 112/112 | `████████████` 100.0% | 2030/2030 | `████████████` 100.0% |
 | 3D | 170/171 | `████████████` 99.4% | 2994/3000 | `████████████` 99.8% |
 | Physics | 6/6 | `████████████` 100.0% | 55/55 | `████████████` 100.0% |
-| Rendering | 24/24 | `████████████` 100.0% | 790/794 | `████████████` 99.5% |
+| Rendering | 24/24 | `████████████` 100.0% | 794/794 | `████████████` 100.0% |
 | Audio | 14/14 | `████████████` 100.0% | 232/232 | `████████████` 100.0% |
 | Multiplayer | 8/8 | `████████████` 100.0% | 66/66 | `████████████` 100.0% |
 | Editor | 54/54 | `████████████` 100.0% | 445/445 | `████████████` 100.0% |
@@ -267,7 +267,7 @@ These notes summarize wrapper feedback from real ports. They are contextual sign
 | `DirectionalLight2D` | 2D | 2/2 | `████████` 100.0% |
 | `DirectionalLight3D` | 3D | 6/6 | `████████` 100.0% |
 | `DisplayServer` | Core | 287/287 | `████████` 100.0% |
-| `DrawableTexture2D` | 2D | 6/7 | `███████░` 85.7% |
+| `DrawableTexture2D` | 2D | 7/7 | `████████` 100.0% |
 | `ENetConnection` | Core | 18/18 | `████████` 100.0% |
 | `ENetMultiplayerPeer` | Multiplayer | 7/7 | `████████` 100.0% |
 | `ENetPacketPeer` | Core | 16/16 | `████████` 100.0% |
@@ -421,7 +421,7 @@ These notes summarize wrapper feedback from real ports. They are contextual sign
 | `ImageTexture3D` | 3D | 2/2 | `████████` 100.0% |
 | `ImageTextureLayered` | Resources | 2/2 | `████████` 100.0% |
 | `ImmediateMesh` | Resources | 10/10 | `████████` 100.0% |
-| `ImporterMesh` | Resources | 24/25 | `████████` 96.0% |
+| `ImporterMesh` | Resources | 25/25 | `████████` 100.0% |
 | `ImporterMeshInstance3D` | 3D | 20/20 | `████████` 100.0% |
 | `Input` | Input | 77/77 | `████████` 100.0% |
 | `InputEvent` | Input | 15/15 | `████████` 100.0% |
@@ -607,7 +607,7 @@ These notes summarize wrapper feedback from real ports. They are contextual sign
 | `OpenXRSpatialContextPersistenceConfig` | Core | 3/3 | `████████` 100.0% |
 | `OpenXRSpatialEntityExtension` | Core | 26/26 | `████████` 100.0% |
 | `OpenXRSpatialEntityTracker` | Core | 9/9 | `████████` 100.0% |
-| `OpenXRSpatialMarkerTrackingCapability` | Core | 5/6 | `███████░` 83.3% |
+| `OpenXRSpatialMarkerTrackingCapability` | Core | 6/6 | `████████` 100.0% |
 | `OpenXRSpatialPlaneTrackingCapability` | Core | 2/2 | `████████` 100.0% |
 | `OpenXRSpatialQueryResultData` | Core | 3/3 | `████████` 100.0% |
 | `OpenXRStructureBase` | Core | 3/3 | `████████` 100.0% |
@@ -737,8 +737,8 @@ These notes summarize wrapper feedback from real ports. They are contextual sign
 | `RenderSceneData` | Core | 6/6 | `████████` 100.0% |
 | `RenderSceneDataExtension` | Core | 0/0 | inherited only |
 | `RenderSceneDataRD` | Core | 0/0 | inherited only |
-| `RenderingDevice` | Rendering | 132/135 | `████████` 97.8% |
-| `RenderingServer` | Rendering | 534/535 | `████████` 99.8% |
+| `RenderingDevice` | Rendering | 135/135 | `████████` 100.0% |
+| `RenderingServer` | Rendering | 535/535 | `████████` 100.0% |
 | `Resource` | Resources | 21/22 | `████████` 95.5% |
 | `ResourceFormatLoader` | Core | 0/0 | inherited only |
 | `ResourceFormatSaver` | Core | 0/0 | inherited only |

@@ -11331,6 +11331,216 @@ object ObjectCalls {
         }
     }
 
+    fun ptrcallWithRIDAndObjectListArgsRetLong(
+        methodBind: MemorySegment,
+        instance: MemorySegment,
+        rid: RID,
+        values: List<*>,
+    ): Long {
+        Arena.ofConfined().use { arena ->
+            val ridCell = arena.allocate(JAVA_LONG)
+            val argArray = arena.allocate(8L, 8L)
+            try {
+                ridCell.set(JAVA_LONG, 0, rid.value)
+                BuiltinTypes.initArrayOfObjects(argArray, values)
+                val args = arena.allocate(ADDRESS, 2)
+                args.setAtIndex(ADDRESS, 0, ridCell)
+                args.setAtIndex(ADDRESS, 1, argArray)
+                val ret = arena.allocate(JAVA_LONG)
+                objectMethodBindPtrcall.invoke(methodBind, instance, args, ret)
+                return ret.get(JAVA_LONG, 0)
+            } finally {
+                BuiltinTypes.destroyTyped(VariantType.ARRAY, argArray)
+            }
+        }
+    }
+
+    fun ptrcallWithThreeObjectListUInt32ArgsRetRID(
+        methodBind: MemorySegment,
+        instance: MemorySegment,
+        firstValues: List<*>,
+        secondValues: List<*>,
+        thirdValues: List<*>,
+        count: Long,
+    ): RID {
+        val checkedCount = BuiltinTypes.requireUInt32(count)
+        Arena.ofConfined().use { arena ->
+            val firstArray = arena.allocate(8L, 8L)
+            val secondArray = arena.allocate(8L, 8L)
+            val thirdArray = arena.allocate(8L, 8L)
+            val countCell = arena.allocate(JAVA_INT)
+            try {
+                BuiltinTypes.initArrayOfObjects(firstArray, firstValues)
+                BuiltinTypes.initArrayOfObjects(secondArray, secondValues)
+                BuiltinTypes.initArrayOfObjects(thirdArray, thirdValues)
+                countCell.set(JAVA_INT, 0, checkedCount)
+                val args = arena.allocate(ADDRESS, 4)
+                args.setAtIndex(ADDRESS, 0, firstArray)
+                args.setAtIndex(ADDRESS, 1, secondArray)
+                args.setAtIndex(ADDRESS, 2, thirdArray)
+                args.setAtIndex(ADDRESS, 3, countCell)
+                val ret = arena.allocate(JAVA_LONG)
+                objectMethodBindPtrcall.invoke(methodBind, instance, args, ret)
+                return RID(ret.get(JAVA_LONG, 0))
+            } finally {
+                BuiltinTypes.destroyTyped(VariantType.ARRAY, thirdArray)
+                BuiltinTypes.destroyTyped(VariantType.ARRAY, secondArray)
+                BuiltinTypes.destroyTyped(VariantType.ARRAY, firstArray)
+            }
+        }
+    }
+
+    fun ptrcallWithRIDObjectListTwoObjectArgs(
+        methodBind: MemorySegment,
+        instance: MemorySegment,
+        rid: RID,
+        values: List<*>,
+        firstObject: MemorySegment,
+        secondObject: MemorySegment,
+    ) {
+        Arena.ofConfined().use { arena ->
+            val ridCell = arena.allocate(JAVA_LONG)
+            val argArray = arena.allocate(8L, 8L)
+            val firstCell = arena.allocate(ADDRESS)
+            val secondCell = arena.allocate(ADDRESS)
+            try {
+                ridCell.set(JAVA_LONG, 0, rid.value)
+                BuiltinTypes.initArrayOfObjects(argArray, values)
+                firstCell.set(ADDRESS, 0, firstObject)
+                secondCell.set(ADDRESS, 0, secondObject)
+                val args = arena.allocate(ADDRESS, 4)
+                args.setAtIndex(ADDRESS, 0, ridCell)
+                args.setAtIndex(ADDRESS, 1, argArray)
+                args.setAtIndex(ADDRESS, 2, firstCell)
+                args.setAtIndex(ADDRESS, 3, secondCell)
+                objectMethodBindPtrcall.invoke(methodBind, instance, args, MemorySegment.NULL)
+            } finally {
+                BuiltinTypes.destroyTyped(VariantType.ARRAY, argArray)
+            }
+        }
+    }
+
+    fun ptrcallWithRect2iTwoObjectListColorIntObjectArgs(
+        methodBind: MemorySegment,
+        instance: MemorySegment,
+        rectValue: Rect2i,
+        firstValues: List<*>,
+        secondValues: List<*>,
+        color: Color,
+        intValue: Int,
+        objectArg: MemorySegment,
+    ) {
+        Arena.ofConfined().use { arena ->
+            val rect = arena.allocate(16L, 4L)
+            rect.set(JAVA_INT, 0, rectValue.position.x)
+            rect.set(JAVA_INT, 4, rectValue.position.y)
+            rect.set(JAVA_INT, 8, rectValue.size.x)
+            rect.set(JAVA_INT, 12, rectValue.size.y)
+            val firstArray = arena.allocate(8L, 8L)
+            val secondArray = arena.allocate(8L, 8L)
+            val colorCell = arena.allocate(16L, 4L)
+            // Color components use fixed 32-bit storage, unlike scalar float method args.
+            colorCell.set(JAVA_FLOAT, 0, color.r)
+            colorCell.set(JAVA_FLOAT, 4, color.g)
+            colorCell.set(JAVA_FLOAT, 8, color.b)
+            colorCell.set(JAVA_FLOAT, 12, color.a)
+            val intCell = arena.allocate(JAVA_INT)
+            intCell.set(JAVA_INT, 0, intValue)
+            val objectCell = arena.allocate(ADDRESS)
+            objectCell.set(ADDRESS, 0, objectArg)
+            try {
+                BuiltinTypes.initArrayOfObjects(firstArray, firstValues)
+                BuiltinTypes.initArrayOfObjects(secondArray, secondValues)
+                val args = arena.allocate(ADDRESS, 6)
+                args.setAtIndex(ADDRESS, 0, rect)
+                args.setAtIndex(ADDRESS, 1, firstArray)
+                args.setAtIndex(ADDRESS, 2, secondArray)
+                args.setAtIndex(ADDRESS, 3, colorCell)
+                args.setAtIndex(ADDRESS, 4, intCell)
+                args.setAtIndex(ADDRESS, 5, objectCell)
+                objectMethodBindPtrcall.invoke(methodBind, instance, args, MemorySegment.NULL)
+            } finally {
+                BuiltinTypes.destroyTyped(VariantType.ARRAY, secondArray)
+                BuiltinTypes.destroyTyped(VariantType.ARRAY, firstArray)
+            }
+        }
+    }
+
+    fun ptrcallWithObjectListTransform3DListBoolArgsRetObject(
+        methodBind: MemorySegment,
+        instance: MemorySegment,
+        values: List<*>,
+        transforms: List<Transform3D>,
+        flag: Boolean,
+    ): MemorySegment {
+        Arena.ofConfined().use { arena ->
+            val objectArray = arena.allocate(8L, 8L)
+            val transformArray = arena.allocate(8L, 8L)
+            val boolCell = arena.allocate(JAVA_BYTE)
+            try {
+                BuiltinTypes.initArrayOfObjects(objectArray, values)
+                BuiltinTypes.initArray(transformArray, transforms.map { it as Any? })
+                boolCell.set(JAVA_BYTE, 0, if (flag) 1.toByte() else 0.toByte())
+                val args = arena.allocate(ADDRESS, 3)
+                args.setAtIndex(ADDRESS, 0, objectArray)
+                args.setAtIndex(ADDRESS, 1, transformArray)
+                args.setAtIndex(ADDRESS, 2, boolCell)
+                val ret = arena.allocate(ADDRESS)
+                objectMethodBindPtrcall.invoke(methodBind, instance, args, ret)
+                return ret.get(ADDRESS, 0)
+            } finally {
+                BuiltinTypes.destroyTyped(VariantType.ARRAY, transformArray)
+                BuiltinTypes.destroyTyped(VariantType.ARRAY, objectArray)
+            }
+        }
+    }
+
+    fun ptrcallWithRIDListRect2iRIDColorRIDListIntArgs(
+        methodBind: MemorySegment,
+        instance: MemorySegment,
+        firstRids: List<RID>,
+        rectValue: Rect2i,
+        rid: RID,
+        color: Color,
+        secondRids: List<RID>,
+        intValue: Int,
+    ) {
+        Arena.ofConfined().use { arena ->
+            val firstArray = arena.allocate(8L, 8L)
+            val secondArray = arena.allocate(8L, 8L)
+            val rect = arena.allocate(16L, 4L)
+            rect.set(JAVA_INT, 0, rectValue.position.x)
+            rect.set(JAVA_INT, 4, rectValue.position.y)
+            rect.set(JAVA_INT, 8, rectValue.size.x)
+            rect.set(JAVA_INT, 12, rectValue.size.y)
+            val ridCell = arena.allocate(JAVA_LONG)
+            ridCell.set(JAVA_LONG, 0, rid.value)
+            val colorCell = arena.allocate(16L, 4L)
+            // Color components use fixed 32-bit storage, unlike scalar float method args.
+            colorCell.set(JAVA_FLOAT, 0, color.r)
+            colorCell.set(JAVA_FLOAT, 4, color.g)
+            colorCell.set(JAVA_FLOAT, 8, color.b)
+            colorCell.set(JAVA_FLOAT, 12, color.a)
+            val intCell = arena.allocate(JAVA_INT)
+            intCell.set(JAVA_INT, 0, intValue)
+            try {
+                BuiltinTypes.initArrayOfRids(firstArray, firstRids)
+                BuiltinTypes.initArrayOfRids(secondArray, secondRids)
+                val args = arena.allocate(ADDRESS, 6)
+                args.setAtIndex(ADDRESS, 0, firstArray)
+                args.setAtIndex(ADDRESS, 1, rect)
+                args.setAtIndex(ADDRESS, 2, ridCell)
+                args.setAtIndex(ADDRESS, 3, colorCell)
+                args.setAtIndex(ADDRESS, 4, secondArray)
+                args.setAtIndex(ADDRESS, 5, intCell)
+                objectMethodBindPtrcall.invoke(methodBind, instance, args, MemorySegment.NULL)
+            } finally {
+                BuiltinTypes.destroyTyped(VariantType.ARRAY, secondArray)
+                BuiltinTypes.destroyTyped(VariantType.ARRAY, firstArray)
+            }
+        }
+    }
+
     fun ptrcallWithStringAndArrayArg(
         methodBind: MemorySegment,
         instance: MemorySegment,

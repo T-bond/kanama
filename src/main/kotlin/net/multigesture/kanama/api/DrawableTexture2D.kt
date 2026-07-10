@@ -60,6 +60,18 @@ class DrawableTexture2D(handle: MemorySegment) : Texture2D(handle) {
     }
 
     /**
+     * Draws to the given `rect` on this texture, as well as on up to 3 DrawableTexture
+     * `extra_targets`. All `extra_targets` must be the same size and DrawableFormat as the original
+     * target, otherwise the Shader may fail. Expects up to 4 Texture `sources`, but will replace
+     * missing `sources` with default Black Textures.
+     *
+     * Generated from Godot docs: DrawableTexture2D.blit_rect_multi
+     */
+    fun blitRectMulti(rect: Rect2i, sources: List<Texture2D>, extraTargets: List<DrawableTexture2D>, modulate: Color, mipmap: Int = 0, material: Material?) {
+        ObjectCalls.ptrcallWithRect2iTwoObjectListColorIntObjectArgs(blitRectMultiBind, handle, rect, sources, extraTargets, modulate, mipmap, material?.requireOpenHandle() ?: MemorySegment.NULL)
+    }
+
+    /**
      * Re-calculates the mipmaps for this texture on demand.
      *
      * Generated from Godot docs: DrawableTexture2D.generate_mipmaps
@@ -104,6 +116,11 @@ class DrawableTexture2D(handle: MemorySegment) : Texture2D(handle) {
         private const val BLIT_RECT_HASH = 319217173L
         private val blitRectBind by lazy {
             ObjectCalls.getMethodBind("DrawableTexture2D", "blit_rect", BLIT_RECT_HASH)
+        }
+
+        private const val BLIT_RECT_MULTI_HASH = 3074783066L
+        private val blitRectMultiBind by lazy {
+            ObjectCalls.getMethodBind("DrawableTexture2D", "blit_rect_multi", BLIT_RECT_MULTI_HASH)
         }
 
         private const val GENERATE_MIPMAPS_HASH = 3218959716L

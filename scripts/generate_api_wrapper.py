@@ -1012,7 +1012,9 @@ def _candidate_for_impl(method: ApiMethod, object_types: set[str]) -> CallShape 
         return CallShape("ptrcallWithObjectListArgRetLong", "Long", "0L")
     if len(logical_args) == 1 and typed_object_array_element(logical_args[0]) and logical_return == "int64":
         return CallShape("ptrcallWithObjectListArgRetLong", "Long", "0L")
-    if len(logical_args) == 2 and typed_object_array_element(logical_args[0]) and logical_args[1] == "enum" and logical_return == "RID":
+    # enum and bitfield share the int64 ptrcall ABI (wrapper_model value_policy), so the
+    # Long-arg helper covers both (bitfield: RenderingDevice.blas_create flags).
+    if len(logical_args) == 2 and typed_object_array_element(logical_args[0]) and logical_args[1] in ("enum", "bitfield") and logical_return == "RID":
         return CallShape("ptrcallWithObjectListLongArgsRetRID", "RID", "RID.EMPTY")
     if len(logical_args) == 2 and typed_object_array_element(logical_args[0]) and logical_args[1] == "uint32" and logical_return == "int64":
         return CallShape("ptrcallWithObjectListUInt32ArgsRetLong", "Long", "0L")
@@ -1066,6 +1068,47 @@ def _candidate_for_impl(method: ApiMethod, object_types: set[str]) -> CallShape 
         and logical_return == "RID"
     ):
         return CallShape("ptrcallWithRIDObjectListArgsRetRID", "RID", "RID.EMPTY")
+    if (
+        len(logical_args) == 2
+        and logical_args[0] == "RID"
+        and typed_object_array_element(logical_args[1])
+        and logical_return == "enum"
+    ):
+        return CallShape("ptrcallWithRIDAndObjectListArgsRetLong", "Long", "0L")
+    if (
+        len(logical_args) == 4
+        and typed_object_array_element(logical_args[0])
+        and typed_object_array_element(logical_args[1])
+        and typed_object_array_element(logical_args[2])
+        and logical_args[3] == "uint32"
+        and logical_return == "RID"
+    ):
+        return CallShape("ptrcallWithThreeObjectListUInt32ArgsRetRID", "RID", "RID.EMPTY")
+    if (
+        len(logical_args) == 4
+        and logical_args[0] == "RID"
+        and typed_object_array_element(logical_args[1])
+        and logical_args[2:] == ("Object", "Object")
+        and logical_return == "void"
+    ):
+        return CallShape("ptrcallWithRIDObjectListTwoObjectArgs", "Unit")
+    if (
+        len(logical_args) == 6
+        and logical_args[0] == "Rect2i"
+        and typed_object_array_element(logical_args[1])
+        and typed_object_array_element(logical_args[2])
+        and logical_args[3:] == ("Color", "int32", "Object")
+        and logical_return == "void"
+    ):
+        return CallShape("ptrcallWithRect2iTwoObjectListColorIntObjectArgs", "Unit")
+    if (
+        len(logical_args) == 3
+        and typed_object_array_element(logical_args[0])
+        and logical_args[1] == "TypedTransform3DArray"
+        and logical_args[2] == "bool"
+        and logical_return == "Object"
+    ):
+        return CallShape("ptrcallWithObjectListTransform3DListBoolArgsRetObject", "MemorySegment", "MemorySegment.NULL")
     if (
         len(logical_args) == 3
         and logical_args[0] == "RID"

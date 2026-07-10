@@ -101,13 +101,19 @@ DYNAMIC_TYPED_OBJECT_ARRAY_ARG_HELPERS = {
     "ptrcallWithRIDThreeLongFourObjectLongUInt32ObjectListArgsRetRID",
     "ptrcallWithStringAndObjectListArgs",
     "ptrcallWithRIDAndObjectListArgs",
+    "ptrcallWithRIDAndObjectListArgsRetLong",
+    "ptrcallWithRIDObjectListTwoObjectArgs",
     "ptrcallWithLongThreeIntBoolObjectListArgsRetLong",
     "ptrcallWithLongThreeIntBoolObjectListArgsRetRID",
     "ptrcallWithTwoObjectListUInt32ArgsRetLong",
+    "ptrcallWithThreeObjectListUInt32ArgsRetRID",
+    "ptrcallWithRect2iTwoObjectListColorIntObjectArgs",
+    "ptrcallWithObjectListTransform3DListBoolArgsRetObject",
 }
 
 DYNAMIC_TYPED_RID_ARRAY_ARG_HELPERS = {
     "ptrcallWithRIDListLongUInt32ArgsRetRID",
+    "ptrcallWithRIDListRect2iRIDColorRIDListIntArgs",
     "ptrcallWithUInt32LongRIDListPackedInt64ListArgsRetRID",
 }
 

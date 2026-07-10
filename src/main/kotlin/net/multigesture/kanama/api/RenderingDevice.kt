@@ -662,6 +662,20 @@ class RenderingDevice(handle: MemorySegment) : GodotObject(handle) {
     }
 
     /**
+     * Creates a new raytracing pipeline. It can be accessed with the RID that is returned. Once
+     * finished with your RID, you will want to free the RID using the RenderingDevice's `free_rid`
+     * method. Each shader must provide the required stage. All stages must use compatible pipeline
+     * layouts. The pipeline selects the required stage from each shader. Input order defines stable
+     * indices used by the API: - `raygen_shaders` is indexed in `raytracing_list_trace_rays`. -
+     * `miss_shaders` is indexed in `traceRayEXT`. - `hit_groups` is indexed in `hit_sbt_range_update`.
+     *
+     * Generated from Godot docs: RenderingDevice.raytracing_pipeline_create
+     */
+    fun raytracingPipelineCreate(raygenShaders: List<RDPipelineShader>, missShaders: List<RDPipelineShader>, hitGroups: List<RDHitGroup>, maxTraceRecursionDepth: Long): RID {
+        return ObjectCalls.ptrcallWithThreeObjectListUInt32ArgsRetRID(raytracingPipelineCreateBind, handle, raygenShaders, missShaders, hitGroups, maxTraceRecursionDepth)
+    }
+
+    /**
      * Returns `true` if the raytracing pipeline specified by the `raytracing_pipeline` RID is valid,
      * `false` otherwise.
      *
@@ -669,6 +683,17 @@ class RenderingDevice(handle: MemorySegment) : GodotObject(handle) {
      */
     fun raytracingPipelineIsValid(raytracingPipeline: RID): Boolean {
         return ObjectCalls.ptrcallWithRIDArgRetBool(raytracingPipelineIsValidBind, handle, raytracingPipeline)
+    }
+
+    /**
+     * Creates a new Bottom-Level Acceleration Structure (BLAS). It can be accessed with the RID that
+     * is returned. Once finished with your RID, you will want to free the RID using the
+     * RenderingDevice's `free_rid` method.
+     *
+     * Generated from Godot docs: RenderingDevice.blas_create
+     */
+    fun blasCreate(geometries: List<RDAccelerationStructureGeometry>, flags: Long): RID {
+        return ObjectCalls.ptrcallWithObjectListLongArgsRetRID(blasCreateBind, handle, geometries, flags)
     }
 
     /**
@@ -689,6 +714,19 @@ class RenderingDevice(handle: MemorySegment) : GodotObject(handle) {
      */
     fun blasBuild(blas: RID): Long {
         return ObjectCalls.ptrcallWithRIDArgRetLong(blasBuildBind, handle, blas)
+    }
+
+    /**
+     * Builds the `tlas`. The contents of previous builds are discarded. Any BLAS provided through the
+     * `RDAccelerationStructureInstance.blas` member must already have been built using the
+     * `blas_build` method. The number of instances can be equal to or smaller than the maximum
+     * instance count provided in the `tlas_create` method. Note: Freeing or rebuilding any of the
+     * provided BLASes after this method invalidates the TLAS and requires it to be rebuilt.
+     *
+     * Generated from Godot docs: RenderingDevice.tlas_build
+     */
+    fun tlasBuild(tlas: RID, instances: List<RDAccelerationStructureInstance>): Long {
+        return ObjectCalls.ptrcallWithRIDAndObjectListArgsRetLong(tlasBuildBind, handle, tlas, instances)
     }
 
     /**
@@ -2361,9 +2399,19 @@ class RenderingDevice(handle: MemorySegment) : GodotObject(handle) {
             ObjectCalls.getMethodBind("RenderingDevice", "compute_pipeline_is_valid", COMPUTE_PIPELINE_IS_VALID_HASH)
         }
 
+        private const val RAYTRACING_PIPELINE_CREATE_HASH = 1489129684L
+        private val raytracingPipelineCreateBind by lazy {
+            ObjectCalls.getMethodBind("RenderingDevice", "raytracing_pipeline_create", RAYTRACING_PIPELINE_CREATE_HASH)
+        }
+
         private const val RAYTRACING_PIPELINE_IS_VALID_HASH = 3521089500L
         private val raytracingPipelineIsValidBind by lazy {
             ObjectCalls.getMethodBind("RenderingDevice", "raytracing_pipeline_is_valid", RAYTRACING_PIPELINE_IS_VALID_HASH)
+        }
+
+        private const val BLAS_CREATE_HASH = 1010940044L
+        private val blasCreateBind by lazy {
+            ObjectCalls.getMethodBind("RenderingDevice", "blas_create", BLAS_CREATE_HASH)
         }
 
         private const val TLAS_CREATE_HASH = 592780330L
@@ -2374,6 +2422,11 @@ class RenderingDevice(handle: MemorySegment) : GodotObject(handle) {
         private const val BLAS_BUILD_HASH = 813180755L
         private val blasBuildBind by lazy {
             ObjectCalls.getMethodBind("RenderingDevice", "blas_build", BLAS_BUILD_HASH)
+        }
+
+        private const val TLAS_BUILD_HASH = 261981775L
+        private val tlasBuildBind by lazy {
+            ObjectCalls.getMethodBind("RenderingDevice", "tlas_build", TLAS_BUILD_HASH)
         }
 
         private const val HIT_SBT_CREATE_HASH = 2233757277L

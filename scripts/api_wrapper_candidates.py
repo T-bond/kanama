@@ -1761,6 +1761,10 @@ CALL_SHAPES: dict[tuple[tuple[str, ...], str], CallShape] = {
         "Unit",
     ),
     (("TypedRIDArray",), "void"): CallShape("ptrcallWithRIDListArg", "Unit"),
+    (("TypedRIDArray", "Rect2i", "RID", "Color", "TypedRIDArray", "int32"), "void"): CallShape(
+        "ptrcallWithRIDListRect2iRIDColorRIDListIntArgs",
+        "Unit",
+    ),
     (("TypedStringArray",), "void"): CallShape("ptrcallWithTypedStringListArg", "Unit"),
     (("TypedStringNameArray",), "void"): CallShape("ptrcallWithStringNameListArg", "Unit"),
     (("TypedIntArray",), "void"): CallShape("ptrcallWithTypedIntListArg", "Unit"),
