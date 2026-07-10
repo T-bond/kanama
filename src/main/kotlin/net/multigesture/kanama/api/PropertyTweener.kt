@@ -17,7 +17,9 @@ class PropertyTweener internal constructor(handle: MemorySegment) : Tweener(hand
      */
     fun from(value: Any?): PropertyTweener {
         checkOpen()
-        return wrapOrThis(ObjectCalls.callWithVariantArgs(fromBind, handle, listOf(value)))
+        // Must be the ptrcall path: wrapOrThis releases the +1 the return slot transfers,
+        // and the Variant call path is ref-neutral (releasing there underflows the tweener).
+        return wrapOrThis(ObjectCalls.ptrcallWithVariantArgRetObject(fromBind, handle, value))
     }
 
     /**
@@ -95,12 +97,6 @@ class PropertyTweener internal constructor(handle: MemorySegment) : Tweener(hand
         checkOpen()
         return wrapOrThis(ObjectCalls.ptrcallWithDoubleArgRetObject(setDelayBind, handle, delay))
     }
-
-    private fun wrapOrThis(value: Any?): PropertyTweener =
-        when (value) {
-            is GodotObject -> wrapOrThis(value.handle)
-            else -> this
-        }
 
     private fun wrapOrThis(value: MemorySegment): PropertyTweener =
         if (value.address() == 0L) {

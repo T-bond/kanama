@@ -192,7 +192,12 @@ open class InputEvent(handle: MemorySegment) : Resource(handle) {
      * Generated from Godot docs: InputEvent.xformed_by
      */
     fun xformedBy(xform: Transform2D, localOfs: Vector2 = Vector2(0f, 0f)): InputEvent? {
-        return InputEvent.wrap(ObjectCalls.ptrcallWithTransform2DVector2ArgsRetObject(xformedByBind, handle, xform, localOfs))
+        val ret = ObjectCalls.ptrcallWithTransform2DVector2ArgsRetObject(xformedByBind, handle, xform, localOfs)
+        if (ret.address() == handle.address()) {
+            RefCounted.releaseHandle(ret)
+            return this
+        }
+        return InputEvent.wrap(ret)
     }
 
     companion object {

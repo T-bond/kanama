@@ -83,7 +83,12 @@ class TextLine(handle: MemorySegment) : RefCounted(handle) {
      * Generated from Godot docs: TextLine.duplicate
      */
     fun duplicate(): TextLine? {
-        return TextLine.wrap(ObjectCalls.ptrcallNoArgsRetObject(duplicateBind, handle))
+        val ret = ObjectCalls.ptrcallNoArgsRetObject(duplicateBind, handle)
+        if (ret.address() == handle.address()) {
+            RefCounted.releaseHandle(ret)
+            return this
+        }
+        return TextLine.wrap(ret)
     }
 
     /**

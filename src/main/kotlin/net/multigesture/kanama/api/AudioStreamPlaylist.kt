@@ -49,7 +49,12 @@ class AudioStreamPlaylist(handle: MemorySegment) : AudioStream(handle) {
     }
 
     fun getListStream(streamIndex: Int): AudioStream? {
-        return AudioStream.wrap(ObjectCalls.ptrcallWithIntArgRetObject(getListStreamBind, handle, streamIndex))
+        val ret = ObjectCalls.ptrcallWithIntArgRetObject(getListStreamBind, handle, streamIndex)
+        if (ret.address() == handle.address()) {
+            RefCounted.releaseHandle(ret)
+            return this
+        }
+        return AudioStream.wrap(ret)
     }
 
     fun setShuffle(shuffle: Boolean) {

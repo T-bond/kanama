@@ -23,7 +23,12 @@ open class OpenXRStructureBase(handle: MemorySegment) : RefCounted(handle) {
     }
 
     fun getNext(): OpenXRStructureBase? {
-        return OpenXRStructureBase.wrap(ObjectCalls.ptrcallNoArgsRetObject(getNextBind, handle))
+        val ret = ObjectCalls.ptrcallNoArgsRetObject(getNextBind, handle)
+        if (ret.address() == handle.address()) {
+            RefCounted.releaseHandle(ret)
+            return this
+        }
+        return OpenXRStructureBase.wrap(ret)
     }
 
     companion object {

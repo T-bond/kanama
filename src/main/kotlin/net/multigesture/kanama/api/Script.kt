@@ -72,7 +72,12 @@ open class Script(handle: MemorySegment) : Resource(handle) {
      * Generated from Godot docs: Script.get_base_script
      */
     fun getBaseScript(): Script? {
-        return Script.wrap(ObjectCalls.ptrcallNoArgsRetObject(getBaseScriptBind, handle))
+        val ret = ObjectCalls.ptrcallNoArgsRetObject(getBaseScriptBind, handle)
+        if (ret.address() == handle.address()) {
+            RefCounted.releaseHandle(ret)
+            return this
+        }
+        return Script.wrap(ret)
     }
 
     /**

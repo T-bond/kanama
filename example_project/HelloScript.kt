@@ -766,11 +766,41 @@ class HelloScript(godotObject: MemorySegment) : KanamaScript<Node>(godotObject, 
 			?.setDelay(0.0)
 		val tweenCallback = tween?.tweenCallback(selfNode, "notify_property_list_changed")?.setDelay(0.0)
 		val tweenInterval = tween?.tweenInterval(0.0)
-		// Deliberately no ?.setTimeout() chain here: AwaitTweener.set_timeout returns a plain
-		// (non-`required`-meta) Ref<AwaitTweener>, which transfers a +1 ref through the ptrcall
-		// return slot that the current raw-slot helper convention never releases — a known
-		// pre-existing wrapper-ABI gap (tracked as follow-up), not part of the Signal-arg slice.
-		val tweenAwaitTweener = tween?.tweenAwait(selfNode.signal("renamed"))
+		// RefCounted return-slot ownership probes (task 31, separate probe tween so the main
+		// sequence staging is untouched). Every RefCounted-typed ptrcall return transfers a +1
+		// reference the wrapper owns (`meta:"required"` included); fluent self-returns must
+		// collapse to the receiver and release the duplicate, so all deltas here must be 0.
+		run {
+			val probeTween = SceneTree.createTween()
+			val probeMethodTweener = probeTween?.tweenMethod(selfNode, "set_process_priority", 3L, 3L, 0.01)
+			val probeMethodCreated = probeMethodTweener?.getReferenceCount() ?: -1L
+			val probeMethodChained = probeMethodTweener?.setDelay(0.0)
+			val probeMethodAfterDelay = probeMethodTweener?.getReferenceCount() ?: -1L
+			probeMethodTweener?.setTrans(Tween.TRANS_LINEAR)
+			val probeMethodAfterTrans = probeMethodTweener?.getReferenceCount() ?: -1L
+			val probePropertyTweener = probeTween?.tweenProperty(selfNode, "process_priority", 5L, 0.01)
+			val probePropertyCreated = probePropertyTweener?.getReferenceCount() ?: -1L
+			probePropertyTweener?.from(3L)
+			val probePropertyAfterFrom = probePropertyTweener?.getReferenceCount() ?: -1L
+			val probeAwaitTweener = probeTween?.tweenAwait(selfNode.signal("renamed"))
+			val probeAwaitCreated = probeAwaitTweener?.getReferenceCount() ?: -1L
+			val probeAwaitChained = probeAwaitTweener?.setTimeout(30.0)
+			val probeAwaitAfterTimeout = probeAwaitTweener?.getReferenceCount() ?: -1L
+			System.err.println(
+				"[kanama:kt] Tweener ownership method_delay_delta=${probeMethodAfterDelay - probeMethodCreated} " +
+					"method_trans_delta=${probeMethodAfterTrans - probeMethodAfterDelay} " +
+					"method_chained_same=${probeMethodChained === probeMethodTweener} " +
+					"property_from_delta=${probePropertyAfterFrom - probePropertyCreated} " +
+					"await_timeout_delta=${probeAwaitAfterTimeout - probeAwaitCreated} " +
+					"await_chained_same=${probeAwaitChained === probeAwaitTweener}"
+			)
+			probeMethodTweener?.close()
+			probePropertyTweener?.close()
+			probeAwaitTweener?.close()
+			probeTween?.kill()
+			probeTween?.close()
+		}
+		val tweenAwaitTweener = tween?.tweenAwait(selfNode.signal("renamed"))?.setTimeout(30.0)
 		val tweenValidBefore = tween?.isValid() ?: false
 		val processedTweensBeforeKill = SceneTree.getProcessedTweens().size
 		val tweenStep = tween?.customStep(0.02) ?: false
@@ -796,6 +826,7 @@ class HelloScript(godotObject: MemorySegment) : KanamaScript<Node>(godotObject, 
 		// await shows up as isRunning() flipping false on this step.
 		val tweenAwaitFinished = tween?.isRunning() == false
 		selfNode.setProcessPriority(3)
+		tweenProperty?.close()
 		tweenCallback?.close()
 		tweenInterval?.close()
 		tweenAwaitTweener?.close()

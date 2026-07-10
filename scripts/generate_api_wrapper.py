@@ -1653,6 +1653,43 @@ def render_return_expression(call: str, method: ApiMethod, wrapper_classes: set[
     return call
 
 
+def self_return_collapse_wrapper(
+    class_name: str,
+    method: ApiMethod,
+    object_types: set[str],
+    wrapper_classes: set[str],
+    api_classes: dict[str, ApiClass],
+    singleton: bool,
+) -> str | None:
+    """Wrapper type for methods that must collapse an engine self-return, else None.
+
+    Engine methods with a RefCounted-derived return type hand the ptrcall caller a
+    +1 reference through the return slot (`PtrToArg<Ref<T>>::encode` /
+    `PtrToArg<RequiredResult<T>>::encode` both net +1 — `meta:"required"` does NOT
+    change ownership; measured on Godot 4.7-stable, task 31). The Kotlin wrapper
+    adopts that reference and `RefCounted.close()` releases it. Fluent
+    self-returning methods (e.g. AwaitTweener.set_timeout) would mint a duplicate
+    owning wrapper per call that chain users never close, so when the returned
+    address equals the receiver the duplicate reference is released and `this` is
+    returned instead — the policy the hand-shaped Tween/Tweener classes set.
+
+    Desktop/Android only: the iOS island has no wrapper-side release primitive yet
+    (close() is a documented no-op there); its mirror is the iOS follow-up slice.
+    """
+    if IOS_AUDIT_ONLY or singleton or method.is_static:
+        return None
+    if method.logical_return_kind(object_types) != "Object":
+        return None
+    if not is_resource_like(method.return_type, api_classes):
+        return None
+    if method.return_type != class_name and method.return_type not in ancestors(class_name, api_classes):
+        return None
+    return_wrapper = api_object_wrapper_type(method.return_type, wrapper_classes)
+    if return_wrapper != method.return_type:
+        return None
+    return return_wrapper
+
+
 def render_method(
     class_name: str,
     method: ApiMethod,
@@ -1708,16 +1745,33 @@ def render_method(
         if shape.kotlin_return == "Unit"
         else f": {kotlin_return_type(return_kind, method.return_type, wrapper_classes, api_classes, api_dir)}"
     )
+    collapse_wrapper = self_return_collapse_wrapper(
+        class_name, method, object_types, wrapper_classes, api_classes, singleton,
+    )
     lines = []
     if singleton:
         (None if IOS_AUDIT_ONLY else lines.append("    @JvmStatic"))
-    lines.extend(
-        [
-            f"    fun {function_name}({params}){return_type_text} {{",
-            f"        {call}" if return_type_text == "" else f"        return {return_expression}",
-            "    }",
-        ],
-    )
+    if collapse_wrapper is not None:
+        lines.extend(
+            [
+                f"    fun {function_name}({params}){return_type_text} {{",
+                f"        val ret = {call}",
+                "        if (ret.address() == handle.address()) {",
+                "            RefCounted.releaseHandle(ret)",
+                "            return this",
+                "        }",
+                f"        return {collapse_wrapper}.wrap(ret)",
+                "    }",
+            ],
+        )
+    else:
+        lines.extend(
+            [
+                f"    fun {function_name}({params}){return_type_text} {{",
+                f"        {call}" if return_type_text == "" else f"        return {return_expression}",
+                "    }",
+            ],
+        )
     return "\n".join(lines)
 
 

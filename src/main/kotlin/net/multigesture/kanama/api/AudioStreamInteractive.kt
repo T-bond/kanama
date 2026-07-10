@@ -49,7 +49,12 @@ class AudioStreamInteractive(handle: MemorySegment) : AudioStream(handle) {
     }
 
     fun getClipStream(clipIndex: Int): AudioStream? {
-        return AudioStream.wrap(ObjectCalls.ptrcallWithIntArgRetObject(getClipStreamBind, handle, clipIndex))
+        val ret = ObjectCalls.ptrcallWithIntArgRetObject(getClipStreamBind, handle, clipIndex)
+        if (ret.address() == handle.address()) {
+            RefCounted.releaseHandle(ret)
+            return this
+        }
+        return AudioStream.wrap(ret)
     }
 
     fun setClipAutoAdvance(clipIndex: Int, mode: Long) {

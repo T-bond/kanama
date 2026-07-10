@@ -516,7 +516,12 @@ class Image(handle: MemorySegment) : Resource(handle) {
      * Generated from Godot docs: Image.rgbe_to_srgb
      */
     fun rgbeToSrgb(): Image? {
-        return Image.wrap(ObjectCalls.ptrcallNoArgsRetObject(rgbeToSrgbBind, handle))
+        val ret = ObjectCalls.ptrcallNoArgsRetObject(rgbeToSrgbBind, handle)
+        if (ret.address() == handle.address()) {
+            RefCounted.releaseHandle(ret)
+            return this
+        }
+        return Image.wrap(ret)
     }
 
     /**
@@ -625,7 +630,12 @@ class Image(handle: MemorySegment) : Resource(handle) {
      * Generated from Godot docs: Image.get_region
      */
     fun getRegion(region: Rect2i): Image? {
-        return Image.wrap(ObjectCalls.ptrcallWithRect2iArgRetObject(getRegionBind, handle, region))
+        val ret = ObjectCalls.ptrcallWithRect2iArgRetObject(getRegionBind, handle, region)
+        if (ret.address() == handle.address()) {
+            RefCounted.releaseHandle(ret)
+            return this
+        }
+        return Image.wrap(ret)
     }
 
     /**

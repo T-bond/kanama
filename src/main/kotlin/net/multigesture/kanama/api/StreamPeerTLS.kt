@@ -55,7 +55,12 @@ class StreamPeerTLS(handle: MemorySegment) : StreamPeer(handle) {
      * Generated from Godot docs: StreamPeerTLS.get_stream
      */
     fun getStream(): StreamPeer? {
-        return StreamPeer.wrap(ObjectCalls.ptrcallNoArgsRetObject(getStreamBind, handle))
+        val ret = ObjectCalls.ptrcallNoArgsRetObject(getStreamBind, handle)
+        if (ret.address() == handle.address()) {
+            RefCounted.releaseHandle(ret)
+            return this
+        }
+        return StreamPeer.wrap(ret)
     }
 
     /**

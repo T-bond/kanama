@@ -160,7 +160,12 @@ class AnimatedTexture(handle: MemorySegment) : Texture2D(handle) {
      * Generated from Godot docs: AnimatedTexture.get_frame_texture
      */
     fun getFrameTexture(frame: Int): Texture2D? {
-        return Texture2D.wrap(ObjectCalls.ptrcallWithIntArgRetObject(getFrameTextureBind, handle, frame))
+        val ret = ObjectCalls.ptrcallWithIntArgRetObject(getFrameTextureBind, handle, frame)
+        if (ret.address() == handle.address()) {
+            RefCounted.releaseHandle(ret)
+            return this
+        }
+        return Texture2D.wrap(ret)
     }
 
     /**

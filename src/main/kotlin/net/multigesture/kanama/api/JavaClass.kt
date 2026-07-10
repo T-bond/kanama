@@ -34,7 +34,12 @@ class JavaClass(handle: MemorySegment) : RefCounted(handle) {
      * Generated from Godot docs: JavaClass.get_java_parent_class
      */
     fun getJavaParentClass(): JavaClass? {
-        return JavaClass.wrap(ObjectCalls.ptrcallNoArgsRetObject(getJavaParentClassBind, handle))
+        val ret = ObjectCalls.ptrcallNoArgsRetObject(getJavaParentClassBind, handle)
+        if (ret.address() == handle.address()) {
+            RefCounted.releaseHandle(ret)
+            return this
+        }
+        return JavaClass.wrap(ret)
     }
 
     /**

@@ -54,6 +54,42 @@ transitively. Adopted classes with skipped methods are only accepted when every
 skip is a Godot virtual callback that belongs to the override-registration design
 rather than the public ptrcall wrapper surface.
 
+## RefCounted Return Ownership
+
+Engine methods whose return type derives from `RefCounted` hand the ptrcall
+caller a **+1 reference through the return slot**. This holds for every such
+method: Godot's `PtrToArg<Ref<T>>::encode` copy-assigns into the slot and
+`PtrToArg<RequiredResult<T>>::encode` nets the same +1 — `meta: "required"`
+signals never-null-on-success, **not** a different ownership convention
+(runtime-measured on Godot 4.7-stable; see the `Tweener ownership` probe in
+`scripts/runtime_smoke.sh`). Non-RefCounted object returns (nodes, servers)
+are raw pointers with no reference transfer.
+
+The wrapper convention on desktop/Android:
+
+- A generated wrapper returned from a RefCounted-typed method **owns that
+  reference**; `close()` releases it (`unreference()` + destroy at zero).
+  This matches the script-property retention path
+  (`ScriptBridge.retainScriptResource`), which takes its own reference.
+- **Self-returning fluent methods collapse**: when the returned address equals
+  the receiver's handle, the generated method releases the duplicate reference
+  and returns `this` instead of minting a second owning wrapper (chained calls
+  such as `tweenAwait(...)?.setTimeout(...)` stay reference-neutral). The
+  generator emits this pattern whenever the receiver class conforms to the
+  method's return class; it is the same policy the hand-shaped Tween/Tweener
+  classes use (`wrapOrThis`).
+- Wrappers minted from **Variant-path** returns or `fromHandle` casts borrow;
+  a release there underflows. Hand-shaped self-collapse helpers must therefore
+  sit on a ptrcall object-return helper, never on `callWithVariantArgs`
+  (`PropertyTweener.from` regressed exactly this way once).
+
+The iOS island has the same +1 slot semantics (the C-shim passes the object
+return slot through untouched) but no wrapper-side release primitive yet — its
+`close()` is a documented no-op, so RefCounted-typed returns still leak there.
+That mirror belongs to the iOS wrapper-family follow-up slice, and the
+generator deliberately does not emit the collapse pattern under
+`--ios-emit-class`.
+
 Engine-wide `MethodName`, `PropertyName`, and `SignalName` constants are
 generated from `extension_api.json` separately from the class wrapper drafts:
 

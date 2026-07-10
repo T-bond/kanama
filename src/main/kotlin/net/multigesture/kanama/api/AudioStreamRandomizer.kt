@@ -83,7 +83,12 @@ class AudioStreamRandomizer(handle: MemorySegment) : AudioStream(handle) {
      * Generated from Godot docs: AudioStreamRandomizer.get_stream
      */
     fun getStream(index: Int): AudioStream? {
-        return AudioStream.wrap(ObjectCalls.ptrcallWithIntArgRetObject(getStreamBind, handle, index))
+        val ret = ObjectCalls.ptrcallWithIntArgRetObject(getStreamBind, handle, index)
+        if (ret.address() == handle.address()) {
+            RefCounted.releaseHandle(ret)
+            return this
+        }
+        return AudioStream.wrap(ret)
     }
 
     /**

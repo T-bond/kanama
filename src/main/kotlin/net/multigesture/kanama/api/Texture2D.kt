@@ -123,7 +123,12 @@ open class Texture2D(handle: MemorySegment) : Texture(handle) {
      * Generated from Godot docs: Texture2D.create_placeholder
      */
     fun createPlaceholder(): Resource? {
-        return Resource.wrap(ObjectCalls.ptrcallNoArgsRetObject(createPlaceholderBind, handle))
+        val ret = ObjectCalls.ptrcallNoArgsRetObject(createPlaceholderBind, handle)
+        if (ret.address() == handle.address()) {
+            RefCounted.releaseHandle(ret)
+            return this
+        }
+        return Resource.wrap(ret)
     }
 
     companion object {

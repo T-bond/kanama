@@ -16,7 +16,12 @@ class AwaitTweener(handle: MemorySegment) : Tweener(handle) {
      * Generated from Godot docs: AwaitTweener.set_timeout
      */
     fun setTimeout(timeout: Double): AwaitTweener? {
-        return AwaitTweener.wrap(ObjectCalls.ptrcallWithDoubleArgRetObject(setTimeoutBind, handle, timeout))
+        val ret = ObjectCalls.ptrcallWithDoubleArgRetObject(setTimeoutBind, handle, timeout)
+        if (ret.address() == handle.address()) {
+            RefCounted.releaseHandle(ret)
+            return this
+        }
+        return AwaitTweener.wrap(ret)
     }
 
     companion object {

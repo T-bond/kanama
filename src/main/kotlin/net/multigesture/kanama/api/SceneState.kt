@@ -26,7 +26,12 @@ class SceneState(handle: MemorySegment) : RefCounted(handle) {
      * Generated from Godot docs: SceneState.get_base_scene_state
      */
     fun getBaseSceneState(): SceneState? {
-        return SceneState.wrap(ObjectCalls.ptrcallNoArgsRetObject(getBaseSceneStateBind, handle))
+        val ret = ObjectCalls.ptrcallNoArgsRetObject(getBaseSceneStateBind, handle)
+        if (ret.address() == handle.address()) {
+            RefCounted.releaseHandle(ret)
+            return this
+        }
+        return SceneState.wrap(ret)
     }
 
     /**

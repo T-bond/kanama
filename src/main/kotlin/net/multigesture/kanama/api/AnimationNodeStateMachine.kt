@@ -53,7 +53,12 @@ class AnimationNodeStateMachine(handle: MemorySegment) : AnimationRootNode(handl
      * Generated from Godot docs: AnimationNodeStateMachine.get_node
      */
     fun getNode(name: String): AnimationNode? {
-        return AnimationNode.wrap(ObjectCalls.ptrcallWithStringNameArgRetObject(getNodeBind, handle, name))
+        val ret = ObjectCalls.ptrcallWithStringNameArgRetObject(getNodeBind, handle, name)
+        if (ret.address() == handle.address()) {
+            RefCounted.releaseHandle(ret)
+            return this
+        }
+        return AnimationNode.wrap(ret)
     }
 
     /**

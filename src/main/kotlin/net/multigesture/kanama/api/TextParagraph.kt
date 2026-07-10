@@ -108,7 +108,12 @@ class TextParagraph(handle: MemorySegment) : RefCounted(handle) {
      * Generated from Godot docs: TextParagraph.duplicate
      */
     fun duplicate(): TextParagraph? {
-        return TextParagraph.wrap(ObjectCalls.ptrcallNoArgsRetObject(duplicateBind, handle))
+        val ret = ObjectCalls.ptrcallNoArgsRetObject(duplicateBind, handle)
+        if (ret.address() == handle.address()) {
+            RefCounted.releaseHandle(ret)
+            return this
+        }
+        return TextParagraph.wrap(ret)
     }
 
     /**

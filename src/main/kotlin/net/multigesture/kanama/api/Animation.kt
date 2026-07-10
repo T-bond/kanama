@@ -581,7 +581,12 @@ class Animation(handle: MemorySegment) : Resource(handle) {
      * Generated from Godot docs: Animation.audio_track_get_key_stream
      */
     fun audioTrackGetKeyStream(trackIdx: Int, keyIdx: Int): Resource? {
-        return Resource.wrap(ObjectCalls.ptrcallWithTwoIntArgsRetObject(audioTrackGetKeyStreamBind, handle, trackIdx, keyIdx))
+        val ret = ObjectCalls.ptrcallWithTwoIntArgsRetObject(audioTrackGetKeyStreamBind, handle, trackIdx, keyIdx)
+        if (ret.address() == handle.address()) {
+            RefCounted.releaseHandle(ret)
+            return this
+        }
+        return Resource.wrap(ret)
     }
 
     /**

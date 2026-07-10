@@ -75,7 +75,12 @@ class FontVariation(handle: MemorySegment) : Font(handle) {
      * Generated from Godot docs: FontVariation.get_base_font
      */
     fun getBaseFont(): Font? {
-        return Font.wrap(ObjectCalls.ptrcallNoArgsRetObject(getBaseFontBind, handle))
+        val ret = ObjectCalls.ptrcallNoArgsRetObject(getBaseFontBind, handle)
+        if (ret.address() == handle.address()) {
+            RefCounted.releaseHandle(ret)
+            return this
+        }
+        return Font.wrap(ret)
     }
 
     /**

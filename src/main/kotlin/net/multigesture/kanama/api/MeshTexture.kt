@@ -80,7 +80,12 @@ class MeshTexture(handle: MemorySegment) : Texture2D(handle) {
      * Generated from Godot docs: MeshTexture.get_base_texture
      */
     fun getBaseTexture(): Texture2D? {
-        return Texture2D.wrap(ObjectCalls.ptrcallNoArgsRetObject(getBaseTextureBind, handle))
+        val ret = ObjectCalls.ptrcallNoArgsRetObject(getBaseTextureBind, handle)
+        if (ret.address() == handle.address()) {
+            RefCounted.releaseHandle(ret)
+            return this
+        }
+        return Texture2D.wrap(ret)
     }
 
     companion object {

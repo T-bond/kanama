@@ -27,7 +27,12 @@ class AudioStreamSynchronized(handle: MemorySegment) : AudioStream(handle) {
     }
 
     fun getSyncStream(streamIndex: Int): AudioStream? {
-        return AudioStream.wrap(ObjectCalls.ptrcallWithIntArgRetObject(getSyncStreamBind, handle, streamIndex))
+        val ret = ObjectCalls.ptrcallWithIntArgRetObject(getSyncStreamBind, handle, streamIndex)
+        if (ret.address() == handle.address()) {
+            RefCounted.releaseHandle(ret)
+            return this
+        }
+        return AudioStream.wrap(ret)
     }
 
     fun setSyncStreamVolume(streamIndex: Int, volumeDb: Double) {

@@ -106,6 +106,17 @@ check "Particles3D gpu_present=true gpu_amount=32 gpu_lifetime=1\\.75 gpu_one_sh
 check "Timer found=true wait=1\\.25 one_shot=true autostart=false paused=true ignore_time_scale=true process=1 time_left_positive=true stopped_before=false stopped_after=true"
 check "SceneTreeTimer class=SceneTreeTimer ref_count_positive=true time_left=3\\.0"
 check "Tween class=Tween ref_count_positive=true valid_before=true prop_class=PropertyTweener callback_class=CallbackTweener interval_class=IntervalTweener await_class=AwaitTweener await_finished=true step=(true|false) elapsed_nonnegative=true running_after_step=(true|false) loops_left=-?[0-9]+ priority_after_step=5 processed_before_kill=[1-9][0-9]* valid_after_kill=false"
+# RefCounted return-slot ownership (task 31): every RefCounted-typed ptrcall return
+# transfers +1 (required-meta included); self-returning fluent calls must collapse to
+# the receiver and release the duplicate, so all wrapper-visible deltas stay 0.
+check "Tweener ownership method_delay_delta=0 method_trans_delta=0 method_chained_same=true property_from_delta=0 await_timeout_delta=0 await_chained_same=true"
+check_absent "Leaked instance: AwaitTweener"
+check_absent "Leaked instance: MethodTweener"
+check_absent "Leaked instance: PropertyTweener"
+check_absent "Leaked instance: CallbackTweener"
+check_absent "Leaked instance: IntervalTweener"
+check_absent "Leaked instance: SubtweenTweener"
+check_absent "Leaked instance: Tween:"
 check "Node controls ready=(true|false) in_group=true group_removed=true group_set=true group_flags=true processing_after_set=true physics_processing_after_set=true processing_input=true shortcut_input=true unhandled_input=true unhandled_key_input=true multiplayer_authority=[0-9-]+ is_multiplayer_authority=(true|false)"
 check "Node scalar_controls process_priority=3 physics_process_priority=4 displayed_folded=true unique_name=true editor_description_len=17 tree_node_count_positive=true"
 check "Vector helpers v3_len=5\\.0 v3_norm=0\\.0,0\\.6,0\\.8 v3_dot=32\\.0 v3_cross=0\\.0,0\\.0,1\\.0 v3_lerp=1\\.0,2\\.0,3\\.0 v3_limited=2\\.0,0\\.0,0\\.0 v3_distance=2\\.0 v2_len=5\\.0 v2_angle=0\\.0 v2_lerp=1\\.0,1\\.5 v3_withx=9\\.0,2\\.0,3\\.0 v3_withy=1\\.0,9\\.0,3\\.0 v3_withz=1\\.0,2\\.0,9\\.0 v2_withx=9\\.0,2\\.0 v2_withy=1\\.0,9\\.0"

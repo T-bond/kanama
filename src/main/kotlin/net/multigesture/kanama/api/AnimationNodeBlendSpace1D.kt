@@ -105,7 +105,12 @@ class AnimationNodeBlendSpace1D(handle: MemorySegment) : AnimationRootNode(handl
      * Generated from Godot docs: AnimationNodeBlendSpace1D.get_blend_point_node
      */
     fun getBlendPointNode(point: Int): AnimationRootNode? {
-        return AnimationRootNode.wrap(ObjectCalls.ptrcallWithIntArgRetObject(getBlendPointNodeBind, handle, point))
+        val ret = ObjectCalls.ptrcallWithIntArgRetObject(getBlendPointNodeBind, handle, point)
+        if (ret.address() == handle.address()) {
+            RefCounted.releaseHandle(ret)
+            return this
+        }
+        return AnimationRootNode.wrap(ret)
     }
 
     /**

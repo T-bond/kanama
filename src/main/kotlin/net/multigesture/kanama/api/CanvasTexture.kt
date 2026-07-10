@@ -68,7 +68,12 @@ class CanvasTexture(handle: MemorySegment) : Texture2D(handle) {
      * Generated from Godot docs: CanvasTexture.get_diffuse_texture
      */
     fun getDiffuseTexture(): Texture2D? {
-        return Texture2D.wrap(ObjectCalls.ptrcallNoArgsRetObject(getDiffuseTextureBind, handle))
+        val ret = ObjectCalls.ptrcallNoArgsRetObject(getDiffuseTextureBind, handle)
+        if (ret.address() == handle.address()) {
+            RefCounted.releaseHandle(ret)
+            return this
+        }
+        return Texture2D.wrap(ret)
     }
 
     /**
@@ -92,7 +97,12 @@ class CanvasTexture(handle: MemorySegment) : Texture2D(handle) {
      * Generated from Godot docs: CanvasTexture.get_normal_texture
      */
     fun getNormalTexture(): Texture2D? {
-        return Texture2D.wrap(ObjectCalls.ptrcallNoArgsRetObject(getNormalTextureBind, handle))
+        val ret = ObjectCalls.ptrcallNoArgsRetObject(getNormalTextureBind, handle)
+        if (ret.address() == handle.address()) {
+            RefCounted.releaseHandle(ret)
+            return this
+        }
+        return Texture2D.wrap(ret)
     }
 
     /**
@@ -116,7 +126,12 @@ class CanvasTexture(handle: MemorySegment) : Texture2D(handle) {
      * Generated from Godot docs: CanvasTexture.get_specular_texture
      */
     fun getSpecularTexture(): Texture2D? {
-        return Texture2D.wrap(ObjectCalls.ptrcallNoArgsRetObject(getSpecularTextureBind, handle))
+        val ret = ObjectCalls.ptrcallNoArgsRetObject(getSpecularTextureBind, handle)
+        if (ret.address() == handle.address()) {
+            RefCounted.releaseHandle(ret)
+            return this
+        }
+        return Texture2D.wrap(ret)
     }
 
     /**
