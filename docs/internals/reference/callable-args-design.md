@@ -132,6 +132,17 @@ Deferred because it adds a new engine-facing upcall surface (crash-grade
 risk), it is orthogonal to unblocking the six methods, and it should land
 once for both lambda-connect and lambda-args rather than twice.
 
+**Task-28 review (2026-07-09): deferral re-affirmed.** The full-coverage pass
+closed every remaining non-virtual method shape; after it, *no method skip in
+the generator report depends on lambda→Callable or Callable-as-Variant-arg* —
+both are ergonomics, not coverage. The reasons above hold unchanged: the
+custom-callable path is a new engine-facing upcall surface (crash-grade) and
+must land once for both lambda-connect and lambda-args, with its own lifetime
+audit and device gate — a dedicated future task, not a by-product of a
+coverage pass. Until then the object+method `GodotCallable` form remains the
+whole Callable-arg surface, and Callable-as-Variant-arg stays unsupported (no
+emitted method needs it).
+
 ## Decision 5 — iOS forward-compatibility
 
 The shipped design is implementable over the C shim with no new concepts:
