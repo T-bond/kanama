@@ -42,9 +42,15 @@
   count dropped 20 → 2 (runtime smoke) and 20 → 14 (reload smoke). The full
   **desktop demo corpus** (all nine `desktop_smoke_all.sh` targets, addons
   refreshed to the fixed runtime) passed 2026-07-11 — no demo relied on zombie
-  RefCounted lifetimes. **Pending:** the iOS side needs an on-device self-test
-  run (PTRCALL/OBJECTCALLS matrices, including the `refcounted-ret-owns-plus1`
-  probe) next device session.
+  RefCounted lifetimes. **iOS on-device revalidation (2026-07-11, iPhone 15
+  Pro):** squash-the-creeps launched playable on the fixed runtime (Kotlin +
+  C-shim vtable change) with `PTRCALL SELFTEST MATRIX: 70/0` and
+  `OBJECTCALLS SELFTEST: 111/0`, including the `refcounted-ret-owns-plus1`
+  ownership probe and its double-close guard. Nuance: that probe exercises the
+  unscripted ownership path; the vtable fix specifically governs *scripted*
+  RefCounteds, for which the iOS evidence is zero regressions across the full
+  matrix + launch. An explicit scripted-Resource-death self-test row is a
+  cheap optional hardening follow-up.
 - **How it survived so long:** zombies are invisible to gameplay (leaks, not
   crashes), the exit-leak warning was easy to attribute to test scaffolding,
   and no gate asserted scripted-RefCounted destruction until the reload smoke's
