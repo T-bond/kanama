@@ -377,7 +377,7 @@ mobile-specific ones measurable:
 |---|---|---|---|---|
 | **B1** | Device matrix breadth | ≥ 2 physical device models per platform pass that platform's full repeatable gate on the current Godot baseline | ✅ **MET** — iPhone 12 (2026-06-25) + iPhone 15 Pro (2026-07-10) full ten-step gates (§2) | ❌ Pixel 7 only. Needs a second model through the debug demo matrix + the R8-minified release gate |
 | **B2** | Renderer coverage | Android: Vulkan/Mobile renderer smoke across the demo corpus, green on a physical device (promotes DEFERRED #2). iOS: the Godot iOS renderer exercised by the full gate | ✅ by construction (the full gate runs the Godot iOS renderer) | ✅ **MET (2026-07-10)** — nine-demo Vulkan/Mobile smoke matrix green on Pixel 7 (Mali-G710, Android 16), renderer-asserted per demo (§2 row) |
-| **B3** | Release-grade packaging | The platform export path meets the desktop packaging standard: user-facing docs, reproducible from a clean checkout, a **packaged install artifact** (no Kanama source checkout required), and an install-smoke validating that artifact | ❌ source-checkout only (assessment below) | ❌ source-checkout only (assessment below) |
+| **B3** | Release-grade packaging | The platform export path meets the desktop packaging standard: user-facing docs, reproducible from a clean checkout, a **packaged install artifact** (no Kanama source checkout required), and an install-smoke validating that artifact | ✅ **MET (2026-07-11)** — `packageMobileAddonIos` + `--ios-addon` install smoke (runtime-only, script-compile caveat documented) | ✅ **MET (2026-07-11)** — task-36 AAR split: `packageMobileAddonAndroid` + `--android-addon` install smoke; split artifacts device-revalidated on Pixel 7 (debug smoke + R8-minified release, Match3). Runtime-only with the same script-compile caveat |
 | **B4** | Heavy-demo coverage | `tps-demo-kanama` runs on-device on both platforms | ✅ **MET** — iPhone 15 Pro (2026-07-09, task 24) | ✅ **MET** — Pixel 7 (task 19, mobile controls validated) |
 
 Standing conditions carried from §1: drift-gate green / 0 silent stubs /
@@ -391,52 +391,44 @@ still open when B1–B3 clear: the mobile playability polish for the heavy demo
 repeatable per-platform gate matrices so the heavy-demo claim stays
 re-provable. B1-iOS is a two-named-models claim, not a device-family claim.
 
-### Packaging assessment vs the desktop standard (B3)
+### Packaging assessment vs the desktop standard (B3) — MET 2026-07-11
 
 Measured against what "supported" already means for desktop packaging:
-user-facing flow in `docs/` — ✅ both platforms have this
+user-facing flow in `docs/` — ✅ both platforms
 ([exporting/ios.md](../exporting/ios.md), [exporting/android.md](../exporting/android.md));
 reproducible from a clean checkout — ✅ both (`installIosAddon` /
 `installAndroidPluginAar`, validated by the iOS gate's fresh-project path and
-`android_smoke.sh`); a packaged artifact installable **without** a Kanama
-source checkout — ❌ both; an install-smoke for that artifact — ❌ both.
+`android_smoke.sh`); a packaged artifact installable without a Kanama source
+checkout — ✅ both (`packageMobileAddonIos` / `packageMobileAddonAndroid`,
+**runtime-only** — the honest scope caveat below); an install-smoke for those
+artifacts — ✅ both (`package_install_smoke.sh --ios-addon` /
+`--android-addon`).
 
-What's missing, concretely:
+Standing caveats a promotion wording must carry:
 
-- **No mobile packaged artifacts.** `packageDistributions` and the CI package
-  workflow produce desktop kits + store add-ons only. There is no shipped iOS
-  addon artifact (xcframeworks + `.gdextension` descriptor) or Android addon
-  artifact (AAR + `.gdap` + descriptor); both platforms currently require a
-  full source checkout and toolchain (full Xcode + Kotlin/Native for iOS;
-  Android SDK/NDK for the AAR build).
-- **No mobile install-smoke.** `package_install_smoke.sh` validates desktop
-  kits and store add-ons only; nothing validates "install a packaged mobile
-  addon into a fresh project". (The iOS device gate's fresh-project step
-  validates the *source-checkout* install path, not a packaged one.)
-- **iOS artifact shape/size decisions unmade.** The full-breadth iOS runtime is
-  ~199.5 MB debug / ~87.6 MB release static `.a` (task 30). A packaged iOS kit
-  needs a debug/release layout decision and a size disclosure.
+- **Script-compile scope.** Both packaged addons deliver the *prebuilt
+  runtime*; compiling a project's Kotlin scripts still requires the Kanama
+  checkout (iOS: `installIosAddon` KSP path; Android: `installAndroidPluginAar`
+  builds the per-project scripts AAR). Both READMEs and exporting docs say so.
 - **Android third-party dependency exposure.** The Android path depends on the
   JitPack-hosted PanamaPort fork
-  (`com.github.falcon4ever.PanamaPort:Core:0.1.3-kanama-r8.2`). A supported
-  claim should either vendor that artifact into the packaged addon or
-  explicitly document the JitPack availability dependency.
+  (`com.github.falcon4ever.PanamaPort:Core:0.1.3-kanama-r8.2`) — documented in
+  the packaged README, not vendored (recorded decision).
+- **Debug-only Android AAR** (no release AAR exists; recorded decision), and
+  the iOS size disclosure (~199.5 MB debug / ~87.6 MB release static `.a`).
 - **Documented workarounds still hold** for heavy-demo Android exports (the
   headless `--install-android-build-template` hang — install via the editor GUI
   once; JitPack/mavenLocal repo injection into Godot's generated Gradle
-  project, which the Android smoke scripts perform). Packaging docs must carry
-  these as long as they exist.
+  project, which the Android smoke scripts perform).
 
-**Assessment:** B3 is the farthest criterion from green, and it is *design
-work* (artifact shape + install-smoke), not device-lab work. B2 cleared
-2026-07-10; the only remaining device-lab item is B1-Android (a second Android
-model through the debug matrix + R8-minified gate).
+**Assessment:** with B3 met, the only criterion still open is **B1-Android**
+(a second Android model through the debug matrix + R8-minified gate) —
+device-lab work.
 
-### B3 design (written 2026-07-10; implementation pending)
+### B3 design (2026-07-10) and implementation record (2026-07-11)
 
-The B3 gap closes with two packaged artifacts, one smoke extension, and two
-recorded decisions. A future session can implement this mechanically; B3 flips
-MET only after every piece below is green.
+The B3 gap closed with two packaged artifacts and two smoke extensions; the
+per-artifact records below carry the decisions.
 
 **Artifact 1 — `kanama-mobile-addon-ios-v<version>.zip`**
 
@@ -483,11 +475,15 @@ MET only after every piece below is green.
   project scripts still requires the checkout (`installAndroidPluginAar`).
 - Carried decisions unchanged: debug-only (no release AAR exists), PanamaPort
   via JitPack not vendored.
-- **Still open before B3-Android counts:** on-device revalidation of the
-  split artifacts — `android_smoke.sh` (Pixel 7 debug) +
-  `android_export_minified.sh` (R8) must pass with the two-AAR install. The
-  R8 analysis says the runtime AAR's consumer rules cover the scripts AAR's
-  classes APK-wide, but that claim is device-validated, not assumed.
+- **On-device revalidation of the split artifacts: green (2026-07-11, Pixel
+  7, Match3).** `android_smoke.sh` (debug: two-AAR export — Godot passed both
+  AARs via `plugins_local_binaries` — install, launch, logcat signals,
+  non-blank screenshot) and `android_export_minified.sh` (R8-minified release
+  boots Kanama) both PASS. This also device-validates the R8 claim that the
+  runtime AAR's consumer rules cover the scripts AAR's `generated/**` classes
+  APK-wide. (The minified gate gained the same stale-signature
+  uninstall/retry hardening as the debug smoke — the debug smoke's
+  editor-keystore install otherwise blocks the release-keystore install.)
 
 **Install smokes — `scripts/package_install_smoke.sh --ios-addon` (2026-07-11)
 and `--android-addon` (2026-07-11):** device-free structure validation. iOS:
@@ -498,13 +494,14 @@ baked-in KSP registrars** (project-agnostic proof), `.gdap` with the
 PanamaPort remote dep and no `local=` entry, descriptor fragment entries,
 README caveat.
 
-**B3 exit criteria (revised for the AAR split):** the iOS artifact builds
+**B3 exit criteria: all met (2026-07-11).** The iOS artifact builds
 reproducibly (`packageMobileAddonIos`, maintainer-built on macOS) and its
 install-smoke is green ✅; the Android artifact builds reproducibly
 (`packageMobileAddonAndroid`) and its install-smoke is green ✅; both
-platforms' packaged install paths are documented with their caveats. B3 flips
-MET only after the split artifacts pass the on-device gates (Pixel 7 debug
-smoke + R8-minified release) — until that device session, B3 remains ❌.
+platforms' packaged install paths are documented with their caveats ✅; the
+split artifacts passed the on-device gates (Pixel 7 debug smoke +
+R8-minified release, 2026-07-11) ✅. **B3 is MET** — promotion still waits on
+B1-Android (§7 table).
 
 ### Promotion procedure (when all green)
 

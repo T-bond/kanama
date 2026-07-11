@@ -217,7 +217,16 @@ fi
 
 echo "[android_minified] install: $PACKAGE_NAME"
 "$ADB_BIN" start-server >/dev/null
-"$ADB_BIN" install -r "$APK_PATH" >/dev/null
+if ! "$ADB_BIN" install -r "$APK_PATH" >/dev/null 2>&1; then
+  # A leftover install from the debug smoke carries the Godot editor debug
+  # keystore's signature, which differs from this gate's release keystore
+  # (INSTALL_FAILED_UPDATE_INCOMPATIBLE). Smoke installs hold no user data,
+  # so drop the stale package and install fresh — same hardening as
+  # android_smoke.sh.
+  echo "[android_minified] install -r failed; uninstalling stale $PACKAGE_NAME and retrying"
+  "$ADB_BIN" uninstall "$PACKAGE_NAME" >/dev/null 2>&1 || true
+  "$ADB_BIN" install "$APK_PATH" >/dev/null
+fi
 "$ADB_BIN" logcat -c
 "$ADB_BIN" shell am force-stop "$PACKAGE_NAME" >/dev/null 2>&1 || true
 "$ADB_BIN" shell monkey -p "$PACKAGE_NAME" -c android.intent.category.LAUNCHER 1 >/dev/null
