@@ -1338,3 +1338,73 @@ tasks.register("installAndroidPluginAar") {
         extensionFile.enableAndroidKanamaGdextensionMetadata()
     }
 }
+
+// --- Packaged mobile add-on, iOS (task 25 B3; design + exit criteria in
+// docs/internals/release-support-decision.md §7). Maintainer-built on macOS
+// (needs Xcode), so it does not join packageDistributions or the CI package
+// workflow. Validate with scripts/package_install_smoke.sh --ios-addon.
+
+val mobileAddonIosExtrasDir = layout.buildDirectory.dir("generated/mobile-addon/ios")
+val prepareMobileAddonIosExtras by tasks.registering {
+    outputs.dir(mobileAddonIosExtrasDir)
+    doLast {
+        val dir = mobileAddonIosExtrasDir.get().asFile
+        dir.mkdirs()
+        dir.resolve("kanama.gdextension-ios-entries.txt").writeText(
+            """
+            |# Merge into [libraries] of addons/kanama/kanama.gdextension
+            |# (README step 3). Do not replace the whole descriptor.
+            |ios.debug.arm64 = "res://addons/kanama/bin/ios/kanama_ios.debug.xcframework"
+            |ios.release.arm64 = "res://addons/kanama/bin/ios/kanama_ios.release.xcframework"
+            |""".trimMargin(),
+        )
+        dir.resolve("README.md").writeText(
+            """
+            |# Kanama iOS add-on (experimental, prebuilt runtime)
+            |
+            |Prebuilt Kanama iOS runtime xcframeworks (device arm64 slices,
+            |debug + release; the static libraries are large — roughly 200 MB
+            |debug / 88 MB release before zip) for an existing Kanama Godot
+            |project.
+            |
+            |**Honest caveat:** this delivers the *runtime* only. Compiling your
+            |project's Kotlin scripts for iOS still requires a Kanama source
+            |checkout today (`installIosAddon` runs the Kotlin/Native + KSP
+            |build). Use this artifact to update the prebuilt runtime or for
+            |script-less evaluation; see docs/exporting/ios.md.
+            |
+            |1. Unzip at your Godot project root (adds addons/kanama/bin/ios/*).
+            |2. The project must already carry the desktop Kanama addon with
+            |   matching version ${project.version}.
+            |3. Merge kanama.gdextension-ios-entries.txt into
+            |   addons/kanama/kanama.gdextension.
+            |4. Export with the Godot ${godotVersion.get()} iOS templates.
+            |""".trimMargin(),
+        )
+    }
+}
+
+tasks.register<Zip>("packageMobileAddonIos") {
+    group = "distribution"
+    description = "Zip the experimental iOS device xcframeworks (debug+release) + install notes; maintainer-built on macOS, see release-support-decision §7 B3."
+    dependsOn(tasks.named("assembleIosDeviceKanamaXcframework"), prepareMobileAddonIosExtras)
+    archiveFileName.set("kanama-mobile-addon-ios-v${project.version}.zip")
+    destinationDirectory.set(layout.buildDirectory.dir("distributions"))
+    isPreserveFileTimestamps = false
+    isReproducibleFileOrder = true
+    from(iosBuildDir.map { it.dir("xcframework-device/debug/kanama_ios.debug.xcframework") }) {
+        into("addons/kanama/bin/ios/kanama_ios.debug.xcframework")
+    }
+    from(iosBuildDir.map { it.dir("xcframework-device/release/kanama_ios.release.xcframework") }) {
+        into("addons/kanama/bin/ios/kanama_ios.release.xcframework")
+    }
+    from(mobileAddonIosExtrasDir.map { it.file("kanama.gdextension-ios-entries.txt") })
+    from(mobileAddonIosExtrasDir.map { it.file("README.md") })
+    from(layout.projectDirectory.file("LICENSE"))
+}
+
+// No packageMobileAddonAndroid: the Android AAR is project-specific by
+// construction (prepareAndroidKanamaSources compiles the consumer project's
+// kotlin-src + KSP registrars into the AAR through the PanamaPort remap), so a
+// generic prebuilt Android addon artifact is blocked on a runtime/scripts AAR
+// split — recorded in release-support-decision.md §7 B3.

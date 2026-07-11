@@ -96,6 +96,34 @@ build/ios/xcframework-device/release/kanama_ios.release.xcframework
 `-PkanamaIosXcframeworkMode=full` only when intentionally building the optional
 device plus simulator xcframeworks.
 
+## Packaged iOS Addon (prebuilt runtime)
+
+Maintainers can package the prebuilt device runtime as a zip:
+
+```sh
+DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer \
+./gradlew packageMobileAddonIos \
+  -PkanamaXcodeDeveloperDir=/Applications/Xcode.app/Contents/Developer
+```
+
+This writes `build/distributions/kanama-mobile-addon-ios-v<version>.zip`
+containing both device `arm64` xcframeworks (debug + release — the static
+libraries are large, roughly 200 MB debug / 88 MB release before zip), a
+`.gdextension` entries fragment to merge, and an install README.
+
+**Honest caveat:** the packaged addon delivers the *runtime* only. Compiling a
+project's Kotlin scripts for iOS still requires a Kanama source checkout
+(`installIosAddon` runs the Kotlin/Native + KSP build). Use the zip to update
+the prebuilt runtime or for script-less evaluation; the source-checkout flow
+below remains the full workflow.
+
+Validate a packaged zip without a device:
+
+```sh
+scripts/package_install_smoke.sh --ios-addon \
+  build/distributions/kanama-mobile-addon-ios-v<version>.zip
+```
+
 ## Install Into A Project
 
 Install the Kanama iOS addon into a Godot project:

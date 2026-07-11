@@ -13,6 +13,8 @@ optionally launches Godot.
 Options:
   --desktop-kit                  Require a desktop-kit zip.
   --store-addon                  Require a store-addon zip.
+  --ios-addon                    Require an iOS mobile-addon zip (structure
+                                 checks only; device-free, no Godot needed).
   --require-all-store-platforms  Require all store-addon desktop native libs.
   --work-dir DIR                 Existing empty or non-existing workspace dir.
   --keep-work-dir                Do not delete a generated temporary workspace.
@@ -35,6 +37,10 @@ while [[ $# -gt 0 ]]; do
       ;;
     --store-addon)
       package_kind="store-addon"
+      shift
+      ;;
+    --ios-addon)
+      package_kind="ios-addon"
       shift
       ;;
     --require-all-store-platforms)
@@ -215,6 +221,8 @@ if [[ -f "$project_dir/project.godot" && -f "$project_dir/build.gradle.kts" ]]; 
   detected_kind="desktop-kit"
 elif [[ -f "$project_dir/addons/kanama/templates/release-kit/build.gradle.kts" ]]; then
   detected_kind="store-addon"
+elif [[ -d "$project_dir/addons/kanama/bin/ios" ]]; then
+  detected_kind="ios-addon"
 else
   echo "[package_install_smoke] could not detect package kind for: $zip_path" >&2
   exit 1
@@ -245,6 +253,37 @@ if [[ "$detected_kind" == "store-addon" ]]; then
 fi
 
 echo "[package_install_smoke] package kind: $detected_kind"
+
+if [[ "$detected_kind" == "ios-addon" ]]; then
+  # Device-free structure validation of the packaged iOS runtime (B3 design,
+  # release-support-decision.md §7): both device xcframework variants with
+  # their arm64 static slices, the descriptor merge fragment, and the README
+  # carrying the script-compile caveat. Script compilation and on-device
+  # behavior stay covered by installIosAddon + ios_device_gate.sh.
+  for variant in debug release; do
+    check_file "addons/kanama/bin/ios/kanama_ios.$variant.xcframework/Info.plist"
+    check_file "addons/kanama/bin/ios/kanama_ios.$variant.xcframework/ios-arm64/libkanama_ios.a"
+    if find "$project_dir/addons/kanama/bin/ios/kanama_ios.$variant.xcframework" \
+        -type d -name "*simulator*" | grep -q .; then
+      echo "[package_install_smoke] packaged iOS addon must be device-only ($variant has a simulator slice)" >&2
+      exit 1
+    fi
+  done
+  check_file "kanama.gdextension-ios-entries.txt"
+  check_file "README.md"
+  for entry in "ios.debug.arm64" "ios.release.arm64"; do
+    if ! grep -q "^$entry = " "$project_dir/kanama.gdextension-ios-entries.txt"; then
+      echo "[package_install_smoke] descriptor fragment missing $entry entry" >&2
+      exit 1
+    fi
+  done
+  if ! grep -q "still requires a Kanama source" "$project_dir/README.md"; then
+    echo "[package_install_smoke] README lost the script-compile caveat" >&2
+    exit 1
+  fi
+  echo "[package_install_smoke] PASS (ios-addon structure checks)"
+  exit 0
+fi
 
 check_file "project.godot"
 check_file "build.gradle.kts"

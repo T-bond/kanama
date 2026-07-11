@@ -460,41 +460,36 @@ MET only after every piece below is green.
   main reason B3-iOS may stay below the desktop bar even after packaging —
   document, don't overclaim.)
 
-**Artifact 2 — `kanama-mobile-addon-android-v<version>.zip`**
+**Artifact 2 — Android: BLOCKED BY DESIGN (found during implementation,
+2026-07-11)**
 
-- Contents: `android/plugins/KanamaAndroid.debug.aar` + `KanamaAndroid.gdap` +
-  the `.gdextension` Android entries fragment + install README.
-- **Decision (debug-only for now):** no Kanama release AAR exists today — the
-  validated R8 release path patches the *export's* generated Gradle build
-  (`android_export_minified.sh`), not the plugin AAR. Ship debug-only with
-  that stated, and add a release-AAR build as its own follow-up if promotion
-  demands it.
-- **Decision (PanamaPort distribution):** keep the JitPack coordinate
-  (`com.github.falcon4ever.PanamaPort:Core:0.1.3-kanama-r8.2`) declared via
-  `.gdap` and documented as an availability dependency, with the README
-  carrying the repo-injection step the smoke scripts perform today. Vendoring
-  a fat AAR is the fallback if JitPack availability ever becomes a support
-  problem — revisit at promotion time.
-- Build: `packageMobileAddonAndroid` depending on the AAR build; CI-capable in
-  principle (needs SDK/NDK on the runner) but maintainer-built first.
+- A generic prebuilt Android addon artifact is **not buildable today**: the
+  Kanama Android AAR is project-specific by construction —
+  `prepareAndroidKanamaSources` compiles the *consumer project's own*
+  `kotlin-src` and generated KSP registrars (through the PanamaPort remap)
+  into the AAR alongside the runtime. There is no runtime-only AAR to package.
+- Unblocking requires a **runtime/scripts AAR split** (runtime AAR packaged
+  once; per-project scripts delivered separately, mirroring desktop's
+  `kanama.jar` / `kanama-scripts.jar` shape). That is a real Android-backend
+  design change, tracked as the B3-Android precondition — the same family as
+  the iOS script-compile caveat, but structural rather than tooling.
+- The original decisions (debug-only, PanamaPort via JitPack not vendored)
+  carry over to whenever the split lands.
 
-**Install smoke — extend `scripts/package_install_smoke.sh`:**
+**Install smoke — `scripts/package_install_smoke.sh --ios-addon` (implemented
+2026-07-11):** unzips the artifact, asserts both device xcframework variants
+carry their `ios-arm64` static slices with **no simulator slice**, asserts the
+descriptor merge fragment has both `ios.*.arm64` entries, and asserts the
+README still carries the script-compile caveat. Device-free. (The planned
+`--android-addon` mode is moot until the AAR split lands.)
 
-- `--ios-addon <zip>`: unzip into a *fresh minimal Godot project* (no Kanama
-  checkout), assert descriptor entries merge correctly, assert xcframework
-  structure (Info.plist + expected static-library slices), and run the
-  template preflight against the pinned Godot iOS templates when installed
-  (skip loudly otherwise). Device-free.
-- `--android-addon <zip>`: unzip, assert `.gdap`/AAR/descriptor coherence,
-  then when `ANDROID_HOME` is present run the headless build-template install
-  + `--export-debug` to an APK (skip loudly otherwise). Launch/logcat stays
-  `android_smoke.sh`'s job on a device.
-
-**B3 exit criteria:** both artifacts build reproducibly from a clean checkout;
-both install-smoke modes green on a machine without a sibling Kanama checkout;
-`docs/exporting/{ios,android}.md` gain "Use a packaged mobile addon" sections
-with the size and script-compile caveats above; only then flip B3 in the §7
-table.
+**B3 exit criteria (revised for the Android finding):** the iOS artifact
+builds reproducibly (`packageMobileAddonIos`, maintainer-built on macOS) and
+its install-smoke is green; `docs/exporting/ios.md` documents the packaged
+addon with the size + script-compile caveats; the Android half is explicitly
+recorded as blocked on the runtime/scripts AAR split. B3 flips MET only when
+**both** platforms have a packaged install path — i.e. after the AAR split —
+so B3 remains ❌ with the iOS half done.
 
 ### Promotion procedure (when all green)
 
