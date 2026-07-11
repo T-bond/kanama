@@ -4,6 +4,7 @@ import java.lang.foreign.MemorySegment
 import kotlin.jvm.JvmName
 import net.multigesture.kanama.binding.runtime.ObjectCalls
 import net.multigesture.kanama.binding.runtime.*
+import net.multigesture.kanama.types.Rect2i
 import net.multigesture.kanama.types.Vector2i
 
 /**
@@ -188,8 +189,16 @@ class TileSetAtlasSource(handle: MemorySegment) : TileSetSource(handle) {
         return ObjectCalls.ptrcallNoArgsRetVector2i(getAtlasGridSizeBind, handle)
     }
 
+    fun getTileTextureRegion(atlasCoords: Vector2i, frame: Int = 0): Rect2i {
+        return ObjectCalls.ptrcallWithVector2iAndIntArgRetRect2i(getTileTextureRegionBind, handle, atlasCoords, frame)
+    }
+
     fun getRuntimeTexture(): Texture2D? {
         return Texture2D.wrap(ObjectCalls.ptrcallNoArgsRetObject(getRuntimeTextureBind, handle))
+    }
+
+    fun getRuntimeTileTextureRegion(atlasCoords: Vector2i, frame: Int): Rect2i {
+        return ObjectCalls.ptrcallWithVector2iAndIntArgRetRect2i(getRuntimeTileTextureRegionBind, handle, atlasCoords, frame)
     }
 
     companion object {
@@ -391,9 +400,19 @@ class TileSetAtlasSource(handle: MemorySegment) : TileSetSource(handle) {
             ObjectCalls.getMethodBind("TileSetAtlasSource", "get_atlas_grid_size", GET_ATLAS_GRID_SIZE_HASH)
         }
 
+        private const val GET_TILE_TEXTURE_REGION_HASH = 241857547L
+        private val getTileTextureRegionBind by lazy {
+            ObjectCalls.getMethodBind("TileSetAtlasSource", "get_tile_texture_region", GET_TILE_TEXTURE_REGION_HASH)
+        }
+
         private const val GET_RUNTIME_TEXTURE_HASH = 3635182373L
         private val getRuntimeTextureBind by lazy {
             ObjectCalls.getMethodBind("TileSetAtlasSource", "get_runtime_texture", GET_RUNTIME_TEXTURE_HASH)
+        }
+
+        private const val GET_RUNTIME_TILE_TEXTURE_REGION_HASH = 104874263L
+        private val getRuntimeTileTextureRegionBind by lazy {
+            ObjectCalls.getMethodBind("TileSetAtlasSource", "get_runtime_tile_texture_region", GET_RUNTIME_TILE_TEXTURE_REGION_HASH)
         }
     }
 }

@@ -32,6 +32,7 @@ import net.multigesture.kanama.types.Projection
 import net.multigesture.kanama.types.Quaternion
 import net.multigesture.kanama.types.RID
 import net.multigesture.kanama.types.Rect2
+import net.multigesture.kanama.types.Rect2i
 import net.multigesture.kanama.types.Transform2D
 import net.multigesture.kanama.types.Transform3D
 import net.multigesture.kanama.types.Vector2

@@ -1369,6 +1369,19 @@ fun kanamaIosRuntimeObjectCallsSelfTest() {
             r2.size.x.toDouble() == 3.5 && r2.size.y.toDouble() == 4.5,
     )
 
+    // Rect2i return (4x int32, 16B): a fresh TileMap's get_used_rect is exactly
+    // Rect2i(0, 0, 0, 0) — deterministic, validation-free. Exercises the generated
+    // ptrcallNoArgsRetRect2i read-back (the shape that unlocks
+    // DisplayServer.get_display_safe_area for the mobile safe-area work, task 26).
+    val tilemap = ObjectCalls.constructObject("TileMap")
+    val r2i = ObjectCalls.ptrcallNoArgsRetRect2i(
+        ObjectCalls.getMethodBind("TileMap", "get_used_rect", 410525958L), tilemap)
+    check(
+        "rect2i-ret(used_rect==0,0,0,0)",
+        r2i.position.x == 0 && r2i.position.y == 0 && r2i.size.x == 0 && r2i.size.y == 0,
+    )
+    ObjectCalls.destroyObject(tilemap)
+
     // String-return (Object.get_class -> "Node2D"): exercises ptrcallNoArgsRetString
     // through the full Kotlin -> dedicated C helper -> Godot path (string_to_utf8_chars
     // round-trip). Deterministic, validation-free class name.

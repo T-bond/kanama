@@ -269,7 +269,7 @@ IOS_ARG_KINDS = {
 # Return shapes the iOS helpers can read back (keyed by CallShape.kotlin_return, the
 # stable per-helper return-type token). StringName/String/RID/List/Map returns
 # are intentionally absent until their read-back is wired + validated.
-IOS_RET_KOTLIN = {"Unit", "Boolean", "Int", "Long", "Double", "Vector2", "Vector2i", "Vector3", "Vector3i", "Color", "Rect2", "MemorySegment", "String", "NodePath", "Basis", "Transform2D", "Transform3D", "Projection", "RID", "Quaternion", "AABB", "List<Int>", "List<Float>", "List<Vector2>", "List<Color>", "List<String>", "List<NodePath>", "List<Long>", "List<Plane>", "List<Any?>", "Any?"}
+IOS_RET_KOTLIN = {"Unit", "Boolean", "Int", "Long", "Double", "Vector2", "Vector2i", "Vector3", "Vector3i", "Color", "Rect2", "Rect2i", "MemorySegment", "String", "NodePath", "Basis", "Transform2D", "Transform3D", "Projection", "RID", "Quaternion", "AABB", "List<Int>", "List<Float>", "List<Vector2>", "List<Color>", "List<String>", "List<NodePath>", "List<Long>", "List<Plane>", "List<Any?>", "Any?"}
 
 # Helpers already hand-written in ios-runtime ObjectCalls.kt (the reference template +
 # override set). The generator must NOT re-emit these (they'd clash with the members).
@@ -2377,6 +2377,7 @@ import net.multigesture.kanama.types.Projection
 import net.multigesture.kanama.types.Quaternion
 import net.multigesture.kanama.types.RID
 import net.multigesture.kanama.types.Rect2
+import net.multigesture.kanama.types.Rect2i
 import net.multigesture.kanama.types.Transform2D
 import net.multigesture.kanama.types.Transform3D
 import net.multigesture.kanama.types.Vector2
@@ -2430,6 +2431,10 @@ IOS_PT_TAG_VALUES = {
     # 26 is PT_PLANE (typed-array element selector, not an arg/ret tag). PT_CALLABLE is the
     # object+method Callable arg (KanamaIosCallableArgDesc path); value matches the C enum.
     "PT_CALLABLE": 27,
+    # Rect2i return (4x int32 POD passthrough; the generic dispatch hands ret_out to the
+    # engine untyped, so the tag is documentation + self-test selector). Appended at the
+    # C enum's end (37) — never renumber existing tags.
+    "PT_RECT2I": 37,
 }
 
 
@@ -2612,6 +2617,17 @@ def ios_ret_layout(kotlin_return: str) -> tuple[str | None, str, list[str], str,
             "ret",
             "Rect2(Vector2(GodotReal.fromC(ret[0]), GodotReal.fromC(ret[1])), "
             "Vector2(GodotReal.fromC(ret[2]), GodotReal.fromC(ret[3])))",
+        )
+    if kotlin_return == "Rect2i":
+        # 4x int32 = 16 bytes (position.x, position.y, size.x, size.y) — the int twin of
+        # Rect2, always int32 (never real_t). Unlocks DisplayServer.get_display_safe_area
+        # and the other Rect2i getters on iOS (task 26 safe-area work).
+        return (
+            "Rect2i",
+            "PT_RECT2I",
+            ["val ret = allocArray<IntVar>(4)"],
+            "ret",
+            "Rect2i(Vector2i(ret[0], ret[1]), Vector2i(ret[2], ret[3]))",
         )
     if kotlin_return == "Basis":
         # 9x real_t, column-major (see ios_arg_layout). Reassemble the column axes.

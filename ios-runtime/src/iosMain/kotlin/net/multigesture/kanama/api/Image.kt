@@ -4,6 +4,7 @@ import java.lang.foreign.MemorySegment
 import net.multigesture.kanama.binding.runtime.ObjectCalls
 import net.multigesture.kanama.binding.runtime.*
 import net.multigesture.kanama.types.Color
+import net.multigesture.kanama.types.Rect2i
 import net.multigesture.kanama.types.Vector2i
 
 /**
@@ -177,6 +178,10 @@ class Image(handle: MemorySegment) : Resource(handle) {
 
     fun fill(color: Color) {
         ObjectCalls.ptrcallWithColorArg(fillBind, handle, color)
+    }
+
+    fun getUsedRect(): Rect2i {
+        return ObjectCalls.ptrcallNoArgsRetRect2i(getUsedRectBind, handle)
     }
 
     fun copyFrom(src: Image?) {
@@ -520,6 +525,11 @@ class Image(handle: MemorySegment) : Resource(handle) {
         private const val FILL_HASH = 2920490490L
         private val fillBind by lazy {
             ObjectCalls.getMethodBind("Image", "fill", FILL_HASH)
+        }
+
+        private const val GET_USED_RECT_HASH = 410525958L
+        private val getUsedRectBind by lazy {
+            ObjectCalls.getMethodBind("Image", "get_used_rect", GET_USED_RECT_HASH)
         }
 
         private const val COPY_FROM_HASH = 532598488L

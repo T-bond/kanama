@@ -6,6 +6,7 @@ import net.multigesture.kanama.binding.runtime.ObjectCalls
 import net.multigesture.kanama.binding.runtime.*
 import net.multigesture.kanama.types.Color
 import net.multigesture.kanama.types.RID
+import net.multigesture.kanama.types.Rect2i
 import net.multigesture.kanama.types.Vector2
 import net.multigesture.kanama.types.Vector2i
 
@@ -241,6 +242,10 @@ class TileMap(handle: MemorySegment) : Node2D(handle) {
 
     fun notifyRuntimeTileDataUpdate(layer: Int = -1) {
         ObjectCalls.ptrcallWithIntArg(notifyRuntimeTileDataUpdateBind, handle, layer)
+    }
+
+    fun getUsedRect(): Rect2i {
+        return ObjectCalls.ptrcallNoArgsRetRect2i(getUsedRectBind, handle)
     }
 
     fun mapToLocal(mapPosition: Vector2i): Vector2 {
@@ -518,6 +523,11 @@ class TileMap(handle: MemorySegment) : Node2D(handle) {
         private const val NOTIFY_RUNTIME_TILE_DATA_UPDATE_HASH = 1025054187L
         private val notifyRuntimeTileDataUpdateBind by lazy {
             ObjectCalls.getMethodBind("TileMap", "notify_runtime_tile_data_update", NOTIFY_RUNTIME_TILE_DATA_UPDATE_HASH)
+        }
+
+        private const val GET_USED_RECT_HASH = 410525958L
+        private val getUsedRectBind by lazy {
+            ObjectCalls.getMethodBind("TileMap", "get_used_rect", GET_USED_RECT_HASH)
         }
 
         private const val MAP_TO_LOCAL_HASH = 108438297L

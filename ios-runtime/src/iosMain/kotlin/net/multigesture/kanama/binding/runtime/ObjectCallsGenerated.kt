@@ -32,6 +32,7 @@ import net.multigesture.kanama.types.Projection
 import net.multigesture.kanama.types.Quaternion
 import net.multigesture.kanama.types.RID
 import net.multigesture.kanama.types.Rect2
+import net.multigesture.kanama.types.Rect2i
 import net.multigesture.kanama.types.Transform2D
 import net.multigesture.kanama.types.Transform3D
 import net.multigesture.kanama.types.Vector2
@@ -75,6 +76,7 @@ private const val PT_AABB = 21
 private const val PT_TRANSFORM2D = 22
 private const val PT_PROJECTION = 25
 private const val PT_CALLABLE = 27
+private const val PT_RECT2I = 37
 
 fun ObjectCalls.ptrcallNoArgsRetAABB(methodBind: MemorySegment, instance: MemorySegment): AABB =
     memScoped {
@@ -109,6 +111,13 @@ fun ObjectCalls.ptrcallNoArgsRetRID(methodBind: MemorySegment, instance: MemoryS
         val ret = alloc<LongVar>(); ret.value = 0
         kanama_ios_godot_ptrcall(methodBind.address(), instance.address(), null, null, 0, PT_RID, ret.ptr)
         RID(ret.value)
+    }
+
+fun ObjectCalls.ptrcallNoArgsRetRect2i(methodBind: MemorySegment, instance: MemorySegment): Rect2i =
+    memScoped {
+        val ret = allocArray<IntVar>(4)
+        kanama_ios_godot_ptrcall(methodBind.address(), instance.address(), null, null, 0, PT_RECT2I, ret)
+        Rect2i(Vector2i(ret[0], ret[1]), Vector2i(ret[2], ret[3]))
     }
 
 fun ObjectCalls.ptrcallNoArgsRetTransform2D(methodBind: MemorySegment, instance: MemorySegment): Transform2D =
@@ -1144,6 +1153,16 @@ fun ObjectCalls.ptrcallWithIntArgRetRect2(methodBind: MemorySegment, instance: M
         val ptrs = allocArray<COpaquePointerVar>(1); ptrs[0] = c0.ptr.reinterpret<CPointed>()
         kanama_ios_godot_ptrcall(methodBind.address(), instance.address(), types, ptrs, 1, PT_RECT2, ret)
         Rect2(Vector2(GodotReal.fromC(ret[0]), GodotReal.fromC(ret[1])), Vector2(GodotReal.fromC(ret[2]), GodotReal.fromC(ret[3])))
+    }
+
+fun ObjectCalls.ptrcallWithIntArgRetRect2i(methodBind: MemorySegment, instance: MemorySegment, a0: Int): Rect2i =
+    memScoped {
+        val ret = allocArray<IntVar>(4)
+        val c0 = alloc<LongVar>(); c0.value = a0.toLong()
+        val types = allocArray<IntVar>(1); types[0] = PT_INT64
+        val ptrs = allocArray<COpaquePointerVar>(1); ptrs[0] = c0.ptr.reinterpret<CPointed>()
+        kanama_ios_godot_ptrcall(methodBind.address(), instance.address(), types, ptrs, 1, PT_RECT2I, ret)
+        Rect2i(Vector2i(ret[0], ret[1]), Vector2i(ret[2], ret[3]))
     }
 
 fun ObjectCalls.ptrcallWithIntArgRetTransform2D(methodBind: MemorySegment, instance: MemorySegment, a0: Int): Transform2D =
@@ -7705,6 +7724,17 @@ fun ObjectCalls.ptrcallWithTwoIntArgsRetQuaternion(methodBind: MemorySegment, in
         Quaternion(GodotReal.fromC(ret[0]), GodotReal.fromC(ret[1]), GodotReal.fromC(ret[2]), GodotReal.fromC(ret[3]))
     }
 
+fun ObjectCalls.ptrcallWithTwoIntArgsRetRect2i(methodBind: MemorySegment, instance: MemorySegment, a0: Int, a1: Int): Rect2i =
+    memScoped {
+        val ret = allocArray<IntVar>(4)
+        val c0 = alloc<LongVar>(); c0.value = a0.toLong()
+        val c1 = alloc<LongVar>(); c1.value = a1.toLong()
+        val types = allocArray<IntVar>(2); types[0] = PT_INT64; types[1] = PT_INT64
+        val ptrs = allocArray<COpaquePointerVar>(2); ptrs[0] = c0.ptr.reinterpret<CPointed>(); ptrs[1] = c1.ptr.reinterpret<CPointed>()
+        kanama_ios_godot_ptrcall(methodBind.address(), instance.address(), types, ptrs, 2, PT_RECT2I, ret)
+        Rect2i(Vector2i(ret[0], ret[1]), Vector2i(ret[2], ret[3]))
+    }
+
 fun ObjectCalls.ptrcallWithTwoIntArgsRetVector2(methodBind: MemorySegment, instance: MemorySegment, a0: Int, a1: Int): Vector2 =
     memScoped {
         val ret = allocArray<GodotRealVar>(2)
@@ -9442,6 +9472,17 @@ fun ObjectCalls.ptrcallWithVector2iAndIntArgRetObject(methodBind: MemorySegment,
         val ptrs = allocArray<COpaquePointerVar>(2); ptrs[0] = c0.reinterpret<CPointed>(); ptrs[1] = c1.ptr.reinterpret<CPointed>()
         kanama_ios_godot_ptrcall(methodBind.address(), instance.address(), types, ptrs, 2, PT_OBJECT, ret.ptr)
         MemorySegment.ofAddress(ret.value)
+    }
+
+fun ObjectCalls.ptrcallWithVector2iAndIntArgRetRect2i(methodBind: MemorySegment, instance: MemorySegment, a0: Vector2i, a1: Int): Rect2i =
+    memScoped {
+        val ret = allocArray<IntVar>(4)
+        val c0 = allocArray<IntVar>(2); c0[0] = a0.x; c0[1] = a0.y
+        val c1 = alloc<LongVar>(); c1.value = a1.toLong()
+        val types = allocArray<IntVar>(2); types[0] = PT_VECTOR2I; types[1] = PT_INT64
+        val ptrs = allocArray<COpaquePointerVar>(2); ptrs[0] = c0.reinterpret<CPointed>(); ptrs[1] = c1.ptr.reinterpret<CPointed>()
+        kanama_ios_godot_ptrcall(methodBind.address(), instance.address(), types, ptrs, 2, PT_RECT2I, ret)
+        Rect2i(Vector2i(ret[0], ret[1]), Vector2i(ret[2], ret[3]))
     }
 
 fun ObjectCalls.ptrcallWithVector2iAndLongArg(methodBind: MemorySegment, instance: MemorySegment, a0: Vector2i, a1: Long) =

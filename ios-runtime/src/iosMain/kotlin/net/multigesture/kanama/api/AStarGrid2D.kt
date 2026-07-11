@@ -4,6 +4,7 @@ import java.lang.foreign.MemorySegment
 import kotlin.jvm.JvmName
 import net.multigesture.kanama.binding.runtime.ObjectCalls
 import net.multigesture.kanama.binding.runtime.*
+import net.multigesture.kanama.types.Rect2i
 import net.multigesture.kanama.types.Vector2
 import net.multigesture.kanama.types.Vector2i
 
@@ -11,6 +12,10 @@ import net.multigesture.kanama.types.Vector2i
  * Generated from Godot docs: AStarGrid2D
  */
 class AStarGrid2D(handle: MemorySegment) : RefCounted(handle) {
+    val region: Rect2i
+        @JvmName("regionProperty")
+        get() = getRegion()
+
     var size: Vector2i
         @JvmName("sizeProperty")
         get() = getSize()
@@ -58,6 +63,10 @@ class AStarGrid2D(handle: MemorySegment) : RefCounted(handle) {
         get() = getDiagonalMode()
         @JvmName("setDiagonalModeProperty")
         set(value) = setDiagonalMode(value)
+
+    fun getRegion(): Rect2i {
+        return ObjectCalls.ptrcallNoArgsRetRect2i(getRegionBind, handle)
+    }
 
     fun setSize(size: Vector2i) {
         ObjectCalls.ptrcallWithVector2iArg(setSizeBind, handle, size)
@@ -184,6 +193,11 @@ class AStarGrid2D(handle: MemorySegment) : RefCounted(handle) {
 
         internal fun wrap(handle: MemorySegment): AStarGrid2D? =
             if (handle.address() == 0L) null else AStarGrid2D(handle)
+
+        private const val GET_REGION_HASH = 410525958L
+        private val getRegionBind by lazy {
+            ObjectCalls.getMethodBind("AStarGrid2D", "get_region", GET_REGION_HASH)
+        }
 
         private const val SET_SIZE_HASH = 1130785943L
         private val setSizeBind by lazy {

@@ -641,6 +641,10 @@ enum {
     KANAMA_IOS_PT_PACKED_FLOAT32_ARRAY, // 34
     KANAMA_IOS_PT_PACKED_FLOAT64_ARRAY, // 35
     KANAMA_IOS_PT_PACKED_VECTOR3_ARRAY, // 36
+    // POD passthrough return (4x int32, 16 bytes): the int twin of PT_RECT2. The
+    // generic dispatch hands ret_out to the engine untyped, so this tag is
+    // documentation + self-test selector only. Append-only — never renumber.
+    KANAMA_IOS_PT_RECT2I,               // 37
 };
 
 // Descriptor for a BUILD-tagged Packed*Array arg (mirrors KanamaIosPackedArgDesc in

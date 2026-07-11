@@ -5,6 +5,7 @@ import kotlin.jvm.JvmName
 import net.multigesture.kanama.binding.runtime.ObjectCalls
 import net.multigesture.kanama.binding.runtime.*
 import net.multigesture.kanama.types.RID
+import net.multigesture.kanama.types.Rect2i
 import net.multigesture.kanama.types.Vector2
 import net.multigesture.kanama.types.Vector2i
 
@@ -126,6 +127,10 @@ class TileMapLayer(handle: MemorySegment) : Node2D(handle) {
 
     fun isCellTransposed(coords: Vector2i): Boolean {
         return ObjectCalls.ptrcallWithVector2iArgRetBool(isCellTransposedBind, handle, coords)
+    }
+
+    fun getUsedRect(): Rect2i {
+        return ObjectCalls.ptrcallNoArgsRetRect2i(getUsedRectBind, handle)
     }
 
     fun setPattern(position: Vector2i, pattern: TileMapPattern?) {
@@ -336,6 +341,11 @@ class TileMapLayer(handle: MemorySegment) : Node2D(handle) {
         private const val IS_CELL_TRANSPOSED_HASH = 3900751641L
         private val isCellTransposedBind by lazy {
             ObjectCalls.getMethodBind("TileMapLayer", "is_cell_transposed", IS_CELL_TRANSPOSED_HASH)
+        }
+
+        private const val GET_USED_RECT_HASH = 410525958L
+        private val getUsedRectBind by lazy {
+            ObjectCalls.getMethodBind("TileMapLayer", "get_used_rect", GET_USED_RECT_HASH)
         }
 
         private const val SET_PATTERN_HASH = 1491151770L

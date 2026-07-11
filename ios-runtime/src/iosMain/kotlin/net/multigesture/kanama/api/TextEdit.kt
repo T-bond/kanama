@@ -5,6 +5,7 @@ import kotlin.jvm.JvmName
 import net.multigesture.kanama.binding.runtime.ObjectCalls
 import net.multigesture.kanama.binding.runtime.*
 import net.multigesture.kanama.types.Color
+import net.multigesture.kanama.types.Rect2i
 import net.multigesture.kanama.types.Vector2
 import net.multigesture.kanama.types.Vector2i
 
@@ -614,6 +615,10 @@ open class TextEdit(handle: MemorySegment) : Control(handle) {
 
     fun getPosAtLineColumn(line: Int, column: Int): Vector2i {
         return ObjectCalls.ptrcallWithTwoIntArgsRetVector2i(getPosAtLineColumnBind, handle, line, column)
+    }
+
+    fun getRectAtLineColumn(line: Int, column: Int): Rect2i {
+        return ObjectCalls.ptrcallWithTwoIntArgsRetRect2i(getRectAtLineColumnBind, handle, line, column)
     }
 
     fun getMinimapLineAtPos(position: Vector2i): Int {
@@ -1708,6 +1713,11 @@ open class TextEdit(handle: MemorySegment) : Control(handle) {
         private const val GET_POS_AT_LINE_COLUMN_HASH = 410388347L
         private val getPosAtLineColumnBind by lazy {
             ObjectCalls.getMethodBind("TextEdit", "get_pos_at_line_column", GET_POS_AT_LINE_COLUMN_HASH)
+        }
+
+        private const val GET_RECT_AT_LINE_COLUMN_HASH = 3256618057L
+        private val getRectAtLineColumnBind by lazy {
+            ObjectCalls.getMethodBind("TextEdit", "get_rect_at_line_column", GET_RECT_AT_LINE_COLUMN_HASH)
         }
 
         private const val GET_MINIMAP_LINE_AT_POS_HASH = 2485466453L

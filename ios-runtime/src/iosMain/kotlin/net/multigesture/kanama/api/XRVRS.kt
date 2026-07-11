@@ -4,6 +4,7 @@ import java.lang.foreign.MemorySegment
 import kotlin.jvm.JvmName
 import net.multigesture.kanama.binding.runtime.ObjectCalls
 import net.multigesture.kanama.binding.runtime.*
+import net.multigesture.kanama.types.Rect2i
 
 /**
  * Generated from Godot docs: XRVRS
@@ -21,6 +22,10 @@ class XRVRS(handle: MemorySegment) : GodotObject(handle) {
         @JvmName("setVrsStrengthProperty")
         set(value) = setVrsStrength(value)
 
+    val vrsRenderRegion: Rect2i
+        @JvmName("vrsRenderRegionProperty")
+        get() = getVrsRenderRegion()
+
     fun getVrsMinRadius(): Double {
         return ObjectCalls.ptrcallNoArgsRetDouble(getVrsMinRadiusBind, handle)
     }
@@ -35,6 +40,10 @@ class XRVRS(handle: MemorySegment) : GodotObject(handle) {
 
     fun setVrsStrength(strength: Double) {
         ObjectCalls.ptrcallWithDoubleArg(setVrsStrengthBind, handle, strength)
+    }
+
+    fun getVrsRenderRegion(): Rect2i {
+        return ObjectCalls.ptrcallNoArgsRetRect2i(getVrsRenderRegionBind, handle)
     }
 
     companion object {
@@ -62,6 +71,11 @@ class XRVRS(handle: MemorySegment) : GodotObject(handle) {
         private const val SET_VRS_STRENGTH_HASH = 373806689L
         private val setVrsStrengthBind by lazy {
             ObjectCalls.getMethodBind("XRVRS", "set_vrs_strength", SET_VRS_STRENGTH_HASH)
+        }
+
+        private const val GET_VRS_RENDER_REGION_HASH = 410525958L
+        private val getVrsRenderRegionBind by lazy {
+            ObjectCalls.getMethodBind("XRVRS", "get_vrs_render_region", GET_VRS_RENDER_REGION_HASH)
         }
     }
 }

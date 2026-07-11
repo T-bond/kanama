@@ -6,6 +6,7 @@ import net.multigesture.kanama.binding.runtime.ObjectCalls
 import net.multigesture.kanama.binding.runtime.*
 import net.multigesture.kanama.types.Color
 import net.multigesture.kanama.types.Rect2
+import net.multigesture.kanama.types.Rect2i
 import net.multigesture.kanama.types.Vector2
 import net.multigesture.kanama.types.Vector2i
 
@@ -671,6 +672,10 @@ class RichTextLabel(handle: MemorySegment) : Control(handle) {
 
     fun getLineWidth(line: Int): Int {
         return ObjectCalls.ptrcallWithIntArgRetInt(getLineWidthBind, handle, line)
+    }
+
+    fun getVisibleContentRect(): Rect2i {
+        return ObjectCalls.ptrcallNoArgsRetRect2i(getVisibleContentRectBind, handle)
     }
 
     fun getLineOffset(line: Int): Double {
@@ -1340,6 +1345,11 @@ class RichTextLabel(handle: MemorySegment) : Control(handle) {
         private const val GET_LINE_WIDTH_HASH = 923996154L
         private val getLineWidthBind by lazy {
             ObjectCalls.getMethodBind("RichTextLabel", "get_line_width", GET_LINE_WIDTH_HASH)
+        }
+
+        private const val GET_VISIBLE_CONTENT_RECT_HASH = 410525958L
+        private val getVisibleContentRectBind by lazy {
+            ObjectCalls.getMethodBind("RichTextLabel", "get_visible_content_rect", GET_VISIBLE_CONTENT_RECT_HASH)
         }
 
         private const val GET_LINE_OFFSET_HASH = 4025615559L

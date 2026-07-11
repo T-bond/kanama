@@ -6,6 +6,7 @@ import net.multigesture.kanama.binding.runtime.*
 import net.multigesture.kanama.types.Color
 import net.multigesture.kanama.types.RID
 import net.multigesture.kanama.types.Rect2
+import net.multigesture.kanama.types.Rect2i
 import net.multigesture.kanama.types.Transform2D
 import net.multigesture.kanama.types.Vector2
 import net.multigesture.kanama.types.Vector2i
@@ -503,6 +504,10 @@ object DisplayServer {
         return ObjectCalls.ptrcallNoArgsRetString(clipboardGetPrimaryBind, singleton)
     }
 
+    fun getDisplaySafeArea(): Rect2i {
+        return ObjectCalls.ptrcallNoArgsRetRect2i(getDisplaySafeAreaBind, singleton)
+    }
+
     fun getScreenCount(): Int {
         return ObjectCalls.ptrcallNoArgsRetInt(getScreenCountBind, singleton)
     }
@@ -525,6 +530,10 @@ object DisplayServer {
 
     fun screenGetSize(screen: Int = -1): Vector2i {
         return ObjectCalls.ptrcallWithIntArgRetVector2i(screenGetSizeBind, singleton, screen)
+    }
+
+    fun screenGetUsableRect(screen: Int = -1): Rect2i {
+        return ObjectCalls.ptrcallWithIntArgRetRect2i(screenGetUsableRectBind, singleton, screen)
     }
 
     fun screenGetDpi(screen: Int = -1): Int {
@@ -585,6 +594,10 @@ object DisplayServer {
 
     fun windowGetActivePopup(): Int {
         return ObjectCalls.ptrcallNoArgsRetInt(windowGetActivePopupBind, singleton)
+    }
+
+    fun windowGetPopupSafeRect(window: Int): Rect2i {
+        return ObjectCalls.ptrcallWithIntArgRetRect2i(windowGetPopupSafeRectBind, singleton, window)
     }
 
     fun windowSetTitle(title: String, windowId: Int = 0) {
@@ -1589,6 +1602,11 @@ object DisplayServer {
         ObjectCalls.getMethodBind("DisplayServer", "clipboard_get_primary", CLIPBOARD_GET_PRIMARY_HASH)
     }
 
+    private const val GET_DISPLAY_SAFE_AREA_HASH = 410525958L
+    private val getDisplaySafeAreaBind by lazy {
+        ObjectCalls.getMethodBind("DisplayServer", "get_display_safe_area", GET_DISPLAY_SAFE_AREA_HASH)
+    }
+
     private const val GET_SCREEN_COUNT_HASH = 3905245786L
     private val getScreenCountBind by lazy {
         ObjectCalls.getMethodBind("DisplayServer", "get_screen_count", GET_SCREEN_COUNT_HASH)
@@ -1617,6 +1635,11 @@ object DisplayServer {
     private const val SCREEN_GET_SIZE_HASH = 1725937825L
     private val screenGetSizeBind by lazy {
         ObjectCalls.getMethodBind("DisplayServer", "screen_get_size", SCREEN_GET_SIZE_HASH)
+    }
+
+    private const val SCREEN_GET_USABLE_RECT_HASH = 2439012528L
+    private val screenGetUsableRectBind by lazy {
+        ObjectCalls.getMethodBind("DisplayServer", "screen_get_usable_rect", SCREEN_GET_USABLE_RECT_HASH)
     }
 
     private const val SCREEN_GET_DPI_HASH = 181039630L
@@ -1692,6 +1715,11 @@ object DisplayServer {
     private const val WINDOW_GET_ACTIVE_POPUP_HASH = 3905245786L
     private val windowGetActivePopupBind by lazy {
         ObjectCalls.getMethodBind("DisplayServer", "window_get_active_popup", WINDOW_GET_ACTIVE_POPUP_HASH)
+    }
+
+    private const val WINDOW_GET_POPUP_SAFE_RECT_HASH = 2161169500L
+    private val windowGetPopupSafeRectBind by lazy {
+        ObjectCalls.getMethodBind("DisplayServer", "window_get_popup_safe_rect", WINDOW_GET_POPUP_SAFE_RECT_HASH)
     }
 
     private const val WINDOW_SET_TITLE_HASH = 441246282L

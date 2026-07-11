@@ -5,6 +5,7 @@ import kotlin.jvm.JvmName
 import net.multigesture.kanama.binding.runtime.ObjectCalls
 import net.multigesture.kanama.binding.runtime.*
 import net.multigesture.kanama.types.Color
+import net.multigesture.kanama.types.Rect2i
 import net.multigesture.kanama.types.Vector2
 import net.multigesture.kanama.types.Vector2i
 
@@ -47,6 +48,10 @@ open class Window(handle: MemorySegment) : Viewport(handle) {
         get() = getCurrentScreen()
         @JvmName("setCurrentScreenProperty")
         set(value) = setCurrentScreen(value)
+
+    val nonclientArea: Rect2i
+        @JvmName("nonclientAreaProperty")
+        get() = getNonclientArea()
 
     val mousePassthroughPolygon: List<Vector2>
         @JvmName("mousePassthroughPolygonProperty")
@@ -410,6 +415,10 @@ open class Window(handle: MemorySegment) : Viewport(handle) {
 
     fun getContentScaleStretch(): Long {
         return ObjectCalls.ptrcallNoArgsRetLong(getContentScaleStretchBind, handle)
+    }
+
+    fun getNonclientArea(): Rect2i {
+        return ObjectCalls.ptrcallNoArgsRetRect2i(getNonclientAreaBind, handle)
     }
 
     fun setKeepTitleVisible(titleVisible: Boolean) {
@@ -1045,6 +1054,11 @@ open class Window(handle: MemorySegment) : Viewport(handle) {
         private const val GET_CONTENT_SCALE_STRETCH_HASH = 536857316L
         private val getContentScaleStretchBind by lazy {
             ObjectCalls.getMethodBind("Window", "get_content_scale_stretch", GET_CONTENT_SCALE_STRETCH_HASH)
+        }
+
+        private const val GET_NONCLIENT_AREA_HASH = 410525958L
+        private val getNonclientAreaBind by lazy {
+            ObjectCalls.getMethodBind("Window", "get_nonclient_area", GET_NONCLIENT_AREA_HASH)
         }
 
         private const val SET_KEEP_TITLE_VISIBLE_HASH = 2586408642L
