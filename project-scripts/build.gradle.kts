@@ -47,6 +47,12 @@ kotlin {
                 .forEach { kotlin.srcDir(file(it)) }
         }
         kotlin.srcDir(kspKotlinOutputDir)
+        // Godot Android exports leave a full project copy (kotlin-src + old
+        // generated registrars) inside android/build's Gradle intermediates;
+        // sweeping those up as script sources causes mass redeclarations. A
+        // project's android/ dir (build template + plugins) and .godot cache
+        // never hold hand-written script sources.
+        kotlin.exclude("android/**", ".godot/**", "build/**")
     }
 }
 

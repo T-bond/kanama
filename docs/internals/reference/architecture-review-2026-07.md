@@ -39,9 +39,12 @@
   own `destroy=true` (the last `unreference()` destroying the owner directly).
 - **Validation:** `runtime_smoke`, `tool_smoke`, `hot_reload_smoke`, and
   `hot_reload_in_process_smoke` all green after the fix; ObjectDB exit-leak
-  count dropped 20 → 2 (runtime smoke) and 20 → 14 (reload smoke). **Pending:**
-  the iOS side needs an on-device self-test run (PTRCALL/OBJECTCALLS matrices,
-  including the `refcounted-ret-owns-plus1` probe) next device session.
+  count dropped 20 → 2 (runtime smoke) and 20 → 14 (reload smoke). The full
+  **desktop demo corpus** (all nine `desktop_smoke_all.sh` targets, addons
+  refreshed to the fixed runtime) passed 2026-07-11 — no demo relied on zombie
+  RefCounted lifetimes. **Pending:** the iOS side needs an on-device self-test
+  run (PTRCALL/OBJECTCALLS matrices, including the `refcounted-ret-owns-plus1`
+  probe) next device session.
 - **How it survived so long:** zombies are invisible to gameplay (leaks, not
   crashes), the exit-leak warning was easy to attribute to test scaffolding,
   and no gate asserted scripted-RefCounted destruction until the reload smoke's
@@ -57,6 +60,19 @@
   literal-count guard only works if `local_ci` runs after example-project
   changes; prefer running the full gate on any task touching
   `example_project/`.
+
+### F4 — project-scripts source sweep swallowed Android export intermediates
+
+- `project-scripts` adds the whole consumer project directory as a Kotlin
+  source root with no excludes. A Godot Android export leaves a full project
+  copy (including `kotlin-src/` and previously generated registrars) inside
+  `android/build/**` Gradle intermediates, and demos can carry stale KSP output
+  in their own top-level `build/` — both got swept up as script sources,
+  producing mass `Redeclaration` compile failures on `installAddonJar` for
+  **every demo that had ever run an Android export**. Found refreshing the
+  demo corpus for the F1 validation; fixed by excluding `android/**`,
+  `.godot/**`, and `build/**` from the script source set. All nine demos
+  refresh + smoke cleanly after the fix.
 
 ### F3 — retired-classloader GC check flaky under machine load
 
@@ -95,13 +111,18 @@
 | `BuiltinTypes` RefCounted ownership helpers (`releaseRefCounted`, retained-array reads) | OK — destroy-on-true handled correctly (the pattern `siFree` should also adopt, see observation) |
 | Structure/cohesion pass | Clean — all non-mapped root dirs (`Library/`, `.kotlin/`, `site/`, …) are gitignored with zero tracked files; 2357 tracked files, no junk hits; docs↔nav bijective; `phase6_smoke.sh` (dead alias) removed; `audit_embedded_processes.sh` justified in place as an interactive maintainer aid |
 
+## Audited in round two (2026-07-11)
+
+| Surface | Verdict |
+|---|---|
+| KSP cleanup/release emission (`emitCleanupHelpers`, `cleanupPropertyExpr`, dispatchSet release-then-reassign) | OK — ordering safe under F1's destroy-at-zero semantics, recursion guard sound, no touch-after-release |
+| KSP enum-export model (task 32 path) | OK — fail-loud on empty enums; ordinal INT slot + hint emission as designed |
+| Desktop `ObjectCalls` ownership-sensitive helpers (sampled: raw object return, Variant-path object return, StringName return, `destroyObject`) | OK — matches the documented conventions exactly (raw returns untouched, Variant-path borrows with the Variant destroyed, destroy-after-read for owned strings). Sampled, not line-by-line; the mechanical mass stays covered by the layout/ABI audit scripts |
+
 ## Not yet audited (remaining task-35 scope)
 
-- Desktop `ObjectCalls.kt` hand-written helpers (40.8k lines; indirectly
-  covered by `audit_ptrcall_helper_layouts` / ABI audits, but no fresh manual
-  pass).
-- KSP processor emitters (desktop + iOS registrars) beyond what `local_ci`'s
-  literal assertions pin.
+- Desktop `ObjectCalls.kt` beyond the sampled ownership helpers (40.8k lines;
+  covered by `audit_ptrcall_helper_layouts` / ABI audits).
 - The 47 `DESKTOP_HANDSHAPED` policy classes.
 - The Android PanamaPort remap pass and its pre/post audits.
 - `scripts/generate_api_wrapper.py` policy internals.
