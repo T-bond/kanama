@@ -202,6 +202,18 @@ object DirAccess {
         }
     }
 
+    // Error-returning variant: the open error must be read AFTER the failed open (an eagerly
+    // evaluated fallback would capture the error state of a previous, unrelated open).
+    private fun withOpenDirOrOpenError(path: String, block: (MemorySegment) -> Long): Long {
+        val dir = ObjectCalls.ptrcallWithStringArgRetObject(openBind, MemorySegment.NULL, path)
+        if (dir.address() == 0L) return getOpenError()
+        return try {
+            block(dir)
+        } finally {
+            ObjectCalls.destroyObject(dir)
+        }
+    }
+
     internal fun fileExistsHandle(handle: MemorySegment, path: String): Boolean =
         ObjectCalls.ptrcallWithStringArgRetBool(fileExistsBind, handle, path)
 
@@ -341,7 +353,7 @@ object DirAccess {
 
     @JvmStatic
     fun changeDirAt(directoryPath: String, toDir: String): Long =
-        withOpenDir(directoryPath, getOpenError()) { dir ->
+        withOpenDirOrOpenError(directoryPath) { dir ->
             ObjectCalls.ptrcallWithStringArgRetLong(changeDirBind, dir, toDir)
         }
 
@@ -507,19 +519,19 @@ object DirAccess {
 
     @JvmStatic
     fun makeDirAt(directoryPath: String, path: String): Long =
-        withOpenDir(directoryPath, getOpenError()) { dir ->
+        withOpenDirOrOpenError(directoryPath) { dir ->
             ObjectCalls.ptrcallWithStringArgRetLong(makeDirBind, dir, path)
         }
 
     @JvmStatic
     fun makeDirRecursiveAt(directoryPath: String, path: String): Long =
-        withOpenDir(directoryPath, getOpenError()) { dir ->
+        withOpenDirOrOpenError(directoryPath) { dir ->
             ObjectCalls.ptrcallWithStringArgRetLong(makeDirRecursiveBind, dir, path)
         }
 
     @JvmStatic
     fun removeAt(directoryPath: String, path: String): Long =
-        withOpenDir(directoryPath, getOpenError()) { dir ->
+        withOpenDirOrOpenError(directoryPath) { dir ->
             ObjectCalls.ptrcallWithStringArgRetLong(removeBind, dir, path)
         }
 
@@ -543,19 +555,19 @@ object DirAccess {
 
     @JvmStatic
     fun copyAt(directoryPath: String, from: String, to: String, chmodFlags: Int = -1): Long =
-        withOpenDir(directoryPath, getOpenError()) { dir ->
+        withOpenDirOrOpenError(directoryPath) { dir ->
             ObjectCalls.ptrcallWithTwoStringAndIntArgsRetLong(copyBind, dir, from, to, chmodFlags)
         }
 
     @JvmStatic
     fun renameAt(directoryPath: String, from: String, to: String): Long =
-        withOpenDir(directoryPath, getOpenError()) { dir ->
+        withOpenDirOrOpenError(directoryPath) { dir ->
             ObjectCalls.ptrcallWithTwoStringArgsRetLong(renameBind, dir, from, to)
         }
 
     @JvmStatic
     fun createLinkAt(directoryPath: String, source: String, target: String): Long =
-        withOpenDir(directoryPath, getOpenError()) { dir ->
+        withOpenDirOrOpenError(directoryPath) { dir ->
             ObjectCalls.ptrcallWithTwoStringArgsRetLong(createLinkBind, dir, source, target)
         }
 

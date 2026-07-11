@@ -1,12 +1,10 @@
 # Architecture Review — 2026-07 (Cohesion + Bug Audit)
 
-> **Status: first pass complete (2026-07-10), scope partially audited.** The
+> **Status: complete (three rounds, 2026-07-10 → 2026-07-11).** The
 > 2026-07 edition of [architecture-review-2026-06.md](./architecture-review-2026-06.md),
 > motivated by multi-model development across Phases 4–5: verify the repository
 > is still cohesive, and hunt for bugs on the surfaces the automated gates do
-> not structurally protect. Each audited surface below carries a verdict;
-> surfaces not yet audited are listed honestly at the end (kanama-tasks task 35
-> tracks the remainder).
+> not structurally protect. Each audited surface below carries a verdict.
 
 ## Confirmed defects (fixed in this pass)
 
@@ -89,6 +87,27 @@
   Note: the deterministic failure that led here was F1, not this — this only
   removes the residual timing sensitivity.
 
+### F5 — DirAccess/FileAccess `*At` helpers reported a stale open error on failed opens
+
+- **Where:** the hand-shaped `DirAccess` static facade (`changeDirAt`, `makeDirAt`,
+  `makeDirRecursiveAt`, `removeAt`, `copyAt`, `renameAt`, `createLinkAt`) and
+  `FileAccess` (`getErrorFor`, `resizeFile`).
+- **Mechanism:** the failure fallback was written as
+  `withOpenDir(directoryPath, getOpenError()) { … }`. Kotlin evaluates arguments
+  left-to-right, so `getOpenError()` ran **before** the open attempt inside the
+  helper — the fallback captured the error state of a *previous, unrelated* open.
+- **Failure scenario:** any prior successful open leaves the thread-local open
+  error at `OK`. `DirAccess.makeDirAt("/nonexistent-parent", "sub")` then fails
+  to open, does nothing, and returns `0` (OK) — the caller believes the
+  directory was created.
+- **Fix:** dedicated `withOpenDirOrOpenError` / `withOpenFileOrOpenError`
+  variants that read `getOpenError()` *after* the failed open (same thread, so
+  the thread-local error is the correct one). The non-error fallbacks
+  (`false`, `""`, `emptyList()`…) stay eager — they are constants.
+- **How it survived:** the helpers do the right thing operationally (the op is
+  skipped); only the *reported* error is wrong, and no smoke asserted the error
+  code of a failed-open path.
+
 ## Observations (recorded, not defects)
 
 - **`ScriptBridge.siFree` ignores `unreference()`'s true-return** on the script
@@ -105,6 +124,25 @@
 - **`siCall` writes only the `error` field** of `GDExtensionCallError` —
   matches engine behavior (Godot pre-initializes the struct; INVALID_METHOD
   messages don't read `argument`/`expected`).
+- **Aliasing wrappers share one +1** (round 3): `fromHandle`/`fromResource`/
+  `fromObject`/`asObject` downcast helpers create a second wrapper over the
+  same handle without adding a reference. Calling `close()` on more than one
+  alias releases more references than were taken. `close()` is opt-in
+  (`@ManualGodotLifetimeApi`), so this is an API sharpness, not an active
+  defect: only close the owning wrapper.
+- **`SceneTree.delaySeconds` accepts `processInPhysics` but ignores it**
+  (round 3) — the coroutine awaits process frames only. Misleading parameter;
+  harmless for current callers.
+- **Android `Real.kt` is pinned single-precision** (round 3): the remap pass
+  hardcodes the Float variant, so `-PkanamaPrecision=double` does not propagate
+  to the AAR. Irrelevant while Android templates are single-precision; becomes
+  a divergence only if a double-precision mobile path ever appears.
+- **String-default escaping is unhandled in the generator** (round 3):
+  a Godot string default containing `$` or `\` would land verbatim in a Kotlin
+  string literal (interpolation/escape hazard). No 4.7 API default contains
+  either character (verified); a future re-pin that introduces one fails the
+  jar compile loudly or, for `$identifier`, could silently interpolate — check
+  on re-pins.
 
 ## Surfaces audited to conclusion (this pass)
 
@@ -125,13 +163,20 @@
 | KSP enum-export model (task 32 path) | OK — fail-loud on empty enums; ordinal INT slot + hint emission as designed |
 | Desktop `ObjectCalls` ownership-sensitive helpers (sampled: raw object return, Variant-path object return, StringName return, `destroyObject`) | OK — matches the documented conventions exactly (raw returns untouched, Variant-path borrows with the Variant destroyed, destroy-after-read for owned strings). Sampled, not line-by-line; the mechanical mass stays covered by the layout/ABI audit scripts |
 
-## Not yet audited (remaining task-35 scope)
+## Audited in round three (2026-07-11)
 
-- Desktop `ObjectCalls.kt` beyond the sampled ownership helpers (40.8k lines;
-  covered by `audit_ptrcall_helper_layouts` / ABI audits).
-- The 47 `DESKTOP_HANDSHAPED` policy classes.
-- The Android PanamaPort remap pass and its pre/post audits.
-- `scripts/generate_api_wrapper.py` policy internals.
+| Surface | Verdict |
+|---|---|
+| The 47 `DESKTOP_HANDSHAPED` policy classes | **F5 found + fixed** (DirAccess/FileAccess facades); otherwise sound. Read to conclusion: RefCounted/Resource close() (double-release guarded, unreference→destroy-on-true matches post-F1 semantics), DirAccess/FileAccess handle policy (fresh sole-ref opens destroyed directly — equivalent to release for a ref of 1), Engine.registerSingleton RefCounted-rejection guard intact, Tween/Tweener fluent self-return collapse matches the task-31 measured +1 ABI, SceneTree glue (Engine.get_main_loop borrow is fine — MainLoop is not RefCounted), FileAccessHandle.close() double-guarded (file close + wrapper release). The remaining 38 classes carry only mechanical `create`/`from*` factories and generated-shaped bodies: swept for ownership-sensitive calls (`destroyObject`/`releaseHandle`/eager fallbacks) — zero hits |
+| Android PanamaPort remap pass + audits | OK — remap rules fold in the correct order (blanket `.invoke(`→`.invokeWithArguments(` before the targeted Kotlin-callback undos); all nine undo needles verified live against current sources; zero nullable-invoke sites outside the covered set; every silent-failure class is either forbidden by the post-audit (`?.invokeWithArguments(`) or fails the Android compile loudly (non-nullable Kotlin invokes, `Files.readString`…) |
+| `generate_api_wrapper.py` policy internals | OK — self-return-collapse conditions match the hand-shaped Tween policy exactly; `close`/`wait` method renames are structurally backed (an uncovered future `close()` fails jar compile as an accidental override); custom member sections carry only benign alias/cast helpers; by-design skips documented. One latent hazard hardened: `kotlin_default_expression` would have rendered a scientific-notation float default (`1e-05`) as invalid Kotlin `1e-05.0` — no current API default triggers it (verified against `extension_api.json`), fixed in the generator with no output change |
+| Desktop `ObjectCalls.kt` (family-complete, beyond round-2 samples) | OK — the 1585 helpers are mechanical compositions of shared primitives, each audited to conclusion: String args/returns destroy-after-read on both slots; packed-array and Array returns allocate→read→`destroyTyped`; Variant returns via `readVariantReturn` destroy after decode; Variant *argument* cells destroyed in `finally` (arena zero-init makes the not-yet-initialized destroy path a safe no-op); Callable/Signal args build→call→destroy with the engine keeping its own copy. Slot widths remain covered by `audit_ptrcall_helper_layouts` |
+
+### Optional hardening still open
+
+- An explicit iOS self-test row for scripted-`Resource` death (F1's scripted
+  path has only indirect iOS evidence: zero regressions across the 70/0 +
+  111/0 matrices and launch). Cheap, needs a device session.
 
 ## Looks wrong but isn't (new entries)
 
@@ -139,3 +184,5 @@
 |---|---|
 | clang/IDE diagnostics on `kanama_ios_shim.c` ("gdextension_interface.h not found") | Editor include-path config noise; the real builds compile with `-I gdextension` (verified via `clang -fsyntax-only -I gdextension -I ios/include`). |
 | "Methods generated 91.1%" in the Generator Summary | The denominator includes the 1437 engine virtuals (deliberately not callable wrappers — `@OverrideVirtual` is the correct usage) and the documented by-design skips. Callable coverage is the Promoted Source Summary (99.9%); the coverage page now says this inline. |
+| `ObjectCalls`' thread-local `ptrcallScratch` reused across calls that can re-enter script upcalls | Safe by construction: ptrcall decodes all argument slots before executing the method body (so nested calls clobbering the arg cells can't be observed), and return slots are written after the body — including any nested upcalls — completes, so reads/writes nest like a stack. |
+| `withOpenDir`/`withOpenFileRead` destroy the fresh `DirAccess`/`FileAccess` with `destroyObject` instead of unreference-then-destroy | The object was just created by a static `open()` and the +1 the return slot transferred is its only reference; direct destroy is equivalent to release-at-1 and cannot race anything. |

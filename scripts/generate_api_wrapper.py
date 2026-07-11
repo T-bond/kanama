@@ -1004,7 +1004,11 @@ def kotlin_default_expression(default_value: str | None, logical_kind: str) -> s
         except ValueError:
             return None
         rendered = repr(value)
-        return rendered if "." in rendered else f"{rendered}.0"
+        # repr() of e.g. 1e-05 has no "." but is already a valid Kotlin Double literal;
+        # only bare integers (repr of 2.0 -> "2.0" always has ".", but be safe) need ".0".
+        if "." in rendered or "e" in rendered or "E" in rendered:
+            return rendered
+        return f"{rendered}.0"
     if logical_kind == "String" and len(default_value) >= 2 and default_value[0] == default_value[-1] == '"':
         return default_value
     if logical_kind == "StringName":

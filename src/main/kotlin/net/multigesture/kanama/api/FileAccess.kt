@@ -321,6 +321,19 @@ object FileAccess {
         }
     }
 
+    // Error-returning variant: the open error must be read AFTER the failed open (an eagerly
+    // evaluated fallback would capture the error state of a previous, unrelated open).
+    private fun withOpenFileOrOpenError(path: String, mode: Long, block: (MemorySegment) -> Long): Long {
+        val file = ObjectCalls.ptrcallWithStringAndLongArgsRetObject(openBind, MemorySegment.NULL, path, mode)
+        if (file.address() == 0L) return getOpenError()
+        return try {
+            block(file)
+        } finally {
+            ObjectCalls.ptrcallNoArgs(closeBind, file)
+            ObjectCalls.destroyObject(file)
+        }
+    }
+
     internal fun closeHandle(handle: MemorySegment) {
         ObjectCalls.ptrcallNoArgs(closeBind, handle)
     }
@@ -532,7 +545,7 @@ object FileAccess {
 
     @JvmStatic
     fun getErrorFor(path: String): Long =
-        withOpenFileRead(path, getOpenError()) { file ->
+        withOpenFileOrOpenError(path, READ) { file ->
             ObjectCalls.ptrcallNoArgsRetLong(getErrorBind, file)
         }
 
@@ -752,7 +765,7 @@ object FileAccess {
 
     @JvmStatic
     fun resizeFile(path: String, length: Long): Long =
-        withOpenFile(path, READ_WRITE, getOpenError()) { file ->
+        withOpenFileOrOpenError(path, READ_WRITE) { file ->
             ObjectCalls.ptrcallWithLongArgRetLong(resizeBind, file, length)
         }
 
