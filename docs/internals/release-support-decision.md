@@ -460,36 +460,51 @@ MET only after every piece below is green.
   main reason B3-iOS may stay below the desktop bar even after packaging —
   document, don't overclaim.)
 
-**Artifact 2 — Android: BLOCKED BY DESIGN (found during implementation,
-2026-07-11)**
+**Artifact 2 — `kanama-mobile-addon-android-v<version>.zip` (AAR split landed
+2026-07-11, task 36; device revalidation pending)**
 
-- A generic prebuilt Android addon artifact is **not buildable today**: the
-  Kanama Android AAR is project-specific by construction —
-  `prepareAndroidKanamaSources` compiles the *consumer project's own*
-  `kotlin-src` and generated KSP registrars (through the PanamaPort remap)
-  into the AAR alongside the runtime. There is no runtime-only AAR to package.
-- Unblocking requires a **runtime/scripts AAR split** (runtime AAR packaged
-  once; per-project scripts delivered separately, mirroring desktop's
-  `kanama.jar` / `kanama-scripts.jar` shape). That is a real Android-backend
-  design change, tracked as the B3-Android precondition — the same family as
-  the iOS script-compile caveat, but structural rather than tooling.
-- The original decisions (debug-only, PanamaPort via JitPack not vendored)
-  carry over to whenever the split lands.
+- The original blocker (found 2026-07-11): the fused AAR was project-specific
+  by construction — it compiled the consumer project's `kotlin-src` + KSP
+  registrars into the runtime. **Resolved by the task-36 runtime/scripts AAR
+  split:** `:plugin` builds a project-agnostic runtime AAR
+  (`assembleAndroidPluginAar`, no demo dir), `:scripts` builds the per-project
+  scripts AAR compiled against the runtime classes, and the `.gdap` written by
+  `installAndroidPluginAar` pulls the scripts AAR in as a `local=` dependency
+  (verified against Godot 4.7's plugin-config source: local deps join the
+  export's android_libraries exactly like the plugin binary).
+- Contents: `android/plugins/KanamaAndroid.debug.aar` (runtime, both ABIs) +
+  a runtime-only `KanamaAndroid.gdap` (**no** `local=` scripts entry — Godot
+  invalidates plugin configs whose listed local deps are missing; the
+  consumer's own `installAndroidPluginAar` run rewrites it), the
+  `.gdextension` Android-entries fragment, and an install README carrying the
+  debug-only + script-compile + JitPack caveats. Built by
+  `packageMobileAddonAndroid` (maintainer-built — needs the Android SDK).
+- Same honest caveat family as iOS: prebuilt **runtime** only; compiling
+  project scripts still requires the checkout (`installAndroidPluginAar`).
+- Carried decisions unchanged: debug-only (no release AAR exists), PanamaPort
+  via JitPack not vendored.
+- **Still open before B3-Android counts:** on-device revalidation of the
+  split artifacts — `android_smoke.sh` (Pixel 7 debug) +
+  `android_export_minified.sh` (R8) must pass with the two-AAR install. The
+  R8 analysis says the runtime AAR's consumer rules cover the scripts AAR's
+  classes APK-wide, but that claim is device-validated, not assumed.
 
-**Install smoke — `scripts/package_install_smoke.sh --ios-addon` (implemented
-2026-07-11):** unzips the artifact, asserts both device xcframework variants
-carry their `ios-arm64` static slices with **no simulator slice**, asserts the
-descriptor merge fragment has both `ios.*.arm64` entries, and asserts the
-README still carries the script-compile caveat. Device-free. (The planned
-`--android-addon` mode is moot until the AAR split lands.)
+**Install smokes — `scripts/package_install_smoke.sh --ios-addon` (2026-07-11)
+and `--android-addon` (2026-07-11):** device-free structure validation. iOS:
+both device xcframework variants with `ios-arm64` slices and no simulator
+slice, descriptor fragment entries, README caveat. Android: runtime AAR with
+both `jni/` ABIs + bundled `.gdextension` asset + `KanamaBinding`, **no
+baked-in KSP registrars** (project-agnostic proof), `.gdap` with the
+PanamaPort remote dep and no `local=` entry, descriptor fragment entries,
+README caveat.
 
-**B3 exit criteria (revised for the Android finding):** the iOS artifact
-builds reproducibly (`packageMobileAddonIos`, maintainer-built on macOS) and
-its install-smoke is green; `docs/exporting/ios.md` documents the packaged
-addon with the size + script-compile caveats; the Android half is explicitly
-recorded as blocked on the runtime/scripts AAR split. B3 flips MET only when
-**both** platforms have a packaged install path — i.e. after the AAR split —
-so B3 remains ❌ with the iOS half done.
+**B3 exit criteria (revised for the AAR split):** the iOS artifact builds
+reproducibly (`packageMobileAddonIos`, maintainer-built on macOS) and its
+install-smoke is green ✅; the Android artifact builds reproducibly
+(`packageMobileAddonAndroid`) and its install-smoke is green ✅; both
+platforms' packaged install paths are documented with their caveats. B3 flips
+MET only after the split artifacts pass the on-device gates (Pixel 7 debug
+smoke + R8-minified release) — until that device session, B3 remains ❌.
 
 ### Promotion procedure (when all green)
 

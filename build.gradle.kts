@@ -1269,9 +1269,36 @@ val kanamaAndroidDemoDir = providers.gradleProperty("kanamaAndroidDemoDir")
 val kanamaAndroidSdkDir = providers.environmentVariable("ANDROID_HOME")
     .orElse(providers.environmentVariable("ANDROID_SDK_ROOT"))
 
+// Task 36 AAR split: the runtime AAR is project-agnostic (no demo dir); the
+// per-project scripts AAR compiles the consumer project's kotlin-src + KSP
+// registrars against the runtime classes. installAndroidPluginAar installs
+// both, with the scripts AAR pulled in as a `.gdap` local dependency so the
+// export preset still only knows the single "KanamaAndroid" plugin.
 tasks.register<Exec>("assembleAndroidPluginAar") {
     group = "android"
-    description = "Build the experimental Kanama Android Godot plugin AAR for a demo project."
+    description = "Build the project-agnostic Kanama Android runtime plugin AAR (experimental)."
+
+    doFirst {
+        if (!kanamaAndroidSdkDir.isPresent) {
+            throw GradleException(
+                "Missing ANDROID_HOME or ANDROID_SDK_ROOT for Android plugin build",
+            )
+        }
+        environment("ANDROID_HOME", kanamaAndroidSdkDir.get())
+        environment("ANDROID_SDK_ROOT", kanamaAndroidSdkDir.get())
+        commandLine(
+            layout.projectDirectory.file("gradlew").asFile.absolutePath,
+            "-p",
+            "android/godot-plugin",
+            ":plugin:assembleDebug",
+            "-PkanamaPanamaPortCore=${panamaPortCoreDependency.get()}",
+        )
+    }
+}
+
+tasks.register<Exec>("assembleAndroidScriptsAar") {
+    group = "android"
+    description = "Build the per-project Kanama Android scripts AAR (kotlin-src + KSP registrars) for a demo project."
 
     doFirst {
         if (!kanamaAndroidDemoDir.isPresent) {
@@ -1290,7 +1317,7 @@ tasks.register<Exec>("assembleAndroidPluginAar") {
             layout.projectDirectory.file("gradlew").asFile.absolutePath,
             "-p",
             "android/godot-plugin",
-            ":plugin:assembleDebug",
+            ":scripts:assembleDebug",
             "-PkanamaAndroidDemoDir=${kanamaAndroidDemoDir.get()}",
             "-PkanamaPanamaPortCore=${panamaPortCoreDependency.get()}",
         )
@@ -1299,8 +1326,9 @@ tasks.register<Exec>("assembleAndroidPluginAar") {
 
 tasks.register("installAndroidPluginAar") {
     group = "android"
-    description = "Build and install the experimental Kanama Android plugin AAR into a demo project."
+    description = "Build and install the Kanama Android runtime + scripts AARs into a demo project (experimental)."
     dependsOn(tasks.named("assembleAndroidPluginAar"))
+    dependsOn(tasks.named("assembleAndroidScriptsAar"))
 
     doLast {
         if (!kanamaAndroidDemoDir.isPresent) {
@@ -1317,6 +1345,11 @@ tasks.register("installAndroidPluginAar") {
             into(pluginsDir)
             rename { "KanamaAndroid.debug.aar" }
         }
+        copy {
+            from(layout.projectDirectory.file("android/godot-plugin/scripts/build/outputs/aar/scripts-debug.aar"))
+            into(pluginsDir)
+            rename { "KanamaAndroidScripts.debug.aar" }
+        }
 
         pluginsDir.resolve("KanamaAndroid.gdap").writeText(
             """
@@ -1327,6 +1360,7 @@ tasks.register("installAndroidPluginAar") {
             |binary="KanamaAndroid.debug.aar"
             |
             |[dependencies]
+            |local=["KanamaAndroidScripts.debug.aar"]
             |remote=["${panamaPortCoreDependency.get()}"]
             |""".trimMargin(),
         )
@@ -1403,8 +1437,98 @@ tasks.register<Zip>("packageMobileAddonIos") {
     from(layout.projectDirectory.file("LICENSE"))
 }
 
-// No packageMobileAddonAndroid: the Android AAR is project-specific by
-// construction (prepareAndroidKanamaSources compiles the consumer project's
-// kotlin-src + KSP registrars into the AAR through the PanamaPort remap), so a
-// generic prebuilt Android addon artifact is blocked on a runtime/scripts AAR
-// split — recorded in release-support-decision.md §7 B3.
+// --- Packaged mobile add-on, Android (task 25 B3 / task 36 AAR split). The
+// runtime AAR is project-agnostic since the task-36 split, so it can ship
+// prebuilt. The packaged .gdap deliberately carries NO `local=` scripts entry:
+// Godot's plugin-config validation requires listed local dependencies to
+// exist, and the per-project scripts AAR is produced by the consumer's own
+// installAndroidPluginAar run (which rewrites the .gdap with the local
+// entry). Maintainer-built (needs the Android SDK), so it does not join
+// packageDistributions or the CI package workflow. Validate with
+// scripts/package_install_smoke.sh --android-addon.
+
+val mobileAddonAndroidExtrasDir = layout.buildDirectory.dir("generated/mobile-addon/android")
+val prepareMobileAddonAndroidExtras by tasks.registering {
+    outputs.dir(mobileAddonAndroidExtrasDir)
+    doLast {
+        val dir = mobileAddonAndroidExtrasDir.get().asFile
+        dir.mkdirs()
+        dir.resolve("KanamaAndroid.gdap").writeText(
+            """
+            |[config]
+            |
+            |name="KanamaAndroid"
+            |binary_type="local"
+            |binary="KanamaAndroid.debug.aar"
+            |
+            |[dependencies]
+            |remote=["${panamaPortCoreDependency.get()}"]
+            |""".trimMargin(),
+        )
+        dir.resolve("kanama.gdextension-android-entries.txt").writeText(
+            """
+            |# Merge into addons/kanama/kanama.gdextension (README step 3).
+            |# Do not replace the whole descriptor.
+            |#
+            |# [configuration] section:
+            |android_aar_plugin = true
+            |# [libraries] section:
+            |android.debug.arm64 = "libkanama_bootstrap.so"
+            |android.release.arm64 = "libkanama_bootstrap.so"
+            |android.debug.x86_64 = "libkanama_bootstrap.so"
+            |android.release.x86_64 = "libkanama_bootstrap.so"
+            |""".trimMargin(),
+        )
+        dir.resolve("README.md").writeText(
+            """
+            |# Kanama Android add-on (experimental, prebuilt runtime, debug-only)
+            |
+            |Prebuilt Kanama Android runtime plugin AAR (arm64-v8a + x86_64,
+            |debug build) for an existing Kanama Godot project using Godot's
+            |Gradle Android build.
+            |
+            |**Honest caveats:**
+            |- Debug-only: no release AAR exists yet (recorded in the Kanama
+            |  release-support decision record).
+            |- This delivers the *runtime* only. Compiling your project's Kotlin
+            |  scripts for Android still requires a Kanama source checkout today
+            |  (`installAndroidPluginAar` builds the per-project scripts AAR and
+            |  rewrites KanamaAndroid.gdap to reference it). Use this artifact
+            |  for script-less evaluation or prebuilt-runtime updates; see
+            |  docs/exporting/android.md.
+            |- The PanamaPort dependency resolves remotely from JitPack
+            |  (declared in KanamaAndroid.gdap); the export machine needs
+            |  network access or a local Maven mirror.
+            |
+            |1. Unzip at your Godot project root (adds android/plugins/*).
+            |2. The project must already carry the desktop Kanama addon with
+            |   matching version ${project.version}, and the Android export
+            |   preset must use the Gradle build with the KanamaAndroid plugin
+            |   enabled.
+            |3. Merge kanama.gdextension-android-entries.txt into
+            |   addons/kanama/kanama.gdextension.
+            |4. Export with the Godot ${godotVersion.get()} Android templates.
+            |""".trimMargin(),
+        )
+    }
+}
+
+tasks.register<Zip>("packageMobileAddonAndroid") {
+    group = "distribution"
+    description = "Zip the experimental project-agnostic Android runtime AAR + install notes; maintainer-built, see release-support-decision §7 B3."
+    dependsOn(tasks.named("assembleAndroidPluginAar"), prepareMobileAddonAndroidExtras)
+    archiveFileName.set("kanama-mobile-addon-android-v${project.version}.zip")
+    destinationDirectory.set(layout.buildDirectory.dir("distributions"))
+    isPreserveFileTimestamps = false
+    isReproducibleFileOrder = true
+    from(layout.projectDirectory.file("android/godot-plugin/plugin/build/outputs/aar/plugin-debug.aar")) {
+        into("android/plugins")
+        rename { "KanamaAndroid.debug.aar" }
+    }
+    from(mobileAddonAndroidExtrasDir.map { it.file("KanamaAndroid.gdap") }) {
+        into("android/plugins")
+    }
+    from(mobileAddonAndroidExtrasDir.map { it.file("kanama.gdextension-android-entries.txt") })
+    from(mobileAddonAndroidExtrasDir.map { it.file("README.md") })
+    from(layout.projectDirectory.file("LICENSE"))
+}

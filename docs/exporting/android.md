@@ -56,15 +56,19 @@ Android does not embed a desktop JDK. The exported game runs on Android ART and
 uses [PanamaPort](https://github.com/vova7878/PanamaPort)'s
 `com.v7878.foreign` API for the FFM compatibility layer.
 
-The Android AAR contains:
+The Android deliverable is two AARs (runtime/scripts split, mirroring
+desktop's `kanama.jar` / `kanama-scripts.jar`):
 
-- the Godot Android plugin class,
-- a Java bootstrap that loads `libkanama_bootstrap.so`,
-- the Android native bootstrap library,
-- remapped Kanama runtime classes,
-- game Kotlin scripts and generated KSP registrars,
-- `.gdextension` metadata for Android AAR loading, and
-- PanamaPort dependency metadata.
+- **Runtime AAR** (`KanamaAndroid.debug.aar`, project-agnostic): the Godot
+  Android plugin class, a Java bootstrap that loads `libkanama_bootstrap.so`,
+  the Android native bootstrap library, remapped Kanama runtime classes, and
+  `.gdextension` metadata for Android AAR loading.
+- **Scripts AAR** (`KanamaAndroidScripts.debug.aar`, per project): the game's
+  Kotlin scripts and generated KSP registrars, remapped and compiled against
+  the runtime classes. The runtime plugin's `.gdap` references it as a local
+  dependency, so both AARs land in the exported APK.
+
+PanamaPort dependency metadata is declared in the `.gdap`.
 
 Game projects should not need JNI code, a custom Godot fork, or hand-edited
 Android native code.
@@ -114,7 +118,8 @@ Requirements:
   with `--install-android-build-template`.
 - Export preset has `gradle_build/use_gradle_build=true`.
 - Project contains `android/plugins/KanamaAndroid.gdap`.
-- Project contains the matching `KanamaAndroid.debug.aar`.
+- Project contains the matching `KanamaAndroid.debug.aar` and
+  `KanamaAndroidScripts.debug.aar`.
 - `addons/kanama/kanama.gdextension` contains Android AAR entries:
 
 ```ini
@@ -141,9 +146,17 @@ Build and install the experimental Android plugin into a Godot project:
   -PkanamaAndroidDemoDir=/absolute/path/to/godot_project
 ```
 
-This builds `android/godot-plugin`, compiles the Android native bootstrap from
-`bootstrap/bootstrap.c`, writes `android/plugins/KanamaAndroid.debug.aar`, and
-writes `android/plugins/KanamaAndroid.gdap`.
+This builds `android/godot-plugin` (both halves), compiles the Android native
+bootstrap from `bootstrap/bootstrap.c`, writes
+`android/plugins/KanamaAndroid.debug.aar` (runtime) and
+`android/plugins/KanamaAndroidScripts.debug.aar` (your project's scripts +
+registrars), and writes `android/plugins/KanamaAndroid.gdap` referencing both.
+
+The runtime half alone builds without a project directory
+(`./gradlew assembleAndroidPluginAar`), which is what the packaged Android
+add-on zip ships (`./gradlew packageMobileAddonAndroid`; prebuilt runtime
+only — compiling your project's Kotlin scripts still requires this checkout's
+`installAndroidPluginAar`).
 
 ## Export A Debug APK
 

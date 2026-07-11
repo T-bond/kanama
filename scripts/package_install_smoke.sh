@@ -15,6 +15,8 @@ Options:
   --store-addon                  Require a store-addon zip.
   --ios-addon                    Require an iOS mobile-addon zip (structure
                                  checks only; device-free, no Godot needed).
+  --android-addon                Require an Android mobile-addon zip (structure
+                                 checks only; device-free, no Godot needed).
   --require-all-store-platforms  Require all store-addon desktop native libs.
   --work-dir DIR                 Existing empty or non-existing workspace dir.
   --keep-work-dir                Do not delete a generated temporary workspace.
@@ -41,6 +43,10 @@ while [[ $# -gt 0 ]]; do
       ;;
     --ios-addon)
       package_kind="ios-addon"
+      shift
+      ;;
+    --android-addon)
+      package_kind="android-addon"
       shift
       ;;
     --require-all-store-platforms)
@@ -223,6 +229,8 @@ elif [[ -f "$project_dir/addons/kanama/templates/release-kit/build.gradle.kts" ]
   detected_kind="store-addon"
 elif [[ -d "$project_dir/addons/kanama/bin/ios" ]]; then
   detected_kind="ios-addon"
+elif [[ -f "$project_dir/android/plugins/KanamaAndroid.debug.aar" ]]; then
+  detected_kind="android-addon"
 else
   echo "[package_install_smoke] could not detect package kind for: $zip_path" >&2
   exit 1
@@ -282,6 +290,72 @@ if [[ "$detected_kind" == "ios-addon" ]]; then
     exit 1
   fi
   echo "[package_install_smoke] PASS (ios-addon structure checks)"
+  exit 0
+fi
+
+if [[ "$detected_kind" == "android-addon" ]]; then
+  # Device-free structure validation of the packaged Android runtime AAR
+  # (task 36 AAR split; B3 design, release-support-decision.md §7): the
+  # project-agnostic runtime AAR with both native ABIs and NO baked-in
+  # consumer scripts, a .gdap without a scripts local dependency (Godot
+  # invalidates plugin configs whose local deps are missing), the descriptor
+  # merge fragment, and the README carrying the script-compile caveat.
+  # Script compilation and on-device behavior stay covered by
+  # installAndroidPluginAar + android_smoke.sh / android_export_minified.sh.
+  check_file "android/plugins/KanamaAndroid.debug.aar"
+  check_file "android/plugins/KanamaAndroid.gdap"
+  check_file "kanama.gdextension-android-entries.txt"
+  check_file "README.md"
+
+  aar_dir="$work_dir/aar-contents"
+  mkdir -p "$aar_dir"
+  unzip -q "$project_dir/android/plugins/KanamaAndroid.debug.aar" -d "$aar_dir"
+  for abi in arm64-v8a x86_64; do
+    if [[ ! -f "$aar_dir/jni/$abi/libkanama_bootstrap.so" ]]; then
+      echo "[package_install_smoke] runtime AAR missing jni/$abi/libkanama_bootstrap.so" >&2
+      exit 1
+    fi
+  done
+  if [[ ! -f "$aar_dir/assets/addons/kanama/kanama.gdextension" ]]; then
+    echo "[package_install_smoke] runtime AAR missing the bundled kanama.gdextension asset" >&2
+    exit 1
+  fi
+  # Capture the listing once: `unzip -l | grep -q` would SIGPIPE unzip under
+  # pipefail when grep exits on the first match.
+  classes_listing="$(unzip -l "$aar_dir/classes.jar")"
+  if ! grep -q "net/multigesture/kanama/KanamaBinding.class" <<<"$classes_listing"; then
+    echo "[package_install_smoke] runtime AAR classes.jar missing KanamaBinding" >&2
+    exit 1
+  fi
+  if grep -q "net/multigesture/kanama/generated/.*\.class" <<<"$classes_listing"; then
+    echo "[package_install_smoke] runtime AAR is not project-agnostic (contains baked-in KSP registrars)" >&2
+    exit 1
+  fi
+
+  if ! grep -q '^remote=\["com\.github\.falcon4ever\.PanamaPort' "$project_dir/android/plugins/KanamaAndroid.gdap"; then
+    echo "[package_install_smoke] .gdap lost the PanamaPort remote dependency" >&2
+    exit 1
+  fi
+  if grep -q '^local=' "$project_dir/android/plugins/KanamaAndroid.gdap"; then
+    echo "[package_install_smoke] packaged .gdap must not list a scripts local dependency (Godot invalidates configs with missing local deps)" >&2
+    exit 1
+  fi
+
+  if ! grep -q '^android_aar_plugin = true' "$project_dir/kanama.gdextension-android-entries.txt"; then
+    echo "[package_install_smoke] descriptor fragment missing android_aar_plugin entry" >&2
+    exit 1
+  fi
+  for entry in "android.debug.arm64" "android.release.arm64"; do
+    if ! grep -q "^$entry = " "$project_dir/kanama.gdextension-android-entries.txt"; then
+      echo "[package_install_smoke] descriptor fragment missing $entry entry" >&2
+      exit 1
+    fi
+  done
+  if ! grep -q "still requires a Kanama source" "$project_dir/README.md"; then
+    echo "[package_install_smoke] README lost the script-compile caveat" >&2
+    exit 1
+  fi
+  echo "[package_install_smoke] PASS (android-addon structure checks)"
   exit 0
 fi
 

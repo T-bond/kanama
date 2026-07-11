@@ -70,22 +70,35 @@ The build tools are also separate from the runtime:
 
 ## Implementation Shape
 
-The current Android implementation lives under `android/godot-plugin`.
+The current Android implementation lives under `android/godot-plugin`, split
+into two AAR modules (task 36; mirrors desktop's `kanama.jar` /
+`kanama-scripts.jar` shape):
 
-The AAR includes:
+- **`:plugin` — runtime AAR** (project-agnostic, `KanamaAndroid.debug.aar`):
+  a Godot Android plugin class, a small Java bootstrap that loads
+  `libkanama_bootstrap.so`, the Android native bootstrap library, the remapped
+  Kanama runtime + annotations sources, and a `.gdextension` file marked as an
+  Android AAR plugin. Builds with no consumer project
+  (`assembleAndroidPluginAar`), which is what `packageMobileAddonAndroid`
+  ships.
+- **`:scripts` — scripts AAR** (per project, `KanamaAndroidScripts.debug.aar`):
+  the consumer project's `kotlin-src/` scripts and generated KSP registrars,
+  remapped identically and compiled against the runtime classes
+  (`compileOnly(project(":plugin"))`). The runtime `.gdap` written by
+  `installAndroidPluginAar` references it as a `local=` dependency, so Godot's
+  export adds both AARs and they dex into the same APK classloader — registrar
+  lookup needs no loader-aware path.
 
-- a Godot Android plugin class,
-- a small Java bootstrap that loads `libkanama_bootstrap.so`,
-- the Android native bootstrap library,
-- the remapped Kanama runtime sources,
-- the demo's Kotlin scripts and generated KSP registrars, and
-- a `.gdextension` file marked as an Android AAR plugin.
+Both modules copy sources into generated Android source trees through the same
+PanamaPort compatibility remap, shared in `buildSrc` (`KanamaAndroidRemap`).
+The remap is deliberately guarded per module: `auditAndroidKanamaSources`
+(runtime) and `auditAndroidKanamaScriptSources` (scripts, plus the pre-remap
+demo-source audit) fail the Android build if stale desktop-only APIs or
+incorrectly rewritten Kotlin callback calls appear in the generated trees.
 
-The Android build currently copies Kanama desktop sources into generated Android
-sources and applies a small compatibility remap. That remap is deliberately
-guarded by `auditAndroidKanamaSources`, which fails the Android build if stale
-desktop-only APIs or incorrectly rewritten Kotlin callback calls appear in the
-generated Android source tree.
+R8 note: the runtime AAR's `consumer-rules.pro` applies APK-wide, so its keeps
+for `net.multigesture.kanama.generated.**` and `**.KanamaRegistry` cover the
+scripts AAR's classes too — no second rules file is needed.
 
 The demo project needs Android entries in `addons/kanama/kanama.gdextension`:
 

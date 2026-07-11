@@ -2,168 +2,21 @@ plugins {
     id("com.android.library")
 }
 
+// Runtime half of the Kanama Android deliverable (task 36 AAR split): the
+// remapped Kanama runtime + annotations, the native bootstrap, and the Godot
+// plugin classes — project-agnostic, no consumer sources. The consumer
+// project's scripts + KSP registrars build separately in `:scripts`.
 val kanamaRoot = rootProject.layout.projectDirectory.dir("../..")
-val demoDir = providers.gradleProperty("kanamaAndroidDemoDir").map { file(it) }
 val androidKanamaSources = layout.buildDirectory.dir("generated/kanamaAndroidSources")
 val panamaPortCoreDependency = providers.gradleProperty("kanamaPanamaPortCore")
     .orElse("com.github.falcon4ever.PanamaPort:Core:0.1.3-kanama-r8.2")
-
-data class AndroidSourceRemapRule(
-    val name: String,
-    val needle: String,
-    val replacement: String,
-)
-
-val androidSourceRemapRules = listOf(
-    AndroidSourceRemapRule(
-        name = "foreign-package",
-        needle = "java.lang.foreign",
-        replacement = "com.v7878.foreign",
-    ),
-    AndroidSourceRemapRule(
-        name = "panama-method-handle-invoke",
-        needle = ".invoke(",
-        replacement = ".invokeWithArguments(",
-    ),
-    AndroidSourceRemapRule(
-        name = "kotlin-registration-callback-invoke",
-        needle = "registerAll.invokeWithArguments",
-        replacement = "registerAll.invoke",
-    ),
-    AndroidSourceRemapRule(
-        name = "kotlin-script-factory-invoke",
-        needle = "script.factory?.invokeWithArguments",
-        replacement = "script.factory?.invoke",
-    ),
-    AndroidSourceRemapRule(
-        name = "kotlin-property-default-callback-invoke",
-        needle = "writePropertyDefault?.invokeWithArguments",
-        replacement = "writePropertyDefault?.invoke",
-    ),
-    AndroidSourceRemapRule(
-        name = "kotlin-dispatch-has-method-callback-invoke",
-        needle = "dispatchHasMethod?.invokeWithArguments",
-        replacement = "dispatchHasMethod?.invoke",
-    ),
-    AndroidSourceRemapRule(
-        name = "kotlin-dispatch-call-callback-invoke",
-        needle = "dispatchCall?.invokeWithArguments",
-        replacement = "dispatchCall?.invoke",
-    ),
-    AndroidSourceRemapRule(
-        name = "kotlin-signal-callback-invoke",
-        needle = "callbacks[id]?.invokeWithArguments",
-        replacement = "callbacks[id]?.invoke",
-    ),
-    AndroidSourceRemapRule(
-        name = "generated-signal-callback-registry-invoke",
-        needle = "SignalCallbackRegistry.invokeWithArguments",
-        replacement = "SignalCallbackRegistry.invoke",
-    ),
-)
-
-val androidForbiddenSourceFragments = listOf(
-    "java.lang.foreign",
-    "Files.readString",
-    "Files.writeString",
-    "getClassLoadingLock",
-    "registerAll.invokeWithArguments",
-    "script.factory?.invokeWithArguments",
-    "writePropertyDefault?.invokeWithArguments",
-    "dispatchHasMethod?.invokeWithArguments",
-    "dispatchCall?.invokeWithArguments",
-    "callbacks[id]?.invokeWithArguments",
-    "SignalCallbackRegistry.invokeWithArguments",
-    "?.invokeWithArguments(",
-)
-
-val androidForbiddenDemoSourcePatterns = listOf(
-    Regex("""\?\.\s*invoke\s*\(""") to
-        "nullable Kotlin callback invoke is unsafe for Android source remap; use explicit state or callback?.let { it() }",
-)
-
-fun remapAndroidKanamaSourceLine(line: String): String =
-    androidSourceRemapRules.fold(line) { rewritten, rule ->
-        rewritten.replace(rule.needle, rule.replacement)
-    }
-
-fun auditOriginalAndroidDemoSources(root: File) {
-    val failures = mutableListOf<String>()
-    if (!root.exists()) return
-
-    root.walkTopDown()
-        .filter { it.isFile && it.extension == "kt" }
-        .forEach { file ->
-            file.readLines().forEachIndexed { index, line ->
-                val sourceLine = line.substringBefore("//")
-                androidForbiddenDemoSourcePatterns.forEach { (pattern, message) ->
-                    if (pattern.containsMatchIn(sourceLine)) {
-                        failures += "${file.relativeTo(root)}:${index + 1}: $message"
-                    }
-                }
-            }
-        }
-
-    if (failures.isNotEmpty()) {
-        throw GradleException(
-            buildString {
-                appendLine("Android demo source audit failed before remap:")
-                failures.take(40).forEach { appendLine("  $it") }
-                if (failures.size > 40) {
-                    appendLine("  ... ${failures.size - 40} more")
-                }
-            },
-        )
-    }
-}
-
-fun auditGeneratedAndroidKanamaSources(root: File) {
-    val failures = mutableListOf<String>()
-    root.walkTopDown()
-        .filter { it.isFile && (it.extension == "kt" || it.extension == "java") }
-        .forEach { file ->
-            file.readLines().forEachIndexed { index, line ->
-                val sourceLine = line.substringBefore("//")
-                androidForbiddenSourceFragments.forEach { fragment ->
-                    if (sourceLine.contains(fragment)) {
-                        failures += "${file.relativeTo(root)}:${index + 1}: forbidden Android source fragment '$fragment'"
-                    }
-                }
-            }
-        }
-
-    if (failures.isNotEmpty()) {
-        throw GradleException(
-            buildString {
-                appendLine("Android Kanama source remap audit failed:")
-                failures.take(40).forEach { appendLine("  $it") }
-                if (failures.size > 40) {
-                    appendLine("  ... ${failures.size - 40} more")
-                }
-            },
-        )
-    }
-}
-
-val auditAndroidDemoSources by tasks.registering {
-    inputs.dir(demoDir.map { it.resolve("kotlin-src") })
-
-    doLast {
-        if (!demoDir.isPresent) {
-            throw GradleException(
-                "Missing -PkanamaAndroidDemoDir=/absolute/path/to/kanama demo project",
-            )
-        }
-        auditOriginalAndroidDemoSources(demoDir.get().resolve("kotlin-src"))
-    }
-}
 
 val prepareAndroidKanamaSources by tasks.registering(Sync::class) {
     into(androidKanamaSources)
 
     fun CopySpec.remapForeignImports() {
         filter { line: String ->
-            remapAndroidKanamaSourceLine(line)
+            KanamaAndroidRemap.remapLine(line)
         }
     }
 
@@ -173,20 +26,6 @@ val prepareAndroidKanamaSources by tasks.registering(Sync::class) {
     }
     from(kanamaRoot.dir("annotations/src/main/kotlin")) {
         remapForeignImports()
-    }
-    from(demoDir.map { it.resolve("kotlin-src") }) {
-        remapForeignImports()
-    }
-    from(demoDir.map { it.resolve("build/generated/ksp/main/kotlin") }) {
-        remapForeignImports()
-    }
-
-    doFirst {
-        if (!demoDir.isPresent) {
-            throw GradleException(
-                "Missing -PkanamaAndroidDemoDir=/absolute/path/to/kanama demo project",
-            )
-        }
     }
 
     doLast {
@@ -226,12 +65,11 @@ val prepareAndroidKanamaSources by tasks.registering(Sync::class) {
 }
 
 val auditAndroidKanamaSources by tasks.registering {
-    dependsOn(auditAndroidDemoSources)
     dependsOn(prepareAndroidKanamaSources)
     inputs.dir(androidKanamaSources)
 
     doLast {
-        auditGeneratedAndroidKanamaSources(androidKanamaSources.get().asFile)
+        KanamaAndroidRemap.auditGeneratedSources(androidKanamaSources.get().asFile, "runtime")
     }
 }
 

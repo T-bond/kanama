@@ -20,3 +20,4 @@ rootProject.name = "kanama-godot-android-plugin"
 
 include(":godot-stubs")
 include(":plugin")
+include(":scripts")
