@@ -312,10 +312,10 @@ if ! rg -q 'val kt = SelfSmoke\(godotObject\)' "$self_smoke_registrar"; then
   echo "[local_ci] generated self-smoke registrar does not construct the KanamaScript base-class example" >&2
   exit 1
 fi
-# 14 = the example HelloScript's exported properties incl. metadata/tool-button
-# entries and the task-32 enum export (smoke_difficulty). Bump when the example
-# gains/loses an exported property.
-if ! rg -q 'propertyCount = 14' "$hello_script_registrar"; then
+# 15 = the example HelloScript's exported properties incl. metadata/tool-button
+# entries, the task-32 enum export (smoke_difficulty), and the task-38 enum-list
+# export (smoke_joints). Bump when the example gains/loses an exported property.
+if ! rg -q 'propertyCount = 15' "$hello_script_registrar"; then
   echo "[local_ci] generated script-property list count does not include metadata/tool-button entries" >&2
   exit 1
 fi

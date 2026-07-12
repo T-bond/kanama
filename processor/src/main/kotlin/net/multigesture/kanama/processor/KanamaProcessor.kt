@@ -675,6 +675,8 @@ class KanamaProcessor(
                 scriptType.narrow,
                 scriptType.enumFqName,
                 scriptType.enumEntries,
+                scriptType.arrayElementEnumFqName,
+                scriptType.arrayElementEnumEntries,
             )
         }
 
@@ -1072,7 +1074,8 @@ class KanamaProcessor(
             }
 
             if (fq == "kotlin.collections.List" || fq == "kotlin.collections.MutableList") {
-                val elementFq = type.arguments.firstOrNull()?.type?.resolve()?.declaration?.qualifiedName?.asString()
+                val elementDecl = type.arguments.firstOrNull()?.type?.resolve()?.declaration
+                val elementFq = elementDecl?.qualifiedName?.asString()
                 if (elementFq == "kotlin.String") {
                     return ScriptPropertyTypeModel(
                         type = TypeMapping.ARRAY,
@@ -1103,6 +1106,30 @@ class KanamaProcessor(
                         hintString = "24/${customElement.propertyHint}:${customElement.simpleName}",
                         arrayElementCustomScriptFqName = customElement.fqName,
                         arrayElementCustomScriptIsResource = customElement.isExportableResource,
+                    )
+                }
+                // task 38 (issue #40): List<enum class> — a typed int Array whose elements
+                // carry PROPERTY_HINT_ENUM ("2/2:<entries>"), the array form of the task-32
+                // scalar enum export (C# enum-array parity). Elements are stored as ordinals.
+                val elementEnum = (elementDecl as? KSClassDeclaration)
+                    ?.takeIf { it.classKind == ClassKind.ENUM_CLASS }
+                if (elementEnum != null && elementFq != null) {
+                    val entries = elementEnum.declarations
+                        .filterIsInstance<KSClassDeclaration>()
+                        .filter { it.classKind == ClassKind.ENUM_ENTRY }
+                        .map { it.simpleName.asString() }
+                        .toList()
+                    if (entries.isEmpty()) {
+                        throw IllegalArgumentException(
+                            "$className.$propertyName: enum class '$elementFq' has no entries to export",
+                        )
+                    }
+                    return ScriptPropertyTypeModel(
+                        type = TypeMapping.ARRAY,
+                        hint = PROPERTY_HINT_TYPE_STRING,
+                        hintString = "2/$PROPERTY_HINT_ENUM:" + entries.joinToString(","),
+                        arrayElementEnumFqName = elementFq,
+                        arrayElementEnumEntries = entries,
                     )
                 }
             }
@@ -3149,6 +3176,12 @@ internal class ScriptCodeEmitter(
                 }
             property.arrayElementString ->
                 "val $localName = Arena.ofConfined().use { a -> BuiltinTypes.readVariantStringList($variantPtr, a) }"
+            // Stale stored ordinals (e.g. after entry removal) clamp into the entry
+            // range instead of indexing raw — same policy as the scalar enum export.
+            property.arrayElementEnumFqName != null -> {
+                val fq = property.arrayElementEnumFqName
+                "val $localName = Arena.ofConfined().use { a -> BuiltinTypes.readVariantLongList($variantPtr, a).map { i -> $fq.entries[i.toInt().coerceIn(0, $fq.entries.lastIndex)] } }"
+            }
             else -> variantReadExpr(property.type, variantPtr, localName)
         }
 
@@ -3235,6 +3268,8 @@ internal class ScriptCodeEmitter(
                 "Arena.ofConfined().use { a -> BuiltinTypes.initVariantFromAny(ret, $valueExpr.map { net.multigesture.kanama.api.GodotObject(it.godotObject) }, a) }"
             property.arrayElementString ->
                 "Arena.ofConfined().use { a -> BuiltinTypes.initVariantFromAny(ret, $valueExpr, a) }"
+            property.arrayElementEnumFqName != null ->
+                "Arena.ofConfined().use { a -> BuiltinTypes.initVariantFromAny(ret, $valueExpr.map { it.ordinal.toLong() }, a) }"
             else -> variantWriteRetExpr(property.type, valueExpr)
         }
 
@@ -3262,6 +3297,7 @@ internal class ScriptCodeEmitter(
             property.customScriptFqName != null -> "${property.customScriptFqName}?"
             property.arrayElementCustomScriptFqName != null -> "List<${property.arrayElementCustomScriptFqName}>"
             property.arrayElementString -> "List<String>"
+            property.arrayElementEnumFqName != null -> "List<${property.arrayElementEnumFqName}>"
             property.enumFqName != null -> property.enumFqName
             else -> property.narrow?.kotlinType ?: property.type.kotlinType
         }
@@ -3273,6 +3309,7 @@ internal class ScriptCodeEmitter(
             property.customScriptFqName != null -> "null"
             property.arrayElementCustomScriptFqName != null -> "emptyList()"
             property.arrayElementString -> "emptyList()"
+            property.arrayElementEnumFqName != null -> "emptyList()"
             property.enumFqName != null -> "${property.enumFqName}.entries.first()"
             else -> property.narrow?.zeroLiteral ?: property.type.kotlinLiteralZero
         }

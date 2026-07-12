@@ -47,6 +47,16 @@ versioning once public releases begin.
   as inspector defaults. `@ScriptClass` scripts on desktop/Android; the iOS
   property delivery is a documented deferral (warn-skips, keeps the Kotlin
   default).
+- `@Export` / `@ScriptProperty` now also works on **lists of Kotlin enums**
+  (`List<MyEnum>` / `MutableList<MyEnum>`,
+  [#40](https://github.com/falcon4ever/kanama/issues/40)). Matching C# enum-array
+  exports, the property registers as a typed int Array whose elements carry
+  `PROPERTY_HINT_ENUM` with the entry names (the inspector renders an array of
+  dropdowns); elements are stored as ordinals, `.tscn`-stored arrays deserialize
+  back into the list, and out-of-range stored elements clamp to a valid entry.
+  Same scope as scalar enum exports: `@ScriptClass` scripts on desktop/Android,
+  iOS property delivery warn-skips and keeps the Kotlin default. `Map<K, V>`
+  exports remain out of scope (non-String Dictionary keys are a policy gate).
 - `@OverrideVirtual` now supports **every Variant-expressible return type** in
   the Godot 4.7 virtual surface (170 additional virtuals). New Kotlin return
   types: all fixed-element packed arrays (`ByteArray`, `IntArray`, `LongArray`,

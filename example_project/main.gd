@@ -62,6 +62,7 @@ func _ready() -> void:
 		if not has_export_group or not has_export_subgroup:
 			push_error("Kanama script export group/subgroup metadata missing")
 		_kanama_enum_export_smoke(properties)
+		_kanama_enum_list_export_smoke(properties)
 		var replace_smoke_scene = $ScriptNode.replace_smoke_scene()
 		print("[kanama:gd] kt script replace_smoke_scene = ", replace_smoke_scene)
 		if not replace_smoke_scene:
@@ -116,6 +117,38 @@ func _kanama_enum_export_smoke(properties: Array) -> void:
 		" clamp=", clamped == 2)
 	if not (enum_type and enum_hint and enum_hint_string and tscn_value == 2 and roundtrip == 0 and clamped == 2):
 		push_error("Kanama enum export metadata or round-trip failed")
+
+# task 38 — enum-list exports (List<enum>). Must register as an ARRAY property with
+# PROPERTY_HINT_TYPE_STRING and a per-element enum hint ("2/2:<entries>"), round-trip
+# ordinal arrays through set/get, and clamp out-of-range stored ints per element.
+func _kanama_enum_list_export_smoke(properties: Array) -> void:
+	var list_type := false
+	var list_hint := false
+	var list_hint_string := false
+	for property in properties:
+		if property.get("name", "") == "smoke_joints":
+			list_type = int(property.get("type", -1)) == TYPE_ARRAY
+			list_hint = int(property.get("hint", -1)) == PROPERTY_HINT_TYPE_STRING
+			list_hint_string = str(property.get("hint_string", "")) == "%d/%d:EASY,NORMAL,HARD" % [TYPE_INT, PROPERTY_HINT_ENUM]
+	var tscn_value = $ScriptNode.smoke_joints
+	$ScriptNode.smoke_joints = [0, 1]
+	var roundtrip = $ScriptNode.smoke_joints
+	$ScriptNode.smoke_joints = [99, -3]
+	var clamped = $ScriptNode.smoke_joints
+	# The inspector's Add Element/resize null-fills the (untyped) array it got from
+	# the getter; null elements must default to the first entry, not silently drop.
+	$ScriptNode.smoke_joints = [1, null]
+	var nullfill = $ScriptNode.smoke_joints
+	$ScriptNode.smoke_joints = tscn_value
+	print("[kanama:gd] kt script enum list export type=", list_type,
+		" hint=", list_hint,
+		" hint_string=", list_hint_string,
+		" tscn=", tscn_value == [2, 0],
+		" roundtrip=", roundtrip == [0, 1],
+		" clamp=", clamped == [2, 0],
+		" nullfill=", nullfill == [1, 0])
+	if not (list_type and list_hint and list_hint_string and tscn_value == [2, 0] and roundtrip == [0, 1] and clamped == [2, 0] and nullfill == [1, 0]):
+		push_error("Kanama enum-list export metadata or round-trip failed")
 
 # task 29 — virtual-return families. Calling an @OverrideVirtual method by name on a
 # script-attached host routes through the script instance dispatch (the same path the

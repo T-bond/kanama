@@ -316,6 +316,19 @@ object BuiltinTypes {
             else -> emptyList()
         }
 
+    /**
+     * Int-element Array read for enum-list script properties (task 38). Non-numeric
+     * elements default to 0 instead of dropping: the inspector's Add Element/resize
+     * appends `null` slots (the script getter hands it an untyped Array, which
+     * null-fills on resize), and dropping them would make those edits silent no-ops.
+     */
+    fun readVariantLongList(variant: MemorySegment, arena: Arena): List<Long> =
+        when (val value = variantToScalar(variant, arena)) {
+            is List<*> -> value.map { (it as? Number)?.toLong() ?: 0L }
+            is Number -> listOf(value.toLong())
+            else -> emptyList()
+        }
+
     fun readVariantNodePath(variant: MemorySegment, arena: Arena): NodePath =
         when (val value = variantToScalar(variant, arena)) {
             is NodePath -> value

@@ -602,6 +602,29 @@ internal class IosScriptCodeEmitter(
     }
 
     private fun ScriptPropertyModel.toIosProperty(className: String): IosProperty {
+        // Enum-element lists (task 38) need the ordinal <-> entry conversion the iOS
+        // set-property path doesn't have yet: keep the Kotlin default, same boundary
+        // as the scalar enum exports below (no list delivery case is emitted).
+        if (arrayElementEnumFqName != null) {
+            warn(
+                "[kanama-ios] $className.$kotlinName (List<${arrayElementEnumFqName.substringAfterLast('.')}>) — " +
+                    "no iOS @ScriptProperty enum-list path yet, will keep its Kotlin default",
+            )
+            return IosProperty(
+                godotName = godotName,
+                kotlinName = kotlinName,
+                isObjectType = false,
+                godotClassName = "",
+                isList = false,
+                listElementClassName = "",
+                isNullable = nullable,
+                valueTypeClassName = "",
+                godotVariantType = 28, // ARRAY
+                customScriptFqName = "",
+                arrayElementCustomScriptFqName = "",
+                listElementIsString = false,
+            )
+        }
         val isList = type == TypeMapping.ARRAY
         val isObject = objectWrapperFqName != null
         // A user @ScriptClass-typed OBJECT property (e.g. `target: Vehicle?` exported via node_paths):

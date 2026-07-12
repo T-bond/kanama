@@ -300,13 +300,16 @@ build/box round-trips in the on-device self-test matrix (the
 **iOS `@ScriptProperty` conversion deferrals (by design, warn-skipped
 fail-loud):** properties whose Kotlin field needs a conversion around the
 Variant slot are desktop/Android-only for now. That is the narrow scalars
-(`kotlin.Float`/`kotlin.Int` widened to the 64-bit FLOAT/INT slots) and Kotlin
+(`kotlin.Float`/`kotlin.Int` widened to the 64-bit FLOAT/INT slots), Kotlin
 `enum class` exports (task 32 — INT slot carrying the ordinal, registered with
-`PROPERTY_HINT_ENUM`). The model carries everything iOS needs
-(`enumFqName`/`enumEntries` are in the serialized script model, schema v3);
+`PROPERTY_HINT_ENUM`), and enum-list exports (task 38 — typed int Array of
+ordinals with a per-element enum hint). The model carries everything iOS needs
+(`enumFqName`/`enumEntries` and `arrayElementEnumFqName`/
+`arrayElementEnumEntries` are in the serialized script model, schema v4);
 what's missing is a set-property conversion hook in the iOS emitter, so
-`IosScriptCodeEmitter.toIosProperty` warns and keeps the Kotlin default. Both
-conversions belong to the same ios-runtime property-path follow-up slice.
+`IosScriptCodeEmitter.toIosProperty` warns and keeps the Kotlin default. All
+three conversions belong to the same ios-runtime property-path follow-up
+slice.
 
 ## KDoc Maintenance
 
