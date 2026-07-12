@@ -164,17 +164,16 @@ class Weapon(val godotObject: MemorySegment) {
 }
 ```
 
-`@GlobalClass` registers `Weapon` as a global class name: another script can
-then export `Weapon?` or `List<Weapon>`, and Kanama resolves the live Kotlin
-resource script instances when reading the property; values (including nested
-resource slots like `swingSound`) round-trip through `.tscn`/`.tres` storage.
+`@GlobalClass` registers `Weapon` in the editor's global class list: it shows
+up in the Create New Resource dialog, its `.tres` instances match typed export
+slots, and another script can export `Weapon?` or `List<Weapon>` — Kanama
+resolves the live Kotlin resource script instances when reading the property;
+values (including nested resource slots like `swingSound`) round-trip through
+`.tscn`/`.tres` storage.
 
-Known limitation: the editor's Create New Resource dialog does not yet list
-Kotlin global classes, and the inspector's type check can reject assigning a
-manually created `Resource`-with-script to a typed slot. Editor-side
-global-class registration is in progress; until it lands, wire custom
-resource instances into scenes at build time or load them from `.tres` in
-code.
+One naming constraint: the file must be named after the class (`Weapon.kt`),
+or the class cannot be mapped back to its script file and stays out of the
+global class list — the build warns when they diverge.
 
 Generated wrappers (`net.multigesture.kanama.api.Resource`, `AudioStream`,
 ...) are non-owning views with internal constructors and **cannot be

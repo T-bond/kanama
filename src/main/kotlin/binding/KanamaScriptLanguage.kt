@@ -513,7 +513,11 @@ object KanamaScriptLanguage {
         val argsArray = args.reinterpret(8)
         val typePtr = argsArray.get(ADDRESS, 0)
         val typeName = GodotStrings.readString(typePtr)
-        val handled = KanamaScript.handlesGlobalClassType(typeName)
+        // The argument is a script RESOURCE TYPE (what a loader's _get_resource_type reports for
+        // the file), not a global class name: EditorFileSystem::_get_global_script_class routes
+        // "which language owns this script file's global classes" through this check (GDScript
+        // matches "GDScript", C# matches "CSharpScript"). Our loader reports "Script" for .kt.
+        val handled = typeName == "Script"
         rRet.reinterpret(1).set(JAVA_BYTE, 0, if (handled) 1.toByte() else 0.toByte())
     }
 
@@ -523,19 +527,22 @@ object KanamaScriptLanguage {
         val pathPtr = argsArray.get(ADDRESS, 0)
         val path = GodotStrings.readString(pathPtr)
         val globalName = KanamaScript.inferGlobalClassNameFromPath(path)
-        if (globalName == null) {
+        val meta = globalName?.let { KanamaScript.metaByGlobalName(it) }
+        if (globalName == null || meta == null) {
+            // Not a @GlobalClass script (or catalog meta missing): report no global class rather
+            // than inventing one with a guessed base type.
             BuiltinTypes.construct(net.multigesture.kanama.binding.runtime.VariantType.DICTIONARY, rRet)
             return
         }
-        val meta = KanamaScript.metaByGlobalName(globalName)
+        System.err.println("[kanama:kt] ScriptLanguage._get_global_class_name path=$path -> $globalName base=${meta.instanceBaseType}")
         BuiltinTypes.initDictionary(
             rRet,
             mapOf(
                 "name" to globalName,
-                "base_type" to (meta?.instanceBaseType ?: "Node"),
+                "base_type" to meta.instanceBaseType,
                 "icon_path" to "",
                 "is_abstract" to false,
-                "is_tool" to (meta?.isTool ?: false),
+                "is_tool" to meta.isTool,
             ),
         )
     }

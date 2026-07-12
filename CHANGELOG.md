@@ -61,6 +61,22 @@ versioning once public releases begin.
   raw-pointer (`void*`/`const Glyph*`) callbacks, which are not
   Variant-expressible by design.
 
+### Fixed
+
+- `@GlobalClass` Kotlin scripts now actually register in the editor's global
+  class list ([#39](https://github.com/falcon4ever/kanama/issues/39)): they
+  appear in the Create New Resource dialog, and `.tres` resources using them
+  match typed export slots (the *"selected resource (Resource) does not match
+  … (MyClass)"* rejection reported in
+  [#38](https://github.com/falcon4ever/kanama/issues/38) is gone). The script
+  language answered the editor's `_handles_global_class_type` routing query
+  with global-class-*name* semantics instead of script-resource-*type*
+  semantics ("Script" for `.kt` files), so the editor never queried
+  `_get_global_class_name` and no Kotlin class ever reached the global class
+  cache. A `@GlobalClass` in a file not named `<ClassName>.kt` now gets a
+  build warning (the class cannot be mapped back to its script file and stays
+  out of the list).
+
 ## 0.3.0 - unreleased preview line (merged 2026-07-06, not tagged)
 
 This release closes Kanama's mobile + convergence phase. The headline is

@@ -25,7 +25,22 @@ case "$UNAME_S" in
 esac
 
 "$ROOT_DIR/gradlew" -p "$ROOT_DIR" syncExampleAddonJar >/dev/null
+# task 37 (issue #39) — the editor scan must register @GlobalClass Kotlin scripts
+# in the global class list (feeds the Create New Resource dialog and typed-slot
+# matching). Clear the cache first so the check exercises a fresh scan, not a
+# previous run's result. SmokeResource is @ScriptClass(attachTo = "Resource")
+# @GlobalClass.
+GLOBAL_CLASS_CACHE="$PROJECT_DIR/.godot/global_script_class_cache.cfg"
+rm -f "$GLOBAL_CLASS_CACHE"
+
 KANAMA_TRACE_SCRIPT_PROPERTY_CLEANUP=1 "$GODOT_BIN" --headless --editor --quit-after 120 --path "$PROJECT_DIR_FOR_GODOT" --verbose >"$IMPORT_LOG_FILE" 2>&1
+
+if ! grep -q '"class": &"SmokeResource"' "$GLOBAL_CLASS_CACHE" ||
+   ! grep -q '"base": &"Resource"' "$GLOBAL_CLASS_CACHE"; then
+  echo "[runtime_smoke] SmokeResource missing from global_script_class_cache.cfg (issue #39 regression)"
+  cat "$GLOBAL_CLASS_CACHE" 2>/dev/null || true
+  exit 1
+fi
 KANAMA_TRACE_SCRIPT_PROPERTY_CLEANUP=1 "$GODOT_BIN" --headless --path "$PROJECT_DIR_FOR_GODOT" --quit --verbose >"$LOG_FILE" 2>&1
 KANAMA_TRACE_SCRIPT_PROPERTY_CLEANUP=1 "$GODOT_BIN" --headless --path "$PROJECT_DIR_FOR_GODOT" res://resource_owner_smoke.tscn --quit --verbose >>"$LOG_FILE" 2>&1
 KANAMA_TRACE_SCRIPT_PROPERTY_CLEANUP=1 "$GODOT_BIN" --headless --path "$PROJECT_DIR_FOR_GODOT" res://self_smoke.tscn --quit --verbose >>"$LOG_FILE" 2>&1

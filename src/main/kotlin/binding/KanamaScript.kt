@@ -626,10 +626,6 @@ class KanamaScript(
             scriptCatalog.values.any { it.globalName.isNotEmpty() }
         }
 
-        fun handlesGlobalClassType(type: String): Boolean = synchronized(scriptCatalog) {
-            scriptCatalog.values.any { it.globalName == type }
-        }
-
         fun metaByGlobalName(type: String): KanamaScriptMeta? = synchronized(scriptCatalog) {
             scriptCatalog.values.firstOrNull { it.globalName == type }
         }

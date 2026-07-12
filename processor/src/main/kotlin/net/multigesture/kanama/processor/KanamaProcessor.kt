@@ -511,6 +511,19 @@ class KanamaProcessor(
             val name = it.shortName.asString()
             name == "GlobalClass" || name == "ClassName"
         }
+        val fileName = cls.containingFile?.fileName
+        if (isGlobalClass && fileName != null && fileName != "$simpleName.kt") {
+            // The runtime maps a script path back to its global class by the
+            // <ClassName>.kt convention (KanamaScript.inferGlobalClassNameFromPath);
+            // a mismatched file name silently drops the class from the editor's
+            // global class list (Create Resource dialog, typed-slot matching).
+            env.logger.warn(
+                "[kanama:ksp] $simpleName: @GlobalClass requires the file to be named " +
+                    "$simpleName.kt (found $fileName); the class will not register as a " +
+                    "global class in the editor.",
+                cls,
+            )
+        }
         warnOnKanamaScriptSelfMismatch(cls, attachTo)
 
         val properties = mutableListOf<ScriptPropertyModel>()
