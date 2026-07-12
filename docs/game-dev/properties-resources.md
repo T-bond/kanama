@@ -164,14 +164,53 @@ class Weapon(val godotObject: MemorySegment) {
 }
 ```
 
-`@GlobalClass` makes `Weapon` show up in the editor's resource pickers.
-Another script can then export `Weapon?` or `List<Weapon>`, and Kanama
-resolves the live Kotlin resource script instances when reading the property;
-values (including nested resource slots like `swingSound`) round-trip through
-`.tscn`/`.tres` storage.
+`@GlobalClass` registers `Weapon` as a global class name: another script can
+then export `Weapon?` or `List<Weapon>`, and Kanama resolves the live Kotlin
+resource script instances when reading the property; values (including nested
+resource slots like `swingSound`) round-trip through `.tscn`/`.tres` storage.
+
+Known limitation: the editor's Create New Resource dialog does not yet list
+Kotlin global classes, and the inspector's type check can reject assigning a
+manually created `Resource`-with-script to a typed slot. Editor-side
+global-class registration is in progress; until it lands, wire custom
+resource instances into scenes at build time or load them from `.tres` in
+code.
 
 Generated wrappers (`net.multigesture.kanama.api.Resource`, `AudioStream`,
 ...) are non-owning views with internal constructors and **cannot be
 subclassed** — attempting it fails the build with a pointer to the pattern
 above. The wrapper surface would otherwise drift from the script surface;
 `KanamaScript<T>` is the only supported base class.
+
+## Saving Custom Resources
+
+Because a custom resource script is a plain class rather than a `Resource`
+subtype, APIs with `Resource`-typed parameters (such as `ResourceSaver.save`)
+do not accept it directly. Wrap the script's own `godotObject` handle with
+`Resource.fromHandle` instead:
+
+```kotlin
+@ScriptClass(attachTo = "Node")
+@Tool
+class WeaponForge(godotObject: MemorySegment) : KanamaScript<Node>(godotObject, ::Node) {
+    @Export
+    var weapon: Weapon? = null
+
+    @ToolButton(text = "Save weapon")
+    fun saveWeapon() {
+        val weapon = weapon ?: return
+        ResourceSaver.save(Resource.fromHandle(weapon.godotObject), "res://weapon.tres")
+    }
+}
+```
+
+`Resource.fromHandle` is a non-owning view over the same engine object; do
+not `close()` it — the script instance still uses that handle.
+
+The instance you save must be engine-created: loaded from a `.tres`, assigned
+through an inspector slot, or instantiated by the editor. Calling a script
+class constructor yourself — `Weapon(someOtherObject.godotObject)` — does not
+create a new `Weapon` resource; it only wraps an existing handle in a Kotlin
+view, and passing another object's handle (a node's, for example) produces a
+view of the wrong object. Programmatic creation of new script-backed
+resources from Kotlin is not supported yet.
