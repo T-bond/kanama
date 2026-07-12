@@ -118,6 +118,12 @@ class HelloScript(godotObject: MemorySegment) : KanamaScript<Node>(godotObject, 
 	@ScriptProperty
 	var smokeDifficulty = SmokeDifficulty.NORMAL
 
+	// task 38 (issue #40) — enum-list export: registers as a typed int Array whose
+	// elements carry PROPERTY_HINT_ENUM ("2/2:EASY,NORMAL,HARD"), stored as ordinals;
+	// main.tscn overrides it to [HARD, EASY].
+	@ScriptProperty
+	var smokeJoints: List<SmokeDifficulty> = emptyList()
+
 	@ScriptProperty
 	var label: String = "hello"
 

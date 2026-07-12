@@ -174,6 +174,14 @@ internal data class ScriptPropertyModel(
     val enumFqName: String? = null,
     /** Ordered entry names of the enum class (ordinal order). Empty unless [enumFqName] is set. */
     val enumEntries: List<String> = emptyList(),
+    /**
+     * Set for `List<enum class>` properties (task 38, issue #40). The Variant slot is a
+     * typed int Array (hint string `"2/2:<entries>"`) carrying ordinals per element — the
+     * array form of the [enumFqName] scalar export (C# enum-array parity).
+     */
+    val arrayElementEnumFqName: String? = null,
+    /** Ordered entry names of the element enum. Empty unless [arrayElementEnumFqName] is set. */
+    val arrayElementEnumEntries: List<String> = emptyList(),
 )
 
 internal data class ScriptPropertyGroupModel(
@@ -196,6 +204,8 @@ internal data class ScriptPropertyTypeModel(
     val narrow: NarrowScalar? = null,
     val enumFqName: String? = null,
     val enumEntries: List<String> = emptyList(),
+    val arrayElementEnumFqName: String? = null,
+    val arrayElementEnumEntries: List<String> = emptyList(),
 )
 
 internal data class ScriptClassTypeInfo(

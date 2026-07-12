@@ -59,7 +59,7 @@ Legend: `SUPPORTED` means validated in smoke tests or real demo ports.
 | Godot value types | SUPPORTED | Vectors, transforms, colors, planes, AABB, `NodePath`, `RID`, and related helpers are covered for current promoted APIs. |
 | Object/resource handles | PARTIAL | Typed wrappers and closeable `Resource`/`RefCounted` handles are available; ownership-sensitive returns still require explicit policy. |
 | Packed strings and bytes | SUPPORTED | `PackedStringArray` maps to `List<String>` in supported APIs; `PackedByteArray` maps to `ByteArray` in file helpers. |
-| Typed exported arrays | PARTIAL | `List<String>`, `List<Texture2D>`, and same-project global resource-script arrays are supported. Broader typed arrays remain policy work. |
+| Typed exported arrays | PARTIAL | `List<String>`, `List<Texture2D>`, custom-enum arrays (`List<MyEnum>`), and same-project global resource-script arrays are supported. Broader typed arrays remain policy work. |
 | General Array/Dictionary/Variant APIs | PARTIAL | Selected dictionary/list shapes exist. Fully general heterogeneous containers are still a deliberate policy bucket. |
 | Callable | PARTIAL | Signal connections, lambda callbacks, and tween callable helpers exist for bounded shapes. General public Callable ownership remains intentionally constrained. |
 

@@ -9,7 +9,7 @@ package net.multigesture.kanama.processor
 // from that name. SCHEMA_VERSION is bumped whenever the shape changes; the consumer
 // fails closed on a mismatch.
 
-internal const val SCRIPT_MODEL_SCHEMA_VERSION = 3
+internal const val SCRIPT_MODEL_SCHEMA_VERSION = 4
 
 internal fun scriptModelToJson(model: ScriptModel): String {
     val sb = StringBuilder()
@@ -48,6 +48,8 @@ private fun JsonWriter.writeProperty(p: ScriptPropertyModel) = obj {
     field("arrayElementString", p.arrayElementString)
     nullableField("enumFqName", p.enumFqName)
     stringArrayField("enumEntries", p.enumEntries)
+    nullableField("arrayElementEnumFqName", p.arrayElementEnumFqName)
+    stringArrayField("arrayElementEnumEntries", p.arrayElementEnumEntries)
     objectOrNullField("exportCategory", p.exportCategory) { writeGroup(it) }
     objectOrNullField("exportGroup", p.exportGroup) { writeGroup(it) }
     objectOrNullField("exportSubgroup", p.exportSubgroup) { writeGroup(it) }

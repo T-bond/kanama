@@ -316,6 +316,14 @@ object BuiltinTypes {
             else -> emptyList()
         }
 
+    /** Int-element Array read for enum-list script properties (task 38): non-numeric elements drop. */
+    fun readVariantLongList(variant: MemorySegment, arena: Arena): List<Long> =
+        when (val value = variantToScalar(variant, arena)) {
+            is List<*> -> value.mapNotNull { (it as? Number)?.toLong() }
+            is Number -> listOf(value.toLong())
+            else -> emptyList()
+        }
+
     fun readVariantNodePath(variant: MemorySegment, arena: Arena): NodePath =
         when (val value = variantToScalar(variant, arena)) {
             is NodePath -> value
