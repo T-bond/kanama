@@ -135,14 +135,19 @@ func _kanama_enum_list_export_smoke(properties: Array) -> void:
 	var roundtrip = $ScriptNode.smoke_joints
 	$ScriptNode.smoke_joints = [99, -3]
 	var clamped = $ScriptNode.smoke_joints
+	# The inspector's Add Element/resize null-fills the (untyped) array it got from
+	# the getter; null elements must default to the first entry, not silently drop.
+	$ScriptNode.smoke_joints = [1, null]
+	var nullfill = $ScriptNode.smoke_joints
 	$ScriptNode.smoke_joints = tscn_value
 	print("[kanama:gd] kt script enum list export type=", list_type,
 		" hint=", list_hint,
 		" hint_string=", list_hint_string,
 		" tscn=", tscn_value == [2, 0],
 		" roundtrip=", roundtrip == [0, 1],
-		" clamp=", clamped == [2, 0])
-	if not (list_type and list_hint and list_hint_string and tscn_value == [2, 0] and roundtrip == [0, 1] and clamped == [2, 0]):
+		" clamp=", clamped == [2, 0],
+		" nullfill=", nullfill == [1, 0])
+	if not (list_type and list_hint and list_hint_string and tscn_value == [2, 0] and roundtrip == [0, 1] and clamped == [2, 0] and nullfill == [1, 0]):
 		push_error("Kanama enum-list export metadata or round-trip failed")
 
 # task 29 — virtual-return families. Calling an @OverrideVirtual method by name on a

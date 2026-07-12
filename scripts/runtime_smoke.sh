@@ -86,8 +86,9 @@ check "kt script export groups group=true subgroup=true"
 # out-of-range stored ints clamped to a valid entry (no crash).
 check "kt script enum export type=true hint=true hint_string=true tscn=true roundtrip=true clamp=true"
 # task 38 — enum-list exports: ARRAY + PROPERTY_HINT_TYPE_STRING "2/2:<entries>",
-# ordinal-array round-trip via set/get, tscn deserialize, per-element clamp.
-check "kt script enum list export type=true hint=true hint_string=true tscn=true roundtrip=true clamp=true"
+# ordinal-array round-trip via set/get, tscn deserialize, per-element clamp, and
+# inspector Add-Element null-fill defaulting to the first entry.
+check "kt script enum list export type=true hint=true hint_string=true tscn=true roundtrip=true clamp=true nullfill=true"
 check "Mathf lerp=2\\.5 clamp=10 wrap=1 approx=true round=3 lerpf=2\\.5 clampf=10\\.0 sinf=0\\.0 sqrtf=3\\.0"
 check "Generated name constants ok=true"
 check "ProjectSettings string_list=alpha\\|beta"
