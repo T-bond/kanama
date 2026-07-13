@@ -156,9 +156,13 @@ For Linux desktop validation, use a matching Linux Godot binary from the Godot
 cd /path/to/kanama-demos
 JAVA_HOME=/path/to/jdk-25 \
 XDG_DATA_HOME=/tmp/kanama-godot-state-linux \
+XDG_CONFIG_HOME=/tmp/kanama-godot-config-linux \
 KANAMA_DESKTOP_SMOKE_LOG_DIR=/tmp/kanama-desktop-smokes-linux \
 scripts/desktop_smoke_all.sh /path/to/Godot_v4.7-stable_linux.arm64
 ```
+
+(`desktop_smoke_all.sh` defaults both XDG variables to those paths on Linux; set
+them explicitly only to relocate the isolated state.)
 
 Use the Godot binary for the architecture under test, such as
 `Godot_v4.7-stable_linux.arm64` or
@@ -168,12 +172,36 @@ native bootstrap from a clean checkout and preflight `libkanama_bootstrap.so`
 with `file`, `ldd`, and `readelf`.
 
 For Windows validation, launch Godot from an environment with `JAVA_HOME` set
-to JDK 25+ so Kanama can load `%JAVA_HOME%\bin\server\jvm.dll`. Build the
-native bootstrap from a Visual Studio 2022 C++ developer environment, and use
-PowerShell/`.\gradlew.bat` for Gradle commands. Existing Bash smoke scripts can
-hit CRLF-related false negatives on Windows; use the 4.7 stable console binary,
-PowerShell Gradle commands, and Git Bash smoke marker checks for the documented
-path.
+to JDK 25+ so Kanama can load `%JAVA_HOME%\bin\server\jvm.dll`, and use the 4.7
+stable **console** binary so smoke markers reach the terminal.
+
+The native bootstrap needs CMake + MSVC, which are not on the default
+PowerShell/Git Bash `PATH`: wrap every Gradle command that builds demos in
+`VsDevCmd.bat` (a plain `gradlew.bat buildAllScripts` fails on the nested
+native bootstrap otherwise):
+
+```bat
+cmd /c "call ""C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\Tools\VsDevCmd.bat"" -arch=x64 -host_arch=x64 && .\gradlew.bat buildAllScripts -PkanamaRoot=C:\path\to\kanama"
+```
+
+Point the demo builds at the Godot console binary either with the `KANAMA_GODOT`
+environment variable or with `-Pkanama.godot.executable=...` (the root aggregate
+tasks forward the property to nested demo builds):
+
+```bat
+cmd /c "call ""...\VsDevCmd.bat"" -arch=x64 -host_arch=x64 && .\gradlew.bat importAllGodot -PkanamaRoot=C:\path\to\kanama -Pkanama.godot.executable=C:\path\to\Godot_v4.7-stable_win64_console.exe"
+```
+
+Run the demo smoke matrix through Git Bash:
+
+```bat
+cmd /c "set KANAMA_DESKTOP_SMOKE_LOG_DIR=%TEMP%\kanama-desktop-smokes&& ""C:\Program Files\Git\bin\bash.exe"" scripts/desktop_smoke_all.sh C:\path\to\Godot_v4.7-stable_win64_console.exe"
+```
+
+The Gradle audit tasks resolve Python as `py`/`python` on Windows (the
+`python3` name usually hits the inert Microsoft Store shim). Keep
+`core.autocrlf` disabled (the demo repos normalize to LF via `.gitattributes`);
+CRLF-rewritten `.tres`/`.tscn` files fail Godot resource parsing.
 
 Install docs dependencies with:
 

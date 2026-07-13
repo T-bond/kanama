@@ -9,12 +9,19 @@ versioning once public releases begin.
 
 ### Added
 
+- iOS `Mathf.roundToInt` parity helper (Godot `roundi` semantics, half away
+  from zero), matching the desktop `Mathf.roundToInt` facade; demo ports can
+  now share the same rounding call on both backends.
+- `.gdextension` descriptors written by the addon install and packaging tasks
+  now always carry the `ios.*.arm64` xcframework entries. Installing the addon
+  from Windows/Linux no longer strips the iOS lines from a project's committed
+  descriptor (Godot ignores non-target platform entries).
 - iOS wrapper breadth (task 30): the generated iOS Godot API class set grew from
   ~254 to **1017 classes — full desktop-equivalent breadth**. Every desktop
-  generated class is now emitted on iOS except three documented exceptions
-  (`DirAccess`/`FileAccess`, whose drafts depend on desktop-only hand-authored
-  handle-alias classes, and `MethodTweener`, which clashes with the hand-written
-  iOS Tween glue). Un-audited per-method marshalling shapes remain conservatively
+  generated class is now emitted on iOS except the documented exceptions
+  (`DirAccess`, whose draft depends on a desktop-only hand-authored
+  handle-alias class, and `MethodTweener`, which clashes with the hand-written
+  iOS Tween glue; `FileAccess` is since hosted as a hand-written static facade). Un-audited per-method marshalling shapes remain conservatively
   skipped with generator-report entries — never stubbed — and the full
   cross-platform drift gate holds committed == fresh regen at the new counts.
 - iOS RefCounted return ownership (task 31 mirror): the C shim now exposes
