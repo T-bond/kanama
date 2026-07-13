@@ -208,13 +208,14 @@ IOS_EMIT_CLASSES: set[str] | None = None
 IOS_UNSUPPORTED_CLASSES = {
     "DirAccess": "desktop hosts DirAccess as a hand-shaped static facade; the generated draft "
                  "references the hand-authored DirAccessHandle alias class iOS does not carry",
-    "FileAccess": "desktop hosts FileAccess as a hand-shaped static facade; the generated draft "
-                  "references the hand-authored FileAccessHandle alias class iOS does not carry",
     "MethodTweener": "generated setTrans/setEase clash with the hand-written iOS Tweener fluent "
                      "glue (IosGodotApi.kt) the class must subclass",
 }
 
 IOS_HANDWRITTEN_COLLISION_CLASSES = {
+    "FileAccess": "hand-written static facade + FileAccessHandle glue in FileAccess.kt (static-method "
+                  "dispatch subset); the generated draft would clash and still references the desktop "
+                  "hand-shaped FileAccessHandle surface",
     "SceneTree": "hand-written Node subclass (createTween F2 fix + coroutine/companion glue) in IosGodotApi.kt",
     "Tween": "hand-written Variant tween_property runtime in IosGodotApi.kt",
     "Tweener": "hand-written Tween chaining glue in IosGodotApi.kt",

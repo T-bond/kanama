@@ -45,10 +45,19 @@ DESKTOP_HANDSHAPED = frozenset({
     # dropping the guard. Restored + exempted here.
     "Engine",
 })
-# iOS carries the same generator (audited subset). It currently has no iOS-only hand-shaped
-# wrapper (the iOS custom sections make its helpers regeneratable); the collision-registry
-# singletons (Engine/ProjectSettings/...) are excluded via IOS_HANDWRITTEN_COLLISION_CLASSES.
-IOS_HANDSHAPED = frozenset()
+# iOS carries the same generator (audited subset); the collision-registry singletons
+# (Engine/ProjectSettings/...) are excluded via IOS_HANDWRITTEN_COLLISION_CLASSES.
+# These wrappers carry hand sugar the iOS generator does not emit yet (30c949a1, snowplow
+# enablement; device-validated 114/114): static-method dispatch bodies
+# (ImageTexture.createFromImage rides ptrcallStatic* — the generated NULL-instance form
+# silently returns null), PackedByteArray traffic (Image getData/loadPngFromBuffer/
+# createFromData), and desktop-parity create()/fromResource() factory helpers mirroring
+# the same classes' DESKTOP_HANDSHAPED entries. Retire an entry by teaching the generator
+# the static/byte-array shapes and re-adopting the class.
+IOS_HANDSHAPED = frozenset({
+    "BoxMesh", "BoxShape3D", "Image", "ImageTexture", "ParticleProcessMaterial",
+    "PlaneMesh", "ProceduralSkyMaterial", "StandardMaterial3D",
+})
 ADOPTED_CLASSES = ("Time", "ProjectSettings", "VirtualJoystick")
 ADOPTED_CLASSES_WITH_HELPERS_AND_VIRTUAL_SKIPS = ("AnimationMixer",)
 ADOPTED_RESOURCE_DOWNCAST_CLASSES = ("FastNoiseLite", "PlaneMesh", "SphereMesh")
@@ -537,12 +546,18 @@ def check_full_drift_gate(output_dir: Path) -> int:
     # iOS (same generator, IOS_AUDIT_ONLY subset). Collision-registry singletons are hand-written
     # and never emitted; exclude them so the gate expects every remaining target to regenerate.
     ios_committed = {p.stem for p in IOS_API_DIR.glob("*.kt")}
-    ios_targets = sorted(
-        (ios_committed & api) - IOS_HANDSHAPED - set(IOS_HANDWRITTEN_COLLISION_CLASSES)
-    )
+    ios_rot = sorted(IOS_HANDSHAPED - ios_committed)
+    if ios_rot:
+        print(f"[wrapper_generator] FAIL IOS_HANDSHAPED names non-existent classes: {ios_rot}", file=sys.stderr)
+        rc = 1
+    # The emit union must include IOS_HANDSHAPED (the generator emits methods returning a
+    # wrapper type only when that class is in the active set — AGENTS.md "Generator Gotcha");
+    # hand-shaped classes are only exempt from the comparison, not from the universe.
+    ios_emit = sorted((ios_committed & api) - set(IOS_HANDWRITTEN_COLLISION_CLASSES))
+    ios_targets = sorted(set(ios_emit) - IOS_HANDSHAPED)
     itmp = output_dir / "drift-ios"
     itmp.mkdir(parents=True, exist_ok=True)
-    _batch_generate(itmp, "--ios-emit-class", ios_targets)
+    _batch_generate(itmp, "--ios-emit-class", ios_emit)
     ios_missing = [c for c in ios_targets if not (itmp / f"{c}.kt").exists()]
     if ios_missing:
         print(f"[wrapper_generator] FAIL iOS drift-gate: generator did not emit {ios_missing[:20]} (unexpected collision/skip)", file=sys.stderr)
@@ -562,7 +577,7 @@ def check_full_drift_gate(output_dir: Path) -> int:
     if rc == 0:
         print(
             f"[wrapper_generator] PASS drift-gate desktop={len(targets)} ios={len(ios_targets)} "
-            f"(exempt: desktop={len(DESKTOP_HANDSHAPED)} hand-shaped)"
+            f"(exempt: desktop={len(DESKTOP_HANDSHAPED)} ios={len(IOS_HANDSHAPED)} hand-shaped)"
         )
     return rc
 

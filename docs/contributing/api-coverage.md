@@ -35,7 +35,7 @@ Rows marked `inherited only` are promoted wrappers whose Godot class declares no
 Every platform tree is held to `check_full_drift_gate` (committed == fresh regen; see wrapper-maintenance.md).
 
 - Desktop: 988 generated classes + 47 hand-shaped policy classes. Android reuses the desktop sources (no separate tree).
-- iOS: 1021 generated classes — full desktop-equivalent breadth (task 30) — plus 11 hand-written collision classes (`IOS_HANDWRITTEN_COLLISION_CLASSES`). The only classes not emitted on iOS are the documented `IOS_UNSUPPORTED_CLASSES`: `DirAccess`, `FileAccess`, `MethodTweener`. Per-method iOS skips remain conservative (un-audited marshalling shapes are skipped with report entries, never stubbed).
+- iOS: 1013 generated classes — full desktop-equivalent breadth (task 30) — plus 8 hand-shaped policy classes (`IOS_HANDSHAPED`: generated base + static-dispatch/byte-array/factory hand sugar, snowplow enablement) and 12 hand-written collision classes (`IOS_HANDWRITTEN_COLLISION_CLASSES`). The only classes not emitted on iOS are the documented `IOS_UNSUPPORTED_CLASSES`: `DirAccess`, `MethodTweener`. Per-method iOS skips remain conservative (un-audited marshalling shapes are skipped with report entries, never stubbed).
 
 ## Virtual Methods
 
