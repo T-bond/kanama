@@ -316,6 +316,9 @@ IOS_HANDWRITTEN_HELPERS = {
     "ptrcallWithTwoStringAndTwoBoolArgsRetTypedObjectList",
     "ptrcallNoArgsRetVariantScalar",
     "ptrcallWithStringNameArgRetVariantScalar",
+    # task 43: owned decode for ClassDB.instantiate (retain-before-Variant-destroy needs the
+    # dedicated C entry kanama_ios_classdb_instantiate_owned; see METHOD_CALL_SHAPE_OVERRIDES)
+    "ptrcallWithStringNameArgRetVariantScalarOwned",
     "ptrcallWithVector2ArgRetString",
     "ptrcallWithStringArgRetString",
     "ptrcallWithStringAndStringNameArgRetString",
@@ -373,6 +376,17 @@ METHOD_NAME_OVERRIDES = {
 }
 DEFAULT_VALUE_OVERRIDES = {
     ("Time", "get_datetime_string_from_datetime_dict", "use_space"): "false",
+}
+
+# Per-(class, method) CallShape overrides applied before the generic shape lookup — for the
+# rare method whose (args, return) shape is right but whose default helper has the wrong
+# ownership semantics. Task 43: ClassDB.instantiate mints a fresh object whose SOLE reference
+# lives in the return Variant; the plain VariantScalar helper decodes a borrowed GodotObject
+# and then destroys the Variant, freeing a RefCounted instance before the caller sees it
+# (use-after-free, GitHub PR #42). The owned helper retains RefCounted results before the
+# Variant destroy and returns the owning RefCounted wrapper (task-31 return-ownership).
+METHOD_CALL_SHAPE_OVERRIDES = {
+    ("ClassDB", "instantiate"): CallShape("ptrcallWithStringNameArgRetVariantScalarOwned", "Any?", "null"),
 }
 
 # Final Kotlin default expressions injected by (class, method, arg), bypassing
@@ -1406,7 +1420,11 @@ def _candidate_for_impl(method: ApiMethod, object_types: set[str]) -> CallShape 
     return CALL_SHAPES.get((logical_args, logical_return))
 
 
-def candidate_for(method: ApiMethod, object_types: set[str]) -> CallShape | None:
+def candidate_for(method: ApiMethod, object_types: set[str], class_name: str | None = None) -> CallShape | None:
+    if class_name is not None:
+        override = METHOD_CALL_SHAPE_OVERRIDES.get((class_name, method.name))
+        if override is not None:
+            return override
     shape = _candidate_for_impl(method, object_types)
     # iOS remap: typed-object-array returns use the GENERIC fromHandle helpers, not the DIRECT
     # List<Node> ones (dependency inversion — see IOS_DIRECT_TO_GENERIC_TYPED_OBJECT_LIST). Keep
@@ -1428,7 +1446,7 @@ def is_supported_vararg_method(method: ApiMethod, object_types: set[str]) -> boo
     return "Callable" not in logical_args and logical_return != "Callable"
 
 
-def ios_method_supported(method: ApiMethod, object_types: set[str]) -> bool:
+def ios_method_supported(method: ApiMethod, object_types: set[str], class_name: str | None = None) -> bool:
     """True iff the iOS ObjectCalls helper generator can marshal this method.
 
     Independent of desktop emittability — callers AND `unsupported_reason` together
@@ -1438,7 +1456,7 @@ def ios_method_supported(method: ApiMethod, object_types: set[str]) -> bool:
     """
     if method.is_vararg:
         return False
-    shape = candidate_for(method, object_types)
+    shape = candidate_for(method, object_types, class_name)
     if shape is None:
         return False
     # Typed-object-array returns: candidate_for has already remapped the DIRECT List<Node> helper
@@ -1482,6 +1500,9 @@ def ios_method_supported(method: ApiMethod, object_types: set[str]) -> bool:
     if shape.kotlin_return == "Any?" and shape.function not in (
         "ptrcallNoArgsRetVariantScalar",
         "ptrcallWithStringNameArgRetVariantScalar",
+        # task 43: hand-written owned decode over the dedicated C entry (retain must happen
+        # before the C shim destroys the return Variant — see kanama_ios_classdb_instantiate_owned).
+        "ptrcallWithStringNameArgRetVariantScalarOwned",
     ):
         return False
     # NodePath read-back is wired only for the no-arg getter (ptrcallNoArgsRetNodePath, the
@@ -1604,7 +1625,7 @@ def unsupported_reason(
             return f"typed object-array return wrapper {return_wrapper} has no nullable wrap(handle) helper"
     if "Object" in logical_args:
         for arg_type in method.argument_types:
-            if arg_type == "Callable" and candidate_for(method, object_types) is not None:
+            if arg_type == "Callable" and candidate_for(method, object_types, class_name) is not None:
                 continue
             if arg_type in OWNERSHIP_SENSITIVE_OBJECT_TYPES:
                 return f"object argument wrapper {arg_type} is ownership/builtin-sensitive and must stay unsupported"
@@ -1618,13 +1639,13 @@ def unsupported_reason(
             return f"object return wrapper is missing for {method.return_type}"
         if not wrapper_has_wrap(api_dir, return_wrapper):
             return f"object return wrapper {return_wrapper} has no nullable wrap(handle) helper"
-    if "Callable" in logical_args and candidate_for(method, object_types) is None:
+    if "Callable" in logical_args and candidate_for(method, object_types, class_name) is None:
         return "object argument wrapper Callable is ownership/builtin-sensitive and must stay unsupported"
-    if logical_return == "Callable" and candidate_for(method, object_types) is None:
+    if logical_return == "Callable" and candidate_for(method, object_types, class_name) is None:
         return "object return wrapper Callable is ownership/builtin-sensitive and must stay unsupported"
-    if candidate_for(method, object_types) is None:
+    if candidate_for(method, object_types, class_name) is None:
         return f"unsupported helper shape args={logical_args} return={logical_return}"
-    if IOS_AUDIT_ONLY and not ios_method_supported(method, object_types):
+    if IOS_AUDIT_ONLY and not ios_method_supported(method, object_types, class_name):
         return (
             f"iOS: un-audited helper shape args={logical_args} return={logical_return} "
             "(conservative iOS guardrail — only audited ptrcall widths are emitted)"
@@ -2235,7 +2256,7 @@ def render_draft(
                     singleton=singleton,
                 )
             else:
-                shape = candidate_for(method, object_types)
+                shape = candidate_for(method, object_types, cls.name)
                 assert shape is not None
                 rendered_method = render_method(
                     cls.name,
@@ -2782,7 +2803,7 @@ def collect_ios_shapes(
                     continue
                 if unsupported_reason(cls.name, method, object_types, wrapper_classes, api_classes, api_dir) is not None:
                     continue
-                shape = candidate_for(method, object_types)
+                shape = candidate_for(method, object_types, cls.name)
                 if shape is None or shape.function in IOS_HANDWRITTEN_HELPERS:
                     continue
                 registry.setdefault(shape.function, (method.logical_arg_kinds(object_types), shape.kotlin_return))

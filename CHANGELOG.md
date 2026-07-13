@@ -73,6 +73,19 @@ versioning once public releases begin.
 
 ### Fixed
 
+- `ClassDB.instantiate` no longer frees RefCounted instances before returning
+  them ([#42](https://github.com/falcon4ever/kanama/pull/42)): the engine hands
+  the fresh instance's **only** reference back inside the return Variant, and
+  the borrowed dynamic decode destroyed that Variant after extracting the
+  pointer — a use-after-free that crashed or silently dropped anything
+  instantiated by class name (the canonical construction path for third-party
+  GDExtension classes such as Terrain3D). RefCounted results are now retained
+  before the Variant is destroyed and come back as the owning `RefCounted`
+  wrapper (`close()` releases; assigning into a node/scene refs independently,
+  matching C# semantics). Non-RefCounted results (Nodes) are unchanged.
+  Desktop, Android, and iOS (dedicated C-shim entry: the retain must happen
+  before the shim destroys the return Variant). Thanks @T-bond for the
+  diagnosis and repro.
 - Android runtime now works below Android 14: the binding runtime used
   `Path.of(...)` (a Java 11 API Android only ships from API 34) in the `.kt`
   resource loader/saver and the scripts-jar lookup, so script loading died

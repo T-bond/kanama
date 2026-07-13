@@ -2637,6 +2637,30 @@ object ObjectCalls {
         }
     }
 
+    /**
+     * [ptrcallWithStringNameArgRetVariantScalar] with the owned decode, for calls that
+     * mint a fresh object the caller must own (ClassDB.instantiate): the return Variant
+     * holds the new object's only reference, so RefCounted results are retained before
+     * the Variant is destroyed and come back as the owning `RefCounted` wrapper.
+     */
+    fun ptrcallWithStringNameArgRetVariantScalarOwned(
+        methodBind: MemorySegment,
+        instance: MemorySegment,
+        name: String,
+    ): Any? {
+        Arena.ofConfined().use { arena ->
+            val arr = arena.allocate(ADDRESS, 1)
+            arr.setAtIndex(ADDRESS, 0, GodotStrings.makeStringName(name))
+            val ret = arena.allocate(BuiltinTypes.VARIANT_SIZE, 8L)
+            try {
+                objectMethodBindPtrcall.invoke(methodBind, instance, arr, ret)
+                return BuiltinTypes.readVariantScalarOwned(ret, arena)
+            } finally {
+                BuiltinTypes.destroyVariant(ret)
+            }
+        }
+    }
+
     fun ptrcallWithStringNamePackedStringListArgRetVariantScalar(
         methodBind: MemorySegment,
         instance: MemorySegment,

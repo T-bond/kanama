@@ -82,14 +82,14 @@ object ClassDB {
         return ObjectCalls.ptrcallWithStringNameArgRetBool(canInstantiateBind, singleton, classValue)
     }
 
-    @JvmStatic
     /**
      * Creates an instance of `class`.
      *
      * Generated from Godot docs: ClassDB.instantiate
      */
+    @JvmStatic
     fun instantiate(classValue: String): Any? {
-        return ObjectCalls.ptrcallWithStringNameArgRetVariantScalar(instantiateBind, singleton, classValue)
+        return ObjectCalls.ptrcallWithStringNameArgRetVariantScalarOwned(instantiateBind, singleton, classValue)
     }
 
     /**

@@ -2,6 +2,7 @@ package net.multigesture.kanama.binding.runtime
 
 import net.multigesture.kanama.api.GodotCallable
 import net.multigesture.kanama.api.GodotObject
+import net.multigesture.kanama.api.RefCounted
 import net.multigesture.kanama.api.Resource
 import net.multigesture.kanama.ffi.GodotFFI
 import net.multigesture.kanama.types.AABB
@@ -308,6 +309,24 @@ object BuiltinTypes {
     /** Decode the scalar Variant return types supported by the public call path. */
     fun readVariantScalar(variant: MemorySegment, arena: Arena): Any? =
         variantToScalar(variant, arena)
+
+    /**
+     * Owned scalar decode for calls that mint a fresh object whose sole reference lives
+     * in the return Variant (ClassDB.instantiate). The borrowed [readVariantScalar]
+     * decode would hand back a handle that dies when the caller destroys the Variant.
+     * Retain RefCounted results before that destroy and return the owning [RefCounted]
+     * wrapper (`close()` releases — the task-31 return-ownership convention).
+     * Non-RefCounted objects stay borrowed [GodotObject]: the caller owns those through
+     * the scene tree / `free()`.
+     */
+    fun readVariantScalarOwned(variant: MemorySegment, arena: Arena): Any? {
+        val value = variantToScalar(variant, arena)
+        if (value is GodotObject && value.isClass("RefCounted")) {
+            ObjectCalls.ptrcallNoArgsRetBool(referenceBind, value.handle)
+            return RefCounted(value.handle)
+        }
+        return value
+    }
 
     fun readVariantStringList(variant: MemorySegment, arena: Arena): List<String> =
         when (val value = variantToScalar(variant, arena)) {

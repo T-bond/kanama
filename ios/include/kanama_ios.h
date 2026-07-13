@@ -505,6 +505,21 @@ int32_t kanama_ios_godot_object_call(
     int64_t *out_str_len
 );
 
+/*
+ * task 43 — owned ClassDB.instantiate call: the return Variant holds the sole reference
+ * to the freshly minted object, so the generic object_call would free a RefCounted
+ * instance when it destroys the Variant. Retains RefCounted results before the Variant
+ * destroy (*out_is_refcounted = 1: the caller owns that +1; release via
+ * RefCounted close()/unreference). Non-RefCounted results come back borrowed.
+ * Returns the object handle, or 0 on failure.
+ */
+int64_t kanama_ios_classdb_instantiate_owned(
+    int64_t method_bind,
+    int64_t instance,
+    const char *class_name,
+    int32_t *out_is_refcounted
+);
+
 /* Object.disconnect(signal, Callable(target, method)) — symmetric to object_connect. */
 int32_t kanama_ios_godot_object_disconnect(
     int64_t object,

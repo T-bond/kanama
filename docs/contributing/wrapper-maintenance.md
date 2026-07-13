@@ -94,6 +94,26 @@ and the collapse emission are locked by `check_ios_policies`, and the on-device
 self-test matrix carries a `refcounted-ret-owns-plus1` refcount probe
 (duplicate() → refcount 1 → close()).
 
+One **dynamic** path shares this ownership problem: `ClassDB.instantiate`
+returns a Variant that holds the fresh instance's *only* reference, so the
+borrowed Variant-scalar decode would hand back a handle that dies with the
+Variant (use-after-free for RefCounted classes — GitHub PR #42; this is also
+the canonical construction path for third-party GDExtension classes). It is
+the one generated method routed through an owned decode
+(`METHOD_CALL_SHAPE_OVERRIDES` in `generate_api_wrapper.py` →
+`ptrcallWithStringNameArgRetVariantScalarOwned`): RefCounted results are
+retained **before** the return Variant is destroyed and come back as the
+owning `RefCounted` wrapper (`close()` releases; on iOS the retain happens
+inside the dedicated C entry `kanama_ios_classdb_instantiate_owned`, since the
+generic object-call C path destroys the Variant before Kotlin sees the
+handle). Non-RefCounted results stay borrowed. Do **not** blanket-retain in
+`variantToScalar` itself — every other dynamic object read (property gets,
+`call()` returns) is a borrow, and a retain there leaks one reference per
+read. Other fresh-sole-reference dynamic calls (`obj.call("duplicate")`)
+remain unfixed by design for now; adopt the same override if one bites.
+Validated by the `ClassDB instantiate ownership` probe in
+`scripts/runtime_smoke.sh`.
+
 Engine-wide `MethodName`, `PropertyName`, and `SignalName` constants are
 generated from `extension_api.json` separately from the class wrapper drafts:
 

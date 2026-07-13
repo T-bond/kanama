@@ -5443,6 +5443,75 @@ int32_t kanama_ios_godot_object_call(
     return call_ok ? ret_type : -1;
 }
 
+// task 43 — ClassDB.instantiate: the return Variant holds the SOLE reference to the freshly
+// minted object, so the generic object_call path (extract pointer, destroy Variant) frees a
+// RefCounted instance before Kotlin ever sees it (use-after-free, GitHub PR #42). This owned
+// variant retains RefCounted results (RefCounted::reference) BEFORE destroying the return
+// Variant and reports the retain through out_is_refcounted, so the Kotlin side hands
+// ownership to the RefCounted wrapper (close() releases — task-31 return-ownership).
+// Non-RefCounted results (Nodes) come back borrowed, unchanged. Returns 0 on failure.
+int64_t kanama_ios_classdb_instantiate_owned(
+    int64_t method_bind,
+    int64_t instance,
+    const char *class_name,
+    int32_t *out_is_refcounted
+) {
+    if (out_is_refcounted != NULL) *out_is_refcounted = 0;
+    if (!kanama_ios_resolve_godot_api() || method_bind == 0 || instance == 0 || class_name == NULL) {
+        return 0;
+    }
+
+    uint8_t arg_variant[24];
+    uint64_t arg_cell = 0;
+    int arg_cell_kind = 0;
+    kanama_ios_pt_arg_to_variant(
+        KANAMA_IOS_PT_STRING_NAME, class_name, arg_variant, &arg_cell, &arg_cell_kind);
+    GDExtensionConstVariantPtr args[1] = { (GDExtensionConstVariantPtr)arg_variant };
+
+    uint8_t ret_variant[24];
+    memset(ret_variant, 0, sizeof(ret_variant));
+    GDExtensionCallError error;
+    memset(&error, 0, sizeof(error));
+    g_object_method_bind_call(
+        (GDExtensionMethodBindPtr)(intptr_t)method_bind,
+        (GDExtensionObjectPtr)(intptr_t)instance,
+        args,
+        1,
+        ret_variant,
+        &error
+    );
+
+    GDExtensionObjectPtr obj = NULL;
+    if (kanama_ios_check_call_error("ClassDB::instantiate", &error) &&
+        (int32_t)g_variant_get_type(ret_variant) == KANAMA_IOS_VARIANT_TYPE_OBJECT) {
+        g_variant_to_object(&obj, ret_variant);
+        if (obj != NULL &&
+            kanama_ios_godot_object_is_class((int64_t)(intptr_t)obj, "RefCounted")) {
+            GDExtensionMethodBindPtr reference_bind = kanama_ios_get_method_bind_cached(
+                &g_ref_counted_reference_bind,
+                "RefCounted",
+                "reference",
+                KANAMA_IOS_REF_COUNTED_NOARGS_HASH);
+            if (reference_bind != NULL) {
+                GDExtensionBool referenced = 0;
+                g_object_method_bind_ptrcall(reference_bind, obj, NULL, &referenced);
+                if (out_is_refcounted != NULL) *out_is_refcounted = 1;
+            } else {
+                // No retain possible: the Variant destroy below frees the instance, so
+                // surface null instead of a dangling handle.
+                obj = NULL;
+            }
+        }
+    }
+
+    g_variant_destroy(ret_variant);
+    g_variant_destroy(arg_variant);
+    if (arg_cell_kind == KANAMA_IOS_PT_STRING_NAME) {
+        kanama_ios_destroy_string_name(&arg_cell);
+    }
+    return (int64_t)(intptr_t)obj;
+}
+
 // Object.disconnect(signal, Callable(target, method)) — the symmetric teardown of
 // kanama_ios_godot_object_connect (same object+method Callable construction + boxing).
 // Returns 0 on a clean dispatch, -1 otherwise.

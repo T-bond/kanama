@@ -27,6 +27,7 @@ import net.multigesture.kanama.api.BoxShape3D
 import net.multigesture.kanama.api.Button
 import net.multigesture.kanama.api.Camera3D
 import net.multigesture.kanama.api.CharacterBody3D
+import net.multigesture.kanama.api.ClassDB
 import net.multigesture.kanama.api.CollisionShape3D
 import net.multigesture.kanama.api.Control
 import net.multigesture.kanama.api.CPUParticles3D
@@ -55,6 +56,7 @@ import net.multigesture.kanama.api.OptionButton
 import net.multigesture.kanama.api.PackedScene
 import net.multigesture.kanama.api.ProjectSettings
 import net.multigesture.kanama.api.PropertyName
+import net.multigesture.kanama.api.RefCounted
 import net.multigesture.kanama.api.Resource
 import net.multigesture.kanama.api.ResourceLoader
 import net.multigesture.kanama.api.ResourceSaver
@@ -812,6 +814,32 @@ class HelloScript(godotObject: MemorySegment) : KanamaScript<Node>(godotObject, 
 			probeAwaitTweener?.close()
 			probeTween?.kill()
 			probeTween?.close()
+		}
+		// ClassDB.instantiate ownership probe (task 43, GitHub PR #42): the return Variant
+		// holds the fresh instance's ONLY reference, so the owned decode must retain
+		// RefCounted results and hand back the owning RefCounted wrapper (close() releases;
+		// created_rc must be exactly the wrapper's 1). Non-RefCounted results stay borrowed.
+		run {
+			val created = ClassDB.instantiate("Gradient")
+			val ownedWrapper = created as? RefCounted
+			val createdClass = ownedWrapper?.getClassName().orEmpty()
+			val createdRc = ownedWrapper?.getReferenceCount() ?: -1L
+			val usable = ownedWrapper?.isClass("Resource") ?: false
+			selfNode.setMeta("kanama_probe_gradient", ownedWrapper)
+			val heldRc = ownedWrapper?.getReferenceCount() ?: -1L
+			ownedWrapper?.close()
+			val metaHeld = selfNode.getMeta("kanama_probe_gradient") as? GodotObject
+			val closedRc = (metaHeld?.call("get_reference_count") as? Number)?.toLong() ?: -1L
+			selfNode.removeMeta("kanama_probe_gradient")
+			val nodeCreated = ClassDB.instantiate("Node")
+			val nodePlain = nodeCreated is GodotObject && nodeCreated !is RefCounted
+			val nodeClass = (nodeCreated as? GodotObject)?.getClassName().orEmpty()
+			(nodeCreated as? GodotObject)?.call("free")
+			System.err.println(
+				"[kanama:kt] ClassDB instantiate ownership class=$createdClass " +
+					"owned_wrapper=${ownedWrapper != null} created_rc=$createdRc held_rc=$heldRc " +
+					"closed_rc=$closedRc usable=$usable node_class=$nodeClass node_plain=$nodePlain"
+			)
 		}
 		val tweenAwaitTweener = tween?.tweenAwait(selfNode.signal("renamed"))?.setTimeout(30.0)
 		val tweenValidBefore = tween?.isValid() ?: false

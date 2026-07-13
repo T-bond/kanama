@@ -28,11 +28,13 @@ import kotlinx.cinterop.set
 import kotlinx.cinterop.value
 import net.multigesture.kanama.api.GodotObject
 import net.multigesture.kanama.api.IosCallableRegistry
+import net.multigesture.kanama.api.RefCounted
 import net.multigesture.kanama.api.IosGodot
 import net.multigesture.kanama.ios.KanamaIosProjectRegistry
 import net.multigesture.kanama.ios.KanamaIosRpcConfig
 import net.multigesture.kanama.ios.KanamaIosRuntime
 import net.multigesture.kanama.ios.KanamaIosScriptDescriptor
+import net.multigesture.kanama.ios.cinterop.kanama_ios_classdb_instantiate_owned
 import net.multigesture.kanama.ios.cinterop.kanama_ios_godot_construct_object
 import net.multigesture.kanama.ios.cinterop.kanama_ios_godot_get_method_bind
 import net.multigesture.kanama.ios.cinterop.kanama_ios_godot_get_singleton
@@ -1344,6 +1346,32 @@ object ObjectCalls {
         name: String,
     ): Any? =
         callWithVariantArgs(methodBind, instance, listOf(name))
+
+    // task 43 — owned decode for ClassDB.instantiate: the return Variant holds the fresh
+    // object's only reference and the generic object_call C path destroys it before Kotlin
+    // sees the handle (use-after-free for RefCounted classes). The dedicated C entry retains
+    // RefCounted results before the Variant destroy; those come back as the owning
+    // RefCounted wrapper (close() releases — task-31 return-ownership). Non-RefCounted
+    // results stay a borrowed raw handle, matching the other dynamic object returns.
+    fun ptrcallWithStringNameArgRetVariantScalarOwned(
+        methodBind: MemorySegment,
+        instance: MemorySegment,
+        name: String,
+    ): Any? = memScoped {
+        val isRefCounted = alloc<IntVar>()
+        isRefCounted.value = 0
+        val handle = kanama_ios_classdb_instantiate_owned(
+            methodBind.address(),
+            instance.address(),
+            name,
+            isRefCounted.ptr,
+        )
+        when {
+            handle == 0L -> null
+            isRefCounted.value != 0 -> RefCounted(MemorySegment.ofAddress(handle))
+            else -> MemorySegment.ofAddress(handle)
+        }
+    }
 
     // Arg-bearing String returns (Phase 2.7f-1). The Object-call decode already returns a Kotlin
     // String for a STRING-typed Variant return, so these route through callWithVariantArgs with the

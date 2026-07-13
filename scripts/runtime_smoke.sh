@@ -154,6 +154,12 @@ check "vret control rid_type=true"
 # transfers +1 (required-meta included); self-returning fluent calls must collapse to
 # the receiver and release the duplicate, so all wrapper-visible deltas stay 0.
 check "Tweener ownership method_delay_delta=0 method_trans_delta=0 method_chained_same=true property_from_delta=0 await_timeout_delta=0 await_chained_same=true"
+# ClassDB.instantiate ownership (task 43, GitHub PR #42): the return Variant holds the
+# fresh instance's ONLY reference — the owned decode must retain RefCounted results into
+# an owning RefCounted wrapper (created_rc=1 exactly; setMeta refs independently to 2;
+# close() drops the wrapper's ref back to 1) and leave Node results borrowed/plain.
+check "ClassDB instantiate ownership class=Gradient owned_wrapper=true created_rc=1 held_rc=2 closed_rc=1 usable=true node_class=Node node_plain=true"
+check_absent "Leaked instance: Gradient"
 check_absent "Leaked instance: AwaitTweener"
 check_absent "Leaked instance: MethodTweener"
 check_absent "Leaked instance: PropertyTweener"
