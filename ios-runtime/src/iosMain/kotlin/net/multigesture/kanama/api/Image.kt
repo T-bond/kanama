@@ -35,6 +35,15 @@ class Image(handle: MemorySegment) : Resource(handle) {
         return ObjectCalls.ptrcallNoArgsRetLong(getDataSizeBind, handle)
     }
 
+    // KANAMA-IOS-SUGAR: [runtime] get_data / load_png_from_buffer are PackedByteArray shapes
+    // the generator's audited table doesn't emit yet; hand-wired through the byte-array
+    // dispatch helpers. Re-add after regeneration.
+    fun getData(): ByteArray =
+        ObjectCalls.ptrcallNoArgsRetByteArray(getDataBind, handle, getDataSize())
+
+    fun loadPngFromBuffer(buffer: ByteArray): Long =
+        ObjectCalls.ptrcallWithByteArrayArgRetLong(loadPngFromBufferBind, handle, buffer)
+
     fun convert(format: Long) {
         ObjectCalls.ptrcallWithLongArg(convertBind, handle, format)
     }
@@ -215,6 +224,26 @@ class Image(handle: MemorySegment) : Resource(handle) {
     companion object {
         fun create(width: Int, height: Int, useMipmaps: Boolean, format: Long): Image? {
             return Image.wrap(ObjectCalls.ptrcallWithTwoIntBoolLongArgsRetObject(createBind, MemorySegment.NULL, width, height, useMipmaps, format))
+        }
+
+        // KANAMA-IOS-SUGAR: [runtime] create_from_data is STATIC + PackedByteArray — both
+        // outside the generator's current emission (statics must dispatch with a NULL
+        // instance via ptrcallStatic*). Re-add after regeneration.
+        fun createFromData(width: Int, height: Int, useMipmaps: Boolean, format: Long, data: ByteArray): Image? =
+            Image.wrap(
+                ObjectCalls.ptrcallStaticWithTwoLongBoolLongByteArrayArgsRetObject(
+                    createFromDataBind, width.toLong(), height.toLong(), useMipmaps, format, data,
+                ),
+            )
+
+        private val getDataBind by lazy {
+            ObjectCalls.getMethodBind("Image", "get_data", 2362200018L)
+        }
+        private val loadPngFromBufferBind by lazy {
+            ObjectCalls.getMethodBind("Image", "load_png_from_buffer", 680677267L)
+        }
+        private val createFromDataBind by lazy {
+            ObjectCalls.getMethodBind("Image", "create_from_data", 299398494L)
         }
 
         fun createEmpty(width: Int, height: Int, useMipmaps: Boolean, format: Long): Image? {

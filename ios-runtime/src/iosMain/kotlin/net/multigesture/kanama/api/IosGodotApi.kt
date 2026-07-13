@@ -391,12 +391,42 @@ class SignalConnection internal constructor(
     }
 }
 
-open class StaticBody3D(handle: MemorySegment) : Node3D(handle)
+open class StaticBody3D(handle: MemorySegment) : Node3D(handle) {
+    // CollisionObject3D layer/mask (uint32 ptrcall cells), matching the desktop property shape.
+    var collisionLayer: Long
+        get() = ObjectCalls.ptrcallNoArgsRetUInt32(getCollisionLayerBind, handle)
+        set(value) = ObjectCalls.ptrcallWithUInt32Arg(setCollisionLayerBind, handle, value)
+
+    var collisionMask: Long
+        get() = ObjectCalls.ptrcallNoArgsRetUInt32(getCollisionMaskBind, handle)
+        set(value) = ObjectCalls.ptrcallWithUInt32Arg(setCollisionMaskBind, handle, value)
+
+    companion object {
+        private val setCollisionLayerBind by lazy {
+            ObjectCalls.getMethodBind("CollisionObject3D", "set_collision_layer", 1286410249L)
+        }
+        private val getCollisionLayerBind by lazy {
+            ObjectCalls.getMethodBind("CollisionObject3D", "get_collision_layer", 3905245786L)
+        }
+        private val setCollisionMaskBind by lazy {
+            ObjectCalls.getMethodBind("CollisionObject3D", "set_collision_mask", 1286410249L)
+        }
+        private val getCollisionMaskBind by lazy {
+            ObjectCalls.getMethodBind("CollisionObject3D", "get_collision_mask", 3905245786L)
+        }
+    }
+}
 
 class SceneTree(handle: MemorySegment) : Node(handle) {
     fun quit(exitCode: Int = 0) {
         ObjectCalls.ptrcallWithIntArg(quitBind, handle, exitCode)
     }
+
+    // Desktop SceneTree.quit takes a Long exit code; the overload keeps shared game code portable.
+    fun quit(exitCode: Long) = quit(exitCode.toInt())
+
+    fun changeSceneToFile(path: String): Long =
+        ObjectCalls.ptrcallWithStringArgRetLong(changeSceneToFileBind, handle, path)
 
     fun reloadCurrentScene(): Long =
         ObjectCalls.ptrcallNoArgsRetLong(reloadCurrentSceneBind, handle)
@@ -469,6 +499,9 @@ class SceneTree(handle: MemorySegment) : Node(handle) {
 
     companion object {
         private val quitBind by lazy { ObjectCalls.getMethodBind("SceneTree", "quit", 1995695955L) }
+        private val changeSceneToFileBind by lazy {
+            ObjectCalls.getMethodBind("SceneTree", "change_scene_to_file", 166001499L)
+        }
         private val createTimerBind by lazy { ObjectCalls.getMethodBind("SceneTree", "create_timer", 2709170273L) }
         private val reloadCurrentSceneBind by lazy {
             ObjectCalls.getMethodBind("SceneTree", "reload_current_scene", 166280745L)

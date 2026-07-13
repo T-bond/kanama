@@ -42,6 +42,8 @@ import net.multigesture.kanama.ios.cinterop.kanama_ios_godot_object_connect_boun
 import net.multigesture.kanama.ios.cinterop.kanama_ios_godot_object_disconnect_bound
 import net.multigesture.kanama.ios.cinterop.KanamaIosPackedArgDesc
 import net.multigesture.kanama.ios.cinterop.kanama_ios_godot_ptrcall
+import net.multigesture.kanama.ios.cinterop.kanama_ios_godot_ptrcall_ret_packed_byte_array
+import net.multigesture.kanama.ios.cinterop.kanama_ios_godot_ptrcall_static
 import net.multigesture.kanama.ios.cinterop.kanama_ios_godot_ptrcall_ret_object_array
 import net.multigesture.kanama.ios.cinterop.kanama_ios_godot_ptrcall_no_args_ret_typed_array_blob
 import net.multigesture.kanama.ios.cinterop.kanama_ios_godot_ptrcall_ret_variant_array_blob
@@ -110,6 +112,7 @@ object ObjectCalls {
     // BUILD-tagged Packed*Array arg tags (the dispatch builds the array from a descriptor).
     private const val PT_PACKED_VECTOR2_ARRAY = 23
     private const val PT_PACKED_COLOR_ARRAY = 24
+    private const val PT_PACKED_BYTE_ARRAY = 31
 
     // Godot Variant type tags (returned by kanama_ios_godot_object_call, for decoding
     // a scalar return). Must match the KANAMA_IOS_VARIANT_TYPE_* enum in the C shim.
@@ -369,6 +372,151 @@ object ObjectCalls {
         kanama_ios_godot_ptrcall_with_packed_float32_arg(
             methodBind.address(), instance.address(), buf, n.toLong())
         Unit
+    }
+
+    // ---- PackedByteArray traffic + static-method dispatch ----
+    // Bulk byte payloads (heightmaps, road masks, image readback) and Godot STATIC methods
+    // (FileAccess.get_file_as_bytes/open, Image.create_from_data, ImageTexture.create_from_image).
+    // Statics ptrcall with a NULL instance, which the instance entry point rejects — they must
+    // route through kanama_ios_godot_ptrcall_static. Byte read-back memcpy's the array once
+    // C-side (the Android per-element FFI lesson, applied to this boundary).
+
+    // Lay a ByteArray into scratch + a {count,data} descriptor for a BUILD-tagged
+    // PT_PACKED_BYTE_ARRAY arg (the C dispatch builds the Godot array from it).
+    private fun MemScope.packByteDesc(bytes: ByteArray): CPointer<KanamaIosPackedArgDesc> {
+        val n = bytes.size
+        val buf = allocArray<ByteVar>(if (n > 0) n else 1)
+        for (i in 0 until n) buf[i] = bytes[i]
+        val desc = alloc<KanamaIosPackedArgDesc>()
+        desc.count = n.toLong()
+        desc.data = buf.reinterpret()
+        return desc.ptr
+    }
+
+    // Two-call length protocol; a positive sizeHint (Image.getDataSize, FileAccess.get_size)
+    // collapses it to one call — NOTE the measuring call executes the method a second time,
+    // so callers with a cheap size source should pass it. A grown array retries at the
+    // reported count; a short read returns the prefix.
+    private fun retByteArray(
+        methodBind: MemorySegment,
+        instance: MemorySegment,
+        sizeHint: Long,
+        argBuilder: MemScope.() -> Triple<CPointer<IntVar>?, CPointer<COpaquePointerVar>?, Int>,
+    ): ByteArray = memScoped {
+        val (types, ptrs, argc) = argBuilder()
+        var cap = sizeHint
+        if (cap <= 0L) {
+            cap = kanama_ios_godot_ptrcall_ret_packed_byte_array(
+                methodBind.address(), instance.address(), types, ptrs, argc, null, 0L)
+        }
+        while (cap > 0L) {
+            val buf = allocArray<ByteVar>(cap)
+            val count = kanama_ios_godot_ptrcall_ret_packed_byte_array(
+                methodBind.address(), instance.address(), types, ptrs, argc,
+                buf.reinterpret(), cap)
+            when {
+                count <= 0L -> return@memScoped ByteArray(0)
+                count <= cap -> return@memScoped buf.readBytes(count.toInt())
+                else -> cap = count
+            }
+        }
+        ByteArray(0)
+    }
+
+    fun ptrcallNoArgsRetByteArray(
+        methodBind: MemorySegment,
+        instance: MemorySegment,
+        sizeHint: Long = -1L,
+    ): ByteArray =
+        retByteArray(methodBind, instance, sizeHint) {
+            Triple<CPointer<IntVar>?, CPointer<COpaquePointerVar>?, Int>(null, null, 0)
+        }
+
+    fun ptrcallWithByteArrayArgRetLong(
+        methodBind: MemorySegment,
+        instance: MemorySegment,
+        bytes: ByteArray,
+    ): Long = memScoped {
+        val ret = alloc<LongVar>(); ret.value = 0
+        val types = allocArray<IntVar>(1); types[0] = PT_PACKED_BYTE_ARRAY
+        val ptrs = allocArray<COpaquePointerVar>(1)
+        ptrs[0] = packByteDesc(bytes).reinterpret<CPointed>()
+        kanama_ios_godot_ptrcall(methodBind.address(), instance.address(), types, ptrs, 1, PT_INT64, ret.ptr)
+        ret.value
+    }
+
+    fun ptrcallStaticWithObjectArgRetObject(methodBind: MemorySegment, a0: MemorySegment): MemorySegment =
+        memScoped {
+            val ret = alloc<LongVar>(); ret.value = 0
+            val c0 = alloc<LongVar>(); c0.value = a0.address()
+            val types = allocArray<IntVar>(1); types[0] = PT_OBJECT
+            val ptrs = allocArray<COpaquePointerVar>(1); ptrs[0] = c0.ptr.reinterpret<CPointed>()
+            kanama_ios_godot_ptrcall_static(methodBind.address(), types, ptrs, 1, PT_OBJECT, ret.ptr)
+            MemorySegment.ofAddress(ret.value)
+        }
+
+    fun ptrcallStaticWithStringAndLongArgsRetObject(
+        methodBind: MemorySegment,
+        a0: String,
+        a1: Long,
+    ): MemorySegment = memScoped {
+        val ret = alloc<LongVar>(); ret.value = 0
+        val c1 = alloc<LongVar>(); c1.value = a1
+        val types = allocArray<IntVar>(2); types[0] = PT_STRING; types[1] = PT_INT64
+        val ptrs = allocArray<COpaquePointerVar>(2)
+        ptrs[0] = a0.cstr.ptr.reinterpret<CPointed>()
+        ptrs[1] = c1.ptr.reinterpret<CPointed>()
+        kanama_ios_godot_ptrcall_static(methodBind.address(), types, ptrs, 2, PT_OBJECT, ret.ptr)
+        MemorySegment.ofAddress(ret.value)
+    }
+
+    fun ptrcallStaticWithStringArgRetLong(methodBind: MemorySegment, a0: String): Long =
+        memScoped {
+            val ret = alloc<LongVar>(); ret.value = 0
+            val types = allocArray<IntVar>(1); types[0] = PT_STRING
+            val ptrs = allocArray<COpaquePointerVar>(1)
+            ptrs[0] = a0.cstr.ptr.reinterpret<CPointed>()
+            kanama_ios_godot_ptrcall_static(methodBind.address(), types, ptrs, 1, PT_INT64, ret.ptr)
+            ret.value
+        }
+
+    fun ptrcallStaticWithStringArgRetByteArray(
+        methodBind: MemorySegment,
+        a0: String,
+        sizeHint: Long = -1L,
+    ): ByteArray =
+        retByteArray(methodBind, MemorySegment.NULL, sizeHint) {
+            val types = allocArray<IntVar>(1); types[0] = PT_STRING
+            val ptrs = allocArray<COpaquePointerVar>(1)
+            ptrs[0] = a0.cstr.ptr.reinterpret<CPointed>()
+            Triple<CPointer<IntVar>?, CPointer<COpaquePointerVar>?, Int>(types, ptrs, 1)
+        }
+
+    // Image.create_from_data(width, height, mipmaps, format, data): static, scalars + bytes.
+    fun ptrcallStaticWithTwoLongBoolLongByteArrayArgsRetObject(
+        methodBind: MemorySegment,
+        a0: Long,
+        a1: Long,
+        a2: Boolean,
+        a3: Long,
+        a4: ByteArray,
+    ): MemorySegment = memScoped {
+        val ret = alloc<LongVar>(); ret.value = 0
+        val c0 = alloc<LongVar>(); c0.value = a0
+        val c1 = alloc<LongVar>(); c1.value = a1
+        val c2 = alloc<ByteVar>(); c2.value = if (a2) 1 else 0
+        val c3 = alloc<LongVar>(); c3.value = a3
+        val types = allocArray<IntVar>(5)
+        types[0] = PT_INT64; types[1] = PT_INT64; types[2] = PT_BOOL; types[3] = PT_INT64
+        types[4] = PT_PACKED_BYTE_ARRAY
+        val ptrs = allocArray<COpaquePointerVar>(5)
+        ptrs[0] = c0.ptr.reinterpret<CPointed>()
+        ptrs[1] = c1.ptr.reinterpret<CPointed>()
+        ptrs[2] = c2.ptr.reinterpret<CPointed>()
+        ptrs[3] = c3.ptr.reinterpret<CPointed>()
+        ptrs[4] = packByteDesc(a4).reinterpret<CPointed>()
+        kanama_ios_godot_ptrcall_static(methodBind.address(), types, ptrs, 5, PT_OBJECT, ret.ptr)
+        MemorySegment.ofAddress(ret.value)
     }
 
     // Typed builtin Array returns (Phase 2.7g): a no-arg getter returning Array[StringName] /
@@ -1302,6 +1450,23 @@ fun kanamaIosRuntimeObjectCallsSelfTest() {
         ObjectCalls.getMethodBind("GPUParticles3D", "set_amount", 1286410249L), parts, 1234567)
     check("scalar-int(8-byte)", ObjectCalls.ptrcallNoArgsRetInt(
         ObjectCalls.getMethodBind("GPUParticles3D", "get_amount", 3905245786L), parts) == 1234567)
+
+    // Byte-array round-trip: STATIC dispatch (create_from_data ptrcalls with a NULL instance)
+    // + BUILD-tagged PT_PACKED_BYTE_ARRAY arg + bulk byte-array return in one row.
+    // Width-sensitive values (0/1/127/-128/-1) catch sign or width slips in the byte cells.
+    val pattern = byteArrayOf(0, 1, 127, -128, -1, 66, 7, -103) // 2x1 RGBA8 texels
+    val imgHandle = ObjectCalls.ptrcallStaticWithTwoLongBoolLongByteArrayArgsRetObject(
+        ObjectCalls.getMethodBind("Image", "create_from_data", 299398494L),
+        2L, 1L, false, 5L /* Image.FORMAT_RGBA8 */, pattern)
+    check("static-byte-arg-create", imgHandle.address() != 0L)
+    if (imgHandle.address() != 0L) {
+        val back = ObjectCalls.ptrcallNoArgsRetByteArray(
+            ObjectCalls.getMethodBind("Image", "get_data", 2362200018L), imgHandle)
+        check("byte-array-round-trip", back.contentEquals(pattern))
+        if (!back.contentEquals(pattern)) {
+            println("[kanama][ios][kn] OBJECTCALLS SELFTEST byte-array got ${back.size} bytes: ${back.joinToString()}")
+        }
+    }
 
     // T3.3: Input singleton + action polling marshalling. With no live input the values
     // are 0.0/false, but this validates getSingleton + the generated StringName-arg

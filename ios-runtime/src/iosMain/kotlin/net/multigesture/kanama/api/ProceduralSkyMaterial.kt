@@ -34,12 +34,6 @@ class ProceduralSkyMaterial(handle: MemorySegment) : Material(handle) {
         @JvmName("setSkyEnergyMultiplierProperty")
         set(value) = setSkyEnergyMultiplier(value)
 
-    var skyCover: Texture2D?
-        @JvmName("skyCoverProperty")
-        get() = getSkyCover()
-        @JvmName("setSkyCoverProperty")
-        set(value) = setSkyCover(value)
-
     var skyCoverModulate: Color
         @JvmName("skyCoverModulateProperty")
         get() = getSkyCoverModulate()
@@ -126,14 +120,6 @@ class ProceduralSkyMaterial(handle: MemorySegment) : Material(handle) {
         return ObjectCalls.ptrcallNoArgsRetDouble(getSkyEnergyMultiplierBind, handle)
     }
 
-    fun setSkyCover(skyCover: Texture2D?) {
-        ObjectCalls.ptrcallWithObjectArgs(setSkyCoverBind, handle, listOf(skyCover?.requireOpenHandle() ?: MemorySegment.NULL))
-    }
-
-    fun getSkyCover(): Texture2D? {
-        return Texture2D.wrap(ObjectCalls.ptrcallNoArgsRetObject(getSkyCoverBind, handle))
-    }
-
     fun setSkyCoverModulate(color: Color) {
         ObjectCalls.ptrcallWithColorArg(setSkyCoverModulateBind, handle, color)
     }
@@ -213,6 +199,11 @@ class ProceduralSkyMaterial(handle: MemorySegment) : Material(handle) {
         internal fun wrap(handle: MemorySegment): ProceduralSkyMaterial? =
             if (handle.address() == 0L) null else ProceduralSkyMaterial(handle)
 
+        // KANAMA-IOS-SUGAR: [glue] downcast a Resource (null if not), mirroring the desktop
+        // helper and the ShaderMaterial.fromResource pattern. Re-add after regeneration.
+        fun fromResource(value: Resource?): ProceduralSkyMaterial? =
+            value?.takeIf { it.isClass("ProceduralSkyMaterial") }?.let { ProceduralSkyMaterial(it.handle) }
+
         private const val SET_SKY_TOP_COLOR_HASH = 2920490490L
         private val setSkyTopColorBind by lazy {
             ObjectCalls.getMethodBind("ProceduralSkyMaterial", "set_sky_top_color", SET_SKY_TOP_COLOR_HASH)
@@ -251,16 +242,6 @@ class ProceduralSkyMaterial(handle: MemorySegment) : Material(handle) {
         private const val GET_SKY_ENERGY_MULTIPLIER_HASH = 1740695150L
         private val getSkyEnergyMultiplierBind by lazy {
             ObjectCalls.getMethodBind("ProceduralSkyMaterial", "get_sky_energy_multiplier", GET_SKY_ENERGY_MULTIPLIER_HASH)
-        }
-
-        private const val SET_SKY_COVER_HASH = 4051416890L
-        private val setSkyCoverBind by lazy {
-            ObjectCalls.getMethodBind("ProceduralSkyMaterial", "set_sky_cover", SET_SKY_COVER_HASH)
-        }
-
-        private const val GET_SKY_COVER_HASH = 3635182373L
-        private val getSkyCoverBind by lazy {
-            ObjectCalls.getMethodBind("ProceduralSkyMaterial", "get_sky_cover", GET_SKY_COVER_HASH)
         }
 
         private const val SET_SKY_COVER_MODULATE_HASH = 2920490490L

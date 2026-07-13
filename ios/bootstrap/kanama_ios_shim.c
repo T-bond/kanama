@@ -1530,6 +1530,7 @@ int64_t kanama_ios_godot_get_method_bind(
 // packed cache functions. Returns 1 on success (so the dispatch destroys only what it built).
 static int kanama_ios_build_packed_arg(int32_t tag, const KanamaIosPackedArgDesc *desc, uint64_t *cell);
 static void kanama_ios_destroy_packed_arg(int32_t tag, uint64_t *cell);
+static void kanama_ios_cache_packed_byte_methods(void);
 // Dictionary builders (task 29 virtual-return path uses them before their definitions).
 static void kanama_ios_init_empty_dictionary(GDExtensionTypePtr out);
 static void kanama_ios_dictionary_set_variant(
@@ -1537,7 +1538,9 @@ static void kanama_ios_dictionary_set_variant(
     const char *key,
     GDExtensionConstVariantPtr value_variant);
 
-void kanama_ios_godot_ptrcall(
+// Shared dispatch body. `instance` may be 0 ONLY via the _static entry point (Godot
+// static methods ptrcall with a NULL object); the instance entry keeps its null guard.
+static void kanama_ios_godot_ptrcall_dispatch(
     int64_t method_bind,
     int64_t instance,
     const int32_t *arg_types,
@@ -1546,7 +1549,7 @@ void kanama_ios_godot_ptrcall(
     int32_t ret_type,
     void *ret_out
 ) {
-    if (!kanama_ios_resolve_godot_api() || method_bind == 0 || instance == 0) {
+    if (!kanama_ios_resolve_godot_api() || method_bind == 0) {
         return;
     }
     if (arg_count < 0) {
@@ -1595,7 +1598,8 @@ void kanama_ios_godot_ptrcall(
                 constructed[i] = tag;
                 break;
             case KANAMA_IOS_PT_PACKED_VECTOR2_ARRAY:
-            case KANAMA_IOS_PT_PACKED_COLOR_ARRAY: {
+            case KANAMA_IOS_PT_PACKED_COLOR_ARRAY:
+            case KANAMA_IOS_PT_PACKED_BYTE_ARRAY: {
                 // arg ptr is a KanamaIosPackedArgDesc {count, data}; build the array into the cell.
                 const KanamaIosPackedArgDesc *desc =
                     (arg_ptrs != NULL) ? (const KanamaIosPackedArgDesc *)arg_ptrs[i] : NULL;
@@ -1655,6 +1659,7 @@ void kanama_ios_godot_ptrcall(
                 break;
             case KANAMA_IOS_PT_PACKED_VECTOR2_ARRAY:
             case KANAMA_IOS_PT_PACKED_COLOR_ARRAY:
+            case KANAMA_IOS_PT_PACKED_BYTE_ARRAY:
                 kanama_ios_destroy_packed_arg(constructed[i], packed_cells[i]);
                 break;
             case KANAMA_IOS_PT_CALLABLE:
@@ -1668,6 +1673,37 @@ void kanama_ios_godot_ptrcall(
                 break;
         }
     }
+}
+
+void kanama_ios_godot_ptrcall(
+    int64_t method_bind,
+    int64_t instance,
+    const int32_t *arg_types,
+    const void *const *arg_ptrs,
+    int32_t arg_count,
+    int32_t ret_type,
+    void *ret_out
+) {
+    if (instance == 0) {
+        return;
+    }
+    kanama_ios_godot_ptrcall_dispatch(
+        method_bind, instance, arg_types, arg_ptrs, arg_count, ret_type, ret_out);
+}
+
+// Static-method dispatch: identical arg/ret handling with a NULL instance (Godot static
+// methods ptrcall with a null object). A separate entry point so the instance path keeps
+// its null-instance guard.
+void kanama_ios_godot_ptrcall_static(
+    int64_t method_bind,
+    const int32_t *arg_types,
+    const void *const *arg_ptrs,
+    int32_t arg_count,
+    int32_t ret_type,
+    void *ret_out
+) {
+    kanama_ios_godot_ptrcall_dispatch(
+        method_bind, 0, arg_types, arg_ptrs, arg_count, ret_type, ret_out);
 }
 
 // Resolve a builtin (value-type) method pointer — variant_get_ptr_builtin_method, the
@@ -2092,6 +2128,62 @@ int64_t kanama_ios_godot_ptrcall_no_args_ret_packed_float32_array(
 
     if (g_packed_float32_array_destructor != NULL) {
         g_packed_float32_array_destructor(array_storage);
+    }
+    return count;
+}
+
+// PackedByteArray return with optional PT-tagged args and an optional-static instance:
+// FileAccess.get_file_as_bytes (static, String arg) and Image.get_data (instance, no args)
+// both land here. Args ride the generic-dispatch tag set (CONSTRUCT strings, POD cells,
+// BUILD packed descs). The read-back is ONE contiguous memcpy from element 0 — Godot packed
+// arrays are contiguous, and the per-element path is exactly the Android ART lesson (kanama
+// 8a201e44) applied C-side: 1M operator_index calls for a 1 MB heightmap is the slow shape.
+// Two-call length protocol like the other packed read-backs; buf_cap is an element count.
+int64_t kanama_ios_godot_ptrcall_ret_packed_byte_array(
+    int64_t method_bind,
+    int64_t instance,
+    const int32_t *arg_types,
+    const void *const *arg_ptrs,
+    int32_t arg_count,
+    uint8_t *out_buf,
+    int64_t buf_cap
+) {
+    if (!kanama_ios_resolve_godot_api() || method_bind == 0) {
+        return -1;
+    }
+    if (g_object_method_bind_ptrcall == NULL) {
+        return -1;
+    }
+    kanama_ios_cache_packed_byte_methods();
+    if (g_packed_byte_array_size_method == NULL ||
+        g_packed_byte_array_operator_index_const == NULL) {
+        return -1;
+    }
+
+    KANAMA_IOS_PACKED_ARRAY_STORAGE(array_storage);
+    kanama_ios_godot_ptrcall_dispatch(
+        method_bind,
+        instance,
+        arg_types,
+        arg_ptrs,
+        arg_count,
+        KANAMA_IOS_PT_PACKED_BYTE_ARRAY,
+        array_storage);
+
+    int64_t count = 0;
+    g_packed_byte_array_size_method(array_storage, NULL, &count, 0);
+
+    if (out_buf != NULL && buf_cap > 0 && count > 0) {
+        int64_t n = (count < buf_cap) ? count : buf_cap;
+        const uint8_t *base =
+            g_packed_byte_array_operator_index_const(array_storage, (GDExtensionInt)0);
+        if (base != NULL) {
+            memcpy(out_buf, base, (size_t)n);
+        }
+    }
+
+    if (g_packed_byte_array_destructor != NULL) {
+        g_packed_byte_array_destructor(array_storage);
     }
     return count;
 }

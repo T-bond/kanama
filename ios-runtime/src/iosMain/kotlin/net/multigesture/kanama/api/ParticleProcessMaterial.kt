@@ -799,6 +799,11 @@ class ParticleProcessMaterial(handle: MemorySegment) : Material(handle) {
     }
 
     companion object {
+        // KANAMA-IOS-SUGAR: [glue] downcast a Resource (null if not), mirroring the desktop
+        // helper and the ShaderMaterial.fromResource pattern. Re-add after regeneration.
+        fun fromResource(value: Resource?): ParticleProcessMaterial? =
+            value?.takeIf { it.isClass("ParticleProcessMaterial") }?.let { ParticleProcessMaterial(it.handle) }
+
         const val PARAM_INITIAL_LINEAR_VELOCITY: Long = 0L
         const val PARAM_ANGULAR_VELOCITY: Long = 1L
         const val PARAM_ORBIT_VELOCITY: Long = 2L

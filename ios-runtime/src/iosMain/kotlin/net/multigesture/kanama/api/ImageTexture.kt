@@ -22,8 +22,11 @@ class ImageTexture(handle: MemorySegment) : Texture2D(handle) {
     }
 
     companion object {
+        // KANAMA-IOS-SUGAR: [runtime] create_from_image is STATIC — the instance dispatch
+        // rejects a NULL instance, so it must ride ptrcallStatic* (the previous
+        // ptrcallWithObjectArgRetObject(bind, NULL, ...) form silently returned null).
         fun createFromImage(image: Image?): ImageTexture? {
-            return ImageTexture.wrap(ObjectCalls.ptrcallWithObjectArgRetObject(createFromImageBind, MemorySegment.NULL, image?.requireOpenHandle() ?: MemorySegment.NULL))
+            return ImageTexture.wrap(ObjectCalls.ptrcallStaticWithObjectArgRetObject(createFromImageBind, image?.requireOpenHandle() ?: MemorySegment.NULL))
         }
 
         fun fromHandle(handle: MemorySegment): ImageTexture? =

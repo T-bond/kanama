@@ -67,6 +67,11 @@ class BoxMesh(handle: MemorySegment) : PrimitiveMesh(handle) {
     }
 
     companion object {
+        // KANAMA-IOS-SUGAR: [glue] desktop-parity constructor sugar (the desktop wrapper's
+        // MemorySegment constructor is internal, so shared game code uses create()).
+        fun create(): BoxMesh =
+            BoxMesh(ObjectCalls.constructObject("BoxMesh"))
+
         fun fromHandle(handle: MemorySegment): BoxMesh? =
             wrap(handle)
 

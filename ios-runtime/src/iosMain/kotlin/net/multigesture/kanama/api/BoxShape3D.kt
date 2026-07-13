@@ -25,6 +25,11 @@ class BoxShape3D(handle: MemorySegment) : Shape3D(handle) {
     }
 
     companion object {
+        // KANAMA-IOS-SUGAR: [glue] desktop-parity constructor sugar (the desktop wrapper's
+        // MemorySegment constructor is internal, so shared game code uses create()).
+        fun create(): BoxShape3D =
+            BoxShape3D(ObjectCalls.constructObject("BoxShape3D"))
+
         fun fromHandle(handle: MemorySegment): BoxShape3D? =
             wrap(handle)
 

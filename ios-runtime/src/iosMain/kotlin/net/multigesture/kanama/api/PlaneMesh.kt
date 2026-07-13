@@ -92,6 +92,11 @@ open class PlaneMesh(handle: MemorySegment) : PrimitiveMesh(handle) {
         internal fun wrap(handle: MemorySegment): PlaneMesh? =
             if (handle.address() == 0L) null else PlaneMesh(handle)
 
+        // KANAMA-IOS-SUGAR: [glue] downcast a Resource (null if not), mirroring the desktop
+        // helper and the ShaderMaterial.fromResource pattern. Re-add after regeneration.
+        fun fromResource(value: Resource?): PlaneMesh? =
+            value?.takeIf { it.isClass("PlaneMesh") }?.let { PlaneMesh(it.handle) }
+
         private const val SET_SIZE_HASH = 743155724L
         private val setSizeBind by lazy {
             ObjectCalls.getMethodBind("PlaneMesh", "set_size", SET_SIZE_HASH)
