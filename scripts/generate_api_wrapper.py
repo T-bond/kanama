@@ -2837,6 +2837,12 @@ def main() -> int:
     parser.add_argument("--api-dir", type=Path, default=Path("src/main/kotlin/net/multigesture/kanama/api"))
     parser.add_argument("--class", dest="classes", action="append", default=[], help="Class to generate; repeatable.")
     parser.add_argument(
+        "--class-list-file",
+        type=Path,
+        help="File with one class name per line, appended to --class (Windows-safe batch "
+             "form: a full-union --class command line exceeds the 32K CreateProcess limit).",
+    )
+    parser.add_argument(
         "--emit-class",
         dest="emit_classes",
         action="append",
@@ -2854,6 +2860,13 @@ def main() -> int:
         help="Class to render as an iOS wrapper (conservative iOS guardrail); repeatable.",
     )
     parser.add_argument(
+        "--ios-class-list-file",
+        type=Path,
+        help="File with one class name per line, appended to --ios-emit-class (Windows-safe "
+             "batch form; the iOS emit union must stay a single invocation — see the "
+             "Generator Gotcha — so it cannot be chunked instead).",
+    )
+    parser.add_argument(
         "--ios-output-dir",
         type=Path,
         help="Write iOS wrapper drafts here (staging; do not point at the compiled facade). Defaults to stdout.",
@@ -2865,6 +2878,10 @@ def main() -> int:
     )
     parser.add_argument("--ios-skip-report", type=Path, help="Write iOS unsupported method reasons to this file.")
     args = parser.parse_args()
+    if args.class_list_file is not None:
+        args.classes += args.class_list_file.read_text(encoding="utf-8").split()
+    if args.ios_class_list_file is not None:
+        args.ios_classes += args.ios_class_list_file.read_text(encoding="utf-8").split()
     if not args.classes and not args.emit_classes and not args.ios_classes:
         parser.error("at least one --class, --emit-class, or --ios-emit-class is required")
 

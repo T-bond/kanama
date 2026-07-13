@@ -504,9 +504,12 @@ def _api_class_names() -> set[str]:
 
 
 def _batch_generate(output_dir: Path, flag: str, classes: list[str], *extra: str) -> None:
-    args = [sys.executable, str(ROOT / "scripts/generate_api_wrapper.py")]
-    for name in classes:
-        args += [flag, name]
+    # Class names go through a list file, not argv: the full-union batch (~1000 names)
+    # exceeds the 32K CreateProcess command-line limit on Windows (WinError 206).
+    list_file = output_dir / "_class_list.txt"
+    list_file.write_text("\n".join(classes) + "\n", encoding="utf-8")
+    list_flag = "--class-list-file" if flag == "--class" else "--ios-class-list-file"
+    args = [sys.executable, str(ROOT / "scripts/generate_api_wrapper.py"), list_flag, str(list_file)]
     args += [*extra, "--output-dir" if flag == "--class" else "--ios-output-dir", str(output_dir)]
     subprocess.run(args, cwd=ROOT, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 
