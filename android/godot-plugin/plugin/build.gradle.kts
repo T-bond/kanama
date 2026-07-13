@@ -9,7 +9,7 @@ plugins {
 val kanamaRoot = rootProject.layout.projectDirectory.dir("../..")
 val androidKanamaSources = layout.buildDirectory.dir("generated/kanamaAndroidSources")
 val panamaPortCoreDependency = providers.gradleProperty("kanamaPanamaPortCore")
-    .orElse("com.github.falcon4ever.PanamaPort:Core:0.1.3-kanama-r8.2")
+    .orElse("com.github.falcon4ever.PanamaPort:Core:0.1.3-kanama-r8.3")
 
 val prepareAndroidKanamaSources by tasks.registering(Sync::class) {
     into(androidKanamaSources)

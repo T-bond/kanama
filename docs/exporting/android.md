@@ -19,7 +19,7 @@ Eight public demo exports are Android smoke targets. On 2026-06-26, the full
 Godot 4.7 stable matrix passed on a Pixel 7 using debug APK exports, logcat
 startup checks, and screenshot smoke checks. The R8-minified Match3 release APK
 also passed on Pixel 7 when built against Kanama's PanamaPort fork
-(`com.github.falcon4ever.PanamaPort:Core:0.1.3-kanama-r8.2`). Android remains
+(`com.github.falcon4ever.PanamaPort:Core:0.1.3-kanama-r8.3`). Android remains
 experimental, and the minified-release claim is tied to that forked dependency,
 not upstream PanamaPort `v0.1.3`.
 
@@ -215,6 +215,18 @@ surface creation at launch.
   decodes scenes, audio streams, particles, or generated meshes. Mobile demos
   should preload/cache those resources and avoid rebuilding generated geometry
   every frame on input-driven paths.
+- Old vendor **OpenGL** drivers can crash before any Kanama code runs: a
+  Pixel 3 XL on its factory Android 9 image (2018 Adreno 630 GL driver)
+  segfaults inside the vendor shader compiler (`libllvm-glnext.so`) while
+  linking Godot 4.7 Compatibility-renderer shaders. The same device runs the
+  demo smoke fine with the **Mobile (Vulkan) renderer**
+  (`rendering_method.mobile = "mobile"`; Vulkan 1.1.66 initialized,
+  2026-07-13). This is an engine-vs-driver constraint, not a Kanama one —
+  the renderer is chosen by Godot from project settings before scripts run,
+  so it cannot be switched from Kanama at runtime. Projects targeting older
+  devices should prefer the Mobile renderer (Godot falls back to GL
+  Compatibility on devices without usable Vulkan) and validate on real
+  hardware.
 - Emulator/OpenGL compatibility rendering can differ from desktop Forward+.
   In the 3D Platformer smoke, gameplay and geometry render correctly, but the
   skybox/background is darker than the upstream desktop screenshot.
@@ -222,7 +234,7 @@ surface creation at launch.
 - Godot 4.7 `VirtualJoystick` wrappers are available in Kanama, but demo-level
   touch-control polish remains a project-specific validation claim.
 - R8/ProGuard minification is validated only with Kanama's PanamaPort fork,
-  `com.github.falcon4ever.PanamaPort:Core:0.1.3-kanama-r8.2`. Root-caused on a Pixel 7
+  `com.github.falcon4ever.PanamaPort:Core:0.1.3-kanama-r8.3`. Root-caused on a Pixel 7
   (2026-06-26), upstream PanamaPort `v0.1.3` crashes in the FFI bootstrap at
   `nativeLinker().downcallHandle()` with `AssertionError: Should not reach
   here`; the recurring `No loader found for resource: res://kotlin-src/*.kt`
@@ -250,7 +262,7 @@ unless broader physical-device and renderer coverage are added later.
 
 Kanama's Android plugin currently consumes a forked
 [PanamaPort](https://github.com/vova7878/PanamaPort)
-artifact, `com.github.falcon4ever.PanamaPort:Core:0.1.3-kanama-r8.2`, published
+artifact, `com.github.falcon4ever.PanamaPort:Core:0.1.3-kanama-r8.3`, published
 via [JitPack](https://jitpack.io) from Kanama's PanamaPort fork. The dependency
 can be overridden with `-PkanamaPanamaPortCore=...`, and the Android export
 scripts inject the JitPack repository (alongside the local Maven repository, for
