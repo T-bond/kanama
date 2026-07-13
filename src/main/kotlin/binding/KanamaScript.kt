@@ -1112,6 +1112,17 @@ class KanamaScript(
             callCreateInternal(instance, args, rRet, allowPlaceholder = skipForEditor)
         }
 
+        // KANAMA_TRACE_INSTANCES=1 also emits per-stage boundary lines below (not only the
+        // success line): a scene-start stall localizes to the last stage printed without
+        // its "done" counterpart (added for the Linux Platformer smoke investigation).
+        private val traceInstances = System.getenv("KANAMA_TRACE_INSTANCES") == "1"
+
+        private fun traceStage(script: KanamaScript, stage: String) {
+            if (traceInstances) {
+                System.err.println("[kanama:kt] instance-create ${script.kotlinClassName}: $stage")
+            }
+        }
+
         private fun callCreateInternal(
             instance: MemorySegment,
             args: MemorySegment,
@@ -1137,6 +1148,7 @@ class KanamaScript(
             // whether a factory exists — using the factory would defeat tool-mode
             // gating and matches the GDScript editor semantic where non-@tool scripts
             // do not run.
+            traceStage(script, "begin obj=0x${forObject.address().toString(16)} placeholder=$allowPlaceholder")
             val si = if (allowPlaceholder) {
                 // Carry the script's property list onto the placeholder so the
                 // editor inspector renders @ScriptProperty fields even when
@@ -1152,15 +1164,20 @@ class KanamaScript(
                     placeholderPropertyValues = LinkedHashMap(),
                 )
             } else {
+                traceStage(script, "factory invoke")
                 script.factory?.invoke(forObject) ?: run {
                     System.err.println("[kanama:kt] callInstanceCreate: no factory for ${script.kotlinClassName}")
                     retPtr.set(ADDRESS, 0, MemorySegment.NULL)
                     return
                 }
             }
+            traceStage(script, "instance built")
             si.script = script
+            traceStage(script, "applyPendingScriptPropertyValues")
             ScriptBridge.applyPendingScriptPropertyValues(forObject, si)
+            traceStage(script, "configureLifecycleProcessing")
             ScriptBridge.configureLifecycleProcessing(si)
+            traceStage(script, "tracking + ScriptBridge.create")
             script.trackOwnerObject(forObject.address())
             ScriptBridge.trackScriptInstance(forObject, si)
             ScriptBridge.trackKotlinObject(forObject, si.kotlinObject)
@@ -1169,7 +1186,7 @@ class KanamaScript(
             val instancePtr = ScriptBridge.create(siHandle)
 
             retPtr.set(ADDRESS, 0, instancePtr)
-            if (System.getenv("KANAMA_TRACE_INSTANCES") == "1") {
+            if (traceInstances) {
                 System.err.println(
                     "[kanama:kt] ${if (allowPlaceholder) "callPlaceholderInstanceCreate" else "callInstanceCreate"}: " +
                         "${script.kotlinClassName} obj=0x${forObject.address().toString(16)} siHandle=$siHandle " +
