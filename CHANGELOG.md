@@ -9,6 +9,11 @@ versioning once public releases begin.
 
 ### Added
 
+- Windows x86_64 promoted to **Supported (4.7 stable)**: full local
+  revalidation on the 4.7 stable console binary (2026-07-13) — demo audits,
+  script builds, imports, nine-demo desktop runtime smoke, TPS smoke, and the
+  packaged desktop-kit/store-addon install smokes. Linux stays pending its
+  4.7-stable re-run.
 - iOS `Mathf.roundToInt` parity helper (Godot `roundi` semantics, half away
   from zero), matching the desktop `Mathf.roundToInt` facade; demo ports can
   now share the same rounding call on both backends.

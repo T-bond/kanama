@@ -33,8 +33,8 @@ separate project with a different runtime and export model.
 ## Status
 
 Kanama is desktop-first. The `0.3.0` preview baseline is
-Godot 4.7 stable. macOS arm64 is **supported** on 4.7 stable; Linux and Windows
-are supported pending 4.7-stable revalidation. Use the
+Godot 4.7 stable. macOS arm64 and Windows x86_64 are **supported** on 4.7
+stable; Linux is supported pending 4.7-stable revalidation. Use the
 [Godot 4.7 stable archive](https://godotengine.org/download/archive/4.7-stable/)
 for compatible editor/player binaries and Android export templates. Desktop
 release kits and store add-ons are package artifacts that can be built from
