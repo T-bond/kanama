@@ -756,6 +756,12 @@ object Mathf {
 
     fun clamp(value: Double, min: Double, max: Double): Double =
         value.coerceIn(min, max)
+
+    // Godot's @GlobalScope.roundi (half away from zero, matching the desktop
+    // Mathf.roundToInt -> GD.roundi path; kotlin.math.round ties-to-even would diverge on .5).
+    fun roundToInt(value: Double): Long =
+        if (value >= 0.0) kotlin.math.floor(value + 0.5).toLong()
+        else kotlin.math.ceil(value - 0.5).toLong()
 }
 
 // KANAMA-IOS-HANDWRITTEN: [glue] ResourceLoader singleton. Not retired to the generated wrapper:
