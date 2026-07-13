@@ -375,7 +375,7 @@ mobile-specific ones measurable:
 
 | # | Criterion | Definition of green | iOS (2026-07-10) | Android (2026-07-10) |
 |---|---|---|---|---|
-| **B1** | Device matrix breadth | ≥ 2 physical device models per platform pass that platform's full repeatable gate on the current Godot baseline | ✅ **MET** — iPhone 12 (2026-06-25) + iPhone 15 Pro (2026-07-10) full ten-step gates (§2) | ❌ Pixel 7 only. Needs a second model through the debug demo matrix + the R8-minified release gate |
+| **B1** | Device matrix breadth | ≥ 2 physical device models per platform pass that platform's full repeatable gate on the current Godot baseline | ✅ **MET** — iPhone 12 (2026-06-25) + iPhone 15 Pro (2026-07-10) full ten-step gates (§2) | ⚠️ **HALF-MET (2026-07-13)** — Galaxy S10+ (SM-G975U, Snapdragon 855/Adreno 640, Android 12) passes the **nine-demo debug matrix** after two pre-Android-16 fixes landed (PanamaPort-fork `SDK_INT_FULL_COMPAT` guard + kanama `Paths.get`, `cb9ea40b`); the **R8-minified release gate FAILS on Android 12** — PanamaPort upcall code segfaults under R8 on the never-R8-validated A12 ART branches (task-20 disease, new site; see task 42). B1-Android stays open until the minified gate passes on a second model — or the bar records a written decision to scope minified-release support to Android 16+ |
 | **B2** | Renderer coverage | Android: Vulkan/Mobile renderer smoke across the demo corpus, green on a physical device (promotes DEFERRED #2). iOS: the Godot iOS renderer exercised by the full gate | ✅ by construction (the full gate runs the Godot iOS renderer) | ✅ **MET (2026-07-10)** — nine-demo Vulkan/Mobile smoke matrix green on Pixel 7 (Mali-G710, Android 16), renderer-asserted per demo (§2 row) |
 | **B3** | Release-grade packaging | The platform export path meets the desktop packaging standard: user-facing docs, reproducible from a clean checkout, a **packaged install artifact** (no Kanama source checkout required), and an install-smoke validating that artifact | ✅ **MET (2026-07-11)** — `packageMobileAddonIos` + `--ios-addon` install smoke (runtime-only, script-compile caveat documented) | ✅ **MET (2026-07-11)** — task-36 AAR split: `packageMobileAddonAndroid` + `--android-addon` install smoke; split artifacts device-revalidated on Pixel 7 (debug smoke + R8-minified release, Match3). Runtime-only with the same script-compile caveat |
 | **B4** | Heavy-demo coverage | `tps-demo-kanama` runs on-device on both platforms | ✅ **MET** — iPhone 15 Pro (2026-07-09, task 24) | ✅ **MET** — Pixel 7 (task 19, mobile controls validated) |
@@ -421,9 +421,16 @@ Standing caveats a promotion wording must carry:
   once; JitPack/mavenLocal repo injection into Godot's generated Gradle
   project, which the Android smoke scripts perform).
 
-**Assessment:** with B3 met, the only criterion still open is **B1-Android**
-(a second Android model through the debug matrix + R8-minified gate) —
-device-lab work.
+**Assessment:** with B3 met, the only criterion still open is **B1-Android**.
+The 2026-07-13 Galaxy S10+ session (Android 12) cleared the debug-matrix half
+and surfaced the real state of Android version support: the declared
+`minSdk = 26` had never been validated below Android 16. Current
+evidence-based floor: **debug builds work on Android 12** (with the two
+2026-07-13 fixes); **R8-minified release is validated only on Android 16**
+(PanamaPort R8 crash on A12, task 42). Closing B1-Android means either fixing
+task 42 and passing the minified gate on the S10+, or recording a scoped
+minified-release floor (Android 16+) in the promotion wording plus a
+min-version statement in the public docs.
 
 ### B3 design (2026-07-10) and implementation record (2026-07-11)
 
