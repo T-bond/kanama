@@ -494,6 +494,8 @@ val generatePackageGdextensionDescriptor by tasks.registering {
                 |linux.release.arm64 = "res://addons/kanama/bin/linux-arm64/libkanama_bootstrap.so"
                 |windows.debug.x86_64 = "res://addons/kanama/bin/windows-x64/kanama_bootstrap.dll"
                 |windows.release.x86_64 = "res://addons/kanama/bin/windows-x64/kanama_bootstrap.dll"
+                |ios.debug.arm64 = "res://addons/kanama/bin/ios/kanama_ios.debug.xcframework"
+                |ios.release.arm64 = "res://addons/kanama/bin/ios/kanama_ios.release.xcframework"
                 |""".trimMargin() + System.lineSeparator(),
             )
         }
