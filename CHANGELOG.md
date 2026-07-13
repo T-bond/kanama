@@ -81,6 +81,15 @@ versioning once public releases begin.
   (Android 12) during the second-device promotion gate, together with a
   PanamaPort-fork fix for the same class of bug (`SDK_INT_FULL` reads that
   crash pre-Android-16 devices).
+- Android release builds no longer hit an R8-emitted `filled-new-array` of
+  `byte[][]` in PanamaPort's stub generation (the ART interpreter below
+  Android 13 segfaults on that instruction): PanamaPort fork
+  `0.1.3-kanama-r8.4` routes single-blob code generation through a
+  non-varargs path. Validated Android version floors are now documented in
+  the Android export guide ("Validated Android Versions"): debug builds
+  Android 9+, release builds Android 13+ (validated 14/16 — below 13,
+  release-mode ART crashes in PanamaPort's LLVM-driven upcall generation;
+  characterized and deferred upstream).
 - `@GlobalClass` Kotlin scripts now actually register in the editor's global
   class list ([#39](https://github.com/falcon4ever/kanama/issues/39)): they
   appear in the Create New Resource dialog, and `.tres` resources using them

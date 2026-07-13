@@ -43,7 +43,7 @@ production-ready mobile target.
 The Android implementation uses a forked
 [PanamaPort](https://github.com/vova7878/PanamaPort) artifact, published via
 [JitPack](https://jitpack.io):
-`com.github.falcon4ever.PanamaPort:Core:0.1.3-kanama-r8.3`.
+`com.github.falcon4ever.PanamaPort:Core:0.1.3-kanama-r8.4`.
 
 Upstream PanamaPort `v0.1.3` miscompiles under Godot 4.7's R8 because its
 Android linker uses Java pattern switches over sealed storage/layout types. The

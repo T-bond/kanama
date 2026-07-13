@@ -19,7 +19,7 @@ Eight public demo exports are Android smoke targets. On 2026-06-26, the full
 Godot 4.7 stable matrix passed on a Pixel 7 using debug APK exports, logcat
 startup checks, and screenshot smoke checks. The R8-minified Match3 release APK
 also passed on Pixel 7 when built against Kanama's PanamaPort fork
-(`com.github.falcon4ever.PanamaPort:Core:0.1.3-kanama-r8.3`). Android remains
+(`com.github.falcon4ever.PanamaPort:Core:0.1.3-kanama-r8.4`). Android remains
 experimental, and the minified-release claim is tied to that forked dependency,
 not upstream PanamaPort `v0.1.3`.
 
@@ -104,6 +104,21 @@ settings or standard environment variables such as `ANDROID_HOME`,
 `ANDROID_SDK_ROOT`, and `JAVA_HOME`. The 4.7 stable Android export-template
 build requires the Android SDK platform for API 36, build-tools 36.1.0, and NDK
 29.0.14206865. Do not commit workstation-local paths.
+
+## Validated Android Versions
+
+The plugin's declared `minSdk` is 26, but the *validated* floor is
+build-type-specific (2026-07-13 four-model matrix — Pixel 3 XL / Galaxy S10+ /
+Moto g 5G 2023 / Pixel 7, Android 9/12/14/16):
+
+| Build type | Floor | Evidence |
+|---|---|---|
+| **Debug** (`--export-debug`) | **Android 9** (API 28) | Nine-demo matrix green on Android 12 + 14 + 16; Android 9 validated via the dodge smoke (Vulkan/Mobile renderer — see the GL-driver boundary below) |
+| **Release** (`--export-release`, minified or not) | **Android 13** (API 33); validated on 14 + 16 | On Android 12 and below, release-mode (`android:debuggable=false`) builds crash during PanamaPort's upcall-stub generation into the system `libLLVM_android.so` (argument marshalling lands shifted under release-mode ART's invocation of PanamaPort's runtime-bound native methods; debug-mode ART invokes them compatibly). Android 13 replaced that code path. Characterized with a full tombstone 2026-07-13; the fix is upstream-shaped and deferred |
+
+Pre-16 devices additionally require fork `0.1.3-kanama-r8.3`+ (the
+`SDK_INT_FULL` bootstrap guard) — older fork versions and upstream PanamaPort
+fail the FFI bootstrap on every device below Android 16.
 
 ## Godot Export Requirements
 
@@ -234,7 +249,7 @@ surface creation at launch.
 - Godot 4.7 `VirtualJoystick` wrappers are available in Kanama, but demo-level
   touch-control polish remains a project-specific validation claim.
 - R8/ProGuard minification is validated only with Kanama's PanamaPort fork,
-  `com.github.falcon4ever.PanamaPort:Core:0.1.3-kanama-r8.3`. Root-caused on a Pixel 7
+  `com.github.falcon4ever.PanamaPort:Core:0.1.3-kanama-r8.4`. Root-caused on a Pixel 7
   (2026-06-26), upstream PanamaPort `v0.1.3` crashes in the FFI bootstrap at
   `nativeLinker().downcallHandle()` with `AssertionError: Should not reach
   here`; the recurring `No loader found for resource: res://kotlin-src/*.kt`
@@ -249,7 +264,14 @@ surface creation at launch.
   switch broken at runtime. The fork rewrites the affected source switch sites
   to explicit `instanceof` branches and adds targeted R8 annotations/signing
   mechanics. `scripts/android_export_minified.sh` now builds, installs, launches,
-  and verifies the minified Match3 release APK on Pixel 7.
+  and verifies the minified Match3 release APK on Pixel 7 (Android 16) and
+  Moto g 5G 2023 (Android 14). A second R8 landmine was fixed in fork r8.4
+  (2026-07-13): AGP 8.6.1's R8 collapses a one-element `byte[]...` varargs
+  call into `filled-new-array` of `byte[][]`, which the ART interpreter below
+  Android 13 segfaults on; the fork's `NativeCodeBlob.makeCodeBlobSingle`
+  removes the only such site. Release builds below Android 13 remain blocked
+  by the separate release-mode PanamaPort constraint above ("Validated
+  Android Versions").
 
 ## Validation Shape
 
@@ -262,7 +284,7 @@ unless broader physical-device and renderer coverage are added later.
 
 Kanama's Android plugin currently consumes a forked
 [PanamaPort](https://github.com/vova7878/PanamaPort)
-artifact, `com.github.falcon4ever.PanamaPort:Core:0.1.3-kanama-r8.3`, published
+artifact, `com.github.falcon4ever.PanamaPort:Core:0.1.3-kanama-r8.4`, published
 via [JitPack](https://jitpack.io) from Kanama's PanamaPort fork. The dependency
 can be overridden with `-PkanamaPanamaPortCore=...`, and the Android export
 scripts inject the JitPack repository (alongside the local Maven repository, for

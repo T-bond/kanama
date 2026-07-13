@@ -96,7 +96,7 @@ notes per AGENTS.md.
 | Windows (desktop) | x86_64 | — | project renderer | **Pending 4.7-stable revalidation** (last green on 4.7 beta 2 console binary) | [Version Support](../reference/version-support.md) |
 | Android | **Pixel 7** (physical) + API 36 emulator | Android | OpenGL Compatibility (demo default) | Full 4.7-stable debug APK demo matrix + R8-minified Match3 release APK, both on Pixel 7 (2026-06-26) | [exporting/android.md](../exporting/android.md), [architecture-review-2026-06.md](./reference/architecture-review-2026-06.md) |
 | Android (Vulkan/Mobile renderer) | **Pixel 7** (physical, Mali-G710) | Android 16 | **Vulkan Forward Mobile** | Nine-demo smoke matrix, all green with a renderer-init assertion (`Vulkan 1.4.305 - Forward Mobile - Using Device #0: ARM - Mali-G710` + Kanama startup markers + non-blank frame per demo), 2026-07-10 via `KANAMA_ANDROID_RENDERER=mobile` | [exporting/android.md](../exporting/android.md) |
-| Android (second model, debug) | **Galaxy S10+** SM-G975U (physical, Adreno 640) | Android 12 | OpenGL Compatibility (demo default) | Nine-demo debug matrix green (2026-07-13) after the pre-Android-16 fixes (PanamaPort fork `SDK_INT_FULL_COMPAT`, kanama `Paths.get`). **R8-minified Match3 FAILS on this device** — task 42 | [exporting/android.md](../exporting/android.md), §7 B1 |
+| Android (second model, debug) | **Galaxy S10+** SM-G975U (physical, Adreno 640) | Android 12 | OpenGL Compatibility (demo default) | Nine-demo debug matrix green (2026-07-13) after the pre-Android-16 fixes (PanamaPort fork `SDK_INT_FULL_COMPAT`, kanama `Paths.get`). **Release-mode builds (minified or not) FAIL on this device** — task-42 forensics: `android:debuggable=false` triggers a PanamaPort A12 FFI crash into system libLLVM (tombstoned); not an R8 issue (a separate real R8 landmine was found and fixed en route, fork r8.4). Release floor recorded as Android 13+ | [exporting/android.md](../exporting/android.md) "Validated Android Versions", §7 B1 |
 | Android (third model, debug) | **Moto g 5G 2023** (physical, Adreno 619) | Android 14 | OpenGL Compatibility (demo default) | Nine-demo debug matrix green (2026-07-13), PanamaPort resolved from the **published JitPack r8.3 artifact** (no local override). Heavy demo (third-person) needs an extended launch wait (`KANAMA_ANDROID_LAUNCH_WAIT=120`; first-run GL shader compile on a budget GPU) and runs with some choppiness — unprofiled; candidate task-12 workload (first step: A/B vs the upstream GDScript demo on the same device) | [exporting/android.md](../exporting/android.md) |
 | Android (floor probe) | **Pixel 3 XL** (physical, Adreno 630) | Android 9 (factory image, API 28) | **Vulkan Forward Mobile** (`KANAMA_ANDROID_RENDERER=mobile`) | Dodge debug smoke green (2026-07-13; Vulkan 1.1.66 asserted). The factory 2018 Adreno **GL** driver segfaults linking Godot 4.7 compat shaders pre-Kanama — engine/vendor constraint, see exporting/android.md Current Boundaries | [exporting/android.md](../exporting/android.md) |
 | iOS (full gate) | **iPhone 12** (physical) | iOS 26.5 | Godot iOS | Full 9-demo device gate + fresh-project install path, 0 guardrail failures; ~0.63 ms/frame binding overhead | [ios-demo-port-tracker.md](./active/ios-demo-port-tracker.md) (baseline 2026-06-25) |
@@ -210,7 +210,7 @@ Current rows are stale for Android ("Pixel 7 pending") and thin for iOS. Propose
   `Device-validated (4.7 stable): Pixel 7 debug demo matrix + R8-minified Match3
   release APK (2026-06-26); OpenGL Compatibility renderer. Still experimental.`
   Keep the SDK/NDK detail and the note that the R8 claim is tied to the PanamaPort
-  fork `com.github.falcon4ever.PanamaPort:Core:0.1.3-kanama-r8.3`, not upstream.
+  fork `com.github.falcon4ever.PanamaPort:Core:0.1.3-kanama-r8.4`, not upstream.
 - **iOS row** — keep "Experimental (Kotlin/Native backend); not a supported
   export", but update the device detail to name both validated devices:
   `Full device gate on iPhone 12 (iOS 26.5); playable demo corpus + self-tests on
@@ -284,7 +284,7 @@ tiering; each is a bounded, disclosed gap.
   beyond the smoke bar (startup, Kanama markers, non-blank frame) remains
   per-demo validation.
 - **R8/minification depends on the PanamaPort fork.** Minified release APKs are
-  validated only with `com.github.falcon4ever.PanamaPort:Core:0.1.3-kanama-r8.3`.
+  validated only with `com.github.falcon4ever.PanamaPort:Core:0.1.3-kanama-r8.4`.
   Upstream PanamaPort `v0.1.3` crashes in the FFI bootstrap under R8 (root-caused
   on Pixel 7, 2026-06-26) and is **not** an R8-supported path.
 - **Per-demo mobile polish.** Orientation, screen size, touch controls, and UI
@@ -378,7 +378,7 @@ mobile-specific ones measurable:
 
 | # | Criterion | Definition of green | iOS (2026-07-10) | Android (2026-07-10) |
 |---|---|---|---|---|
-| **B1** | Device matrix breadth | ≥ 2 physical device models per platform pass that platform's full repeatable gate on the current Godot baseline | ✅ **MET** — iPhone 12 (2026-06-25) + iPhone 15 Pro (2026-07-10) full ten-step gates (§2) | ✅ **MET (2026-07-13)** — **Moto g 5G 2023** (Adreno 619, Android 14) passes the **full gate**: nine-demo debug matrix + R8-minified Match3 release, PanamaPort resolved from the published JitPack r8.3 artifact — joining **Pixel 7** (Android 16, 2026-06-26/2026-07-11) as the second full-gate model. Additional breadth the promotion wording can cite: **Galaxy S10+** (Adreno 640, Android 12) passes the nine-demo debug matrix after the pre-Android-16 fixes (fork `SDK_INT_FULL_COMPAT` + kanama `Paths.get` `cb9ea40b`) but **fails the R8-minified gate on Android 12** (PanamaPort upcall segfault on the never-R8-validated A12 ART branches — task 42, now a min-floor refinement rather than a promotion blocker); **Pixel 3 XL** (Adreno 630, factory Android 9 / API 28) passes the dodge debug smoke under Vulkan (`KANAMA_ANDROID_RENDERER=mobile`; its 2018 Adreno GL driver segfaults pre-Kanama — engine/vendor constraint, exporting/android.md). **Min-version statement to carry:** debug validated down to Android 9; R8-minified release validated on Android 14 + 16, currently broken on 12 (task 42) |
+| **B1** | Device matrix breadth | ≥ 2 physical device models per platform pass that platform's full repeatable gate on the current Godot baseline | ✅ **MET** — iPhone 12 (2026-06-25) + iPhone 15 Pro (2026-07-10) full ten-step gates (§2) | ✅ **MET (2026-07-13)** — **Moto g 5G 2023** (Adreno 619, Android 14) passes the **full gate**: nine-demo debug matrix + R8-minified Match3 release, PanamaPort resolved from the published JitPack r8.3 artifact — joining **Pixel 7** (Android 16, 2026-06-26/2026-07-11) as the second full-gate model. Additional breadth the promotion wording can cite: **Galaxy S10+** (Adreno 640, Android 12) passes the nine-demo debug matrix after the pre-Android-16 fixes (fork `SDK_INT_FULL_COMPAT` + kanama `Paths.get` `cb9ea40b`) but **fails release-mode builds on Android 12** (task-42 forensics complete: `debuggable=false` triggers a PanamaPort A12 FFI crash into system libLLVM — upstream-shaped, tombstoned, DEFERRED #10; a separate genuine R8 landmine — `filled-new-array [[B`, ART <13 interpreter crash — was found and fixed en route, fork r8.4); **Pixel 3 XL** (Adreno 630, factory Android 9 / API 28) passes the dodge debug smoke under Vulkan (`KANAMA_ANDROID_RENDERER=mobile`; its 2018 Adreno GL driver segfaults pre-Kanama — engine/vendor constraint, exporting/android.md). **Min-version statement (maintainer floor decision 2026-07-13, live in exporting/android.md "Validated Android Versions"):** debug validated down to Android 9; release builds require Android 13+, validated on 14 + 16 |
 | **B2** | Renderer coverage | Android: Vulkan/Mobile renderer smoke across the demo corpus, green on a physical device (promotes DEFERRED #2). iOS: the Godot iOS renderer exercised by the full gate | ✅ by construction (the full gate runs the Godot iOS renderer) | ✅ **MET (2026-07-10)** — nine-demo Vulkan/Mobile smoke matrix green on Pixel 7 (Mali-G710, Android 16), renderer-asserted per demo (§2 row) |
 | **B3** | Release-grade packaging | The platform export path meets the desktop packaging standard: user-facing docs, reproducible from a clean checkout, a **packaged install artifact** (no Kanama source checkout required), and an install-smoke validating that artifact | ✅ **MET (2026-07-11)** — `packageMobileAddonIos` + `--ios-addon` install smoke (runtime-only, script-compile caveat documented) | ✅ **MET (2026-07-11)** — task-36 AAR split: `packageMobileAddonAndroid` + `--android-addon` install smoke; split artifacts device-revalidated on Pixel 7 (debug smoke + R8-minified release, Match3). Runtime-only with the same script-compile caveat |
 | **B4** | Heavy-demo coverage | `tps-demo-kanama` runs on-device on both platforms | ✅ **MET** — iPhone 15 Pro (2026-07-09, task 24) | ✅ **MET** — Pixel 7 (task 19, mobile controls validated) |
@@ -415,7 +415,7 @@ Standing caveats a promotion wording must carry:
   builds the per-project scripts AAR). Both READMEs and exporting docs say so.
 - **Android third-party dependency exposure.** The Android path depends on the
   JitPack-hosted PanamaPort fork
-  (`com.github.falcon4ever.PanamaPort:Core:0.1.3-kanama-r8.3`) — documented in
+  (`com.github.falcon4ever.PanamaPort:Core:0.1.3-kanama-r8.4`) — documented in
   the packaged README, not vendored (recorded decision).
 - **Debug-only Android AAR** (no release AAR exists; recorded decision), and
   the iOS size disclosure (~199.5 MB debug / ~87.6 MB release static `.a`).
@@ -429,8 +429,10 @@ both platforms.** The Moto g 5G (Android 14) full gate (debug + R8-minified,
 on the published JitPack r8.3 artifact) closed the last criterion. Promotion
 from Experimental to Supported is now a **wording decision** for the
 maintainer, carrying the §7 packaging caveats, the min-version statement
-(debug validated to Android 9; minified validated on 14+16, broken on 12 —
-task 42, no longer gating), and the disclosed non-gating follow-ups (task 26
+(maintainer floor decision 2026-07-13: debug validated to Android 9; release
+builds require Android 13+, validated on 14+16 — task 42 resolved with full
+forensics, the A12 release-mode PanamaPort constraint is documented and
+upstream-shaped), and the disclosed non-gating follow-ups (task 26
 mobile multiplayer UI + the untested cross-platform join matrix). The
 2026-07-13 device sessions also surfaced that the declared `minSdk = 26` had
 never been validated below Android 16 before — the four-model matrix (Pixel
