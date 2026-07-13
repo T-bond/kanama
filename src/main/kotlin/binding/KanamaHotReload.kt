@@ -3,6 +3,7 @@ package net.multigesture.kanama.binding
 import java.lang.foreign.MemorySegment
 import java.nio.file.Files
 import java.nio.file.Path
+import java.nio.file.Paths
 import java.lang.reflect.Modifier
 import java.lang.ref.WeakReference
 
@@ -224,7 +225,7 @@ object KanamaHotReload {
         val sep = System.getProperty("path.separator")
         val runtimeJar = cp.split(sep)
             .asSequence()
-            .map { Path.of(it) }
+            .map { Paths.get(it) }
             .firstOrNull { it.fileName.toString() == "kanama.jar" && Files.exists(it) }
             ?: return null
         val scriptsJar = runtimeJar.parent?.resolve("kanama-scripts.jar") ?: return null

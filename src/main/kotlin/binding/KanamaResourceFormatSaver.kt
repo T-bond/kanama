@@ -15,6 +15,7 @@ import java.lang.foreign.ValueLayout.JAVA_LONG
 import java.lang.invoke.MethodType
 import java.nio.file.Files
 import java.nio.file.Path
+import java.nio.file.Paths
 import java.nio.file.StandardOpenOption
 
 /**
@@ -212,7 +213,7 @@ object KanamaResourceFormatSaver {
             return
         }
         try {
-            val target = Path.of(absolute)
+            val target = Paths.get(absolute)
             val parent = target.parent
             if (parent != null) {
                 Files.createDirectories(parent)

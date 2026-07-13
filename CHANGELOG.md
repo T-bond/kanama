@@ -73,6 +73,14 @@ versioning once public releases begin.
 
 ### Fixed
 
+- Android runtime now works below Android 14: the binding runtime used
+  `Path.of(...)` (a Java 11 API Android only ships from API 34) in the `.kt`
+  resource loader/saver and the scripts-jar lookup, so script loading died
+  with `NoSuchMethodError` on older devices; switched to the equivalent
+  `Paths.get(...)` (API 26+). Found and device-validated on a Galaxy S10+
+  (Android 12) during the second-device promotion gate, together with a
+  PanamaPort-fork fix for the same class of bug (`SDK_INT_FULL` reads that
+  crash pre-Android-16 devices).
 - `@GlobalClass` Kotlin scripts now actually register in the editor's global
   class list ([#39](https://github.com/falcon4ever/kanama/issues/39)): they
   appear in the Create New Resource dialog, and `.tres` resources using them

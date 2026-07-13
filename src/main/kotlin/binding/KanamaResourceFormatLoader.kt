@@ -17,6 +17,7 @@ import java.lang.foreign.ValueLayout.JAVA_LONG
 import java.lang.invoke.MethodType
 import java.nio.file.Files
 import java.nio.file.Path
+import java.nio.file.Paths
 
 /**
  * Minimal ResourceFormatLoader for `.kt` script files.
@@ -262,7 +263,7 @@ object KanamaResourceFormatLoader {
     private fun readScriptSource(resPath: String): String? {
         val absolute = globalizeResPath(resPath) ?: return null
         return try {
-            String(Files.readAllBytes(Path.of(absolute)))
+            String(Files.readAllBytes(Paths.get(absolute)))
         } catch (_: Throwable) {
             null
         }
