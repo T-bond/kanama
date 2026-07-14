@@ -16,7 +16,8 @@ for testing Kanama games on Android.
 
 ## Current Status
 
-Eight public demo exports are Android smoke targets. On 2026-06-26, the full
+The nine public demo exports (the eight detailed below plus Bunnymark) are
+Android smoke targets. On 2026-06-26, the full
 Godot 4.7 stable matrix passed on a Pixel 7 using debug APK exports, logcat
 startup checks, and screenshot smoke checks. The R8-minified Match3 release APK
 also passed on Pixel 7 when built against Kanama's PanamaPort fork
