@@ -1,8 +1,8 @@
 # Android Internals
 
-This page records the current Android implementation path. Android is an
-experimental Kanama target for the Godot 4.7 stable baseline, and the
-API/build flow is less settled than the desktop path.
+This page records the current Android implementation path. Android is a
+**Supported** Kanama target on the Godot 4.7 stable baseline; the API/build flow
+is less settled than the desktop path.
 
 ## What Works
 
@@ -34,9 +34,10 @@ The exported APK path:
 - reaches `OnGodotMainLoopStarted`, and
 - renders the 3D scene through Godot's OpenGL compatibility renderer.
 
-This proves the basic Kanama runtime path is viable on Android, including the
-current forked-PanamaPort minified path. Treat it as experimental support, not a
-production-ready mobile target.
+This proves the Kanama runtime path on Android, including the forked-PanamaPort
+minified path. Android is Supported on 4.7 stable; release builds require
+Android 13+ (debug down to Android 9), and the release path depends on Kanama's
+PanamaPort fork.
 
 ## PanamaPort
 

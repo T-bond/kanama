@@ -11,10 +11,10 @@ flows only after matching GitHub zip artifacts are published.
 | Store addon | You have a locally built or published store-addon zip and want to add Kanama to an existing Godot project without a sibling Kanama source checkout. | [Use a Store Addon](store-addon.md) |
 | Contributor checkout | You want to work on Kanama runtime, wrappers, docs, native bootstrap, or release packaging. | [Work on Kanama](work-on-kanama.md) |
 
-Android export is experimental and uses a separate Gradle/Android toolchain.
-See [Android Experimental](../exporting/android.md) after the desktop workflow
-is running. iOS is also experimental (a Kotlin/Native backend, device-validated
-but not yet a supported export) — see [iOS (Experimental)](../exporting/ios.md).
+Android export is Supported on 4.7 stable and uses a separate Gradle/Android
+toolchain. See [Android](../exporting/android.md) after the desktop workflow is
+running. iOS is also Supported (a Kotlin/Native backend, device-validated on
+iPhone 12 / 15 Pro) — see [iOS](../exporting/ios.md).
 
 ## Requirements
 

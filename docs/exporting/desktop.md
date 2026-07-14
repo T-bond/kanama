@@ -144,8 +144,7 @@ complete exported-game packaging story.
 ## Android Track
 
 Android exports use a different runtime path: a Godot Android plugin AAR, ART,
-PanamaPort, and Android-specific packaging. Keep Android release wording
-experimental until the matching APK smoke path has passed.
+PanamaPort, and Android-specific packaging. Android is Supported on 4.7 stable;
+release builds require Android 13+ (debug down to Android 9).
 
-See [Android Experimental](android.md) for the current workflow, validation
-status, and boundaries.
+See [Android](android.md) for the workflow, validation status, and boundaries.
