@@ -139,6 +139,11 @@ object KanamaResourceFormatSaver {
             }
         }
         registeredWithResourceSaver = false
+        // Destroy the explicitly constructed handler before class teardown; a
+        // live instance at ClassDB unregister hangs shutdown on Linux.
+        if (godotObject.address() != 0L) {
+            ObjectCalls.destroyObject(godotObject)
+        }
         godotObject = MemorySegment.NULL
         saverHandle = 0L
     }

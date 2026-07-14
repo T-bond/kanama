@@ -151,7 +151,13 @@ object KanamaResourceFormatLoader {
             }
             registeredWithResourceLoader = false
         }
-        // ResourceFormatLoader inherits RefCounted; avoid forced destroy.
+        // Destroy Kanama's explicitly constructed handler while its pointer is
+        // still valid, before ClassDB unregisters its extension class. Leaving a
+        // live instance behind hangs shutdown on Linux (StringName/allocator
+        // corruption during class teardown).
+        if (godotObject.address() != 0L) {
+            ObjectCalls.destroyObject(godotObject)
+        }
         godotObject = MemorySegment.NULL
         loaderHandle = 0L
     }
