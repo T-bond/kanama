@@ -32,7 +32,7 @@ ownership, signals, and wrapper coverage. For existing GDScript projects, use
 | --- | --- |
 | macOS | Supported (4.7 stable) |
 | Linux x86_64 | Supported (4.7 stable) |
-| Linux arm64 | Supported pending 4.7 stable revalidation |
+| Linux arm64 | Supported (4.7 stable) |
 | Windows | Supported (4.7 stable) |
 | Android | Experimental; device-validated on 4.7 stable (Pixel 7, OpenGL Compatibility + Vulkan/Mobile smoke) |
 | iOS | Experimental (Kotlin/Native); device-validated on 4.7 stable (iPhone 12 / 15 Pro) |

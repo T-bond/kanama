@@ -14,8 +14,13 @@ versioning once public releases begin.
   smoke matrix, TPS checked smoke, distribution packaging, and
   desktop-kit/store-addon install smokes passed on Ubuntu 25.04 with Godot
   `4.7.stable.official.5b4e0cb0f` and OpenJDK 25.0.2 (2026-07-13/14). Requires
-  the resource-loader/saver teardown fix below. Linux arm64 stays pending its
-  4.7-stable re-run.
+  the resource-loader/saver teardown fix below.
+- Linux arm64 promoted to **Supported (4.7 stable)**: the same full gate suite
+  (local CI incl. the resource-loader/saver teardown `runtime_smoke`, strict
+  docs, all 11 demo builds, nine-demo desktop smoke matrix, TPS checked smoke,
+  distribution packaging, desktop-kit/store-addon install smokes, and an AArch64
+  ELF native preflight) passed on a native Ubuntu 26.04 AArch64 host with Godot
+  `4.7.stable.official.5b4e0cb0f` and OpenJDK 25.0.3 (2026-07-14).
 - Fixed a shutdown hang on Linux x86_64: `KanamaResourceFormatLoader` and
   `KanamaResourceFormatSaver` now destroy their explicitly constructed handler
   objects during `unregister()`, before `ClassDB` tears down their extension
