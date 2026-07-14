@@ -1,7 +1,8 @@
-# Android Experimental
+# Android
 
-Kanama's Android path is experimental but device-validated on Pixel 7 for the
-v0.3.0 line, and currently tracks the Godot 4.7 stable baseline. It proves that
+Kanama's Android path is **Supported** on Godot 4.7 stable for the v0.3.0 line,
+device-validated across four physical models (Pixel 7 / Moto g 5G 2023 / Galaxy
+S10+ / Pixel 3 XL, Android 16/14/12/9). It proves that
 Kanama can run inside a
 stock Godot Android export through a Godot Android plugin AAR, without a Godot
 fork and without custom JNI in game code.
@@ -19,9 +20,8 @@ Eight public demo exports are Android smoke targets. On 2026-06-26, the full
 Godot 4.7 stable matrix passed on a Pixel 7 using debug APK exports, logcat
 startup checks, and screenshot smoke checks. The R8-minified Match3 release APK
 also passed on Pixel 7 when built against Kanama's PanamaPort fork
-(`com.github.falcon4ever.PanamaPort:Core:0.1.3-kanama-r8.4`). Android remains
-experimental, and the minified-release claim is tied to that forked dependency,
-not upstream PanamaPort `v0.1.3`.
+(`com.github.falcon4ever.PanamaPort:Core:0.1.3-kanama-r8.4`). The minified-release
+claim is tied to that forked dependency, not upstream PanamaPort `v0.1.3`.
 
 | Demo | Current Result |
 |---|---|
@@ -81,7 +81,7 @@ Use separate Java assumptions for desktop and Android:
 - Android Gradle/export tooling: JDK 21.
 - Android game runtime: ART plus PanamaPort, not a desktop JDK.
 
-Current experimental values:
+Current values:
 
 | Tool | Version / Setting |
 |---|---|
@@ -154,7 +154,7 @@ GDExtension for Android instead of warning about a missing `arm64` library.
 
 ## Build And Install The AAR
 
-Build and install the experimental Android plugin into a Godot project:
+Build and install the Android plugin into a Godot project:
 
 ```sh
 ./gradlew installAndroidPluginAar \
@@ -219,9 +219,9 @@ surface creation at launch.
   remap because the Android compatibility pass can otherwise mistake it for
   low-level `MethodHandle.invoke(...)`.
 - Android hot reload is not designed and should be considered disabled.
-- Current validation remains experimental even when Pixel 7 smoke checks pass;
-  broader physical-device and input coverage would be stronger platform claims
-  (the device matrix is still a single model).
+- Android is Supported on 4.7 stable; the device matrix spans four models
+  (Android 9/12/14/16). Broader input coverage would still strengthen the claim.
+  Release builds require Android 13+ (see "Validated Android Versions").
 - Several action demos include Android-only touch overlays, D-pad controls, or
   `VirtualJoystick` controls so smoke runs can exercise real gameplay input on
   a phone. Mobile polish is still per demo: orientation, screen size, touch
@@ -277,8 +277,9 @@ surface creation at launch.
 
 Android validation uses the normal demo folders plus Android export metadata,
 the Kanama Android plugin AAR, `adb install`, logcat checks, screenshots, and a
-forced package stop after the run. Current preview claims stay experimental
-unless broader physical-device and renderer coverage are added later.
+forced package stop after the run. The support claim rests on the four-model
+device matrix and the Vulkan/Mobile renderer coverage; broader input coverage
+would strengthen it further.
 
 ## PanamaPort
 

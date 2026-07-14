@@ -9,6 +9,18 @@ versioning once public releases begin.
 
 ### Added
 
+- **iOS and Android promoted from Experimental to Supported (4.7 stable)**: the
+  §7 mobile promotion bar (device-matrix breadth, renderer coverage, release-grade
+  packaging, heavy-demo) is fully green on both platforms. Android is
+  device-validated across four models (Pixel 7 / Moto g 5G 2023 / Galaxy S10+ /
+  Pixel 3 XL) — **debug validated to Android 9; release builds require Android
+  13+** (validated 14/16; the A12 release-mode PanamaPort constraint is
+  documented and upstream-shaped). iOS is device-validated on iPhone 12 + iPhone
+  15 Pro. Carried caveats: packaged mobile addons are runtime-only (compiling
+  project scripts needs the Kanama checkout), the Android release path depends on
+  the JitPack PanamaPort fork (`0.1.3-kanama-r8.4`), no mobile hot reload, and
+  task-26 multiplayer UI polish + the cross-platform join matrix remain
+  non-blocking follow-ups. `0.3.0` remains a pre-1.0 preview baseline.
 - Linux x86_64 promoted to **Supported (4.7 stable)**: full local CI, native
   bootstrap preflight, strict docs, all 11 demo builds, the nine-demo desktop
   smoke matrix, TPS checked smoke, distribution packaging, and

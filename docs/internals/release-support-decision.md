@@ -12,8 +12,17 @@
 > **Phase 4 · B addendum (2026-07-10, task 25):** §7 defines the written
 > Supported-mobile promotion bar and the packaging assessment; the §2/§3/§5
 > matrix rows are refreshed for the iPhone 15 Pro full ten-step gate
-> (2026-07-10) and the task-24 iOS heavy-demo landing. Tiers unchanged — mobile
-> stays Tier 2 until §7 is fully green.
+> (2026-07-10) and the task-24 iOS heavy-demo landing. Tiers unchanged at that
+> point — mobile stayed Tier 2 until §7 was fully green.
+>
+> **Promotion applied 2026-07-14 (task 25):** the §7 bar cleared B1–B4 on both
+> platforms (Moto g 5G full gate closed B1-Android 2026-07-13; the four-model
+> min-version matrix came from the 2026-07-13/14 device sessions). iOS + Android
+> were promoted **Experimental → Supported (4.7 stable)** in `docs/index.md`,
+> `docs/reference/version-support.md`, the root `README.md`, and
+> `docs/exporting/{android,ios}.md`, carrying the §7 packaging caveats, the
+> min-version statement (debug ≥ Android 9; release ≥ Android 13), and the
+> disclosed non-gating follow-ups. `0.3.0` remains a pre-1.0 preview baseline.
 
 This document answers four questions for the 0.2.x release line:
 

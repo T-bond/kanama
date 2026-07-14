@@ -1,8 +1,9 @@
-# iOS (Experimental)
+# iOS
 
-Kanama's iOS backend is experimental but proven viable on device: it runs full
-Kanama project scripts through the same generated Godot API wrappers as
-desktop/Android. It is not yet a supported export.
+Kanama's iOS backend is **Supported** on Godot 4.7 stable: it runs full Kanama
+project scripts through the same generated Godot API wrappers as desktop/Android,
+via a C GDExtension shim + a Kotlin/Native static `.xcframework` (no JVM on
+device). Device-validated on iPhone 12 + iPhone 15 Pro.
 
 Use the
 [Godot 4.7 stable archive](https://godotengine.org/download/archive/4.7-stable/)
@@ -31,10 +32,10 @@ per-frame Kanama binding overhead about 0.63 ms/frame measured there) and
 runtime). The claim names those two models — it is not a device-family
 ("recent iPhones") claim.
 
-iOS is still **experimental, not a supported export**. It should not be
-presented as a production mobile target or desktop-level support claim. Treat it
-as a validated experimental backend for Kanama development and demo/device
-testing while the remaining support gates are cleared — see
+iOS is **Supported** on 4.7 stable, with caveats: the packaged `.xcframework`
+addon is runtime-only (compiling a project's Kotlin scripts still needs the
+Kanama checkout), there is no mobile hot reload, and one FPS Audio autoload
+follow-up plus task-26 multiplayer UI polish are tracked as non-blocking — see
 [Version Support](../reference/version-support.md).
 
 ## Toolchain

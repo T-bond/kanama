@@ -13,8 +13,9 @@
   <a href="LICENSE"><img alt="License: MIT" src="https://img.shields.io/badge/license-MIT-blue.svg"></a>
   <img alt="Godot 4.7 stable" src="https://img.shields.io/badge/Godot-4.7_stable-478cbf.svg">
   <img alt="JDK 25+" src="https://img.shields.io/badge/JDK-25%2B-f89820.svg">
-  <img alt="Android: experimental" src="https://img.shields.io/badge/Android-experimental-3ddc84.svg">
-  <img alt="Status: experimental" src="https://img.shields.io/badge/status-experimental-yellow.svg">
+  <img alt="Android: supported" src="https://img.shields.io/badge/Android-supported-3ddc84.svg">
+  <img alt="iOS: supported" src="https://img.shields.io/badge/iOS-supported-000000.svg">
+  <img alt="Status: 0.3.0 preview" src="https://img.shields.io/badge/status-0.3.0_preview-478cbf.svg">
 </p>
 
 Kanama lets Kotlin scripts attach to Godot nodes through a GDExtension runtime.
@@ -25,8 +26,8 @@ the JVM ecosystem.
 
 ## Related Projects
 
-Kanama is experimental and uses a Panama/FFM-based GDExtension architecture.
-If you want a more established Kotlin integration for Godot today, also
+Kanama is a preview-stage (`0.3.0`) project using a Panama/FFM-based GDExtension
+architecture. If you want a more established Kotlin integration for Godot today, also
 evaluate [Godot Kotlin/JVM](https://godot-kotl.in/en/stable/). It is a
 separate project with a different runtime and export model.
 
@@ -41,20 +42,25 @@ release kits and store add-ons are package artifacts that can be built from
 source today and are the intended release path; exported-game packaging remains
 a separate release-readiness track.
 
-Android support is experimental but **device-validated** for the v0.3.0 line: the
-workflow builds a Godot Android plugin AAR and uses
+Android is **Supported** on 4.7 stable for the v0.3.0 line: the workflow builds a
+Godot Android plugin AAR and uses
 [PanamaPort](https://github.com/vova7878/PanamaPort) for the Android FFM layer.
-The Godot 4.7 stable debug demo matrix, an R8-minified Match3 release APK, and
-the nine-demo Vulkan/Mobile renderer smoke all pass on a physical Pixel 7. The
-R8/minified path is validated against Kanama's PanamaPort fork, not upstream.
+Device-validated across four models (Pixel 7 / Moto g 5G 2023 / Galaxy S10+ /
+Pixel 3 XL); the Godot 4.7 stable debug demo matrix, an R8-minified Match3
+release APK, and the nine-demo Vulkan/Mobile renderer smoke all pass on physical
+devices. **Debug builds are validated down to Android 9; release builds require
+Android 13+** (validated on 14 + 16). The R8/release path is validated against
+Kanama's PanamaPort fork, not upstream, and the packaged addon is runtime-only
+(compiling project scripts needs the Kanama checkout).
 
-iOS support is an experimental Kotlin/Native backend: a C GDExtension shim plus
-a Kotlin/Native static `.xcframework` run full Kanama project scripts through the
-same wrapper generator as desktop/Android, with no JVM on device. The full
+iOS is a **Supported** Kotlin/Native backend on 4.7 stable: a C GDExtension shim
+plus a Kotlin/Native static `.xcframework` run full Kanama project scripts through
+the same wrapper generator as desktop/Android, with no JVM on device. The full
 device gate (fresh-project install + nine-demo matrix) has passed on both
 iPhone 12 and iPhone 15 Pro, with one FPS Audio autoload follow-up tracked as
-non-blocking. iOS remains experimental, not a supported export — see the
-[iOS (Experimental)](docs/exporting/ios.md) export guide and
+non-blocking. The packaged `.xcframework` addon is runtime-only (compiling
+project scripts needs the Kanama checkout), and there is no mobile hot reload —
+see the [iOS export guide](docs/exporting/ios.md) and
 [Version Support](docs/reference/version-support.md).
 
 Web export is not planned.
@@ -67,8 +73,8 @@ the `0.3.0` public preview criteria.
 - Kotlin scripts attach to Godot nodes like GDScript
 - No engine fork, no engine module, no JNI glue in game code
 - Desktop runtime powered by the JDK Foreign Function & Memory API
-- Experimental Android runtime through Godot's Android plugin AAR flow
-- Experimental iOS runtime through a Kotlin/Native `.xcframework` (no on-device JVM)
+- Android runtime through Godot's Android plugin AAR flow (Supported on 4.7 stable)
+- iOS runtime through a Kotlin/Native `.xcframework`, no on-device JVM (Supported on 4.7 stable)
 - Hot reload and editor build tools for a fast iteration loop
 - Full Godot 4.7 class coverage (1036/1036 wrapped classes, generated KDoc from
   Godot docs; engine virtuals overridable via `@OverrideVirtual`)
@@ -88,7 +94,7 @@ Desktop/editor workflow:
 - macOS arm64, Windows x64, Linux x64, or Linux ARM64 for the current
   editor/runtime smoke paths
 
-Experimental Android export workflow:
+Android export workflow:
 
 - Godot 4.7 stable Android export templates from the
   [Godot 4.7 stable archive](https://godotengine.org/download/archive/4.7-stable/);
@@ -184,8 +190,8 @@ The latest public documentation is published at
 - [Porting GDScript](docs/game-dev/porting-gdscript.md)
 - [Kotlin Style](docs/game-dev/style-guide.md)
 - [Desktop and Packaging](docs/exporting/desktop.md)
-- [Android Experimental](docs/exporting/android.md)
-- [iOS (Experimental)](docs/exporting/ios.md)
+- [Android](docs/exporting/android.md)
+- [iOS](docs/exporting/ios.md)
 - [Version Support](docs/reference/version-support.md)
 - [API Coverage](docs/contributing/api-coverage.md)
 - [C# Comparison](docs/reference/c-sharp-compat.md)
