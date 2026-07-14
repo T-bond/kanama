@@ -133,11 +133,28 @@ run() {
 assert_clean() {
   local repo_dir="$1"
   local name="$2"
-  local status
-  status="$(git -C "$repo_dir" status --short)"
-  if [[ -n "$status" ]]; then
-    echo "[fresh_clone_smoke] $name has tracked worktree changes after validation:" >&2
-    echo "$status" >&2
+  # Fully clean is the common (desktop) case.
+  if [[ -z "$(git -C "$repo_dir" status --porcelain)" ]]; then
+    return 0
+  fi
+  # Godot deterministically rewrites per-platform texture .import metadata during
+  # the demo smoke: on non-desktop arches (e.g. Linux arm64) it drops the desktop
+  # BPTC artifact and keeps ASTC, while desktop arches keep BPTC matching the
+  # committed files. That churn is expected and must never be committed. If the
+  # ONLY tracked changes are .import files, report and restore them; any other
+  # change stays a hard failure.
+  if [[ -n "$(git -C "$repo_dir" status --porcelain -- ':(exclude)*.import')" ]]; then
+    echo "[fresh_clone_smoke] $name has unexpected tracked worktree changes after validation:" >&2
+    git -C "$repo_dir" status --short >&2
+    exit 1
+  fi
+  echo "[fresh_clone_smoke] $name: restoring expected Godot .import metadata rewrites:" >&2
+  git -C "$repo_dir" status --short -- '*.import' >&2
+  git -C "$repo_dir" checkout -- '*.import'
+  # Must be fully clean now (catches untracked .import or anything left behind).
+  if [[ -n "$(git -C "$repo_dir" status --porcelain)" ]]; then
+    echo "[fresh_clone_smoke] $name still dirty after restoring .import files:" >&2
+    git -C "$repo_dir" status --short >&2
     exit 1
   fi
 }
