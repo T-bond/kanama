@@ -577,6 +577,9 @@ import net.multigesture.kanama.annotations.ScriptClass
 import net.multigesture.kanama.annotations.ScriptProperty
 import net.multigesture.kanama.api.KanamaScript
 import net.multigesture.kanama.api.Label
+import net.multigesture.kanama.api.ClassDB
+import net.multigesture.kanama.api.Mathf
+import net.multigesture.kanama.api.RefCounted
 import net.multigesture.kanama.types.NodePath
 import net.multigesture.kanama.types.Vector2
 
@@ -630,6 +633,17 @@ class IosSmokeScript(godotObject: MemorySegment) : KanamaScript<Label>(godotObje
         val hp150 = self.call("_has_point", Vector2(150.0, 0.0))
         val hp5 = self.call("_has_point", Vector2(5.0, 0.0))
         println("[kanama][ios][kn] _has_point via self.call: at150=$hp150 at5=$hp5")
+        // task 43 device probe: ClassDB.instantiate on a RefCounted class must return a LIVE
+        // object. The pre-fix bug destroyed the sole-reference return Variant before decode, so the
+        // handle dangled (use-after-free for RefCounted classes). A correct owned decode returns the
+        // RefCounted wrapper; get_class() on a live handle round-trips the engine class name, whereas
+        // a dead handle would crash or print garbage.
+        val instantiated = ClassDB.instantiate("RandomNumberGenerator")
+        val instClass = (instantiated as? GodotObject)?.call("get_class")
+        println("[kanama][ios][kn] task43 classdb.instantiate RefCounted: nonNull=${instantiated != null} isRefCounted=${instantiated is RefCounted} get_class=$instClass")
+        // task 44 device probe: Mathf.roundToInt uses Godot roundi semantics (half away from zero),
+        // not Kotlin ties-to-even. Expect 2.5 -> 3, -2.5 -> -3, 2.4 -> 2.
+        println("[kanama][ios][kn] task44 Mathf.roundToInt 2.5=${Mathf.roundToInt(2.5)} -2.5=${Mathf.roundToInt(-2.5)} 2.4=${Mathf.roundToInt(2.4)}")
     }
 
     // Phase 3.3: a Godot-driven arg-bearing virtual proves the generic callV path end to end —
