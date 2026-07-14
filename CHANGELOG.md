@@ -9,11 +9,23 @@ versioning once public releases begin.
 
 ### Added
 
+- Linux x86_64 promoted to **Supported (4.7 stable)**: full local CI, native
+  bootstrap preflight, strict docs, all 11 demo builds, the nine-demo desktop
+  smoke matrix, TPS checked smoke, distribution packaging, and
+  desktop-kit/store-addon install smokes passed on Ubuntu 25.04 with Godot
+  `4.7.stable.official.5b4e0cb0f` and OpenJDK 25.0.2 (2026-07-13/14). Requires
+  the resource-loader/saver teardown fix below. Linux arm64 stays pending its
+  4.7-stable re-run.
+- Fixed a shutdown hang on Linux x86_64: `KanamaResourceFormatLoader` and
+  `KanamaResourceFormatSaver` now destroy their explicitly constructed handler
+  objects during `unregister()`, before `ClassDB` tears down their extension
+  classes. Leaving the live instances behind corrupted/blocked shutdown on Linux
+  (orphan `StringName` and allocator diagnostics); desktop processes now exit
+  cleanly.
 - Windows x86_64 promoted to **Supported (4.7 stable)**: full local
   revalidation on the 4.7 stable console binary (2026-07-13) — demo audits,
   script builds, imports, nine-demo desktop runtime smoke, TPS smoke, and the
-  packaged desktop-kit/store-addon install smokes. Linux stays pending its
-  4.7-stable re-run.
+  packaged desktop-kit/store-addon install smokes.
 - iOS `Mathf.roundToInt` parity helper (Godot `roundi` semantics, half away
   from zero), matching the desktop `Mathf.roundToInt` facade; demo ports can
   now share the same rounding call on both backends.
