@@ -92,14 +92,14 @@ corpus has playable device runs; per-frame Kanama script+binding overhead is ~0.
 on iPhone 12. Physical-device export and launch are the validation target; simulator
 runs are optional compile/link checks and not a frame-rate signal.
 
-Do not describe iOS as supported at desktop level. The support claim stays below desktop
-until the export workflow is user-facing, the known FPS Audio follow-up is closed or
-documented as a non-blocking limitation, and a broader physical-device matrix has passed.
+iOS is Supported on 4.7 stable, with documented mobile caveats: the packaged `.xcframework`
+addon is runtime-only (compiling project scripts needs the Kanama checkout), there is no mobile
+hot reload, and the FPS Audio autoload follow-up + task-26 multiplayer UI polish are tracked as
+non-blocking.
 
-See the [iOS export workflow](../exporting/ios.md), the
+See the [iOS export workflow](../exporting/ios.md) and the
 [iOS backend architecture](../internals/reference/ios-backend-architecture.md) (guardrails, how it
-stays in sync with desktop/Android), and the
-[iOS demo port tracker](../internals/active/ios-demo-port-tracker.md) (per-demo coverage).
+stays in sync with desktop/Android).
 
 ## Local Validation
 

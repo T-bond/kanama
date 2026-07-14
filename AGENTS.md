@@ -15,7 +15,7 @@ release shape.
 - Mobile is experimental, device-validated: Android passed the Pixel 7 debug
   matrix, R8-minified release APK, and Vulkan/Mobile renderer smoke; iOS passed
   the full ten-step device gate on iPhone 12 and iPhone 15 Pro. Promotion to
-  Supported is gated on `docs/internals/release-support-decision.md` §7.
+  Supported is gated on the release-support decision (§7 mobile promotion bar) in the internal task repo.
 - Release artifacts use two shapes: desktop kits for new projects and store
   add-ons for existing projects. See `docs/exporting/desktop.md`.
 
@@ -113,9 +113,9 @@ generated wrappers and focused policy fixes over ad hoc hand wrappers.
 
 | Item | Why it's correct | Do not change |
 |---|---|---|
-| `REFCOUNTED_REFERENCE_HASH == REFCOUNTED_UNREFERENCE_HASH` (both `2240911060`) in `ScriptBridge.kt` | `reference()` and `unreference()` share the `bool()` signature, so their method hashes match by construction. | Verified legitimate against `extension_api.json` in `docs/internals/reference/architecture-review-2026-06.md` Verdict section. |
+| `REFCOUNTED_REFERENCE_HASH == REFCOUNTED_UNREFERENCE_HASH` (both `2240911060`) in `ScriptBridge.kt` | `reference()` and `unreference()` share the `bool()` signature, so their method hashes match by construction. | Verified legitimate against `extension_api.json` (architecture-review verdict; the review is archived in the internal task repo). |
 | `compatibility_minimum = "4.7"` in `.gdextension` descriptors | `classdb_register_extension_class6` is a Godot 4.7 API; 4.3-4.6 loads would fail at class registration. | Keep the 4.7 invariant from architecture review F1. |
-| Single-class iOS wrapper regeneration can drop methods returning other wrapper types | The generator emits returns only for classes in the active iOS wrapper set. | Regenerate with the full emitted-class union; see `docs/internals/active/ios-demo-port-tracker.md` "Generator Gotcha". |
+| Single-class iOS wrapper regeneration can drop methods returning other wrapper types | The generator emits returns only for classes in the active iOS wrapper set. | Regenerate with the full emitted-class union (the iOS "Generator Gotcha" note; recorded in the internal task repo). |
 | PanamaPort textual remap from `java.lang.foreign.*` to `com.v7878.foreign.*` | It is a pragmatic Android ART compatibility path guarded by pre/post audits. | Do not clean it up without replacing the audit mitigation; see the architecture review Android section. |
 
 ## Common Workflows

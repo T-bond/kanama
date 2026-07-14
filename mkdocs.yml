@@ -68,13 +68,5 @@ nav:
       - Android Internals: contributing/android-internals.md
   - Internals:
       - Index: internals/README.md
-      - Active:
-          - iOS Demo Port Tracker: internals/active/ios-demo-port-tracker.md
-          - Release Support Decision: internals/release-support-decision.md
-      - Reference:
-          - iOS Backend Architecture: internals/reference/ios-backend-architecture.md
-          - iOS Backend Hand-written Registry: internals/reference/ios-backend-handwritten.md
-          - Architecture Review (2026-06): internals/reference/architecture-review-2026-06.md
-          - Architecture Review (2026-07): internals/reference/architecture-review-2026-07.md
-          - commonMain Wrapper Unification Design: internals/reference/commonmain-unification-design.md
-          - Callable Args Design: internals/reference/callable-args-design.md
+      - iOS Backend Architecture: internals/reference/ios-backend-architecture.md
+      - iOS Backend Hand-written Registry: internals/reference/ios-backend-handwritten.md

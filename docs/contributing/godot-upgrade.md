@@ -84,10 +84,9 @@ any pin drifts.
 
     - Run local CI against the new binary:
       `scripts/local_ci.sh /absolute/path/to/new_godot_binary`.
-    - Re-run the platform smoke/device gates per
-      `docs/internals/release-support-decision.md` §6. **Support claims move
-      only after the matching gate passes** — the upgrade tooling never edits
-      support wording.
+    - Re-run the platform smoke/device gates per the release-gate matrix (§6) in
+      the internal task repo. **Support claims move only after the matching gate
+      passes** — the upgrade tooling never edits support wording.
     - Refresh release-facing wording by hand: `CHANGELOG.md`, `README.md`,
       docs badges/version wording, templates, and companion demo defaults.
       The `.gdextension` `compatibility_minimum` is an invariant with its own

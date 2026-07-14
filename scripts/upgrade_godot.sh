@@ -341,9 +341,9 @@ cat <<EOF
   1. Review the API diff classification above. New classes are coverage/policy
      work (generator policy, audits, adoption) — never bulk-adopt them blindly.
   2. Run local CI against the new binary: scripts/local_ci.sh $GODOT_BIN
-  3. Re-run the platform smoke/device gates per
-     docs/internals/release-support-decision.md §6. This script does NOT change
-     support claims; support wording moves only after the matching gate passes.
+  3. Re-run the platform smoke/device gates per the release-gate matrix (§6) in
+     the internal task repo. This script does NOT change support claims; support
+     wording moves only after the matching gate passes.
   4. Refresh release-facing wording by hand: CHANGELOG.md, README.md, docs
      version badges/wording, templates, companion demo defaults. Review the
      .gdextension compatibility_minimum invariant before touching it

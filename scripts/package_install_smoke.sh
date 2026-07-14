@@ -264,7 +264,7 @@ echo "[package_install_smoke] package kind: $detected_kind"
 
 if [[ "$detected_kind" == "ios-addon" ]]; then
   # Device-free structure validation of the packaged iOS runtime (B3 design,
-  # release-support-decision.md §7): both device xcframework variants with
+  # §7 mobile promotion bar, internal task repo): both device xcframework variants with
   # their arm64 static slices, the descriptor merge fragment, and the README
   # carrying the script-compile caveat. Script compilation and on-device
   # behavior stay covered by installIosAddon + ios_device_gate.sh.
@@ -295,7 +295,7 @@ fi
 
 if [[ "$detected_kind" == "android-addon" ]]; then
   # Device-free structure validation of the packaged Android runtime AAR
-  # (task 36 AAR split; B3 design, release-support-decision.md §7): the
+  # (task 36 AAR split; B3 design, §7 mobile promotion bar, internal task repo): the
   # project-agnostic runtime AAR with both native ABIs and NO baked-in
   # consumer scripts, a .gdap without a scripts local dependency (Godot
   # invalidates plugin configs whose local deps are missing), the descriptor
