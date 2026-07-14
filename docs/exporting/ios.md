@@ -73,7 +73,7 @@ flowchart LR
     PTR <--> GODOT["Godot Engine iOS"]
 ```
 
-See [Architecture: iOS](../contributing/architecture.md#ios-experimental) for
+See [Architecture: iOS](../contributing/architecture.md#ios) for
 how this maps onto the desktop/Android runtime model.
 
 ## Build The iOS Artifacts

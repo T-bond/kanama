@@ -9,11 +9,11 @@ registered through generated metadata, the binding layer implements Godot's
 script/resource contracts, and an FFM layer calls the GDExtension ABI. The
 platform split is the runtime underneath that FFM layer.
 
-iOS (experimental) reuses the same generated-wrapper API surface but swaps the
+iOS reuses the same generated-wrapper API surface but swaps the
 runtime entirely: no JVM and no FFM. A Kotlin/Native static library linked into
 the app's `.xcframework` calls a C GDExtension shim, and `ObjectCalls` is
 implemented over the shim's generic `ptrcall` dispatch instead of Panama. See
-[iOS](#ios-experimental).
+[iOS](#ios).
 
 ### Desktop
 
@@ -79,7 +79,7 @@ Android plugin AAR packages the native bootstrap, Kanama runtime, project
 scripts, and generated registrars so Godot can initialize the same script
 language/resource-loader model inside the APK.
 
-### iOS (experimental)
+### iOS
 
 ```mermaid
 flowchart TB
@@ -111,8 +111,8 @@ iOS embeds no JVM and no Panama/FFM. A Kotlin/Native static library is linked
 into the app's `.xcframework`, and the C shim exposes a single generic typed
 `ptrcall` dispatch that drives every wrapper shape — so the same generated
 wrapper API as desktop/Android runs on device with the platform seam isolated in
-`ObjectCalls`. iOS remains experimental, not a supported export; see the
-[iOS (Experimental)](../exporting/ios.md) and
+`ObjectCalls`. iOS is Supported on 4.7 stable; see the
+[iOS](../exporting/ios.md) and
 [iOS backend architecture](../internals/reference/ios-backend-architecture.md) for the
 current validation state and remaining support gates.
 
