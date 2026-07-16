@@ -68,9 +68,8 @@ pre-1.0 preview baseline.
   documented and upstream-shaped). iOS is device-validated on iPhone 12 + iPhone
   15 Pro. Carried caveats: packaged mobile addons are runtime-only (compiling
   project scripts needs the Kanama checkout), the Android release path depends on
-  the JitPack PanamaPort fork (`0.1.3-kanama-r8.4`), no mobile hot reload, and
-  task-26 multiplayer UI polish + the cross-platform join matrix remain
-  non-blocking follow-ups. `0.3.0` remains a pre-1.0 preview baseline.
+  the JitPack PanamaPort fork (`0.1.3-kanama-r8.4`), and no mobile hot reload.
+  `0.3.0` remains a pre-1.0 preview baseline.
 - Linux x86_64 promoted to **Supported (4.7 stable)**: full local CI, native
   bootstrap preflight, strict docs, all 11 demo builds, the nine-demo desktop
   smoke matrix, TPS checked smoke, distribution packaging, and
@@ -292,8 +291,6 @@ pre-1.0 preview baseline.
   (`0.1.3-kanama-r8.4`). Debug builds run on Android 9+; release builds require
   Android 13+ (validated 14/16 — below 13, release-mode ART crashes in
   PanamaPort's LLVM-driven upcall generation).
-- Task-26 multiplayer UI polish and the cross-platform join matrix remain
-  non-blocking follow-ups.
 - `Map<K, V>` exports remain out of scope (non-String Dictionary keys are a
   policy gate).
 
