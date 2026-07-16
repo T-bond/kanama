@@ -7,6 +7,19 @@ versioning once public releases begin.
 
 ## Unreleased
 
+## 0.3.0 - 2026-07-16
+
+This release closes Kanama's mobile + convergence phase. The headline is
+**full cross-platform parity on Godot 4.7 stable**: desktop (macOS arm64,
+Linux x64/arm64, Windows x64) and Android are **Supported**, and the new iOS
+Kotlin/Native backend graduated from experimental to **Supported** as well —
+all running the same generated Godot API wrappers under a cross-platform drift
+gate. Wrapper coverage reached ~99% of classes/methods, the docs were
+reorganized into consumer/maintainer/internal tracks, and the support tiers
+were formalized. See `docs/internals/release-support-decision.md` for the
+grounded support matrix and §7 for the mobile promotion bar. `0.3.0` is a
+pre-1.0 preview baseline.
+
 ### Added
 
 - iOS `@ScriptProperty` codegen now **fails the build** (was a warning) when a *data* property is
@@ -147,73 +160,13 @@ versioning once public releases begin.
   in the wrapper-maintenance guide). The only excluded virtuals are the 6
   raw-pointer (`void*`/`const Glyph*`) callbacks, which are not
   Variant-expressible by design.
-
-### Fixed
-
-- `ClassDB.instantiate` no longer frees RefCounted instances before returning
-  them ([#42](https://github.com/falcon4ever/kanama/pull/42)): the engine hands
-  the fresh instance's **only** reference back inside the return Variant, and
-  the borrowed dynamic decode destroyed that Variant after extracting the
-  pointer — a use-after-free that crashed or silently dropped anything
-  instantiated by class name (the canonical construction path for third-party
-  GDExtension classes such as Terrain3D). RefCounted results are now retained
-  before the Variant is destroyed and come back as the owning `RefCounted`
-  wrapper (`close()` releases; assigning into a node/scene refs independently,
-  matching C# semantics). Non-RefCounted results (Nodes) are unchanged.
-  Desktop, Android, and iOS (dedicated C-shim entry: the retain must happen
-  before the shim destroys the return Variant). Thanks @T-bond for the
-  diagnosis and repro.
-- Android runtime now works below Android 14: the binding runtime used
-  `Path.of(...)` (a Java 11 API Android only ships from API 34) in the `.kt`
-  resource loader/saver and the scripts-jar lookup, so script loading died
-  with `NoSuchMethodError` on older devices; switched to the equivalent
-  `Paths.get(...)` (API 26+). Found and device-validated on a Galaxy S10+
-  (Android 12) during the second-device promotion gate, together with a
-  PanamaPort-fork fix for the same class of bug (`SDK_INT_FULL` reads that
-  crash pre-Android-16 devices).
-- Android release builds no longer hit an R8-emitted `filled-new-array` of
-  `byte[][]` in PanamaPort's stub generation (the ART interpreter below
-  Android 13 segfaults on that instruction): PanamaPort fork
-  `0.1.3-kanama-r8.4` routes single-blob code generation through a
-  non-varargs path. Validated Android version floors are now documented in
-  the Android export guide ("Validated Android Versions"): debug builds
-  Android 9+, release builds Android 13+ (validated 14/16 — below 13,
-  release-mode ART crashes in PanamaPort's LLVM-driven upcall generation;
-  characterized and deferred upstream).
-- `@GlobalClass` Kotlin scripts now actually register in the editor's global
-  class list ([#39](https://github.com/falcon4ever/kanama/issues/39)): they
-  appear in the Create New Resource dialog, and `.tres` resources using them
-  match typed export slots (the *"selected resource (Resource) does not match
-  … (MyClass)"* rejection reported in
-  [#38](https://github.com/falcon4ever/kanama/issues/38) is gone). The script
-  language answered the editor's `_handles_global_class_type` routing query
-  with global-class-*name* semantics instead of script-resource-*type*
-  semantics ("Script" for `.kt` files), so the editor never queried
-  `_get_global_class_name` and no Kotlin class ever reached the global class
-  cache. A `@GlobalClass` in a file not named `<ClassName>.kt` now gets a
-  build warning (the class cannot be mapped back to its script file and stays
-  out of the list).
-
-## 0.3.0 - unreleased preview line (merged 2026-07-06, not tagged)
-
-This release closes Kanama's mobile + convergence phase. The headline is
-**mobile demo parity**: a full experimental iOS Kotlin/Native backend and a
-device-validated Android path, both running the same generated Godot API
-wrappers as desktop under a cross-platform drift gate. Wrapper coverage reached
-~99% of classes/methods, the docs were reorganized into consumer/maintainer/
-internal tracks, and the support tiers were formalized (desktop supported;
-iOS + Android experimental but device-validated). See
-`docs/internals/release-support-decision.md` for the grounded support matrix and
-`docs/internals/release-support-decision.md` §7 for the mobile promotion bar.
-
-### Added
-
-- Added an experimental iOS Kotlin/Native backend that runs full Kanama project
+- Added an iOS Kotlin/Native backend that runs full Kanama project
   scripts: a C GDExtension shim plus GENERATED Godot API wrappers (the same
   wrapper generator as desktop/Android) over a C-shim generic `ptrcall`. The core
   self-test and current demo corpus have playable device runs; per-frame Kanama
-  binding overhead measured ~0.63 ms on iPhone 12. iOS remains experimental, not
-  a supported export — see `docs/internals/active/ios-backend-roadmap.md` for the gaps.
+  binding overhead measured ~0.63 ms on iPhone 12. iOS shipped experimental in
+  this cycle and was then promoted to Supported (4.7 stable, above); see
+  `docs/internals/active/ios-backend-roadmap.md` for its initial gaps.
 - Added an iOS hand-written/stub registry: `// KANAMA-IOS-{STUB,HANDWRITTEN,SUGAR}`
   markers, `scripts/ios_handwritten_report.py` (generates
   `docs/internals/reference/ios-backend-handwritten.md`), and `scripts/check_ios_no_silent_stubs.py`
@@ -280,26 +233,69 @@ iOS + Android experimental but device-validated). See
   can orient quickly.
 - Refreshed generated wrapper KDoc against Godot 4.7 stable `doc/classes`
   (comment-only; verified zero code change).
-- Updated the public support wording: macOS is now labeled **Supported (4.7
-  stable)**; Android is **experimental, device-validated on Pixel 7** (previously
-  under-claimed as "Pixel 7 pending"); iOS names both validated devices
-  (iPhone 12 full gate / iPhone 15 Pro corpus). Linux and Windows remain
-  **Supported pending 4.7-stable revalidation**.
+- Updated the public support wording: desktop (macOS, Linux x64/arm64, Windows)
+  and mobile (Android, iOS) are all **Supported (4.7 stable)** following the §7
+  mobile promotion bar and the desktop 4.7-stable revalidations above.
+
+### Fixed
+
+- `ClassDB.instantiate` no longer frees RefCounted instances before returning
+  them ([#42](https://github.com/falcon4ever/kanama/pull/42)): the engine hands
+  the fresh instance's **only** reference back inside the return Variant, and
+  the borrowed dynamic decode destroyed that Variant after extracting the
+  pointer — a use-after-free that crashed or silently dropped anything
+  instantiated by class name (the canonical construction path for third-party
+  GDExtension classes such as Terrain3D). RefCounted results are now retained
+  before the Variant is destroyed and come back as the owning `RefCounted`
+  wrapper (`close()` releases; assigning into a node/scene refs independently,
+  matching C# semantics). Non-RefCounted results (Nodes) are unchanged.
+  Desktop, Android, and iOS (dedicated C-shim entry: the retain must happen
+  before the shim destroys the return Variant). Thanks @T-bond for the
+  diagnosis and repro.
+- Android runtime now works below Android 14: the binding runtime used
+  `Path.of(...)` (a Java 11 API Android only ships from API 34) in the `.kt`
+  resource loader/saver and the scripts-jar lookup, so script loading died
+  with `NoSuchMethodError` on older devices; switched to the equivalent
+  `Paths.get(...)` (API 26+). Found and device-validated on a Galaxy S10+
+  (Android 12) during the second-device promotion gate, together with a
+  PanamaPort-fork fix for the same class of bug (`SDK_INT_FULL` reads that
+  crash pre-Android-16 devices).
+- Android release builds no longer hit an R8-emitted `filled-new-array` of
+  `byte[][]` in PanamaPort's stub generation (the ART interpreter below
+  Android 13 segfaults on that instruction): PanamaPort fork
+  `0.1.3-kanama-r8.4` routes single-blob code generation through a
+  non-varargs path. Validated Android version floors are now documented in
+  the Android export guide ("Validated Android Versions"): debug builds
+  Android 9+, release builds Android 13+ (validated 14/16 — below 13,
+  release-mode ART crashes in PanamaPort's LLVM-driven upcall generation;
+  characterized and deferred upstream).
+- `@GlobalClass` Kotlin scripts now actually register in the editor's global
+  class list ([#39](https://github.com/falcon4ever/kanama/issues/39)): they
+  appear in the Create New Resource dialog, and `.tres` resources using them
+  match typed export slots (the *"selected resource (Resource) does not match
+  … (MyClass)"* rejection reported in
+  [#38](https://github.com/falcon4ever/kanama/issues/38) is gone). The script
+  language answered the editor's `_handles_global_class_type` routing query
+  with global-class-*name* semantics instead of script-resource-*type*
+  semantics ("Script" for `.kt` files), so the editor never queried
+  `_get_global_class_name` and no Kotlin class ever reached the global class
+  cache. A `@GlobalClass` in a file not named `<ClassName>.kt` now gets a
+  build warning (the class cannot be mapped back to its script file and stays
+  out of the list).
 
 ### Known Limitations
 
-- **Mobile is experimental, not desktop-level support.** iOS and Android are
-  co-tiered as experimental (device-validated). No hot reload on mobile.
-- **iOS heavy-3D / mobile-multiplayer gap.** The `tps-demo-kanama` demo does not
-  run on iOS yet (un-audited wrapper classes, a few method gaps, and JVM-only
-  stdlib usage in the demo). Tracked as a Phase 4 goal.
-- **Android renderer + minification caveats.** The validated Android renderer is
-  OpenGL Compatibility only; Vulkan/Mobile is unproven. R8-minified release APKs
-  are validated only against Kanama's PanamaPort fork, not upstream.
-- **Linux/Windows pending revalidation.** Last full validation was on Godot 4.7
-  beta 2; the metadata-only bump to 4.7 stable carries over API/wrapper shape,
-  but the runtime/demo smoke has not been re-run on stable Linux/Windows
-  binaries.
+- `0.3.0` is a pre-1.0 preview baseline.
+- Packaged mobile addons are runtime-only: compiling project scripts still
+  requires the Kanama checkout, and there is no hot reload on mobile.
+- The Android release path depends on the JitPack PanamaPort fork
+  (`0.1.3-kanama-r8.4`). Debug builds run on Android 9+; release builds require
+  Android 13+ (validated 14/16 — below 13, release-mode ART crashes in
+  PanamaPort's LLVM-driven upcall generation).
+- Task-26 multiplayer UI polish and the cross-platform join matrix remain
+  non-blocking follow-ups.
+- `Map<K, V>` exports remain out of scope (non-String Dictionary keys are a
+  policy gate).
 
 ## 0.2.2 - 2026-06-05
 

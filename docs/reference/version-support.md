@@ -1,7 +1,7 @@
 # Version Support
 
-Kanama `0.3.0` is the current public preview line. This page records the
-platforms and engine versions validated for the current preview.
+Kanama `0.3.0` is the current public release (a pre-1.0 preview baseline). This
+page records the platforms and engine versions validated for it.
 
 ## Current Support Claims
 

@@ -7,8 +7,7 @@ release shape.
 
 ## Current Baseline
 
-- Kanama preview line: `0.3.0` (untagged; releases are deprioritized in favor
-  of coverage + stability by maintainer decision).
+- Kanama release line: `0.3.0` (tagged 2026-07-16; a pre-1.0 preview baseline).
 - Godot baseline: Godot `4.7 stable` (re-pin only on stable releases; bumps
   follow `docs/contributing/godot-upgrade.md`).
 - Desktop runtime/build JDK: JDK `25+`.
