@@ -164,10 +164,8 @@ extern void kanama_ios_runtime_script_instance_free(int64_t instance_handle);
 extern void kanama_ios_runtime_dispatch_callable(
     int64_t callback_id,
     int32_t argument_count,
-    int64_t arg0,
-    int64_t arg1,
-    int64_t arg2,
-    int64_t arg3
+    const int32_t *argument_types,
+    const int64_t *argument_values
 );
 extern void kanama_ios_runtime_release_callable(int64_t callback_id);
 extern void kanama_ios_runtime_objectcalls_selftest(void);
@@ -253,6 +251,7 @@ static int g_kanama_ios_audio_session_configured = 0;
 static GDExtensionInterfaceGetProcAddress g_get_proc_address = NULL;
 static GDExtensionClassLibraryPtr g_library = NULL;
 static GDExtensionInterfaceCallableCustomCreate2 g_callable_custom_create2 = NULL;
+static GDExtensionInterfaceObjectGetInstanceId g_object_get_instance_id = NULL;
 
 static GDExtensionInterfaceStringNameNewWithUtf8Chars g_string_name_new = NULL;
 static GDExtensionInterfaceStringNewWithUtf8Chars g_string_new = NULL;
@@ -874,6 +873,10 @@ static int kanama_ios_resolve_godot_api(void) {
     // Optional: lambda/bound signal callbacks need this. Not added to the required
     // resolution check below so older runtimes still load; connect_callable NULL-checks it.
     g_callable_custom_create2 = (GDExtensionInterfaceCallableCustomCreate2)kanama_ios_lookup("callable_custom_create2");
+    // Needed so lambda/bound signal Callables report their receiver's ObjectID; Godot uses it to
+    // auto-disconnect the connection when that object is freed. Without it (object_id=0) a freed
+    // receiver's signal fires into a stale Callable -> use-after-free (iOS host-disconnect crash).
+    g_object_get_instance_id = (GDExtensionInterfaceObjectGetInstanceId)kanama_ios_lookup("object_get_instance_id");
     g_variant_new_nil = (GDExtensionInterfaceVariantNewNil)kanama_ios_lookup("variant_new_nil");
     g_global_get_singleton = (GDExtensionInterfaceGlobalGetSingleton)kanama_ios_lookup(
         "global_get_singleton"
@@ -5242,6 +5245,18 @@ static void kanama_ios_pt_return_to_variant(int32_t tag, const void *ret_buf, ui
         kanama_ios_destroy_string(&cell);
         return;
     }
+    // NodePath returns ship a char* pointer in ret_buf (the string can exceed the fixed buffer),
+    // exactly like PT_STRING above. The generic pt_arg_to_variant path can't handle this: it treats
+    // its `p` as the string bytes directly (the arg convention), so NODE_PATH must dereference here.
+    if (tag == KANAMA_IOS_PT_NODE_PATH) {
+        const char *s = (ret_buf != NULL) ? *(const char *const *)ret_buf : NULL;
+        uint64_t cell = 0;
+        memset(out_variant, 0, 24);
+        kanama_ios_init_node_path(&cell, (s != NULL) ? s : "");
+        g_variant_from_node_path(out_variant, &cell);
+        kanama_ios_destroy_node_path(&cell);
+        return;
+    }
     if (tag == KANAMA_IOS_PT_PACKED_STRING_ARRAY) {
         const uint8_t *blob = (ret_buf != NULL) ? *(const uint8_t *const *)ret_buf : NULL;
         memset(out_variant, 0, 24);
@@ -7104,9 +7119,9 @@ static GDExtensionObjectPtr kanama_ios_variant_to_object(GDExtensionConstVariant
 
 // Custom-Callable trampoline: invoked by Godot when a signal connected via
 // kanama_ios_godot_object_connect_callable fires. Forwards to the Kotlin
-// callback registry keyed by callable_userdata (the callback id). Object-typed
-// signal arguments are passed through as handles (up to 4); other types arrive
-// as 0 and surface as null on the Kotlin side.
+// callback registry keyed by callable_userdata (the callback id). Scalar signal
+// arguments are passed as Variant type tags plus int64 payloads (up to 4).
+// Unsupported Variant types surface as null.
 static void kanama_ios_callable_trampoline(
     void *callable_userdata,
     const GDExtensionConstVariantPtr *p_args,
@@ -7115,17 +7130,48 @@ static void kanama_ios_callable_trampoline(
     GDExtensionCallError *r_error
 ) {
     int64_t callback_id = (int64_t)(intptr_t)callable_userdata;
-    int64_t handles[4] = { 0, 0, 0, 0 };
+    int32_t argument_types[4] = { 0, 0, 0, 0 };
+    int64_t argument_values[4] = { 0, 0, 0, 0 };
     int n = (int)p_argument_count;
     if (n > 4) {
         n = 4;
     }
     for (int i = 0; i < n; i++) {
-        handles[i] = (int64_t)(intptr_t)kanama_ios_variant_to_object(p_args[i]);
+        int32_t type = g_variant_get_type != NULL
+            ? (int32_t)g_variant_get_type(p_args[i])
+            : KANAMA_IOS_VARIANT_TYPE_NIL;
+        argument_types[i] = type;
+        switch (type) {
+            case KANAMA_IOS_VARIANT_TYPE_BOOL: {
+                uint8_t value = 0;
+                if (g_variant_to_bool != NULL) {
+                    g_variant_to_bool(&value, (GDExtensionVariantPtr)p_args[i]);
+                }
+                argument_values[i] = value != 0 ? 1 : 0;
+                break;
+            }
+            case KANAMA_IOS_VARIANT_TYPE_INT:
+                if (g_variant_to_int != NULL) {
+                    g_variant_to_int(&argument_values[i], (GDExtensionVariantPtr)p_args[i]);
+                }
+                break;
+            case KANAMA_IOS_VARIANT_TYPE_FLOAT: {
+                double value = 0.0;
+                if (g_variant_to_float != NULL) {
+                    g_variant_to_float(&value, (GDExtensionVariantPtr)p_args[i]);
+                }
+                memcpy(&argument_values[i], &value, sizeof(value));
+                break;
+            }
+            case KANAMA_IOS_VARIANT_TYPE_OBJECT:
+                argument_values[i] = (int64_t)(intptr_t)kanama_ios_variant_to_object(p_args[i]);
+                break;
+            default:
+                break;
+        }
     }
     kanama_ios_runtime_dispatch_callable(
-        callback_id, (int32_t)p_argument_count,
-        handles[0], handles[1], handles[2], handles[3]);
+        callback_id, (int32_t)p_argument_count, argument_types, argument_values);
     if (r_return != NULL) {
         kanama_ios_init_nil_variant((GDExtensionUninitializedVariantPtr)r_return);
     }
@@ -7144,6 +7190,7 @@ static void kanama_ios_callable_free(void *callable_userdata) {
 int64_t kanama_ios_godot_object_connect_callable(
     int64_t object,
     const char *signal_name,
+    int64_t target_object,
     int64_t callback_id,
     int64_t flags
 ) {
@@ -7161,7 +7208,12 @@ int64_t kanama_ios_godot_object_connect_callable(
     memset(&info, 0, sizeof(info));
     info.callable_userdata = (void *)(intptr_t)callback_id;
     info.token = g_library;
-    info.object_id = 0;
+    // Bind the Callable to its receiver's ObjectID so Godot auto-disconnects the connection when the
+    // receiver is freed (e.g. a Menu freed on scene change). object_id does NOT affect Callable hash
+    // or equality (Godot uses call_func+userdata), so the explicit-disconnect path still matches.
+    info.object_id = (target_object != 0 && g_object_get_instance_id != NULL)
+        ? g_object_get_instance_id((GDExtensionConstObjectPtr)(intptr_t)target_object)
+        : 0;
     info.call_func = kanama_ios_callable_trampoline;
     info.free_func = kanama_ios_callable_free;
     uint8_t callable_value[24];

@@ -7,8 +7,12 @@ import net.multigesture.kanama.binding.runtime.ObjectCalls
 import net.multigesture.kanama.binding.runtime.* // generated ObjectCalls.* extension helpers
 import kotlin.experimental.ExperimentalNativeApi
 import kotlin.native.CName
+import kotlinx.cinterop.CPointer
 import kotlinx.cinterop.ExperimentalForeignApi
+import kotlinx.cinterop.IntVar
+import kotlinx.cinterop.LongVar
 import kotlinx.cinterop.alloc
+import kotlinx.cinterop.get
 import kotlinx.cinterop.memScoped
 import kotlinx.cinterop.ptr
 import kotlinx.cinterop.value
@@ -338,7 +342,10 @@ class GodotSignal internal constructor(
         callback: (List<Any?>) -> Unit,
     ): SignalConnection {
         val callbackId = IosCallableRegistry.register(callback)
-        val result = IosGodot.objectConnectCallable(owner.handle.address(), name, callbackId, flags)
+        // Pass the receiver (target) so the Callable is bound to its ObjectID and Godot auto-disconnects
+        // it when the receiver is freed. Previously target was ignored, leaving an object-less Callable
+        // that survived the receiver's free and fired into freed memory on later emissions.
+        val result = IosGodot.objectConnectCallable(owner.handle.address(), name, target.handle.address(), callbackId, flags)
         if (result != 0L) {
             // connect failed; Godot freed the callable (which released the entry),
             // but release defensively in case it never reached the trampoline path.
@@ -1165,8 +1172,8 @@ internal object IosGodot {
     fun objectDisconnect(sourceObject: Long, signalName: String, targetObject: Long, method: String): Int =
         kanama_ios_godot_object_disconnect(sourceObject, signalName, targetObject, method)
 
-    fun objectConnectCallable(sourceObject: Long, signalName: String, callbackId: Long, flags: Long): Long =
-        kanama_ios_godot_object_connect_callable(sourceObject, signalName, callbackId, flags)
+    fun objectConnectCallable(sourceObject: Long, signalName: String, targetObject: Long, callbackId: Long, flags: Long): Long =
+        kanama_ios_godot_object_connect_callable(sourceObject, signalName, targetObject, callbackId, flags)
 
     fun objectDisconnectCallable(sourceObject: Long, signalName: String, callbackId: Long): Int =
         kanama_ios_godot_object_disconnect_callable(sourceObject, signalName, callbackId)
@@ -1260,25 +1267,38 @@ internal object IosCallableRegistry {
     }
 }
 
-@OptIn(ExperimentalNativeApi::class)
+@OptIn(ExperimentalForeignApi::class, ExperimentalNativeApi::class)
 @CName("kanama_ios_runtime_dispatch_callable")
 fun kanamaIosRuntimeDispatchCallable(
     callbackId: Long,
     argumentCount: Int,
-    arg0: Long,
-    arg1: Long,
-    arg2: Long,
-    arg3: Long,
+    argumentTypes: CPointer<IntVar>?,
+    argumentValues: CPointer<LongVar>?,
 ) {
-    val handles = longArrayOf(arg0, arg1, arg2, arg3)
-    val count = argumentCount.coerceIn(0, handles.size)
+    val count = argumentCount.coerceIn(0, MAX_CALLABLE_ARGUMENTS)
     val args = ArrayList<Any?>(count)
     for (i in 0 until count) {
-        val handle = handles[i]
-        args.add(if (handle != 0L) GodotObject(handle) else null)
+        val type = argumentTypes?.get(i) ?: VT_NIL
+        val value = argumentValues?.get(i) ?: 0L
+        args.add(
+            when (type) {
+                VT_BOOL -> value != 0L
+                VT_INT -> value
+                VT_FLOAT -> Double.fromBits(value)
+                VT_OBJECT -> if (value != 0L) GodotObject(value) else null
+                else -> null
+            },
+        )
     }
     IosCallableRegistry.dispatch(callbackId, args)
 }
+
+private const val MAX_CALLABLE_ARGUMENTS = 4
+private const val VT_NIL = 0
+private const val VT_BOOL = 1
+private const val VT_INT = 2
+private const val VT_FLOAT = 3
+private const val VT_OBJECT = 24
 
 @OptIn(ExperimentalNativeApi::class)
 @CName("kanama_ios_runtime_release_callable")
