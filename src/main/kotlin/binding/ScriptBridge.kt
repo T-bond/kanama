@@ -429,10 +429,18 @@ object ScriptBridge {
     ) {
         // This handler runs inside the catch that exists to stop an exception from escaping an
         // FFM upcall, so it must never throw itself — a throw here defeats the containment
-        // exactly when it is needed. Two guards: `t.javaClass.name` (plain Java reflection)
-        // instead of `t::class.qualifiedName`, because Kotlin KClass reflection is the kind of
-        // thing that degrades under R8 on Android; and runCatching around the whole body, so
-        // even a surprise (a user toString(), a closed stderr) cannot escape.
+        // exactly when it is needed. Hence `t.javaClass.name` (plain Java reflection) rather
+        // than `t::class.qualifiedName`, which is the kind of Kotlin reflection that degrades
+        // under R8 on Android, and runCatching around the detail below.
+        //
+        // The minimal line goes out FIRST and separately. On an R8-minified Android device the
+        // detailed line was silently lost, which left a contained failure completely invisible:
+        // the property write just did nothing, with no exception and no log. Swallowing the
+        // diagnostic is a bad trade for not crashing, so the cheap reflection-free line must
+        // not be able to ride down with the detailed one.
+        runCatching {
+            System.err.println("[kanama:kt] script property $op failed (property=0x${nameLong.toString(16)})")
+        }
         runCatching {
             val script = instance?.script
             val scriptName = script?.globalName?.takeIf { it.isNotEmpty() }
@@ -445,6 +453,13 @@ object ScriptBridge {
                     "${t.javaClass.name}: ${t.message}",
             )
             t.printStackTrace(System.err)
+        }.onFailure { inner ->
+            // Name what defeated the detailed log instead of hiding it — this is the only way
+            // to find out why the Android detail line disappeared, since the failure is by
+            // construction unobservable otherwise.
+            runCatching {
+                System.err.println("[kanama:kt] script property $op detail log failed: ${inner.javaClass.name}: ${inner.message}")
+            }
         }
     }
 
