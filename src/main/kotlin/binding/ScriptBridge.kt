@@ -427,17 +427,25 @@ object ScriptBridge {
         nameLong: Long,
         t: Throwable,
     ) {
-        val script = instance?.script
-        val scriptName = script?.globalName?.takeIf { it.isNotEmpty() }
-            ?: script?.kotlinClassName?.takeIf { it.isNotEmpty() }
-            ?: instance?.kotlinObject?.javaClass?.name
-            ?: "<unknown>"
-        System.err.println(
-            "[kanama:kt] script property $op failed script=$scriptName " +
-                "property=0x${nameLong.toString(16)} instance=0x${data.address().toString(16)}: " +
-                "${t::class.qualifiedName}: ${t.message}",
-        )
-        t.printStackTrace(System.err)
+        // This handler runs inside the catch that exists to stop an exception from escaping an
+        // FFM upcall, so it must never throw itself — a throw here defeats the containment
+        // exactly when it is needed. Two guards: `t.javaClass.name` (plain Java reflection)
+        // instead of `t::class.qualifiedName`, because Kotlin KClass reflection is the kind of
+        // thing that degrades under R8 on Android; and runCatching around the whole body, so
+        // even a surprise (a user toString(), a closed stderr) cannot escape.
+        runCatching {
+            val script = instance?.script
+            val scriptName = script?.globalName?.takeIf { it.isNotEmpty() }
+                ?: script?.kotlinClassName?.takeIf { it.isNotEmpty() }
+                ?: instance?.kotlinObject?.javaClass?.name
+                ?: "<unknown>"
+            System.err.println(
+                "[kanama:kt] script property $op failed script=$scriptName " +
+                    "property=0x${nameLong.toString(16)} instance=0x${data.address().toString(16)}: " +
+                    "${t.javaClass.name}: ${t.message}",
+            )
+            t.printStackTrace(System.err)
+        }
     }
 
     private fun formatScriptCallContext(
