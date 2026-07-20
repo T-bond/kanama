@@ -174,6 +174,41 @@ class HelloScript(godotObject: MemorySegment) : KanamaScript<Node>(godotObject, 
 		smokeGetterThrowArmed = armed
 	}
 
+	// MutableList export (preserves mutability through the setter).
+	@ScriptProperty
+	var smokeMutableTextures: MutableList<Texture2D> = mutableListOf()
+
+	// issue #40 — typed Map exports (Dictionary + PROPERTY_HINT_DICTIONARY_TYPE):
+	// a String-keyed scalar dictionary, the reporter's non-String-keyed custom-resource
+	// dictionary (Map<Long, SmokeResource>), and an enum-valued dictionary (ordinals).
+	@ScriptProperty
+	var smokeScalarMap: Map<String, Long> = emptyMap()
+
+	@ScriptProperty
+	var smokeRegionMap: Map<Long, SmokeResource> = emptyMap()
+
+	@ScriptProperty
+	var smokeEnumMap: Map<String, SmokeDifficulty> = emptyMap()
+
+	// issue #40 — value-type key (Vector2i) with a scalar value.
+	@ScriptProperty
+	var smokeVectorKeyMap: Map<Vector2i, Long> = emptyMap()
+
+	// issue #40 — value-type key (Vector2i) with a custom resource value (combines
+	// two features: value-type keys and custom-resource values).
+	@ScriptProperty
+	var smokeVectorResourceMap: Map<Vector2i, SmokeResource> = emptyMap()
+
+	// issue #40 — MutableMap export (preserves mutability through the setter).
+	@ScriptProperty
+	var smokeMutableMap: MutableMap<String, Long> = mutableMapOf()
+
+	// issue #40 review — nullable scalar value (Map<String, Long?>): mirrors C#'s nil-preserving
+	// Dictionary. A null (or wrong-typed) value keeps its key with a null value rather than dropping
+	// it. Non-null value maps above cannot hold null, so they drop — the type-forced difference.
+	@ScriptProperty
+	var smokeNullableScalarMap: Map<String, Long?> = emptyMap()
+
 	@ToolButton(text = "Reset Health", icon = "Reload")
 	fun resetHealth() {
 		health = 99
