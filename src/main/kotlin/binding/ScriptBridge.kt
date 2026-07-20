@@ -542,7 +542,16 @@ object ScriptBridge {
                 val namePtr = list.get(ADDRESS, i.toLong() * propInfoSize + propNameOff)
                 val nameLong = namePtr.reinterpret(8L).get(JAVA_LONG, 0L)
                 val variantBuf = a.allocate(VARIANT_SIZE, 8L)
-                if (si.dispatchGet(nameLong, variantBuf)) {
+                // Same containment contract as siGet (task 50): this is an upcall slot, so an
+                // exception escaping a user getter would abort the process. Skip just the one
+                // property — the rest of the state is still worth reporting to the engine.
+                val got = try {
+                    si.dispatchGet(nameLong, variantBuf)
+                } catch (t: Throwable) {
+                    logScriptPropertyFailure("get(state)", si, data, nameLong, t)
+                    false
+                }
+                if (got) {
                     try {
                         callAdd.invoke(namePtr, variantBuf, userData)
                     } finally {
@@ -594,6 +603,11 @@ object ScriptBridge {
                             "applied=$applied value=${value?.let { it::class.qualifiedName } ?: "null"}"
                     )
                 }
+            } catch (t: Throwable) {
+                // Scene-stored property replay runs during instance creation, which is itself an
+                // upcall — so contain like siSet (task 50). The property keeps its Kotlin default
+                // and the remaining replayed properties still get applied.
+                logScriptPropertyFailure("set(replay)", scriptInstance, scriptInstance.ownerObject, nameLong, t)
             } finally {
                 BuiltinTypes.destroyVariant(variant)
             }

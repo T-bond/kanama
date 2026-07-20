@@ -93,7 +93,7 @@ check "kt script enum list export type=true hint=true hint_string=true tscn=true
 # siSet/siGet rather than escaping the FFM upcall and aborting the process. A failed set is
 # rejected (previous value survives), a failed get yields null, and the property recovers.
 # Removing the containment makes Godot exit 134 before printing this line at all.
-check "kt script accessor containment baseline=true set_rejected=true set_recovered=true get_contained=true get_recovered=true"
+check "kt script accessor containment tscn_rejected=true baseline=true set_rejected=true set_recovered=true get_contained=true get_recovered=true"
 check "Mathf lerp=2\\.5 clamp=10 wrap=1 approx=true round=3 lerpf=2\\.5 clampf=10\\.0 sinf=0\\.0 sqrtf=3\\.0"
 check "Generated name constants ok=true"
 check "ProjectSettings string_list=alpha\\|beta"
