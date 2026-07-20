@@ -89,6 +89,11 @@ check "kt script enum export type=true hint=true hint_string=true tscn=true roun
 # ordinal-array round-trip via set/get, tscn deserialize, per-element clamp, and
 # inspector Add-Element null-fill defaulting to the first entry.
 check "kt script enum list export type=true hint=true hint_string=true tscn=true roundtrip=true clamp=true nullfill=true"
+# task 50 — a throwing user @ScriptProperty accessor must be contained by ScriptBridge's
+# siSet/siGet rather than escaping the FFM upcall and aborting the process. A failed set is
+# rejected (previous value survives), a failed get yields null, and the property recovers.
+# Removing the containment makes Godot exit 134 before printing this line at all.
+check "kt script accessor containment baseline=true set_rejected=true set_recovered=true get_contained=true get_recovered=true"
 check "Mathf lerp=2\\.5 clamp=10 wrap=1 approx=true round=3 lerpf=2\\.5 clampf=10\\.0 sinf=0\\.0 sqrtf=3\\.0"
 check "Generated name constants ok=true"
 check "ProjectSettings string_list=alpha\\|beta"
@@ -197,8 +202,8 @@ check "DisplayServer input mouse=-?[0-9]+,-?[0-9]+ buttons=[0-9]+ keyboard_name_
 check "DisplayServer passive clipboard=(true|false) image=(true|false) clipboard_len=[0-9]+ primary_len=[0-9]+ cursor=[0-9]+ mouse_mode=[0-9]+ keyboard_focus=-?[0-9]+ swap_cancel=(true|false) additional_outputs=(true|false) hardware_keyboard=(true|false) window_transparency=(true|false) dpi=[0-9]+ max_scale=[0-9.]+ ime_selection=-?[0-9]+,-?[0-9]+ ime_text_len=[0-9]+ tablet_drivers=[0-9]+ tablet_current_len=[0-9]+ tablet_first_len=[0-9]+"
 check "DisplayServer tts speaking=(true|false) paused=(true|false) voices=[0-9]+ vk_height=[0-9]+ active_popup=-?[0-9]+ window_instance=-?[0-9]+ window_screen=-?[0-9]+ can_draw=(true|false) focused=(true|false) maximize_allowed=(true|false) max_dbl=(true|false) min_dbl=(true|false)"
 check "DisplayServer accessibility screen_reader=-?[0-9]+ contrast=-?[0-9]+ reduce_animation=-?[0-9]+ reduce_transparency=-?[0-9]+ window_max=-?[0-9]+,-?[0-9]+ window_min=-?[0-9]+,-?[0-9]+ window_pos=-?[0-9]+,-?[0-9]+ window_pos_decorated=-?[0-9]+,-?[0-9]+ window_size=-?[0-9]+,-?[0-9]+ window_size_decorated=-?[0-9]+,-?[0-9]+"
-check "kt script methods size = 9"
-check "kt script properties size = 15"
+check "kt script methods size = 10"
+check "kt script properties size = 17"
 check "kt script signals size = 1"
 check "kt script replace_smoke_scene = true"
 check "kt script rpc config ok = true"
