@@ -63,6 +63,7 @@ func _ready() -> void:
 			push_error("Kanama script export group/subgroup metadata missing")
 		_kanama_enum_export_smoke(properties)
 		_kanama_enum_list_export_smoke(properties)
+		_kanama_accessor_containment_smoke()
 		var replace_smoke_scene = $ScriptNode.replace_smoke_scene()
 		print("[kanama:gd] kt script replace_smoke_scene = ", replace_smoke_scene)
 		if not replace_smoke_scene:
@@ -149,6 +150,41 @@ func _kanama_enum_list_export_smoke(properties: Array) -> void:
 		" nullfill=", nullfill == [1, 0])
 	if not (list_type and list_hint and list_hint_string and tscn_value == [2, 0] and roundtrip == [0, 1] and clamped == [2, 0] and nullfill == [1, 0]):
 		push_error("Kanama enum-list export metadata or round-trip failed")
+
+# task 50 — a throwing user accessor must not abort the process. Without containment in
+# ScriptBridge.siSet/siGet the exception escapes an FFM upcall stub and kills Godot
+# (exit 134). With it: a failed set is rejected and the previous value survives, a failed
+# get yields null, and the property recovers afterwards. Reaching the print at all is
+# itself part of the assertion — an uncontained throw never gets here.
+func _kanama_accessor_containment_smoke() -> void:
+	# main.tscn stores 666 for this property, which the setter rejects. Scene-load property
+	# application goes through siSet, so containment must leave the Kotlin default (0) intact
+	# rather than aborting the process — the stale-.tscn case, where a scene holds a value the
+	# current script no longer accepts.
+	var tscn_rejected = $ScriptNode.smoke_throwing_setter == 0
+	$ScriptNode.smoke_throwing_setter = 42
+	var baseline = $ScriptNode.smoke_throwing_setter == 42
+	# Setter throws on 666: the write must be rejected, the previous value must survive,
+	# and the process must stay alive.
+	$ScriptNode.smoke_throwing_setter = 666
+	var set_rejected = $ScriptNode.smoke_throwing_setter == 42
+	# ...and the property still takes valid writes afterwards.
+	$ScriptNode.smoke_throwing_setter = 7
+	var set_recovered = $ScriptNode.smoke_throwing_setter == 7
+	# Getter throws while armed: the read must yield null rather than aborting the caller
+	# (returning "property missing" here would raise a GDScript error and halt this func).
+	$ScriptNode.smoke_arm_getter_throw(true)
+	var get_contained = $ScriptNode.smoke_throwing_getter == null
+	$ScriptNode.smoke_arm_getter_throw(false)
+	var get_recovered = $ScriptNode.smoke_throwing_getter == 5
+	print("[kanama:gd] kt script accessor containment tscn_rejected=", tscn_rejected,
+		" baseline=", baseline,
+		" set_rejected=", set_rejected,
+		" set_recovered=", set_recovered,
+		" get_contained=", get_contained,
+		" get_recovered=", get_recovered)
+	if not (tscn_rejected and baseline and set_rejected and set_recovered and get_contained and get_recovered):
+		push_error("Kanama script-property accessor containment failed")
 
 # task 29 — virtual-return families. Calling an @OverrideVirtual method by name on a
 # script-attached host routes through the script instance dispatch (the same path the

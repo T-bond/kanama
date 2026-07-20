@@ -144,6 +144,36 @@ class HelloScript(godotObject: MemorySegment) : KanamaScript<Node>(godotObject, 
 	@ScriptProperty
 	var smokeResources: List<SmokeResource> = emptyList()
 
+	// task 50 — user accessors that throw. Without containment in ScriptBridge's
+	// siSet/siGet these exceptions escape an FFM upcall stub and abort the whole
+	// process; with it, the engine sees a rejected write or a null read and keeps
+	// running. Kept as two separate properties on purpose: the generated dispatchSet
+	// reads the *old* value (for owned-resource cleanup) before assigning, so a
+	// property whose getter throws also becomes unwritable — combining both throws on
+	// one property wedges it permanently and tests nothing useful.
+	@ScriptProperty
+	var smokeThrowingSetter: Long = 0
+		set(value) {
+			check(value != 666L) { "kanama smoke: deliberate property-set failure" }
+			field = value
+		}
+
+	// Armed via smokeArmGetterThrow() rather than a sentinel value, so the getter can be
+	// disarmed without a write (a write would trip the same throwing getter — see above).
+	private var smokeGetterThrowArmed: Boolean = false
+
+	@ScriptProperty
+	var smokeThrowingGetter: Long = 5
+		get() {
+			check(!smokeGetterThrowArmed) { "kanama smoke: deliberate property-get failure" }
+			return field
+		}
+
+	@RegisterFunction
+	fun smokeArmGetterThrow(armed: Boolean) {
+		smokeGetterThrowArmed = armed
+	}
+
 	@ToolButton(text = "Reset Health", icon = "Reload")
 	fun resetHealth() {
 		health = 99

@@ -269,7 +269,21 @@ object ScriptBridge {
     fun siSet(data: MemorySegment, name: MemorySegment, value: MemorySegment): Byte {
         val nameLong = name.reinterpret(8).get(JAVA_LONG, 0)
         val si = si(data) ?: return 0
-        if (si.dispatchSet(nameLong, value)) return 1
+        val handled = try {
+            si.dispatchSet(nameLong, value)
+        } catch (t: Throwable) {
+            // Generated property dispatch runs inside an FFM upcall stub, so an escaping
+            // exception unwinds through native frames and aborts the JVM — taking Godot
+            // with it — instead of surfacing as an engine error. Contain it the way
+            // siCall does (task 50). Reachable from any user accessor that throws, not
+            // just a decode failure in generated code.
+            // Return 1, not 0: the property IS ours and is in the property list, so the
+            // honest report is "owned, write rejected, previous value kept". Returning 0
+            // would tell the engine this script has no such property.
+            logScriptPropertyFailure("set", si, data, nameLong, t)
+            return 1
+        }
+        if (handled) return 1
         val values = si.placeholderPropertyValues ?: return 0
         if (!si.hasProperty(nameLong)) return 0
         values.put(nameLong, BuiltinTypes.copyVariant(value))?.close()
@@ -280,7 +294,23 @@ object ScriptBridge {
     fun siGet(data: MemorySegment, name: MemorySegment, ret: MemorySegment): Byte {
         val nameLong = name.reinterpret(8).get(JAVA_LONG, 0)
         val si = si(data) ?: return 0
-        if (si.dispatchGet(nameLong, ret)) return 1
+        val handled = try {
+            si.dispatchGet(nameLong, ret)
+        } catch (t: Throwable) {
+            // See siSet for why containment is required here at all. Returning 0 looks like
+            // the safe choice but is worse in practice: it makes the engine treat the
+            // property as *nonexistent*, so GDScript raises "Invalid access to property"
+            // and aborts the calling function — one throwing getter then breaks unrelated
+            // control flow (verified: it halted the smoke mid-probe). Instead initialize
+            // [ret] to nil and report success, so the caller simply reads `null`.
+            // Safe because the generated getter evaluates the Kotlin property *before*
+            // writing [ret], so a throwing accessor leaves [ret] untouched — nil-init here
+            // cannot clobber a partially constructed Variant.
+            logScriptPropertyFailure("get", si, data, nameLong, t)
+            BuiltinTypes.initNilVariant(ret)
+            return 1
+        }
+        if (handled) return 1
         val values = si.placeholderPropertyValues ?: return 0
         val storedValue = values[nameLong]
         if (storedValue != null) {
@@ -384,6 +414,55 @@ object ScriptBridge {
         }
     }
 
+    /**
+     * Log a contained exception from a generated property accessor (task 50). Mirrors the
+     * siCall failure log: containment means the engine sees a rejected write or an absent
+     * value rather than a crash, so this stderr record is the only signal the developer
+     * gets that their accessor threw.
+     */
+    private fun logScriptPropertyFailure(
+        op: String,
+        instance: KanamaScriptInstance?,
+        data: MemorySegment,
+        nameLong: Long,
+        t: Throwable,
+    ) {
+        // This handler runs inside the catch that exists to stop an exception from escaping an
+        // FFM upcall, so it must never throw itself — a throw here defeats the containment
+        // exactly when it is needed. Hence `t.javaClass.name` (plain Java reflection) rather
+        // than `t::class.qualifiedName`, which is the kind of Kotlin reflection that degrades
+        // under R8 on Android, and runCatching around the detail below.
+        //
+        // The minimal line goes out FIRST and separately. On an R8-minified Android device the
+        // detailed line was silently lost, which left a contained failure completely invisible:
+        // the property write just did nothing, with no exception and no log. Swallowing the
+        // diagnostic is a bad trade for not crashing, so the cheap reflection-free line must
+        // not be able to ride down with the detailed one.
+        runCatching {
+            System.err.println("[kanama:kt] script property $op failed (property=0x${nameLong.toString(16)})")
+        }
+        runCatching {
+            val script = instance?.script
+            val scriptName = script?.globalName?.takeIf { it.isNotEmpty() }
+                ?: script?.kotlinClassName?.takeIf { it.isNotEmpty() }
+                ?: instance?.kotlinObject?.javaClass?.name
+                ?: "<unknown>"
+            System.err.println(
+                "[kanama:kt] script property $op failed script=$scriptName " +
+                    "property=0x${nameLong.toString(16)} instance=0x${data.address().toString(16)}: " +
+                    "${t.javaClass.name}: ${t.message}",
+            )
+            t.printStackTrace(System.err)
+        }.onFailure { inner ->
+            // Name what defeated the detailed log instead of hiding it — this is the only way
+            // to find out why the Android detail line disappeared, since the failure is by
+            // construction unobservable otherwise.
+            runCatching {
+                System.err.println("[kanama:kt] script property $op detail log failed: ${inner.javaClass.name}: ${inner.message}")
+            }
+        }
+    }
+
     private fun formatScriptCallContext(
         instance: KanamaScriptInstance?,
         data: MemorySegment,
@@ -478,7 +557,16 @@ object ScriptBridge {
                 val namePtr = list.get(ADDRESS, i.toLong() * propInfoSize + propNameOff)
                 val nameLong = namePtr.reinterpret(8L).get(JAVA_LONG, 0L)
                 val variantBuf = a.allocate(VARIANT_SIZE, 8L)
-                if (si.dispatchGet(nameLong, variantBuf)) {
+                // Same containment contract as siGet (task 50): this is an upcall slot, so an
+                // exception escaping a user getter would abort the process. Skip just the one
+                // property — the rest of the state is still worth reporting to the engine.
+                val got = try {
+                    si.dispatchGet(nameLong, variantBuf)
+                } catch (t: Throwable) {
+                    logScriptPropertyFailure("get(state)", si, data, nameLong, t)
+                    false
+                }
+                if (got) {
                     try {
                         callAdd.invoke(namePtr, variantBuf, userData)
                     } finally {
@@ -530,6 +618,11 @@ object ScriptBridge {
                             "applied=$applied value=${value?.let { it::class.qualifiedName } ?: "null"}"
                     )
                 }
+            } catch (t: Throwable) {
+                // Scene-stored property replay runs during instance creation, which is itself an
+                // upcall — so contain like siSet (task 50). The property keeps its Kotlin default
+                // and the remaining replayed properties still get applied.
+                logScriptPropertyFailure("set(replay)", scriptInstance, scriptInstance.ownerObject, nameLong, t)
             } finally {
                 BuiltinTypes.destroyVariant(variant)
             }
