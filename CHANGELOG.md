@@ -23,7 +23,41 @@ versioning once public releases begin.
   `T::class.qualifiedName` still matches the registered template under obfuscation;
   device-validated on Pixel 7).
 
+### Changed
+
+- Desktop/Android `Resource` now extends `RefCounted`, restoring Godot's real
+  `Object > RefCounted > Resource` chain (which iOS already had). Previously
+  `Resource` was its own wrapper root that re-implemented the refcount lifetime
+  and hid `GodotObject`'s surface, so `setMeta`/`getMeta`/`connect`/
+  `callDeferred` were unreachable from every `Resource` subclass without an
+  `asObject()` hop. They are now callable directly. The duplicated refcount
+  policy is gone — `Resource` inherits one implementation from `RefCounted` —
+  and the inheritance audit enforces the parent rather than whitelisting
+  `Resource` as a root. `asObject()` is kept as a compatibility alias. No
+  intended behaviour change to resource lifetime; purely a surface gain.
+
+- `scripts/local_ci.sh` failures are now self-announcing. A failing stage prints a
+  banner naming the stage, the failing command, its exit code, and the source line —
+  always as the last output, so it cannot be buried. The smoke scripts
+  (`runtime_smoke`, `tool_smoke`, `hot_reload_smoke`,
+  `hot_reload_in_process_smoke`) additionally repeat the failed assertion *after*
+  their ~120-line Godot log dump, along with the full log path. Previously a failed
+  assertion printed its reason before the dump, leaving the run looking like a
+  non-zero exit with no error message. Also fixes a genuinely silent exit: the
+  Kanama version probe ran before any error trap was installed.
+
 ### Fixed
+
+- A throwing `@ScriptProperty` accessor no longer aborts the process. Generated
+  property get/set dispatch ran inside an FFM upcall stub with no exception guard
+  (unlike method calls), so any `Throwable` escaping a user getter/setter unwound
+  through native frames and killed the JVM — taking Godot down with it (exit 134
+  + `hs_err` dump) instead of surfacing as an engine error. Every exported
+  property shape was one unchecked exception away from a process abort. Both entry
+  points now contain the `Throwable` and log it: a rejected write keeps the
+  previous value and still reports the property as owned; a throwing getter
+  nil-initializes the return so the engine does not treat the property as missing
+  (which would abort the *calling* function instead).
 
 - `Node.setOwner(null)` now compiles and clears the owner through the typed
   wrapper (issue #60). Godot uses a null owner to clear it (the engine itself
@@ -40,21 +74,6 @@ versioning once public releases begin.
   `required` resource parameters to non-null is a separate, source-breaking
   follow-up.)
 
-### Changed
-
-- Desktop/Android `Resource` now extends `RefCounted`, restoring Godot's real
-  `Object > RefCounted > Resource` chain (which iOS already had). Previously
-  `Resource` was its own wrapper root that re-implemented the refcount lifetime
-  and hid `GodotObject`'s surface, so `setMeta`/`getMeta`/`connect`/
-  `callDeferred` were unreachable from every `Resource` subclass without an
-  `asObject()` hop. They are now callable directly. The duplicated refcount
-  policy is gone — `Resource` inherits one implementation from `RefCounted` —
-  and the inheritance audit enforces the parent rather than whitelisting
-  `Resource` as a root. `asObject()` is kept as a compatibility alias. No
-  intended behaviour change to resource lifetime; purely a surface gain.
-
-### Fixed
-
 - iOS: a `MutableList<T>` `@ScriptProperty` no longer generates non-compiling
   Kotlin/Native. The iOS registrar's list-property setters decode into an
   immutable `List`, which is not assignable to a `MutableList` field
@@ -65,20 +84,6 @@ versioning once public releases begin.
   mutability flag entirely. Covers the string-list, engine-wrapper-list,
   `@ScriptClass`-element-list, and enum-list arms. Immutable `List<T>` is
   unchanged.
-
-### Changed
-
-- `scripts/local_ci.sh` failures are now self-announcing. A failing stage prints a
-  banner naming the stage, the failing command, its exit code, and the source line —
-  always as the last output, so it cannot be buried. The smoke scripts
-  (`runtime_smoke`, `tool_smoke`, `hot_reload_smoke`,
-  `hot_reload_in_process_smoke`) additionally repeat the failed assertion *after*
-  their ~120-line Godot log dump, along with the full log path. Previously a failed
-  assertion printed its reason before the dump, leaving the run looking like a
-  non-zero exit with no error message. Also fixes a genuinely silent exit: the
-  Kanama version probe ran before any error trap was installed.
-
-### Fixed
 
 - `ClassDB.class_call_static` no longer frees RefCounted instances before
   returning them: like `ClassDB.instantiate` ([#42](https://github.com/falcon4ever/kanama/pull/42)),
@@ -91,6 +96,14 @@ versioning once public releases begin.
   independently, matching C# semantics). Non-RefCounted and non-object results
   are unchanged. Desktop, Android, and iOS (the retain happens inside the shared
   `kanama_ios_godot_object_call` shim, before it destroys the return Variant).
+
+- `newScriptInstance<T>()`'s editor "build a real instance instead of a
+  placeholder" override is now scoped to the specific resource being created, not
+  thread-wide. A non-`@Tool` script instantiated reentrantly on the same thread
+  during the create (e.g. a scene loaded from a resource constructor) was also
+  forced to a real instance, bypassing the editor placeholder it should have
+  gotten. The override now keys on the owner under construction, so any unrelated
+  reentrant instantiation keeps its placeholder. Editor-only.
 
 ## 0.3.0 - 2026-07-16
 
