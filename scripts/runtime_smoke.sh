@@ -88,6 +88,16 @@ check_absent "Leaked instance: AudioStreamWAV"
 check_absent "Leaked instance: BoxMesh"
 check_absent "Leaked instance: BoxShape3D"
 check "SelfSmoke self_class=Node3D same_object=true"
+# issue #38 — newScriptInstance() creates a script-backed custom resource from Kotlin
+# at runtime: the instance is live, saves (owned reference survives the transient Ref<>
+# inside ResourceSaver.save), and the saved .tres references the SmokeResource.kt script
+# and stores the "forged" payload. The probe releases its owned reference, so no leak.
+check "ResourceForgeSmoke live=true save_error=0 script_ref=true payload_saved=true reload_ok=true"
+check_absent "ResourceForgeSmoke create_failed"
+# PR #44 review — the owning reference must be released via the supported path (OwnedScriptResource
+# .close()/use), not leaked. Reverting to the bare-T return + Resource.fromHandle().close() (or
+# dropping the use{}) reintroduces a per-call Resource leak that Godot reports on shutdown.
+check_absent "Leaked instance: Resource:"
 check "kt script export groups group=true subgroup=true"
 # task 32 — custom enum exports: INT + PROPERTY_HINT_ENUM metadata, ordinal
 # round-trip via set/get, tscn-stored int deserialized into the enum slot, and

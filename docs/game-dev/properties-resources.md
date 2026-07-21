@@ -326,10 +326,45 @@ class WeaponForge(godotObject: MemorySegment) : KanamaScript<Node>(godotObject, 
 `Resource.fromHandle` is a non-owning view over the same engine object; do
 not `close()` it — the script instance still uses that handle.
 
-The instance you save must be engine-created: loaded from a `.tres`, assigned
-through an inspector slot, or instantiated by the editor. Calling a script
-class constructor yourself — `Weapon(someOtherObject.godotObject)` — does not
-create a new `Weapon` resource; it only wraps an existing handle in a Kotlin
-view, and passing another object's handle (a node's, for example) produces a
-view of the wrong object. Programmatic creation of new script-backed
-resources from Kotlin is not supported yet.
+Calling a script class constructor yourself —
+`Weapon(someOtherObject.godotObject)` — does **not** create a new `Weapon`
+resource; it only wraps an existing handle in a Kotlin view, and passing another
+object's handle (a node's, for example) produces a view of the wrong object.
+
+## Creating Custom Resources from Kotlin
+
+To mint a brand-new resource from code (the equivalent of GDScript's
+`Weapon.new()` or C#'s `new Weapon()`), use `newScriptInstance<T>()`. It returns
+an `OwnedScriptResource<T>` holding the live `instance` and its owning `resource`:
+
+```kotlin
+newScriptInstance<Weapon>().use { owned ->
+    owned.instance.damage = 25
+    owned.instance.displayName = "Excalibur"
+    ResourceSaver.save(owned.resource, "res://excalibur.tres")
+}
+```
+
+It constructs a fresh engine `Resource`, attaches the Kanama script, and returns
+the live Kotlin instance. It works at runtime and from `@Tool` editor code (a real
+instance is built even though the resource class itself is not `@Tool`).
+
+Requirements: `T` must be a `@ScriptClass(attachTo = "Resource")` class, and it
+must be `@GlobalClass` with a matching file name (`Weapon.kt`) so its `res://`
+path is discoverable for saving — the same constraint the global class list
+already imposes.
+
+Ownership mirrors GDScript `.new()`: the returned resource comes back with one
+owning reference, so it survives the `ResourceSaver.save` call above (which wraps
+it in a transient `Ref<>` internally). **Release that reference** with
+`owned.close()` — or `use { }` as above — once you are done, unless you have
+handed ownership on by assigning `owned.resource` into a node/scene or an
+exported `Resource` slot (then the engine keeps it alive). Pass `owned.resource`
+directly to `Resource`-typed APIs such as `ResourceSaver.save`; there is no
+`Resource.fromHandle` view to manage.
+
+**iOS**: `newScriptInstance` is **deferred on iOS** (Kotlin/Native) — the
+declaration exists so shared game code compiles, but calling it throws at
+runtime. Construct script-backed resources on desktop/Android, or guard the call
+by platform. Its sibling `kotlinScriptInstance<T>()` (resolving the Kotlin
+instance of an existing resource) is supported on all three backends.
