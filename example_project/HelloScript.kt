@@ -494,6 +494,29 @@ class HelloScript(godotObject: MemorySegment) :
       packedSceneInstance.queueFree()
     }
     packedScene.close()
+    // ── issue #81: the reporter's exact repro — PackedScene.create() → pack(node) → save. save
+    // decodes its `const Ref<Resource>&` argument into a transient Ref and releases it on return;
+    // pre-fix that Ref absorbed the scene's sole (construction placeholder) reference and freed it,
+    // leaving this wrapper dangling. The .tscn was written, then the next touch of the wrapper was
+    // a
+    // use-after-free (SIGSEGV/SIGABRT). Verified: with the save guard
+    // (ObjectCalls.ptrcallWithObjectStringLongArgsRetLong) removed, this probe aborts the process
+    // (exit 134); with it, the scene stays live and close() frees it. A fresh, non-scripted node is
+    // packed so save serializes only trivial engine state (never re-enters this script's
+    // @ScriptProperty getters). ──────────────────────────────────────────────────────────────────
+    val issue81Node = Node(ObjectCalls.constructObject("Node"))
+    val issue81Scene = PackedScene.create()
+    val issue81PackError = issue81Scene.pack(issue81Node)
+    val issue81SavePath = "user://kanama_issue81_scene.tscn"
+    val issue81SaveError = ResourceSaver.save(issue81Scene, issue81SavePath)
+    // These calls dereference the wrapper *after* save — each aborts the process pre-fix (freed).
+    val issue81RefCountAfterSave = issue81Scene.getReferenceCount()
+    val issue81AliveAfterSave = issue81Scene.isClass("PackedScene")
+    val issue81SaveExists = FileAccess.fileExists(issue81SavePath)
+    selfNode.addChild(issue81Node)
+    issue81Node.queueFree()
+    issue81Scene.close()
+    DirAccess.removeAbsolute(ProjectSettings.globalizePath(issue81SavePath))
     if (body3d != null) body3d.position = Vector3(1f, 2f, 3f)
     val bodyPosition = body3d?.position ?: Vector3.ZERO
     body3d?.translate(Vector3(0.5f, 0f, -0.5f))
@@ -1537,6 +1560,11 @@ class HelloScript(godotObject: MemorySegment) :
         "cached_is_script=$cachedScriptIsScript cached_ref_count=$cachedScriptRefCount"
     )
     System.err.println("[kanama:kt] ResourceSaver script_uid=$scriptUid")
+    System.err.println(
+      "[kanama:kt] issue81 packed_scene_save pack_error=$issue81PackError save_error=$issue81SaveError " +
+        "ref_after_save=$issue81RefCountAfterSave alive_after_save=$issue81AliveAfterSave " +
+        "save_exists=$issue81SaveExists"
+    )
     System.err.println("[kanama:kt] Script property replay object_set_amount=$pendingSetAmount")
     System.err.println(
       "[kanama:kt] FileAccess exists=$fileExists size_positive=${fileSize > 0} has_class=$sourceHasClass"
